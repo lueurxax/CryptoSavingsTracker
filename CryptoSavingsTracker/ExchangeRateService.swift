@@ -15,7 +15,7 @@ class ExchangeRateService {
     private var lastFetchTime: [String: Date] = [:]
     private let apiKey: String
     
-    private func loadAPIKey() -> String {
+    private static func loadAPIKey() -> String {
         guard let path = Bundle.main.path(forResource: "Config", ofType: "plist"),
               let plist = NSDictionary(contentsOfFile: path),
               let key = plist["CoinGeckoAPIKey"] as? String else {
@@ -26,7 +26,7 @@ class ExchangeRateService {
     }
     
     private init() {
-        apiKey = loadAPIKey()
+        apiKey = Self.loadAPIKey()
         loadCachedData()
     }
 

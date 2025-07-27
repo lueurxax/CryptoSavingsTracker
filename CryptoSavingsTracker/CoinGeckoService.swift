@@ -24,7 +24,7 @@ class CoinGeckoService: ObservableObject {
     
     private let apiKey: String
     private let cache = NSCache<NSString, NSArray>()
-    private let log = Logger(subsystem: "xax.CryptoSavingsTracker", category: "CoinGeckoService")
+    private static let log = Logger(subsystem: "xax.CryptoSavingsTracker", category: "CoinGeckoService")
 
     private init() {
         apiKey = Self.loadAPIKey()
@@ -35,7 +35,8 @@ class CoinGeckoService: ObservableObject {
         guard let path = Bundle.main.path(forResource: "Config", ofType: "plist"),
               let plist = NSDictionary(contentsOfFile: path),
               let key = plist["CoinGeckoAPIKey"] as? String else {
-            print("Warning: Could not load API key from Config.plist")
+
+            log.error("Warning: Could not load API key from Config.plist")
             return "YOUR_COINGECKO_API_KEY"
         }
         return key
@@ -62,16 +63,16 @@ class CoinGeckoService: ObservableObject {
         ]
         
         do {
-            log.debug("Start fetching coins from CoinGecko")
+            CoinGeckoService.log.debug("Start fetching coins from CoinGecko")
             let (data, _) = try await URLSession.shared.data(for: request)
             let coinList = try JSONDecoder().decode([String].self, from: data)
-            log.debug("Fetched \(coinList.count) coins from CoinGecko")
+            CoinGeckoService.log.debug("Fetched \(coinList.count) coins from CoinGecko")
 
             await MainActor.run {
                 self.coins = coinList.sorted { $0.lowercased() < $1.lowercased() }
                 self.isLoading = false
                 self.cacheCoins(coinList)
-                log.debug("Coins loaded: \(self.coins.count)")
+                CoinGeckoService.log.debug("Coins loaded: \(self.coins.count)")
             }
         } catch {
             print("Failed to fetch coins: \(error)")
