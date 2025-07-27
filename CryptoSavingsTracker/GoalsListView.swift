@@ -74,6 +74,16 @@ struct GoalRowView: View {
     @State private var currentTotal: Double = 0
     @State private var progress: Double = 0
     
+    @Query private var allTransactions: [Transaction]
+    
+    private var goalTransactions: [Transaction] {
+        allTransactions.filter { transaction in
+            goal.assets.contains { asset in
+                asset.id == transaction.asset.id
+            }
+        }
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -103,6 +113,11 @@ struct GoalRowView: View {
             await updateValues()
         }
         .onChange(of: goal.assets) { _, _ in
+            Task {
+                await updateValues()
+            }
+        }
+        .onChange(of: goalTransactions.count) { _, _ in
             Task {
                 await updateValues()
             }

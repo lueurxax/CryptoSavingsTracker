@@ -10,6 +10,8 @@
 		CED9DDB22E34C1A000203A83 /* CLAUDE.md in Resources */ = {isa = PBXBuildFile; fileRef = CED9DDB12E34C1A000203A83 /* CLAUDE.md */; };
 		CED9DE692E36232E00203A83 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE672E36232E00203A83 /* LICENSE */; };
 		CED9DE6A2E36232E00203A83 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE682E36232E00203A83 /* README.md */; };
+		CED9DE6C2E362A1D00203A83 /* Config.plist in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE6B2E362A1D00203A83 /* Config.plist */; };
+		CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE6D2E362A2C00203A83 /* Config.example.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,6 +35,8 @@
 		CED9DDB12E34C1A000203A83 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
 		CED9DE672E36232E00203A83 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		CED9DE682E36232E00203A83 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		CED9DE6B2E362A1D00203A83 /* Config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.plist; sourceTree = "<group>"; };
+		CED9DE6D2E362A2C00203A83 /* Config.example.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.example.plist; sourceTree = "<group>"; };
 		CEF7B1E02E33FAB400FB26B3 /* CryptoSavingsTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CryptoSavingsTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CEF7B1F12E33FAB600FB26B3 /* CryptoSavingsTrackerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CryptoSavingsTrackerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CEF7B1FB2E33FAB600FB26B3 /* CryptoSavingsTrackerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CryptoSavingsTrackerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -97,6 +101,8 @@
 		CEF7B1D72E33FAB400FB26B3 = {
 			isa = PBXGroup;
 			children = (
+				CED9DE6D2E362A2C00203A83 /* Config.example.plist */,
+				CED9DE6B2E362A1D00203A83 /* Config.plist */,
 				CED9DE672E36232E00203A83 /* LICENSE */,
 				CED9DE682E36232E00203A83 /* README.md */,
 				CED9DDB12E34C1A000203A83 /* CLAUDE.md */,
@@ -239,6 +245,8 @@
 			files = (
 				CED9DDB22E34C1A000203A83 /* CLAUDE.md in Resources */,
 				CED9DE692E36232E00203A83 /* LICENSE in Resources */,
+				CED9DE6C2E362A1D00203A83 /* Config.plist in Resources */,
+				CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */,
 				CED9DE6A2E36232E00203A83 /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
