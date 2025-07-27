@@ -1,0 +1,61 @@
+{
+  "" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker-primary.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker-primary.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker-primary.dia",
+    "emit-module-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker-primary-emit-module.dia",
+    "pch" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker-primary.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/AddAssetView.swift" : {
+    "index-unit-output-path" : "/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/AddAssetView.o",
+    "llvm-bc" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/AddAssetView.bc",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/AddAssetView.o"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/AddGoalView.swift" : {
+    "index-unit-output-path" : "/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/AddGoalView.o",
+    "llvm-bc" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/AddGoalView.bc",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/AddGoalView.o"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/AddTransactionView.swift" : {
+    "index-unit-output-path" : "/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/AddTransactionView.o",
+    "llvm-bc" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/AddTransactionView.bc",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/AddTransactionView.o"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ContentView.swift" : {
+    "index-unit-output-path" : "/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/ContentView.o",
+    "llvm-bc" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/ContentView.bc",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/ContentView.o"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/CryptoSavingsTrackerApp.swift" : {
+    "index-unit-output-path" : "/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTrackerApp.o",
+    "llvm-bc" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTrackerApp.bc",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTrackerApp.o"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/GoalDetailView.swift" : {
+    "index-unit-output-path" : "/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/GoalDetailView.o",
+    "llvm-bc" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/GoalDetailView.bc",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/GoalDetailView.o"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/GoalsListView.swift" : {
+    "index-unit-output-path" : "/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/GoalsListView.o",
+    "llvm-bc" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/GoalsListView.bc",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/GoalsListView.o"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Item.swift" : {
+    "index-unit-output-path" : "/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/Item.o",
+    "llvm-bc" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/Item.bc",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/Item.o"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/NotificationManager.swift" : {
+    "index-unit-output-path" : "/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/NotificationManager.o",
+    "llvm-bc" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/NotificationManager.bc",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/NotificationManager.o"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/GeneratedAssetSymbols.o"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "/Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/AddAssetView.swift" : {
+    "abi-baseline-json" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker.abi.json",
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker-primary.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker-primary.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker-primary.dia",
+    "objc-header" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker-Swift.h",
+    "swiftdoc" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker.swiftdoc",
+    "swiftmodule" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker.swiftmodule",
+    "swiftsourceinfo" : "/Users/user/Documents/CryptoSavingsTracker/build/CryptoSavingsTracker.build/Release/CryptoSavingsTracker.build/Objects-normal/x86_64/CryptoSavingsTracker.swiftsourceinfo"
+  }
+}
