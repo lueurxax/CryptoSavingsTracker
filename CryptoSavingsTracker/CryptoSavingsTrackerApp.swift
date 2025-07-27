@@ -11,8 +11,11 @@ import SwiftData
 @main
 struct CryptoSavingsTrackerApp: App {
     var sharedModelContainer: ModelContainer = {
+        let schema = Schema([Goal.self, Asset.self, Transaction.self])
+        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        
         do {
-            return try ModelContainer(for: Goal.self, Asset.self, Transaction.self)
+            return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
             print("Failed to create ModelContainer: \(error)")
             fatalError("Could not create ModelContainer: \(error)")
@@ -20,7 +23,9 @@ struct CryptoSavingsTrackerApp: App {
     }()
     
     init() {
-        NotificationManager.shared.initialize()
+        Task {
+            _ = await NotificationManager.shared.requestPermission()
+        }
     }
 
     var body: some Scene {

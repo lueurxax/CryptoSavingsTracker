@@ -10,7 +10,7 @@ import SwiftData
 
 struct GoalsListView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Goal.deadline) private var goals: [Goal]
+    @Query(sort: [SortDescriptor(\Goal.deadline)]) private var goals: [Goal]
     @State private var showingAddGoal = false
     
     var body: some View {
@@ -61,7 +61,9 @@ struct GoalsListView: View {
         withAnimation(.default) {
             for index in offsets {
                 let goal = goals[index]
-                NotificationManager.shared.cancelNotifications(for: goal)
+                Task {
+                    await NotificationManager.shared.cancelNotifications(for: goal)
+                }
                 modelContext.delete(goal)
             }
             try? modelContext.save()
@@ -70,19 +72,9 @@ struct GoalsListView: View {
 }
 
 struct GoalRowView: View {
-    let goal: Goal
+    @ObservedObject var goal: Goal
     @State private var currentTotal: Double = 0
     @State private var progress: Double = 0
-    
-    @Query private var allTransactions: [Transaction]
-    
-    private var goalTransactions: [Transaction] {
-        allTransactions.filter { transaction in
-            goal.assets.contains { asset in
-                asset.id == transaction.asset.id
-            }
-        }
-    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -112,12 +104,7 @@ struct GoalRowView: View {
         .task {
             await updateValues()
         }
-        .onChange(of: goal.assets) { _, _ in
-            Task {
-                await updateValues()
-            }
-        }
-        .onChange(of: goalTransactions.count) { _, _ in
+        .onChange(of: goal.assets) {
             Task {
                 await updateValues()
             }
@@ -127,6 +114,7 @@ struct GoalRowView: View {
     private func updateValues() async {
         let total = await goal.getCurrentTotal()
         let prog = await goal.getProgress()
+        
         
         await MainActor.run {
             currentTotal = total

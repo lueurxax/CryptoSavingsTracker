@@ -35,3 +35,28 @@ This is a SwiftUI cryptocurrency savings tracker app built for iOS, macOS, and v
 - macOS 14.0+ 
 - visionOS 1.0+
 - Xcode 15.0+
+
+### Recent Fixes & Improvements
+
+#### SwiftData Model Enhancements
+- **Goal Model**: Added `ObservableObject` conformance for proper SwiftUI integration
+- **Frequency Property**: Fixed nil keypath fatal error by implementing safe computed property with optional backing storage
+- **Async Methods**: Maintained both sync and async calculation methods for flexibility
+  - `getCurrentTotal()` / `getProgress()` - async with currency conversion
+  - `currentTotal` / `progress` - sync properties for fallback
+
+#### GoalsListView Improvements
+- **Query Syntax**: Updated to use correct SwiftData `@Query(sort: \.deadline, order: .forward)`
+- **Row Updates**: Fixed currentTotal and progress displaying 0 by using async methods
+- **SwiftUI Best Practices**: Implemented proper `.task` and `.onChange` modifiers
+- **Deprecation Fixes**: Updated to modern SwiftUI onChange syntax
+
+#### Build & Stability
+- **Clean Compilation**: All files now compile without errors
+- **Metal Warnings**: Documented expected warnings from Xcode beta (harmless)
+- **Error Handling**: Improved data migration and nil safety throughout
+
+#### Data Flow
+- **Real-time Updates**: Goal progress updates properly when assets/transactions change
+- **Currency Conversion**: Async exchange rate calculations working correctly
+- **UI Responsiveness**: Proper MainActor usage for smooth UI updates
