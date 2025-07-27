@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		CED9DDB22E34C1A000203A83 /* CLAUDE.md in Resources */ = {isa = PBXBuildFile; fileRef = CED9DDB12E34C1A000203A83 /* CLAUDE.md */; };
+		CED9DE692E36232E00203A83 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE672E36232E00203A83 /* LICENSE */; };
+		CED9DE6A2E36232E00203A83 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE682E36232E00203A83 /* README.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -29,6 +31,8 @@
 
 /* Begin PBXFileReference section */
 		CED9DDB12E34C1A000203A83 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
+		CED9DE672E36232E00203A83 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		CED9DE682E36232E00203A83 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		CEF7B1E02E33FAB400FB26B3 /* CryptoSavingsTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CryptoSavingsTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CEF7B1F12E33FAB600FB26B3 /* CryptoSavingsTrackerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CryptoSavingsTrackerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CEF7B1FB2E33FAB600FB26B3 /* CryptoSavingsTrackerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CryptoSavingsTrackerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -93,6 +97,8 @@
 		CEF7B1D72E33FAB400FB26B3 = {
 			isa = PBXGroup;
 			children = (
+				CED9DE672E36232E00203A83 /* LICENSE */,
+				CED9DE682E36232E00203A83 /* README.md */,
 				CED9DDB12E34C1A000203A83 /* CLAUDE.md */,
 				CEF7B1E22E33FAB400FB26B3 /* CryptoSavingsTracker */,
 				CEF7B1F42E33FAB600FB26B3 /* CryptoSavingsTrackerTests */,
@@ -232,6 +238,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				CED9DDB22E34C1A000203A83 /* CLAUDE.md in Resources */,
+				CED9DE692E36232E00203A83 /* LICENSE in Resources */,
+				CED9DE6A2E36232E00203A83 /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

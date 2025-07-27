@@ -22,12 +22,23 @@ class CoinGeckoService: ObservableObject {
     @Published var coins: [String] = []
     @Published var isLoading = false
     
-    private let apiKey = "CG-Dq3qkeTzqjYtbG5LDKJVTibv"
+    private let apiKey: String
     private let cache = NSCache<NSString, NSArray>()
     private let log = Logger(subsystem: "xax.CryptoSavingsTracker", category: "CoinGeckoService")
 
     private init() {
+        apiKey = Self.loadAPIKey()
         loadCachedCoins()
+    }
+    
+    private static func loadAPIKey() -> String {
+        guard let path = Bundle.main.path(forResource: "Config", ofType: "plist"),
+              let plist = NSDictionary(contentsOfFile: path),
+              let key = plist["CoinGeckoAPIKey"] as? String else {
+            print("Warning: Could not load API key from Config.plist")
+            return "YOUR_COINGECKO_API_KEY"
+        }
+        return key
     }
     
     func fetchCoins() async {

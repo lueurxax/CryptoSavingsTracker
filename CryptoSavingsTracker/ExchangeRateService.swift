@@ -13,9 +13,20 @@ class ExchangeRateService {
     private var cachedRates: [String: [String: Double]] = [:]
     private let cacheExpiration: TimeInterval = 300
     private var lastFetchTime: [String: Date] = [:]
-    private let apiKey = "CG-Dq3qkeTzqjYtbG5LDKJVTibv"
+    private let apiKey: String
+    
+    private func loadAPIKey() -> String {
+        guard let path = Bundle.main.path(forResource: "Config", ofType: "plist"),
+              let plist = NSDictionary(contentsOfFile: path),
+              let key = plist["CoinGeckoAPIKey"] as? String else {
+            print("Warning: Could not load API key from Config.plist")
+            return "YOUR_COINGECKO_API_KEY"
+        }
+        return key
+    }
     
     private init() {
+        apiKey = loadAPIKey()
         loadCachedData()
     }
 

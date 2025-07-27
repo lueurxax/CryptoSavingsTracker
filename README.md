@@ -47,10 +47,9 @@ A cross-platform SwiftUI application for tracking cryptocurrency savings goals. 
    ```
 
 3. Configure your API key:
-   - Open `CoinGeckoService.swift`
-   - Replace `YOUR_COINGECKO_API_KEY` with your actual API key
-   - Open `ExchangeRateService.swift`
-   - Replace `YOUR_COINGECKO_API_KEY` with your actual API key
+   - Copy `Config.example.plist` to `Config.plist`
+   - Open `Config.plist` and replace `YOUR_COINGECKO_API_KEY` with your actual API key
+   - Drag `Config.plist` into your Xcode project to include it in the app bundle
 
 4. Update the bundle identifier:
    - Select the project in Xcode
