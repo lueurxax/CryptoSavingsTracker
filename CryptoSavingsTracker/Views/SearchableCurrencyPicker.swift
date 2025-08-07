@@ -7,25 +7,54 @@
 
 import SwiftUI
 
+enum CurrencyPickerType {
+    case fiat // For goals - shows fiat currencies like USD, EUR
+    case crypto // For assets - shows crypto currencies like BTC, ETH
+}
+
 struct SearchableCurrencyPicker: View {
-    @StateObject private var coinService = CoinGeckoService.shared
+    @StateObject private var currencyViewModel = CurrencyViewModel()
     @Binding var selectedCurrency: String
     @Environment(\.dismiss) private var dismiss
+    
+    let pickerType: CurrencyPickerType
     
     @State private var searchText = ""
     @State private var visibleCount: Int = 100
     
-    private var filteredAll: [String] {
-        if searchText.isEmpty {
-            return coinService.coins
+    init(selectedCurrency: Binding<String>, pickerType: CurrencyPickerType = .crypto) {
+        self._selectedCurrency = selectedCurrency
+        self.pickerType = pickerType
+    }
+    
+    private var filteredAll: [CoinInfo] {
+        if pickerType == .fiat {
+            // For fiat currencies, we need to create fake CoinInfo objects from the strings
+            let fiatList = currencyViewModel.supportedCurrencies.map { currency in
+                CoinInfo(id: currency.lowercased(), symbol: currency, name: currency)
+            }
+            
+            if searchText.isEmpty {
+                return fiatList
+            } else {
+                return fiatList.filter { coin in
+                    coin.symbol.localizedCaseInsensitiveContains(searchText)
+                }
+            }
         } else {
-            return coinService.coins.filter { coin in
-                coin.localizedCaseInsensitiveContains(searchText)
+            // For crypto currencies, use the existing logic
+            if searchText.isEmpty {
+                return currencyViewModel.coinInfos
+            } else {
+                return currencyViewModel.coinInfos.filter { coin in
+                    coin.symbol.localizedCaseInsensitiveContains(searchText) ||
+                    coin.name.localizedCaseInsensitiveContains(searchText)
+                }
             }
         }
     }
     
-    private var filteredCoins: [String] {
+    private var filteredCoins: [CoinInfo] {
         Array(filteredAll.prefix(visibleCount))
     }
     
@@ -38,7 +67,7 @@ struct SearchableCurrencyPicker: View {
         VStack(spacing: 0) {
                 // Header
             HStack {
-                Text("Select Currency")
+                Text(pickerType == .fiat ? "Select Goal Currency" : "Select Asset Currency")
                     .font(.headline)
                     .fontWeight(.semibold)
                 Spacer()
@@ -55,7 +84,7 @@ struct SearchableCurrencyPicker: View {
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
-                TextField("Search currencies...", text: $searchText)
+                TextField(pickerType == .fiat ? "Search fiat currencies..." : "Search cryptocurrencies...", text: $searchText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                 if !searchText.isEmpty {
                     Button("Clear") {
@@ -76,16 +105,19 @@ struct SearchableCurrencyPicker: View {
                             .foregroundColor(.secondary)
                             .padding(.horizontal)
                             .padding(.top, 8)
-                        if coinService.coins.contains(where: { $0.uppercased() == selectedCurrency.uppercased() }) {
+                        if let selectedCoin = currencyViewModel.coinInfos.first(where: { $0.symbol.uppercased() == selectedCurrency.uppercased() }) {
                             Button {
                                 // Already selected, just dismiss
                                 dismiss()
                             } label: {
                                 HStack {
                                     VStack(alignment: .leading) {
-                                        Text(selectedCurrency.uppercased())
+                                        Text(selectedCoin.symbol.uppercased())
                                             .font(.headline)
                                             .foregroundColor(.primary)
+                                        Text(selectedCoin.name)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
                                     }
                                     Spacer()
                                     Image(systemName: "checkmark.circle.fill")
@@ -99,25 +131,28 @@ struct SearchableCurrencyPicker: View {
                     }
                     
                         // Available Currencies section
-                    Text("Available Currencies")
+                    Text(pickerType == .fiat ? "Available Fiat Currencies" : "Available Cryptocurrencies")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
                         .padding(.top, 8)
                     LazyVStack(spacing: 0) {
-                        ForEach(filteredCoins, id: \.self) { coin in
+                        ForEach(filteredCoins, id: \.id) { coin in
                             Button {
-                                selectedCurrency = coin.uppercased()
+                                selectedCurrency = coin.symbol.uppercased()
                                 dismiss()
                             } label: {
                                 HStack {
                                     VStack(alignment: .leading) {
-                                        Text(coin.uppercased())
+                                        Text(coin.symbol.uppercased())
                                             .font(.headline)
                                             .foregroundColor(.primary)
+                                        Text(coin.name)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
                                     }
                                     Spacer()
-                                    if coin.uppercased() == selectedCurrency.uppercased() {
+                                    if coin.symbol.uppercased() == selectedCurrency.uppercased() {
                                         Image(systemName: "checkmark.circle.fill")
                                             .foregroundColor(.green)
                                     }
@@ -145,12 +180,15 @@ struct SearchableCurrencyPicker: View {
             List {
                 if !selectedCurrency.isEmpty {
                     Section("Current Selection") {
-                        if coinService.coins.contains(where: { $0.uppercased() == selectedCurrency.uppercased() }) {
+                        if let selectedCoin = currencyViewModel.coinInfos.first(where: { $0.symbol.uppercased() == selectedCurrency.uppercased() }) {
                             HStack {
                                 VStack(alignment: .leading) {
-                                    Text(selectedCurrency.uppercased())
+                                    Text(selectedCoin.symbol.uppercased())
                                         .font(.headline)
                                         .foregroundColor(.primary)
+                                    Text(selectedCoin.name)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
                                 }
                                 Spacer()
                                 Image(systemName: "checkmark.circle.fill")
@@ -160,8 +198,8 @@ struct SearchableCurrencyPicker: View {
                     }
                 }
                 
-                Section("Available Currencies") {
-                    if coinService.isLoading {
+                Section(pickerType == .fiat ? "Available Fiat Currencies" : "Available Cryptocurrencies") {
+                    if currencyViewModel.isLoading {
                         HStack {
                             ProgressView()
                                 .scaleEffect(0.8)
@@ -170,24 +208,28 @@ struct SearchableCurrencyPicker: View {
                         }
                         .padding(.vertical, 8)
                     } else if filteredCoins.isEmpty && !searchText.isEmpty {
-                        Text("No currencies found for '\(searchText)'")
-                            .foregroundColor(.secondary)
-                            .font(.caption)
-                            .padding(.vertical, 8)
+                        EmptyStateView.noSearchResults(query: searchText, onClearSearch: {
+                            searchText = ""
+                        })
+                        .frame(height: 200)
+                        .padding(.vertical, 8)
                     } else {
-                        ForEach(filteredCoins, id: \.self) { coin in
+                        ForEach(filteredCoins, id: \.id) { coin in
                             Button {
-                                selectedCurrency = coin.uppercased()
+                                selectedCurrency = coin.symbol.uppercased()
                                 dismiss()
                             } label: {
                                 HStack {
                                     VStack(alignment: .leading) {
-                                        Text(coin.uppercased())
+                                        Text(coin.symbol.uppercased())
                                             .font(.headline)
                                             .foregroundColor(.primary)
+                                        Text(coin.name)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
                                     }
                                     Spacer()
-                                    if coin.uppercased() == selectedCurrency.uppercased() {
+                                    if coin.symbol.uppercased() == selectedCurrency.uppercased() {
                                         Image(systemName: "checkmark.circle.fill")
                                             .foregroundColor(.green)
                                     }
@@ -210,8 +252,14 @@ struct SearchableCurrencyPicker: View {
 #endif
         }
         .task {
-            if coinService.coins.isEmpty {
-                await coinService.fetchCoins()
+            if pickerType == .fiat {
+                if currencyViewModel.supportedCurrencies.isEmpty {
+                    await currencyViewModel.fetchSupportedCurrencies()
+                }
+            } else {
+                if currencyViewModel.coinInfos.isEmpty {
+                    await currencyViewModel.fetchCoins()
+                }
             }
         }
     }

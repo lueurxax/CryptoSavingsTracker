@@ -12,17 +12,55 @@ struct GoalsListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: [SortDescriptor(\Goal.deadline)]) private var goals: [Goal]
     @State private var showingAddGoal = false
+    @State private var editingGoal: Goal?
+    @State private var showingOnboarding = false
     
     var body: some View {
         NavigationView {
-            List {
-                ForEach(goals) { goal in
-                    NavigationLink(destination: GoalDetailView(goal: goal)) {
-                        GoalRowView(goal: goal)
+            Group {
+                if goals.isEmpty {
+                    EmptyStateView.noGoals(
+                        onCreateGoal: {
+                            showingAddGoal = true
+                        },
+                        onStartOnboarding: {
+                            showingOnboarding = true
+                        }
+                    )
+                } else {
+                    List {
+                        ForEach(goals) { goal in
+                            NavigationLink(destination: GoalDetailView(goal: goal)) {
+                                GoalRowView(goal: goal)
+                            }
+                            .contextMenu {
+                                Button {
+                                    editingGoal = goal
+                                } label: {
+                                    HStack {
+                                        Text("Edit Goal")
+                                        Image(systemName: "pencil")
+                                    }
+                                }
+                                
+                                Button {
+                                    Task {
+                                        await NotificationManager.shared.cancelNotifications(for: goal)
+                                    }
+                                    modelContext.delete(goal)
+                                    try? modelContext.save()
+                                } label: {
+                                    HStack {
+                                        Text("Delete Goal")
+                                        Image(systemName: "trash")
+                                    }
+                                }
+                            }
+                        }
+                        .onDelete(perform: deleteGoals)
+                        .animation(.default, value: goals.count)
                     }
                 }
-                .onDelete(perform: deleteGoals)
-                .animation(.default, value: goals.count)
             }
             .navigationTitle("Crypto Goals")
             .toolbar {
@@ -49,9 +87,29 @@ struct GoalsListView: View {
                 AddGoalView()
                     .frame(minWidth: 450, minHeight: 350)
             }
+            .sheet(isPresented: .constant(editingGoal != nil)) {
+                if let goal = editingGoal {
+                    EditGoalView(goal: goal, modelContext: modelContext)
+                        .frame(minWidth: 600, minHeight: 700)
+                        .onDisappear {
+                            editingGoal = nil
+                        }
+                }
+            }
 #else
             .sheet(isPresented: $showingAddGoal) {
                 AddGoalView()
+            }
+            .sheet(isPresented: $showingOnboarding) {
+                OnboardingFlowView()
+            }
+            .sheet(isPresented: .constant(editingGoal != nil)) {
+                if let goal = editingGoal {
+                    EditGoalView(goal: goal, modelContext: modelContext)
+                        .onDisappear {
+                            editingGoal = nil
+                        }
+                }
             }
 #endif
         }
@@ -72,7 +130,7 @@ struct GoalsListView: View {
 }
 
 struct GoalRowView: View {
-    @ObservedObject var goal: Goal
+    let goal: Goal
     @State private var currentTotal: Double = 0
     @State private var progress: Double = 0
     

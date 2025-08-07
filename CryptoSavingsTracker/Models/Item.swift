@@ -7,10 +7,9 @@
 
 import SwiftData
 import Foundation
-import Combine
 
 @Model
-final class Goal: ObservableObject {
+final class Goal {
     init(name: String, currency: String, targetAmount: Double, deadline: Date, startDate: Date = Date(), frequency: ReminderFrequency = .weekly) {
         self.id = UUID()
         self.name = name
@@ -39,6 +38,12 @@ final class Goal: ObservableObject {
     
     private var _frequency: ReminderFrequency?
     
+    // Archive and modification tracking
+    var archivedDate: Date?
+    var lastModifiedDate: Date = Date()
+    var reminderFrequency: String? // For notifications
+    var reminderTime: Date? // For notification timing
+    
     @Relationship(deleteRule: .cascade) var assets: [Asset] = []
     
     var daysRemaining: Int {
@@ -46,38 +51,10 @@ final class Goal: ObservableObject {
         return max(components.day ?? 0, 0)
     }
     
-    func getCurrentTotal() async -> Double {
-        var total: Double = 0
-        for asset in assets {
-            let assetValue = asset.currentAmount
-            if asset.currency == currency {
-                total += assetValue
-            } else {
-                do {
-                    let rate = try await ExchangeRateService.shared.fetchRate(from: asset.currency, to: currency)
-                    total += assetValue * rate
-                } catch {
-                    total += assetValue
-                }
-            }
-        }
-        return total
-    }
-    
-    func getProgress() async -> Double {
-        guard targetAmount > 0 else { return 0 }
-        let current = await getCurrentTotal()
-        return min(current / targetAmount, 1.0)
-    }
-    
+    // Simple computed properties for basic UI display
+    // For accurate values with currency conversion, use GoalViewModel
     var currentTotal: Double {
-        var total: Double = 0
-        for asset in assets {
-            let assetValue = asset.currentAmount
-            // For synchronous calculation, assume same currency or 1:1 rate
-            total += assetValue
-        }
-        return total
+        assets.reduce(0) { $0 + $1.manualBalance }
     }
     
     var progress: Double {
@@ -106,52 +83,97 @@ final class Goal: ObservableObject {
         return reminderDates.filter { Calendar.current.startOfDay(for: $0) >= today }
     }
     
-    func getSuggestedDeposit() async -> Double {
-        let remaining = remainingDates.count
-        guard remaining > 0, targetAmount > 0 else { return 0 }
-        
-        let current = await getCurrentTotal()
-        let remainingAmount = max(targetAmount - current, 0)
-        return remainingAmount / Double(remaining)
-    }
     
     var nextReminder: Date? {
         return remainingDates.first
+    }
+    
+    var suggestedDailyDeposit: Double {
+        let remaining = remainingDates.count
+        guard remaining > 0, targetAmount > 0 else { return 0 }
+        
+        let remainingAmount = max(targetAmount - currentTotal, 0)
+        return remainingAmount / Double(remaining)
+    }
+    
+    // Async methods for backward compatibility - these delegate to GoalViewModel
+    @MainActor
+    func getCurrentTotal() async -> Double {
+        // Create a temporary ViewModel for this calculation
+        // In production, views should use GoalViewModel directly
+        let viewModel = GoalViewModel(goal: self)
+        await viewModel.refreshValues()
+        return viewModel.currentTotal
+    }
+    
+    @MainActor
+    func getProgress() async -> Double {
+        let total = await getCurrentTotal()
+        guard targetAmount > 0 else { return 0 }
+        return min(total / targetAmount, 1.0)
+    }
+    
+    @MainActor
+    func getSuggestedDeposit() async -> Double {
+        let total = await getCurrentTotal()
+        let remaining = remainingDates.count
+        guard remaining > 0, targetAmount > 0 else { return 0 }
+        
+        let remainingAmount = max(targetAmount - total, 0)
+        return remainingAmount / Double(remaining)
     }
 }
 
 @Model
 final class Asset {
-    init(currency: String, goal: Goal) {
+    init(currency: String, goal: Goal, address: String? = nil, chainId: String? = nil) {
         self.id = UUID()
         self.currency = currency
         self.goal = goal
         self.transactions = []
+        self.address = address
+        self.chainId = chainId
     }
 
     @Attribute(.unique) var id: UUID
     var currency: String
+    var address: String?
+    var chainId: String?
     
     @Relationship(deleteRule: .cascade) var transactions: [Transaction] = []
     @Relationship var goal: Goal
     
-    var currentAmount: Double {
+    var manualBalance: Double {
         transactions.reduce(0) { $0 + $1.amount }
+    }
+    
+    // For synchronous access, return manual balance only
+    // For accurate totals including on-chain balance, use AssetViewModel
+    var currentAmount: Double {
+        manualBalance
+    }
+    
+    // Async method for backward compatibility - delegates to AssetViewModel
+    @MainActor
+    func getCurrentAmount() async -> Double {
+        return await AssetViewModel.getCurrentAmount(for: self)
     }
 }
 
 @Model
 final class Transaction {
-    init(amount: Double, asset: Asset) {
+    init(amount: Double, asset: Asset, comment: String? = nil) {
         self.id = UUID()
         self.amount = amount
         self.date = Date()
         self.asset = asset
+        self.comment = comment
     }
 
     @Attribute(.unique) var id: UUID
     var amount: Double
     var date: Date
+    var comment: String?
     
     @Relationship var asset: Asset
 }

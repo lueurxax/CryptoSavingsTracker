@@ -15,6 +15,7 @@ struct AddTransactionView: View {
     let asset: Asset
     
     @State private var amount = ""
+    @State private var comment = ""
     
     var body: some View {
 #if os(macOS)
@@ -35,10 +36,13 @@ struct AddTransactionView: View {
                     
                     TextField("Deposit Amount", text: $amount)
                         .padding(.vertical, 4)
+                    
+                    TextField("Comment (optional)", text: $comment)
+                        .padding(.vertical, 4)
                 }
                 .padding(.horizontal, 4)
                 
-                Section(footer: Text("Enter the amount you're depositing for this asset.")) {
+                Section(footer: Text("Enter the amount you're depositing and optionally add a comment for reference.")) {
                     EmptyView()
                 }
                 .padding(.horizontal, 4)
@@ -79,10 +83,13 @@ struct AddTransactionView: View {
                     TextField("Deposit Amount", text: $amount)
                         .keyboardType(.decimalPad)
                         .padding(.vertical, 4)
+                    
+                    TextField("Comment (optional)", text: $comment)
+                        .padding(.vertical, 4)
                 }
                 .padding(.horizontal, 4)
                 
-                Section(footer: Text("Enter the amount you're depositing for this asset.")) {
+                Section(footer: Text("Enter the amount you're depositing and optionally add a comment for reference.")) {
                     EmptyView()
                 }
                 .padding(.horizontal, 4)
@@ -116,16 +123,35 @@ struct AddTransactionView: View {
     private func saveTransaction() {
         guard let depositAmount = Double(amount) else { return }
         
-        let newTransaction = Transaction(amount: depositAmount, asset: asset)
+        print("💾 Saving new transaction:")
+        print("   Amount: \(depositAmount)")
+        print("   Asset: \(asset.currency)")
+        print("   Comment: \(comment.isEmpty ? "none" : comment)")
+        print("   Asset ID: \(asset.id)")
+        print("   Current transaction count for asset: \(asset.transactions.count)")
+        
+        let newTransaction = Transaction(amount: depositAmount, asset: asset, comment: comment.isEmpty ? nil : comment)
+        
+        // Explicitly establish the relationship on both sides
+        asset.transactions.append(newTransaction)
+        
         modelContext.insert(newTransaction)
         
         do {
+            // SwiftData will automatically trigger UI updates through @Query
             try modelContext.save()
+            print("✅ Transaction saved successfully")
+            print("   New transaction count for asset: \(asset.transactions.count)")
+            
         } catch {
-            print("Failed to save transaction: \(error)")
+            print("❌ Failed to save transaction: \(error)")
+            // Show user-friendly error message
+            // TODO: Add error state display to UI
         }
         
-        NotificationManager.shared.scheduleNotifications(for: asset.goal)
+        Task {
+            await NotificationManager.shared.scheduleReminders(for: asset.goal)
+        }
         dismiss()
     }
 }

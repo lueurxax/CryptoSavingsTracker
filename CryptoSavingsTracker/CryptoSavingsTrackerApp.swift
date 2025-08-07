@@ -17,7 +17,7 @@ struct CryptoSavingsTrackerApp: App {
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            print("Failed to create ModelContainer: \(error)")
+            // ModelContainer creation failed - app cannot continue
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()
@@ -30,7 +30,7 @@ struct CryptoSavingsTrackerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            OnboardingContentView()
         }
         .modelContainer(sharedModelContainer)
     }

@@ -4,5 +4,7 @@
 <dict>
 	<key>CoinGeckoAPIKey</key>
 	<string>YOUR_COINGECKO_API_KEY</string>
+	<key>TatumAPIKey</key>
+	<string>YOUR_TATUM_API_KEY</string>
 </dict>
 </plist>

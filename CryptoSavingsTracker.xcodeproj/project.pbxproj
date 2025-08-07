@@ -12,6 +12,9 @@
 		CED9DE6A2E36232E00203A83 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE682E36232E00203A83 /* README.md */; };
 		CED9DE6C2E362A1D00203A83 /* Config.plist in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE6B2E362A1D00203A83 /* Config.plist */; };
 		CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE6D2E362A2C00203A83 /* Config.example.plist */; };
+		CEEB9AA42E44D564002B697E /* ux-reviewer.md in Resources */ = {isa = PBXBuildFile; fileRef = CEEB9AA02E44D564002B697E /* ux-reviewer.md */; };
+		CEEB9AA52E44D564002B697E /* architecture-critic.md in Resources */ = {isa = PBXBuildFile; fileRef = CEEB9A9F2E44D564002B697E /* architecture-critic.md */; };
+		CEEB9AA62E44D564002B697E /* settings.local.json in Resources */ = {isa = PBXBuildFile; fileRef = CEEB9AA22E44D564002B697E /* settings.local.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -37,6 +40,9 @@
 		CED9DE682E36232E00203A83 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		CED9DE6B2E362A1D00203A83 /* Config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.plist; sourceTree = "<group>"; };
 		CED9DE6D2E362A2C00203A83 /* Config.example.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.example.plist; sourceTree = "<group>"; };
+		CEEB9A9F2E44D564002B697E /* architecture-critic.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "architecture-critic.md"; sourceTree = "<group>"; };
+		CEEB9AA02E44D564002B697E /* ux-reviewer.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "ux-reviewer.md"; sourceTree = "<group>"; };
+		CEEB9AA22E44D564002B697E /* settings.local.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = settings.local.json; sourceTree = "<group>"; };
 		CEF7B1E02E33FAB400FB26B3 /* CryptoSavingsTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CryptoSavingsTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CEF7B1F12E33FAB600FB26B3 /* CryptoSavingsTrackerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CryptoSavingsTrackerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CEF7B1FB2E33FAB600FB26B3 /* CryptoSavingsTrackerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CryptoSavingsTrackerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -98,9 +104,28 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		CEEB9AA12E44D564002B697E /* agents */ = {
+			isa = PBXGroup;
+			children = (
+				CEEB9A9F2E44D564002B697E /* architecture-critic.md */,
+				CEEB9AA02E44D564002B697E /* ux-reviewer.md */,
+			);
+			path = agents;
+			sourceTree = "<group>";
+		};
+		CEEB9AA32E44D564002B697E /* .claude */ = {
+			isa = PBXGroup;
+			children = (
+				CEEB9AA12E44D564002B697E /* agents */,
+				CEEB9AA22E44D564002B697E /* settings.local.json */,
+			);
+			path = .claude;
+			sourceTree = "<group>";
+		};
 		CEF7B1D72E33FAB400FB26B3 = {
 			isa = PBXGroup;
 			children = (
+				CEEB9AA32E44D564002B697E /* .claude */,
 				CED9DE6D2E362A2C00203A83 /* Config.example.plist */,
 				CED9DE6B2E362A1D00203A83 /* Config.plist */,
 				CED9DE672E36232E00203A83 /* LICENSE */,
@@ -244,6 +269,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				CED9DDB22E34C1A000203A83 /* CLAUDE.md in Resources */,
+				CEEB9AA42E44D564002B697E /* ux-reviewer.md in Resources */,
+				CEEB9AA52E44D564002B697E /* architecture-critic.md in Resources */,
+				CEEB9AA62E44D564002B697E /* settings.local.json in Resources */,
 				CED9DE692E36232E00203A83 /* LICENSE in Resources */,
 				CED9DE6C2E362A1D00203A83 /* Config.plist in Resources */,
 				CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */,
@@ -310,8 +338,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -344,7 +373,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = xax.CryptoSavingsTracker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -365,8 +394,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -399,7 +429,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = xax.CryptoSavingsTracker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

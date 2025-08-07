@@ -19,13 +19,13 @@ class ExchangeRateService {
         guard let path = Bundle.main.path(forResource: "Config", ofType: "plist"),
               let plist = NSDictionary(contentsOfFile: path),
               let key = plist["CoinGeckoAPIKey"] as? String else {
-            print("Warning: Could not load API key from Config.plist")
+            // API key not found in Config.plist - using placeholder
             return "YOUR_COINGECKO_API_KEY"
         }
         return key
     }
     
-    private init() {
+    init() {
         apiKey = Self.loadAPIKey()
         loadCachedData()
     }
