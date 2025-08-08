@@ -165,74 +165,35 @@ struct EditGoalView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             SectionHeader(title: "Reminders", icon: "bell")
                             
-                            VStack(spacing: 12) {
-                                // Frequency Selection
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Reminder Frequency")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                    
-                                    Menu {
-                                        Button("None") {
+                            ReminderConfigurationView(
+                                isEnabled: Binding(
+                                    get: { viewModel.goal.isReminderEnabled },
+                                    set: { newValue in
+                                        if newValue && viewModel.goal.reminderTime == nil {
+                                            viewModel.goal.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
+                                        } else if !newValue {
                                             viewModel.goal.reminderFrequency = nil
+                                            viewModel.goal.reminderTime = nil
+                                            viewModel.goal.firstReminderDate = nil
                                         }
-                                        
-                                        ForEach(ReminderFrequency.allCases, id: \.self) { frequency in
-                                            Button(frequency.displayName) {
-                                                viewModel.goal.reminderFrequency = frequency.rawValue
-                                            }
-                                        }
-                                    } label: {
-                                        HStack {
-                                            Text(reminderFrequencyDisplayText)
-                                                .foregroundColor(.primary)
-                                            Spacer()
-                                            Image(systemName: "chevron.down")
-                                                .foregroundColor(.accessibleSecondary)
-                                                .font(.caption)
-                                        }
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 8)
-                                        .background(AccessibleColors.lightBackground)
-                                        .cornerRadius(6)
                                     }
-                                    .accessibilityLabel("Reminder frequency")
-                                    .accessibilityValue(reminderFrequencyDisplayText)
-                                }
-                                
-                                // Time Selection (if reminders enabled)
-                                if viewModel.goal.reminderFrequency != nil {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Reminder Time")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                        
-                                        DatePicker(
-                                            "Reminder Time",
-                                            selection: Binding(
-                                                get: { viewModel.goal.reminderTime ?? Date() },
-                                                set: { viewModel.goal.reminderTime = $0 }
-                                            ),
-                                            displayedComponents: .hourAndMinute
-                                        )
-                                        .datePickerStyle(.compact)
-                                        .accessibilityLabel("Reminder time")
-                                    }
-                                    
-                                    // Next Reminder Preview
-                                    if let nextReminder = viewModel.goal.nextReminder {
-                                        HStack {
-                                            Image(systemName: "bell.badge")
-                                                .foregroundColor(.accessiblePrimary)
-                                            Text("Next reminder: \(nextReminder, format: .dateTime.weekday().month().day().hour().minute())")
-                                                .font(.caption)
-                                                .foregroundColor(.accessibleSecondary)
-                                            Spacer()
-                                        }
-                                        .padding(.top, 4)
-                                    }
-                                }
-                            }
+                                ),
+                                frequency: Binding(
+                                    get: { viewModel.goal.frequency },
+                                    set: { viewModel.goal.frequency = $0 }
+                                ),
+                                reminderTime: Binding(
+                                    get: { viewModel.goal.reminderTime },
+                                    set: { viewModel.goal.reminderTime = $0 }
+                                ),
+                                firstReminderDate: Binding(
+                                    get: { viewModel.goal.firstReminderDate },
+                                    set: { viewModel.goal.firstReminderDate = $0 }
+                                ),
+                                startDate: viewModel.goal.startDate,
+                                deadline: viewModel.goal.deadline,
+                                showAdvancedOptions: true
+                            )
                         }
                         .padding(.horizontal)
                         
@@ -387,13 +348,6 @@ struct EditGoalView: View {
         }
     }
     
-    private var reminderFrequencyDisplayText: String {
-        guard let frequencyString = viewModel.goal.reminderFrequency,
-              let frequency = ReminderFrequency.allCases.first(where: { $0.rawValue == frequencyString }) else {
-            return "None"
-        }
-        return frequency.displayName
-    }
 }
 
 // MARK: - Supporting Views

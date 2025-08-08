@@ -301,7 +301,7 @@ struct OnboardingCompletionView: View {
                         Spacer()
                         
                         StatPreview(
-                            icon: "chart.bar.circle",
+                            icon: "chart.bar.fill",
                             title: "Monthly",
                             value: "$\(Int(template.estimatedMonthlyContribution).formatted())"
                         )

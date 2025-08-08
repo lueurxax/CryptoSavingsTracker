@@ -151,7 +151,7 @@ struct GoalTemplate: Identifiable, Hashable {
     }
     
     static func recommendedTemplates(for profile: UserProfile) -> [GoalTemplate] {
-        var templates = templatesForExperience(profile.experienceLevel)
+        let templates = templatesForExperience(profile.experienceLevel)
         
         // Filter by primary goal preference
         let primaryTemplates = templates.filter { $0.type == profile.primaryGoal }

@@ -16,8 +16,7 @@ struct GoalsListView: View {
     @State private var showingOnboarding = false
     
     var body: some View {
-        NavigationView {
-            Group {
+        Group {
                 if goals.isEmpty {
                     EmptyStateView.noGoals(
                         onCreateGoal: {
@@ -33,6 +32,12 @@ struct GoalsListView: View {
                             NavigationLink(destination: GoalDetailView(goal: goal)) {
                                 GoalRowView(goal: goal)
                             }
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .listRowBackground(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(.regularMaterial)
+                                    .padding(.vertical, 2)
+                            )
                             .contextMenu {
                                 Button {
                                     editingGoal = goal
@@ -112,7 +117,6 @@ struct GoalsListView: View {
                 }
             }
 #endif
-        }
     }
     
     private func deleteGoals(offsets: IndexSet) {
@@ -131,53 +135,90 @@ struct GoalsListView: View {
 
 struct GoalRowView: View {
     let goal: Goal
-    @State private var currentTotal: Double = 0
-    @State private var progress: Double = 0
     
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(goal.name)
-                    .font(.headline)
-                Spacer()
-                Text("\(goal.daysRemaining) days")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+    private var statusBadge: (text: String, color: Color, icon: String) {
+        Task {
+            let progress = await goal.getProgress()
+            if progress >= 1.0 {
+                return ("Achieved", AccessibleColors.success, "checkmark.circle.fill")
+            } else if progress >= 0.75 {
+                return ("On Track", AccessibleColors.success, "circle.fill")
+            } else if goal.daysRemaining < 30 {
+                return ("Behind", AccessibleColors.error, "exclamationmark.circle.fill")
+            } else {
+                return ("In Progress", AccessibleColors.warning, "clock.fill")
             }
-            
-            HStack {
-                Text("\(currentTotal, specifier: "%.2f") / \(goal.targetAmount, specifier: "%.2f") \(goal.currency)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text("\(Int(progress * 100))%")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            ProgressView(value: progress)
-                .progressViewStyle(LinearProgressViewStyle())
         }
-        .padding(.vertical, 4)
-        .task {
-            await updateValues()
-        }
-        .onChange(of: goal.assets) {
-            Task {
-                await updateValues()
-            }
+        
+        // Fallback synchronous calculation
+        let progress = goal.progress
+        if progress >= 1.0 {
+            return ("Achieved", AccessibleColors.success, "checkmark.circle.fill")
+        } else if progress >= 0.75 {
+            return ("On Track", AccessibleColors.success, "circle.fill")
+        } else if goal.daysRemaining < 30 {
+            return ("Behind", AccessibleColors.error, "exclamationmark.circle.fill")
+        } else {
+            return ("In Progress", AccessibleColors.warning, "clock.fill")
         }
     }
     
-    private func updateValues() async {
-        let total = await goal.getCurrentTotal()
-        let prog = await goal.getProgress()
-        
-        
-        await MainActor.run {
-            currentTotal = total
-            progress = prog
+    var body: some View {
+        HStack(spacing: 12) {
+            // Goal info
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(goal.name)
+                        .font(.headline)
+                        .fontWeight(.medium)
+                    
+                    Spacer()
+                    
+                    // Status badge
+                    HStack(spacing: 4) {
+                        Image(systemName: statusBadge.icon)
+                            .font(.caption2)
+                            .foregroundColor(statusBadge.color)
+                        
+                        Text(statusBadge.text)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(statusBadge.color)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(statusBadge.color.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                
+                HStack(spacing: 16) {
+                    // Days remaining with urgency
+                    HStack(spacing: 4) {
+                        Image(systemName: goal.daysRemaining < 30 ? "exclamationmark.triangle.fill" : "calendar")
+                            .font(.caption2)
+                            .foregroundColor(goal.daysRemaining < 30 ? AccessibleColors.error : .accessibleSecondary)
+                        
+                        Text("\(goal.daysRemaining) days left")
+                            .font(.subheadline)
+                            .foregroundColor(goal.daysRemaining < 30 ? AccessibleColors.error : .primary)
+                    }
+                    
+                    Spacer()
+                    
+                    // Target amount
+                    Text("Target: \(String(format: "%.0f", goal.targetAmount)) \(goal.currency)")
+                        .font(.subheadline)
+                        .foregroundColor(.accessibleSecondary)
+                }
+            }
+            
+            // Navigation chevron
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(.accessibleSecondary)
         }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
     }
 }
 

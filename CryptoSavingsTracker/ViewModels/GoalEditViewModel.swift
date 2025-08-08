@@ -209,7 +209,7 @@ class GoalEditViewModel: ObservableObject {
     
     private func scheduleNotifications() async throws {
         guard let reminderFrequency = goal.reminderFrequency,
-              let reminderFrequencyEnum = ReminderFrequency.allCases.first(where: { $0.rawValue == reminderFrequency }) else {
+              let _ = ReminderFrequency.allCases.first(where: { $0.rawValue == reminderFrequency }) else {
             return
         }
         

@@ -16,12 +16,13 @@ struct GoalDetailView: View {
     @Query private var allTransactions: [Transaction]
     @State private var showingAddAsset = false
     @State private var expandedAssets: Set<UUID> = []
-    @StateObject private var goalViewModel: GoalViewModel
+    @State private var goalViewModel: GoalViewModel
     @StateObject private var dashboardViewModel = DashboardViewModel()
     @State private var isRefreshing = false
     @State private var lastRefresh: Date?
     @State private var showingCharts = false
-    @State private var showingEditGoal = false
+    @State private var editingGoal: Goal?
+    @State private var showingDeleteConfirmation = false
     
     init(goal: Goal) {
         self.goal = goal
@@ -30,7 +31,7 @@ struct GoalDetailView: View {
             asset.goal.id == goalId
         }, sort: \Asset.currency)
         
-        self._goalViewModel = StateObject(wrappedValue: GoalViewModel(goal: goal))
+        self._goalViewModel = State(initialValue: GoalViewModel(goal: goal))
     }
     
     private var goalAssets: [Asset] {
@@ -41,10 +42,6 @@ struct GoalDetailView: View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(goal.name)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
                     Text("Deadline: \(goal.deadline, format: .dateTime.day().month().year()) (\(goal.daysRemaining) days remaining)")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
@@ -110,34 +107,30 @@ struct GoalDetailView: View {
             }
             
             // Charts Section
-            Section {
+            Section("Progress Overview") {
                 VStack(spacing: 16) {
                     HStack {
-                        HStack(spacing: 8) {
-                            Text("Progress Overview")
-                                .font(.headline)
-                            
-                            // Better toggle placement as part of the title
-                            Button(action: {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    showingCharts.toggle()
-                                }
-                            }) {
-                                HStack(spacing: 4) {
-                                    Text(showingCharts ? "Details" : "Summary")
-                                        .font(.caption)
-                                        .fontWeight(.medium)
-                                    Image(systemName: showingCharts ? "chevron.up" : "chevron.down")
-                                        .font(.caption2)
-                                }
-                                .foregroundColor(.accessiblePrimary)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.accessiblePrimaryBackground)
-                                .cornerRadius(12)
+                        // Better toggle placement as part of the title
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showingCharts.toggle()
                             }
-                            .buttonStyle(PlainButtonStyle())
+                        }) {
+                            HStack(spacing: 4) {
+                                Text(showingCharts ? "Hide Details" : "Show Details")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                Image(systemName: showingCharts ? "chevron.up" : "chevron.down")
+                                    .font(.caption2)
+                            }
+                            .foregroundColor(.accessiblePrimary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.accessiblePrimaryBackground)
+                            .cornerRadius(12)
                         }
+                        .buttonStyle(PlainButtonStyle())
+                        
                         Spacer()
                     }
                     
@@ -151,6 +144,15 @@ struct GoalDetailView: View {
                         showLabels: true
                     )
                     .frame(height: 180)
+                    .task(id: goal.id) {
+                        // Reset values when switching goals
+                        await goalViewModel.refreshValues()
+                    }
+                    .onChange(of: goal.assets) { _, _ in
+                        Task {
+                            await goalViewModel.refreshValues()
+                        }
+                    }
                     
                     if showingCharts {
                         if let error = dashboardViewModel.balanceHistoryState.error {
@@ -304,28 +306,89 @@ struct GoalDetailView: View {
                 }
             }
         }
-        .navigationTitle("Goal Details")
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
+        .navigationTitle(goal.name)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Edit") {
-                    showingEditGoal = true
+#if os(iOS)
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button {
+                        editingGoal = goal
+                    } label: {
+                        Label("Edit Goal", systemImage: "pencil")
+                    }
+                    
+                    Divider()
+                    
+                    Button(role: .destructive) {
+                        showingDeleteConfirmation = true
+                    } label: {
+                        Label("Delete Goal", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.body)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
-                .accessibilityLabel("Edit goal")
-                .accessibilityHint("Opens the goal editing screen")
+                .accessibilityLabel("Goal actions")
+                .accessibilityHint("Tap to edit or delete this goal")
             }
+#else
+            ToolbarItem(placement: .primaryAction) {
+                HStack(spacing: 8) {
+                    Button {
+                        editingGoal = goal
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
+                            .labelStyle(.titleAndIcon)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                    
+                    Button(role: .destructive) {
+                        showingDeleteConfirmation = true
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                }
+            }
+#endif
         }
-        .task {
+        .confirmationDialog(
+            "Delete Goal?",
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Goal", role: .destructive) {
+                deleteGoal()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will permanently delete '\(goal.name)' and all associated assets and transactions. This action cannot be undone.")
+        }
+        .sheet(item: $editingGoal) { goal in
+            EditGoalView(goal: goal, modelContext: modelContext)
+        }
+        .task(id: goal.id) {
             goalViewModel.setModelContext(modelContext)
             await goalViewModel.refreshValues()
             await dashboardViewModel.loadData(for: goal, modelContext: modelContext)
         }
+        .onChange(of: goal.id) { _, _ in
+            // Create new goalViewModel for the new goal
+            goalViewModel = GoalViewModel(goal: goal)
+            goalViewModel.setModelContext(modelContext)
+            Task {
+                await goalViewModel.refreshValues()
+            }
+        }
         .onChange(of: goalAssets.count) { oldValue, newValue in
             print("🔔 GoalDetailView onChange: goalAssets.count changed from \(oldValue) to \(newValue)")
             Task {
-                    // Add a small delay to let SwiftData process the changes
+                // Add a small delay to let SwiftData process the changes
                 try? await Task.sleep(for: .milliseconds(100))
                 await goalViewModel.refreshValues()
             }
@@ -349,16 +412,9 @@ struct GoalDetailView: View {
             AddAssetView(goal: goal)
                 .frame(minWidth: 400, minHeight: 300)
         }
-        .sheet(isPresented: $showingEditGoal) {
-            EditGoalView(goal: goal, modelContext: modelContext)
-                .frame(minWidth: 600, minHeight: 700)
-        }
 #else
         .sheet(isPresented: $showingAddAsset) {
             AddAssetView(goal: goal)
-        }
-        .sheet(isPresented: $showingEditGoal) {
-            EditGoalView(goal: goal, modelContext: modelContext)
         }
 #endif
     }
@@ -395,6 +451,18 @@ struct GoalDetailView: View {
             } catch {
                     // Asset deletion failed - consider showing user feedback
             }
+        }
+    }
+    
+    private func deleteGoal() {
+        withAnimation {
+            Task {
+                await NotificationManager.shared.cancelNotifications(for: goal)
+            }
+            modelContext.delete(goal)
+            try? modelContext.save()
+            
+            NotificationCenter.default.post(name: .goalDeleted, object: goal)
         }
     }
 }

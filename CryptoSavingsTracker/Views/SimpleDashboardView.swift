@@ -27,14 +27,11 @@ struct SimpleDashboardView: View {
     }
     
     private var columns: [GridItem] {
-        let isCompact = horizontalSizeClass == .compact
-        let isVeryWide = horizontalSizeClass == .regular && verticalSizeClass == .regular
-        
-        // On very wide screens (desktop), use 3 columns
-        // On regular screens use 2 columns
-        // On compact screens use 1 column
-        let count = isCompact ? 1 : (isVeryWide ? 3 : 2)
-        return Array(repeating: GridItem(.flexible(), spacing: 16), count: count)
+        // Always use flexible layout that fills the available space
+        return [
+            GridItem(.flexible(), spacing: 16),
+            GridItem(.flexible(), spacing: 16)
+        ]
     }
     
     private var isVeryWide: Bool {
@@ -113,7 +110,7 @@ struct SimpleDashboardView: View {
                 // Dashboard content
                 if let goal = selectedGoalOrFirst {
                     ScrollView {
-                        LazyVGrid(columns: columns, spacing: 16) {
+                        LazyVGrid(columns: columns, spacing: 20) {
                             // Progress Ring - single column on all layouts
                             VStack {
                                 if viewModel.isLoading {
@@ -150,8 +147,7 @@ struct SimpleDashboardView: View {
                             // Balance History
                             if viewModel.balanceHistoryState.isLoading {
                                 ChartSkeletonView(height: 120, type: .line)
-                                    .gridCellColumns(isVeryWide ? 2 : (horizontalSizeClass == .compact ? 1 : 2))
-                            } else if let error = viewModel.balanceHistoryState.error {
+                                } else if let error = viewModel.balanceHistoryState.error {
                                 CompactChartErrorView(
                                     error: error,
                                     onRetry: viewModel.balanceHistoryState.canRetry ? {
@@ -160,7 +156,6 @@ struct SimpleDashboardView: View {
                                         }
                                     } : nil
                                 )
-                                .gridCellColumns(2)
                             } else if !viewModel.balanceHistory.isEmpty {
                                 VStack(alignment: .leading, spacing: 12) {
                                     HStack {
@@ -214,7 +209,6 @@ struct SimpleDashboardView: View {
                                 .background(.regularMaterial)
                                 .clipShape(RoundedRectangle(cornerRadius: 16))
                                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
-                                .gridCellColumns(2)
                             } else {
                                 // Empty state for balance history
                                 VStack(spacing: 12) {
@@ -244,10 +238,11 @@ struct SimpleDashboardView: View {
                                 .background(.regularMaterial)
                                 .clipShape(RoundedRectangle(cornerRadius: 16))
                                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
-                                .gridCellColumns(2)
                             }
                         }
-                        .padding()
+                        .padding(.horizontal)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity)
                     }
                     .refreshable {
                         await loadAllGoalProgress()
@@ -268,6 +263,7 @@ struct SimpleDashboardView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationBarBackButtonHidden(false) // Fix navigation consistency
             .sheet(isPresented: $showingBalanceHistoryDetail) {
                 if let goal = selectedGoalOrFirst {
@@ -1011,11 +1007,11 @@ struct CompactGoalButton: View {
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(isSelected ? AccessibleColors.primaryInteractive.opacity(0.15) : Color(.controlBackgroundColor))
+                    .fill(isSelected ? AccessibleColors.primaryInteractive.opacity(0.15) : Color.gray.opacity(0.1))
                     .overlay(
                         RoundedRectangle(cornerRadius: 20)
                             .stroke(
-                                isSelected ? AccessibleColors.primaryInteractive : Color(.separatorColor), 
+                                isSelected ? AccessibleColors.primaryInteractive : Color.gray.opacity(0.3),
                                 lineWidth: isSelected ? 2 : 1
                             )
                     )

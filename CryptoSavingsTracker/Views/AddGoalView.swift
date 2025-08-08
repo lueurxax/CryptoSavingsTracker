@@ -20,6 +20,9 @@ struct AddGoalView: View {
     @State private var deadline = Date().addingTimeInterval(86400 * 30)
     @State private var startDate = Date()
     @State private var frequency: ReminderFrequency = .weekly
+    @State private var isReminderEnabled = true
+    @State private var reminderTime: Date? = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
+    @State private var firstReminderDate: Date?
     @State private var showingCurrencyPicker = false
     
     // Template and validation state
@@ -209,7 +212,7 @@ struct AddGoalView: View {
                         .padding(.vertical, 4)
                         
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("First Reminder")
+                            Text("Start Date")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             DatePicker("", selection: $startDate, displayedComponents: .date)
@@ -219,15 +222,19 @@ struct AddGoalView: View {
                         .padding(.vertical, 4)
                         
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Frequency")
+                            Text("Reminders")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            Picker("Frequency", selection: $frequency) {
-                                ForEach(ReminderFrequency.allCases) { freq in
-                                    Text(freq.displayName).tag(freq)
-                                }
-                            }
-                            .pickerStyle(.segmented)
+                            
+                            ReminderConfigurationView(
+                                isEnabled: $isReminderEnabled,
+                                frequency: $frequency,
+                                reminderTime: $reminderTime,
+                                firstReminderDate: $firstReminderDate,
+                                startDate: startDate,
+                                deadline: deadline,
+                                showAdvancedOptions: false
+                            )
                         }
                         .padding(.vertical, 4)
                         }
@@ -288,15 +295,20 @@ struct AddGoalView: View {
                         DatePicker("Deadline", selection: $deadline, in: Date()..., displayedComponents: .date)
                             .padding(.vertical, 4)
                         
-                        DatePicker("First Reminder", selection: $startDate, displayedComponents: .date)
+                        DatePicker("Start Date", selection: $startDate, displayedComponents: .date)
                             .padding(.vertical, 4)
-                        
-                        Picker("Frequency", selection: $frequency) {
-                            ForEach(ReminderFrequency.allCases) { freq in
-                                Text(freq.displayName).tag(freq)
-                            }
-                        }
-                        .pickerStyle(.segmented)
+                    }
+                    
+                    Section(header: Text("Reminders")) {
+                        ReminderConfigurationView(
+                            isEnabled: $isReminderEnabled,
+                            frequency: $frequency,
+                            reminderTime: $reminderTime,
+                            firstReminderDate: $firstReminderDate,
+                            startDate: startDate,
+                            deadline: deadline,
+                            showAdvancedOptions: false
+                        )
                         .padding(.vertical, 4)
                     }
                     .padding(.horizontal, 4)
@@ -336,6 +348,10 @@ struct AddGoalView: View {
                 currency = template.currency
                 targetAmount = String(format: "%.0f", template.defaultAmount)
                 deadline = Date().addingTimeInterval(TimeInterval(template.defaultTimeframe * 86400))
+                
+                // Keep the current reminder configuration when applying template
+                // User can modify it separately if needed
+                
                 selectedTemplate = template
                 showingTemplates = false
             }
@@ -355,6 +371,18 @@ struct AddGoalView: View {
         }
         
         let newGoal = Goal(name: name, currency: currency.uppercased(), targetAmount: amount, deadline: deadline, startDate: startDate, frequency: frequency)
+        
+        // Set reminder properties
+        if isReminderEnabled {
+            newGoal.reminderFrequency = frequency.rawValue
+            newGoal.reminderTime = reminderTime
+            newGoal.firstReminderDate = firstReminderDate
+        } else {
+            newGoal.reminderFrequency = nil
+            newGoal.reminderTime = nil
+            newGoal.firstReminderDate = nil
+        }
+        
         modelContext.insert(newGoal)
         
         do {
@@ -423,6 +451,10 @@ struct GoalTemplateSelectionView: View {
 #endif
             }
         }
+        .frame(minWidth: 600, minHeight: 500)
+#if os(macOS)
+        .frame(idealWidth: 700, idealHeight: 600)
+#endif
     }
     
     private func iconForGoalType(_ type: GoalType) -> String {
@@ -444,38 +476,62 @@ struct GoalTemplateRow: View {
     
     var body: some View {
         Button(action: onSelect) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(template.name)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    Text(template.description)
-                        .font(.subheadline)
-                        .foregroundColor(.accessibleSecondary)
-                    
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text("\(String(format: "%.0f", template.defaultAmount)) \(template.currency)")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.accessiblePrimary)
+                        Text(template.name)
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
                         
                         Spacer()
                         
-                        Text("\(template.defaultTimeframe) days")
+                        Text(template.difficulty.displayName)
                             .font(.caption)
-                            .foregroundColor(.accessibleSecondary)
+                            .fontWeight(.medium)
+                            .foregroundColor(template.difficulty.color)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(template.difficulty.color.opacity(0.1))
+                            .cornerRadius(4)
+                    }
+                    
+                    Text(template.description)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    
+                    HStack(spacing: 12) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "dollarsign.circle")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                            Text("$\(Int(template.defaultAmount).formatted())")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        
+                        HStack(spacing: 4) {
+                            Image(systemName: "calendar.circle")
+                                .foregroundColor(.blue)
+                                .font(.caption)
+                            Text(template.timeframeDescription)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        
+                        Spacer()
+                        
+                        if isSelected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.title2)
+                        }
                     }
                 }
-                
-                Spacer()
-                
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.accessiblePrimary)
-                }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())

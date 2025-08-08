@@ -9,7 +9,7 @@ import SwiftData
 import Foundation
 
 @Model
-final class Goal {
+final class Goal: @unchecked Sendable {
     init(name: String, currency: String, targetAmount: Double, deadline: Date, startDate: Date = Date(), frequency: ReminderFrequency = .weekly) {
         self.id = UUID()
         self.name = name
@@ -17,78 +17,75 @@ final class Goal {
         self.targetAmount = targetAmount
         self.deadline = deadline
         self.startDate = startDate
-        self.frequency = frequency
         self.assets = []
+        self.reminderFrequency = frequency.rawValue
+        self.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
     }
 
     @Attribute(.unique) var id: UUID
     var name: String
-    var currency: String = "USD"  // Default value for migration
-    var targetAmount: Double = 0.0  // Default value for migration
+    var currency: String = "USD"
+    var targetAmount: Double = 0.0
     var deadline: Date
-    var startDate: Date = Date()  // Default value for migration
-    var frequency: ReminderFrequency {
-        get {
-            return _frequency ?? .weekly
-        }
-        set {
-            _frequency = newValue
-        }
-    }
-    
-    private var _frequency: ReminderFrequency?
+    var startDate: Date = Date()
     
     // Archive and modification tracking
     var archivedDate: Date?
     var lastModifiedDate: Date = Date()
-    var reminderFrequency: String? // For notifications
-    var reminderTime: Date? // For notification timing
+    
+    // Reminder properties
+    var reminderFrequency: String?
+    var reminderTime: Date?
+    var firstReminderDate: Date?
     
     @Relationship(deleteRule: .cascade) var assets: [Asset] = []
     
-    var daysRemaining: Int {
-        let components = Calendar.current.dateComponents([.day], from: Date(), to: deadline)
-        return max(components.day ?? 0, 0)
+    // Computed properties for reminder functionality - direct property access for simplicity
+    var frequency: ReminderFrequency {
+        get {
+            guard let freq = reminderFrequency,
+                  let reminder = ReminderFrequency(rawValue: freq) else {
+                return .weekly
+            }
+            return reminder
+        }
+        set {
+            reminderFrequency = newValue.rawValue
+        }
     }
     
-    // Simple computed properties for basic UI display
-    // For accurate values with currency conversion, use GoalViewModel
+    var isReminderEnabled: Bool {
+        return reminderFrequency != nil
+    }
+    
+    var daysRemaining: Int {
+        return GoalCalculationService.getDaysRemaining(for: self)
+    }
+    
+    // Simple computed properties for basic UI display - delegates to service layer
+    // For accurate values with currency conversion, use getCurrentTotal() async method
     var currentTotal: Double {
-        assets.reduce(0) { $0 + $1.manualBalance }
+        return GoalCalculationService.getManualTotal(for: self)
     }
     
     var progress: Double {
-        guard targetAmount > 0 else { return 0 }
-        return min(currentTotal / targetAmount, 1.0)
+        return GoalCalculationService.getManualProgress(for: self)
     }
     
     var reminderDates: [Date] {
-        var dates: [Date] = []
-        var currentDate = startDate
-        let calendar = Calendar.current
-        
-        while currentDate <= deadline {
-            dates.append(currentDate)
-            guard let nextDate = calendar.date(byAdding: frequency.dateComponents, to: currentDate) else {
-                break
-            }
-            currentDate = nextDate
-        }
-        
-        return dates
+        return GoalCalculationService.getReminderDates(for: self)
     }
     
     var remainingDates: [Date] {
-        let today = Calendar.current.startOfDay(for: Date())
-        return reminderDates.filter { Calendar.current.startOfDay(for: $0) >= today }
+        return GoalCalculationService.getRemainingReminderDates(for: self)
     }
     
-    
     var nextReminder: Date? {
-        return remainingDates.first
+        return GoalCalculationService.getNextReminder(for: self)
     }
     
     var suggestedDailyDeposit: Double {
+        // For synchronous access, use manual balance
         let remaining = remainingDates.count
         guard remaining > 0, targetAmount > 0 else { return 0 }
         
@@ -96,36 +93,26 @@ final class Goal {
         return remainingAmount / Double(remaining)
     }
     
-    // Async methods for backward compatibility - these delegate to GoalViewModel
+    // Async methods that delegate to GoalCalculationService
+    // This maintains API compatibility while properly separating concerns
     @MainActor
     func getCurrentTotal() async -> Double {
-        // Create a temporary ViewModel for this calculation
-        // In production, views should use GoalViewModel directly
-        let viewModel = GoalViewModel(goal: self)
-        await viewModel.refreshValues()
-        return viewModel.currentTotal
+        return await GoalCalculationService.getCurrentTotal(for: self)
     }
     
     @MainActor
     func getProgress() async -> Double {
-        let total = await getCurrentTotal()
-        guard targetAmount > 0 else { return 0 }
-        return min(total / targetAmount, 1.0)
+        return await GoalCalculationService.getProgress(for: self)
     }
     
     @MainActor
     func getSuggestedDeposit() async -> Double {
-        let total = await getCurrentTotal()
-        let remaining = remainingDates.count
-        guard remaining > 0, targetAmount > 0 else { return 0 }
-        
-        let remainingAmount = max(targetAmount - total, 0)
-        return remainingAmount / Double(remaining)
+        return await GoalCalculationService.getSuggestedDeposit(for: self)
     }
 }
 
 @Model
-final class Asset {
+final class Asset: @unchecked Sendable {
     init(currency: String, goal: Goal, address: String? = nil, chainId: String? = nil) {
         self.id = UUID()
         self.currency = currency
@@ -153,7 +140,8 @@ final class Asset {
         manualBalance
     }
     
-    // Async method for backward compatibility - delegates to AssetViewModel
+    // Async method that delegates to AssetViewModel static helper method
+    // This maintains API compatibility while properly separating concerns
     @MainActor
     func getCurrentAmount() async -> Double {
         return await AssetViewModel.getCurrentAmount(for: self)
@@ -161,7 +149,7 @@ final class Asset {
 }
 
 @Model
-final class Transaction {
+final class Transaction: @unchecked Sendable {
     init(amount: Double, asset: Asset, comment: String? = nil) {
         self.id = UUID()
         self.amount = amount

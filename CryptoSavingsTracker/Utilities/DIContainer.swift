@@ -19,11 +19,6 @@ class DIContainer: ObservableObject {
     lazy var tatumService: TatumService = TatumService()
     lazy var exchangeRateService: ExchangeRateService = ExchangeRateService()
     
-    // MARK: - Tatum Specialized Services
-    lazy var chainService: ChainService = ChainService.shared
-    lazy var balanceService: BalanceService = BalanceService.shared
-    lazy var transactionService: TransactionService = TransactionService.shared
-    
     private init() {}
     
     // MARK: - ViewModel Factories

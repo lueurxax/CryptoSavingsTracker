@@ -35,20 +35,99 @@ struct SearchableCurrencyPicker: View {
             }
             
             if searchText.isEmpty {
-                return fiatList
+                return fiatList.sorted { $0.symbol.lowercased() < $1.symbol.lowercased() }
             } else {
-                return fiatList.filter { coin in
+                let searchLower = searchText.lowercased()
+                let filtered = fiatList.filter { coin in
                     coin.symbol.localizedCaseInsensitiveContains(searchText)
+                }
+                
+                // Apply smart sorting (same algorithm as macOS)
+                return filtered.sorted { first, second in
+                    let firstSymbolMatch = first.symbol.lowercased() == searchLower
+                    let secondSymbolMatch = second.symbol.lowercased() == searchLower
+                    
+                    // Exact symbol match comes first
+                    if firstSymbolMatch && !secondSymbolMatch {
+                        return true
+                    }
+                    if secondSymbolMatch && !firstSymbolMatch {
+                        return false
+                    }
+                    
+                    // Then symbol starts with search term
+                    let firstSymbolStarts = first.symbol.lowercased().hasPrefix(searchLower)
+                    let secondSymbolStarts = second.symbol.lowercased().hasPrefix(searchLower)
+                    
+                    if firstSymbolStarts && !secondSymbolStarts {
+                        return true
+                    }
+                    if secondSymbolStarts && !firstSymbolStarts {
+                        return false
+                    }
+                    
+                    // Finally, maintain alphabetical order
+                    return first.symbol.lowercased() < second.symbol.lowercased()
                 }
             }
         } else {
-            // For crypto currencies, use the existing logic
+            // For crypto currencies, use smart sorting (same as macOS)
             if searchText.isEmpty {
-                return currencyViewModel.coinInfos
+                return currencyViewModel.coinInfos.sorted { $0.symbol.lowercased() < $1.symbol.lowercased() }
             } else {
-                return currencyViewModel.coinInfos.filter { coin in
-                    coin.symbol.localizedCaseInsensitiveContains(searchText) ||
-                    coin.name.localizedCaseInsensitiveContains(searchText)
+                let searchLower = searchText.lowercased()
+                let filtered = currencyViewModel.coinInfos.filter { coin in
+                    coin.symbol.lowercased().contains(searchLower) ||
+                    coin.name.lowercased().contains(searchLower)
+                }
+                
+                // Apply smart sorting (same algorithm as macOS)
+                return filtered.sorted { first, second in
+                    let firstSymbolMatch = first.symbol.lowercased() == searchLower
+                    let firstNameMatch = first.name.lowercased() == searchLower
+                    let secondSymbolMatch = second.symbol.lowercased() == searchLower
+                    let secondNameMatch = second.name.lowercased() == searchLower
+                    
+                    // Exact symbol match comes first
+                    if firstSymbolMatch && !secondSymbolMatch {
+                        return true
+                    }
+                    if secondSymbolMatch && !firstSymbolMatch {
+                        return false
+                    }
+                    
+                    // Then exact name match
+                    if firstNameMatch && !secondNameMatch {
+                        return true
+                    }
+                    if secondNameMatch && !firstNameMatch {
+                        return false
+                    }
+                    
+                    // Then symbol starts with search term
+                    let firstSymbolStarts = first.symbol.lowercased().hasPrefix(searchLower)
+                    let secondSymbolStarts = second.symbol.lowercased().hasPrefix(searchLower)
+                    
+                    if firstSymbolStarts && !secondSymbolStarts {
+                        return true
+                    }
+                    if secondSymbolStarts && !firstSymbolStarts {
+                        return false
+                    }
+                    
+                    // Then name starts with search term
+                    let firstNameStarts = first.name.lowercased().hasPrefix(searchLower)
+                    let secondNameStarts = second.name.lowercased().hasPrefix(searchLower)
+                    
+                    if firstNameStarts && !secondNameStarts {
+                        return true
+                    }
+                    if secondNameStarts && !firstNameStarts {
+                        return false
+                    }
+                    
+                    // Finally, maintain alphabetical order
+                    return first.symbol.lowercased() < second.symbol.lowercased()
                 }
             }
         }
