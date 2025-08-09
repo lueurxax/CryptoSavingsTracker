@@ -12,6 +12,10 @@
 		CED9DE6A2E36232E00203A83 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE682E36232E00203A83 /* README.md */; };
 		CED9DE6C2E362A1D00203A83 /* Config.plist in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE6B2E362A1D00203A83 /* Config.plist */; };
 		CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE6D2E362A2C00203A83 /* Config.example.plist */; };
+		CEDD1EE42E4698B20026BFEF /* sample-data.md in Resources */ = {isa = PBXBuildFile; fileRef = CEDD1EE12E4698B20026BFEF /* sample-data.md */; };
+		CEDD1EE52E4698B20026BFEF /* SCREENSHOT_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEDD1EE22E4698B20026BFEF /* SCREENSHOT_GUIDE.md */; };
+		CEDD1EE62E4698B20026BFEF /* .gitkeep in Resources */ = {isa = PBXBuildFile; fileRef = CEDD1EDF2E4698B20026BFEF /* .gitkeep */; };
+		CEDD20D52E4781850026BFEF /* tatum.md in Resources */ = {isa = PBXBuildFile; fileRef = CEDD20D42E4781850026BFEF /* tatum.md */; };
 		CEEB9AA42E44D564002B697E /* ux-reviewer.md in Resources */ = {isa = PBXBuildFile; fileRef = CEEB9AA02E44D564002B697E /* ux-reviewer.md */; };
 		CEEB9AA52E44D564002B697E /* architecture-critic.md in Resources */ = {isa = PBXBuildFile; fileRef = CEEB9A9F2E44D564002B697E /* architecture-critic.md */; };
 		CEEB9AA62E44D564002B697E /* settings.local.json in Resources */ = {isa = PBXBuildFile; fileRef = CEEB9AA22E44D564002B697E /* settings.local.json */; };
@@ -40,6 +44,10 @@
 		CED9DE682E36232E00203A83 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		CED9DE6B2E362A1D00203A83 /* Config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.plist; sourceTree = "<group>"; };
 		CED9DE6D2E362A2C00203A83 /* Config.example.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.example.plist; sourceTree = "<group>"; };
+		CEDD1EDF2E4698B20026BFEF /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
+		CEDD1EE12E4698B20026BFEF /* sample-data.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "sample-data.md"; sourceTree = "<group>"; };
+		CEDD1EE22E4698B20026BFEF /* SCREENSHOT_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SCREENSHOT_GUIDE.md; sourceTree = "<group>"; };
+		CEDD20D42E4781850026BFEF /* tatum.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = tatum.md; sourceTree = "<group>"; };
 		CEEB9A9F2E44D564002B697E /* architecture-critic.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "architecture-critic.md"; sourceTree = "<group>"; };
 		CEEB9AA02E44D564002B697E /* ux-reviewer.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "ux-reviewer.md"; sourceTree = "<group>"; };
 		CEEB9AA22E44D564002B697E /* settings.local.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = settings.local.json; sourceTree = "<group>"; };
@@ -104,6 +112,25 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		CEDD1EE02E4698B20026BFEF /* screenshots */ = {
+			isa = PBXGroup;
+			children = (
+				CEDD1EDF2E4698B20026BFEF /* .gitkeep */,
+			);
+			path = screenshots;
+			sourceTree = "<group>";
+		};
+		CEDD1EE32E4698B20026BFEF /* docs */ = {
+			isa = PBXGroup;
+			children = (
+				CEDD1EE02E4698B20026BFEF /* screenshots */,
+				CEDD1EE12E4698B20026BFEF /* sample-data.md */,
+				CEDD1EE22E4698B20026BFEF /* SCREENSHOT_GUIDE.md */,
+				CEDD20D42E4781850026BFEF /* tatum.md */,
+			);
+			path = docs;
+			sourceTree = "<group>";
+		};
 		CEEB9AA12E44D564002B697E /* agents */ = {
 			isa = PBXGroup;
 			children = (
@@ -125,6 +152,7 @@
 		CEF7B1D72E33FAB400FB26B3 = {
 			isa = PBXGroup;
 			children = (
+				CEDD1EE32E4698B20026BFEF /* docs */,
 				CEEB9AA32E44D564002B697E /* .claude */,
 				CED9DE6D2E362A2C00203A83 /* Config.example.plist */,
 				CED9DE6B2E362A1D00203A83 /* Config.plist */,
@@ -273,7 +301,11 @@
 				CEEB9AA52E44D564002B697E /* architecture-critic.md in Resources */,
 				CEEB9AA62E44D564002B697E /* settings.local.json in Resources */,
 				CED9DE692E36232E00203A83 /* LICENSE in Resources */,
+				CEDD20D52E4781850026BFEF /* tatum.md in Resources */,
 				CED9DE6C2E362A1D00203A83 /* Config.plist in Resources */,
+				CEDD1EE42E4698B20026BFEF /* sample-data.md in Resources */,
+				CEDD1EE52E4698B20026BFEF /* SCREENSHOT_GUIDE.md in Resources */,
+				CEDD1EE62E4698B20026BFEF /* .gitkeep in Resources */,
 				CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */,
 				CED9DE6A2E36232E00203A83 /* README.md in Resources */,
 			);
@@ -340,7 +372,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -369,10 +401,10 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = xax.CryptoSavingsTracker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -396,7 +428,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -425,10 +457,10 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = xax.CryptoSavingsTracker;
 				PRODUCT_NAME = "$(TARGET_NAME)";

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import Foundation
 
 struct GoalDetailView: View {
     @Environment(\.modelContext) private var modelContext
@@ -371,6 +372,11 @@ struct GoalDetailView: View {
         }
         .sheet(item: $editingGoal) { goal in
             EditGoalView(goal: goal, modelContext: modelContext)
+                #if os(macOS)
+                .presentationDetents([.large])
+                #else
+                .presentationDetents([.large])
+                #endif
         }
         .task(id: goal.id) {
             goalViewModel.setModelContext(modelContext)

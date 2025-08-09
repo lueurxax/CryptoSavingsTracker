@@ -14,7 +14,41 @@ A cross-platform SwiftUI application for tracking cryptocurrency savings goals. 
 
 ## Screenshots
 
-*Screenshots coming soon*
+### iOS Experience
+| Goals List | Goal Details | Add New Goal |
+|:----------:|:------------:|:------------:|
+| ![Goals List iOS](docs/screenshots/ios-goals-list.png) | ![Goal Details iOS](docs/screenshots/ios-goal-details.png) | ![Add Goal iOS](docs/screenshots/ios-add-goal.png) |
+
+| Add Asset | Currency Picker | Progress Tracking |
+|:---------:|:---------------:|:-----------------:|
+| ![Add Asset iOS](docs/screenshots/ios-add-asset.png) | ![Currency Picker iOS](docs/screenshots/ios-currency-picker.png) | ![Progress iOS](docs/screenshots/ios-progress.png) |
+
+### macOS Experience
+| Main Interface | Goal Management | Asset Management |
+|:--------------:|:---------------:|:----------------:|
+| ![macOS Main](docs/screenshots/macos-main.png) | ![macOS Goals](docs/screenshots/macos-goal-management.png) | ![macOS Assets](docs/screenshots/macos-assets.png) |
+
+### Key Features Showcase
+
+#### 🎯 **Smart Progress Tracking**
+- Visual progress rings with real-time conversion
+- Deadline countdown and suggested deposits
+- Multi-asset portfolio aggregation
+
+#### 📱 **Cross-Platform Native UI**
+- iOS: Compact navigation with context menus and swipe actions
+- macOS: Split-view interface with inline toolbar actions
+- Consistent functionality across all Apple platforms
+
+#### 🔍 **Advanced Currency Search**
+- Intelligent sorting: exact matches → prefix matches → alphabetical
+- Search by symbol or full name across 5000+ cryptocurrencies
+- Unified experience between iOS and macOS
+
+#### ⚡ **Real-Time Data**
+- Live exchange rates from CoinGecko API
+- Smart caching for optimal performance
+- Offline support with cached data
 
 ## Requirements
 
@@ -170,9 +204,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you encounter any issues or have questions:
 
-1. Check the [Issues](https://github.com/yourusername/CryptoSavingsTracker/issues) page
-2. Create a new issue with detailed description
-3. Include your iOS/macOS version and steps to reproduce
+1. Check the [Troubleshooting Guide](docs/TROUBLESHOOTING.md) for common issues
+2. Review the [Issues](https://github.com/yourusername/CryptoSavingsTracker/issues) page
+3. Create a new issue with detailed description
+4. Include your iOS/macOS version and steps to reproduce
+
+### Common Issues
+- **Console Warnings**: See [Troubleshooting Guide](docs/TROUBLESHOOTING.md) - most simulator warnings are harmless
+- **API Setup**: Ensure your `Config.plist` has valid API keys
+- **Build Issues**: Try cleaning build folder and clearing DerivedData
 
 ---
 

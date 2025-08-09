@@ -18,6 +18,12 @@ class DIContainer: ObservableObject {
     lazy var coinGeckoService: CoinGeckoService = CoinGeckoService()
     lazy var tatumService: TatumService = TatumService()
     lazy var exchangeRateService: ExchangeRateService = ExchangeRateService()
+    lazy var monthlyPlanningService: MonthlyPlanningService = MonthlyPlanningService(exchangeRateService: exchangeRateService)
+    
+    // MARK: - Flex Adjustment Service Factory
+    func makeFlexAdjustmentService(modelContext: ModelContext) -> FlexAdjustmentService {
+        return FlexAdjustmentService(exchangeRateService: exchangeRateService, modelContext: modelContext)
+    }
     
     private init() {}
     

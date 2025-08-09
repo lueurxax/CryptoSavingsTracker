@@ -219,9 +219,15 @@ struct AssetRowView: View {
                                 HStack {
                                     VStack(alignment: .leading) {
                                         HStack {
-                                            Text(transaction.nativeValue > 0 ? "+\(transaction.nativeValue, specifier: "%.8f")" : "0.00000000")
+                                            // Use amount field and check transactionSubtype for direction
+                                            let amount = Double(transaction.amount ?? "0") ?? 0
+                                            let isSent = transaction.transactionSubtype == "sent"
+                                            let displayAmount = isSent ? -amount : amount
+                                            let displaySign = displayAmount >= 0 ? "+" : ""
+                                            
+                                            Text("\(displaySign)\(displayAmount, specifier: "%.8f")")
                                                 .font(.caption)
-                                                .foregroundColor(transaction.nativeValue > 0 ? .green : .secondary)
+                                                .foregroundColor(displayAmount >= 0 ? .green : .red)
                                             Text(safeAssetCurrency)
                                                 .font(.caption)
                                                 .foregroundColor(.secondary)
@@ -424,6 +430,7 @@ struct AssetRowView: View {
             let transactions = try await TatumService.shared.fetchTransactionHistory(
                 chainId: chainId,
                 address: address,
+                currency: safeAssetCurrency,
                 limit: 20,
                 forceRefresh: forceRefresh
             )

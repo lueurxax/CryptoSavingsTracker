@@ -73,6 +73,11 @@ struct GoalsListContainer: View {
         }
         .sheet(item: $editingGoal) { goal in
             EditGoalView(goal: goal, modelContext: modelContext)
+                #if os(macOS)
+                .presentationDetents([.large])
+                #else
+                .presentationDetents([.large])
+                #endif
         }
     }
     

@@ -64,6 +64,7 @@ class AssetViewModel: ObservableObject {
             onChainTransactions = try await tatumService.fetchTransactionHistory(
                 chainId: chainId,
                 address: address,
+                currency: asset.currency,
                 limit: 20,
                 forceRefresh: forceRefresh
             )

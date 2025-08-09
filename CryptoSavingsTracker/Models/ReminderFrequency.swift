@@ -18,7 +18,7 @@ enum ReminderFrequency: String, CaseIterable, Codable, Identifiable, Sendable {
         }
     }
     
-    var dateComponents: DateComponents {
+    nonisolated var dateComponents: DateComponents {
         switch self {
         case .weekly:
             return DateComponents(day: 7)

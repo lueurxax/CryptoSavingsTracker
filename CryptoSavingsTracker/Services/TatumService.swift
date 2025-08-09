@@ -46,7 +46,7 @@ final class TatumService {
     }
     
     // MARK: - Transaction Methods (Delegate to TransactionService)
-    func fetchTransactionHistory(chainId: String, address: String, limit: Int = 50, forceRefresh: Bool = false) async throws -> [TatumTransaction] {
-        return try await transactionService.fetchTransactionHistory(chainId: chainId, address: address, limit: limit, forceRefresh: forceRefresh)
+    func fetchTransactionHistory(chainId: String, address: String, currency: String? = nil, limit: Int = 50, forceRefresh: Bool = false) async throws -> [TatumTransaction] {
+        return try await transactionService.fetchTransactionHistory(chainId: chainId, address: address, currency: currency, limit: limit, forceRefresh: forceRefresh)
     }
 }

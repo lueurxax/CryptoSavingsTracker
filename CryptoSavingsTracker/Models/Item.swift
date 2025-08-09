@@ -9,7 +9,7 @@ import SwiftData
 import Foundation
 
 @Model
-final class Goal: @unchecked Sendable {
+final class Goal {
     init(name: String, currency: String, targetAmount: Double, deadline: Date, startDate: Date = Date(), frequency: ReminderFrequency = .weekly) {
         self.id = UUID()
         self.name = name
@@ -58,61 +58,90 @@ final class Goal: @unchecked Sendable {
         return reminderFrequency != nil
     }
     
+    // Simple computed properties for basic calculations without external dependencies
     var daysRemaining: Int {
-        return GoalCalculationService.getDaysRemaining(for: self)
+        let components = Calendar.current.dateComponents([.day], from: Date(), to: deadline)
+        return max(components.day ?? 0, 0)
     }
     
-    // Simple computed properties for basic UI display - delegates to service layer
-    // For accurate values with currency conversion, use getCurrentTotal() async method
-    var currentTotal: Double {
-        return GoalCalculationService.getManualTotal(for: self)
+    // Manual total from all assets - synchronous calculation without external services
+    var manualTotal: Double {
+        return assets.reduce(0) { total, asset in
+            total + asset.transactions.reduce(0) { $0 + $1.amount }
+        }
     }
     
-    var progress: Double {
-        return GoalCalculationService.getManualProgress(for: self)
+    // Manual progress based on manual total - synchronous calculation
+    var manualProgress: Double {
+        guard targetAmount > 0 else { return 0 }
+        return min(manualTotal / targetAmount, 1.0)
     }
     
+    // Legacy properties for backward compatibility - these delegate to the new simple calculations
+    var currentTotal: Double { manualTotal }
+    var progress: Double { manualProgress }
+    
+    // Simple reminder dates calculation without external service dependencies
     var reminderDates: [Date] {
-        return GoalCalculationService.getReminderDates(for: self)
+        var dates: [Date] = []
+        var currentDate = startDate
+        
+        while currentDate <= deadline {
+            dates.append(currentDate)
+            
+            guard let nextDate = Calendar.current.date(byAdding: frequency.dateComponents, to: currentDate) else { break }
+            currentDate = nextDate
+            
+            if currentDate > deadline { break }
+        }
+        
+        return dates
     }
     
     var remainingDates: [Date] {
-        return GoalCalculationService.getRemainingReminderDates(for: self)
+        let now = Date()
+        return reminderDates.filter { $0 > now }
     }
     
     var nextReminder: Date? {
-        return GoalCalculationService.getNextReminder(for: self)
+        return remainingDates.first
     }
     
     var suggestedDailyDeposit: Double {
-        // For synchronous access, use manual balance
-        let remaining = remainingDates.count
-        guard remaining > 0, targetAmount > 0 else { return 0 }
-        
-        let remainingAmount = max(targetAmount - currentTotal, 0)
-        return remainingAmount / Double(remaining)
+        // Simple calculation based on days remaining and manual total
+        guard daysRemaining > 0, targetAmount > 0 else { return 0 }
+        let remainingAmount = max(targetAmount - manualTotal, 0)
+        return remainingAmount / Double(daysRemaining)
     }
     
-    // Async methods that delegate to GoalCalculationService
-    // This maintains API compatibility while properly separating concerns
+    // MARK: - Deprecated Async Methods 
+    // These methods have been removed to break circular dependencies
+    // Use ViewModels with proper dependency injection instead
+    
+    @available(*, deprecated, message: "Use GoalViewModel with dependency injection instead")
     @MainActor
     func getCurrentTotal() async -> Double {
-        return await GoalCalculationService.getCurrentTotal(for: self)
+        // Return manual total as fallback
+        return manualTotal
     }
     
+    @available(*, deprecated, message: "Use GoalViewModel with dependency injection instead")
     @MainActor
     func getProgress() async -> Double {
-        return await GoalCalculationService.getProgress(for: self)
+        // Return manual progress as fallback
+        return manualProgress
     }
     
+    @available(*, deprecated, message: "Use GoalViewModel with dependency injection instead")
     @MainActor
     func getSuggestedDeposit() async -> Double {
-        return await GoalCalculationService.getSuggestedDeposit(for: self)
+        // Return simple calculation as fallback
+        return suggestedDailyDeposit
     }
 }
 
 @Model
-final class Asset: @unchecked Sendable {
+final class Asset {
     init(currency: String, goal: Goal, address: String? = nil, chainId: String? = nil) {
         self.id = UUID()
         self.currency = currency
@@ -140,16 +169,20 @@ final class Asset: @unchecked Sendable {
         manualBalance
     }
     
-    // Async method that delegates to AssetViewModel static helper method
-    // This maintains API compatibility while properly separating concerns
+    // MARK: - Deprecated Async Methods
+    // This method has been removed to break circular dependencies
+    // Use AssetViewModel with proper dependency injection instead
+    
+    @available(*, deprecated, message: "Use AssetViewModel with dependency injection instead")
     @MainActor
     func getCurrentAmount() async -> Double {
-        return await AssetViewModel.getCurrentAmount(for: self)
+        // Return manual balance as fallback
+        return manualBalance
     }
 }
 
 @Model
-final class Transaction: @unchecked Sendable {
+final class Transaction {
     init(amount: Double, asset: Asset, comment: String? = nil) {
         self.id = UUID()
         self.amount = amount

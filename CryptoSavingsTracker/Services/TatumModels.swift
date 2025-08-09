@@ -68,6 +68,33 @@ struct TatumV4PortfolioResponse: Codable {
     let nextPage: String?
 }
 
+// Tatum v4 API UTXO Response Models
+struct TatumV4UTXOResponse: Codable {
+    let result: [TatumV4UTXOItem]
+    let prevPage: String?
+    let nextPage: String?
+}
+
+struct TatumV4UTXOItem: Codable {
+    let txHash: String
+    let index: Int
+    let valueString: String  // Value in satoshis as string
+    let address: String
+    let blockNumber: Int?
+    let spent: Bool
+    
+    var value: Double {
+        return Double(valueString) ?? 0.0
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case txHash = "hash"
+        case index
+        case valueString = "value"
+        case address, blockNumber, spent
+    }
+}
+
 struct TatumV4BalanceItem: Codable {
     let chain: String
     let address: String
@@ -201,18 +228,30 @@ struct TatumUTXOInput: Codable {
 }
 
 struct TatumUTXOOutput: Codable {
-    let value: String?
+    let valueNumber: Double?
+    let address: String?  // Direct address field
     let scriptPubKey: TatumScriptPubKey?
     
     var humanReadableValue: Double {
-        guard let value = value, let valueDouble = Double(value) else { return 0 }
-        return valueDouble / 100000000 // Convert satoshis to BTC
+        guard let value = valueNumber else { return 0 }
+        return value / 100_000_000 // Convert satoshis to BTC
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case valueNumber = "value"
+        case address
+        case scriptPubKey
     }
 }
 
 struct TatumUTXOPrevout: Codable {
-    let value: String?
+    let valueNumber: Double?
     let scriptPubKey: TatumScriptPubKey?
+    
+    enum CodingKeys: String, CodingKey {
+        case valueNumber = "value"
+        case scriptPubKey
+    }
 }
 
 struct TatumScriptPubKey: Codable {
@@ -238,6 +277,17 @@ struct TatumXRPTransaction: Codable, Identifiable {
     var amountValue: Double {
         guard let amount = amount, let value = Double(amount) else { return 0 }
         return value / 1_000_000 // XRP uses 6 decimal places (drops to XRP)
+    }
+}
+
+// XRP Balance Response Model (v3 API)
+struct TatumXRPBalanceResponse: Codable {
+    let balance: String  // Balance in drops (1 XRP = 1,000,000 drops)
+    let assets: [String]  // Additional assets (usually empty)
+    
+    var balanceInXRP: Double {
+        guard let drops = Double(balance) else { return 0.0 }
+        return drops / 1_000_000  // Convert drops to XRP
     }
 }
 
@@ -451,6 +501,162 @@ struct TRC20Response: Codable {
     }
 }
 
+// MARK: - TRX Transaction Models
+struct TRXTransactionResponse: Codable {
+    let transactions: [TRXTransaction]
+    let internalTransactions: [TRXInternalTransaction]?
+}
+
+struct TRXTransaction: Codable, Identifiable {
+    let txID: String
+    let blockNumber: Int?
+    let ret: [TRXTransactionResult]?
+    let signature: [String]?
+    let netFee: Int64?
+    let netUsage: Int64?
+    let energyFee: Int64?
+    let energyUsage: Int64?
+    let energyUsageTotal: Int64?
+    let rawData: TRXRawData?
+    let internalTransactions: [TRXInternalTransaction]?
+    
+    var id: String { txID }
+    var hash: String { txID }
+    
+    var date: Date {
+        if let timestamp = rawData?.timestamp {
+            return Date(timeIntervalSince1970: TimeInterval(timestamp / 1000)) // Convert ms to seconds
+        }
+        return Date()
+    }
+    
+    var totalFee: Double {
+        let net = Double(netFee ?? 0)
+        let energy = Double(energyFee ?? 0)
+        return (net + energy) / 1_000_000 // Convert sun to TRX
+    }
+}
+
+struct TRXTransactionResult: Codable {
+    let contractRet: String?
+    let fee: Int64?
+}
+
+struct TRXRawData: Codable {
+    let contract: [TRXContract]?
+    let timestamp: Int64?
+    let expiration: Int64?
+    let refBlockBytes: String?
+    let refBlockHash: String?
+    let feeLimit: Int64?
+    
+    enum CodingKeys: String, CodingKey {
+        case contract, timestamp, expiration, feeLimit
+        case refBlockBytes = "ref_block_bytes"
+        case refBlockHash = "ref_block_hash"
+    }
+}
+
+struct TRXContract: Codable {
+    let type: String?
+    let parameter: TRXContractParameter?
+}
+
+struct TRXContractParameter: Codable {
+    let value: TRXContractValue?
+    let typeUrl: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case value
+        case typeUrl = "type_url"
+    }
+}
+
+struct TRXContractValue: Codable {
+    // For TransferContract (native TRX transfers)
+    let amount: Int64?
+    let ownerAddress: String?
+    let toAddress: String?
+    let ownerAddressBase58: String?
+    let toAddressBase58: String?
+    
+    // For TriggerSmartContract (TRC20 transfers)
+    let contractAddress: String?
+    let contractAddressBase58: String?
+    let data: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case amount
+        case ownerAddress = "owner_address"
+        case toAddress = "to_address"
+        case ownerAddressBase58
+        case toAddressBase58
+        case contractAddress = "contract_address"
+        case contractAddressBase58
+        case data
+    }
+    
+    // Convert sun to TRX for native transfers
+    var trxAmount: Double {
+        guard let amount = amount else { return 0.0 }
+        return Double(amount) / 1_000_000
+    }
+}
+
+struct TRXInternalTransaction: Codable {
+    let hash: String?
+    let callerAddress: String?
+    let transferToAddress: String?
+    let callValueInfo: [TRXCallValueInfo]?
+    let note: String?
+}
+
+struct TRXCallValueInfo: Codable {
+    let callValue: Int64?
+    let tokenName: String?
+    let tokenId: String?
+    
+    var trxValue: Double {
+        guard let value = callValue else { return 0.0 }
+        return Double(value) / 1_000_000 // Convert sun to TRX
+    }
+}
+
+// MARK: - TRC-20 Transaction Models
+struct TRC20TransactionResponse: Codable {
+    let transactions: [TRC20Transaction]
+}
+
+struct TRC20Transaction: Codable, Identifiable {
+    let txID: String
+    let tokenInfo: TRC20TokenInfo
+    let from: String?
+    let to: String?
+    let type: String?
+    let value: String
+    
+    var id: String { txID }
+    
+    // Convert token amount based on decimals from tokenInfo
+    var tokenAmount: Double {
+        guard let amountValue = Double(value) else { return 0.0 }
+        let decimals = tokenInfo.decimals
+        return amountValue / pow(10, Double(decimals))
+    }
+    
+    // Check if this is USDT
+    var isUSDT: Bool {
+        return tokenInfo.address == "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
+    }
+}
+
+struct TRC20TokenInfo: Codable {
+    let symbol: String
+    let address: String
+    let decimals: Int
+    let name: String
+}
+
 // MARK: - Other Chain Transaction Models
 // MARK: - ADA (Cardano) Models
 struct TatumADABalanceResponse: Codable {
@@ -519,12 +725,152 @@ struct TatumADAOutput: Codable {
     }
 }
 
+// MARK: - SOL (Solana) Balance Models
+struct TatumSOLBalanceResponse: Codable {
+    let balance: String  // Balance is already in SOL, not lamports
+    
+    var solBalance: Double {
+        return Double(balance) ?? 0.0
+    }
+}
+
+// MARK: - Solana RPC Models
+struct SolanaRPCRequest: Codable {
+    let jsonrpc: String = "2.0"
+    let id: Int = 1
+    let method: String
+    let params: [SolanaRPCParam]
+}
+
+enum SolanaRPCParam: Codable {
+    case string(String)
+    case object([String: SolanaRPCValue])
+    case int(Int)
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .string(let value):
+            try container.encode(value)
+        case .object(let value):
+            try container.encode(value)
+        case .int(let value):
+            try container.encode(value)
+        }
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let stringValue = try? container.decode(String.self) {
+            self = .string(stringValue)
+        } else if let objectValue = try? container.decode([String: SolanaRPCValue].self) {
+            self = .object(objectValue)
+        } else if let intValue = try? container.decode(Int.self) {
+            self = .int(intValue)
+        } else {
+            throw DecodingError.typeMismatch(SolanaRPCParam.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid SolanaRPCParam"))
+        }
+    }
+}
+
+enum SolanaRPCValue: Codable {
+    case string(String)
+    case int(Int)
+    case bool(Bool)
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .string(let value):
+            try container.encode(value)
+        case .int(let value):
+            try container.encode(value)
+        case .bool(let value):
+            try container.encode(value)
+        }
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let stringValue = try? container.decode(String.self) {
+            self = .string(stringValue)
+        } else if let intValue = try? container.decode(Int.self) {
+            self = .int(intValue)
+        } else if let boolValue = try? container.decode(Bool.self) {
+            self = .bool(boolValue)
+        } else {
+            throw DecodingError.typeMismatch(SolanaRPCValue.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid SolanaRPCValue"))
+        }
+    }
+}
+
+struct SolanaRPCResponse<T: Codable>: Codable {
+    let jsonrpc: String
+    let id: Int
+    let result: T?
+    let error: SolanaRPCError?
+}
+
+struct SolanaRPCError: Codable {
+    let code: Int
+    let message: String
+    let data: SolanaRPCErrorData?
+}
+
+struct SolanaRPCErrorData: Codable {
+    let logs: [String]?
+}
+
+struct SolanaSignature: Codable {
+    let signature: String
+    let slot: Int?
+    let err: SolanaTransactionError?
+    let memo: String?
+    let blockTime: Int?
+    
+    var isSuccess: Bool {
+        return err == nil
+    }
+}
+
+enum SolanaTransactionError: Codable {
+    case object([String: SolanaRPCValue])
+    case null
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .object(let value):
+            try container.encode(value)
+        case .null:
+            try container.encodeNil()
+        }
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .null
+        } else if let objectValue = try? container.decode([String: SolanaRPCValue].self) {
+            self = .object(objectValue)
+        } else {
+            self = .null
+        }
+    }
+}
+
 struct TatumSOLTransaction: Codable, Identifiable {
-    let hash: String
     let blockTime: Int?
     let meta: TatumSOLMeta?
+    let transaction: TatumSOLTransactionData?
     
-    var id: String { hash }
+    var id: String { 
+        return transaction?.signatures?.first ?? "unknown"
+    }
+    
+    var hash: String {
+        return transaction?.signatures?.first ?? "unknown"
+    }
     
     var date: Date {
         if let blockTime = blockTime {
@@ -534,10 +880,31 @@ struct TatumSOLTransaction: Codable, Identifiable {
     }
 }
 
+struct TatumSOLTransactionData: Codable {
+    let signatures: [String]?
+    let message: TatumSOLMessage?
+}
+
+struct TatumSOLMessage: Codable {
+    let accountKeys: [String]?
+    let instructions: [TatumSOLInstruction]?
+}
+
+struct TatumSOLInstruction: Codable {
+    let programIdIndex: Int?
+    let accounts: [Int]?
+    let data: String?
+}
+
 struct TatumSOLMeta: Codable {
     let fee: Int?
     let preBalances: [Int]?
     let postBalances: [Int]?
+    let err: SolanaTransactionError?
+    
+    var isSuccess: Bool {
+        return err == nil
+    }
 }
 
 struct TatumALGOTransaction: Codable, Identifiable {

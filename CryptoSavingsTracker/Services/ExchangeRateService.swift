@@ -7,6 +7,8 @@
 
 import Foundation
 
+// Import protocol definitions - this should be resolved by having them in the same module
+
 class ExchangeRateService {
     static let shared = ExchangeRateService()
     

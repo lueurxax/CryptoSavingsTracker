@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import Foundation
 
 struct GoalsListView: View {
     @Environment(\.modelContext) private var modelContext
@@ -14,6 +15,7 @@ struct GoalsListView: View {
     @State private var showingAddGoal = false
     @State private var editingGoal: Goal?
     @State private var showingOnboarding = false
+    @State private var monthlyPlanningViewModel: MonthlyPlanningViewModel?
     
     var body: some View {
         Group {
@@ -28,46 +30,65 @@ struct GoalsListView: View {
                     )
                 } else {
                     List {
-                        ForEach(goals) { goal in
-                            NavigationLink(destination: GoalDetailView(goal: goal)) {
-                                GoalRowView(goal: goal)
-                            }
-                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                            .listRowBackground(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(.regularMaterial)
-                                    .padding(.vertical, 2)
-                            )
-                            .contextMenu {
-                                Button {
-                                    editingGoal = goal
-                                } label: {
-                                    HStack {
-                                        Text("Edit Goal")
-                                        Image(systemName: "pencil")
-                                    }
-                                }
-                                
-                                Button {
-                                    Task {
-                                        await NotificationManager.shared.cancelNotifications(for: goal)
-                                    }
-                                    modelContext.delete(goal)
-                                    try? modelContext.save()
-                                } label: {
-                                    HStack {
-                                        Text("Delete Goal")
-                                        Image(systemName: "trash")
-                                    }
-                                }
+                        // Portfolio-wide Monthly Planning Widget
+                        Section {
+                            if let viewModel = monthlyPlanningViewModel {
+                                MonthlyPlanningWidget(viewModel: viewModel)
                             }
                         }
-                        .onDelete(perform: deleteGoals)
-                        .animation(.default, value: goals.count)
+                        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        
+                        // Individual Goals
+                        Section("Your Goals") {
+                            ForEach(goals) { goal in
+                                NavigationLink(destination: GoalDetailView(goal: goal)) {
+                                    GoalRowView(goal: goal)
+                                }
+                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                                .listRowBackground(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(.regularMaterial)
+                                        .padding(.vertical, 2)
+                                )
+                                .contextMenu {
+                                    Button {
+                                        editingGoal = goal
+                                    } label: {
+                                        HStack {
+                                            Text("Edit Goal")
+                                            Image(systemName: "pencil")
+                                        }
+                                    }
+                                    
+                                    Button {
+                                        Task {
+                                            await NotificationManager.shared.cancelNotifications(for: goal)
+                                        }
+                                        modelContext.delete(goal)
+                                        try? modelContext.save()
+                                    } label: {
+                                        HStack {
+                                            Text("Delete Goal")
+                                            Image(systemName: "trash")
+                                        }
+                                    }
+                                }
+                            }
+                            .onDelete(perform: deleteGoals)
+                            .animation(.default, value: goals.count)
+                        }
                     }
                 }
             }
             .navigationTitle("Crypto Goals")
+            .onAppear {
+                // Create the monthly planning view model with model context
+                if monthlyPlanningViewModel == nil {
+                    monthlyPlanningViewModel = MonthlyPlanningViewModel(modelContext: modelContext)
+                }
+            }
             .toolbar {
 #if os(iOS)
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -111,6 +132,7 @@ struct GoalsListView: View {
             .sheet(isPresented: .constant(editingGoal != nil)) {
                 if let goal = editingGoal {
                     EditGoalView(goal: goal, modelContext: modelContext)
+                        .presentationDetents([.large])
                         .onDisappear {
                             editingGoal = nil
                         }

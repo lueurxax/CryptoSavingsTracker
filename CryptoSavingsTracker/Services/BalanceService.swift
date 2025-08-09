@@ -20,47 +20,43 @@ final class BalanceService {
     
     // MARK: - Balance Fetching (Unified Interface)
     func fetchBalance(chainId: String, address: String, symbol: String, forceRefresh: Bool = false) async throws -> Double {
-        print("🔍 BalanceService.fetchBalance called:")
-        print("   ChainId: \(chainId)")
-        print("   Address: \(address)")
-        print("   Symbol: \(symbol)")
-        print("   Force refresh: \(forceRefresh)")
+        Self.log.debug("fetchBalance called - ChainId: \(chainId), Address: \(address), Symbol: \(symbol), ForceRefresh: \(forceRefresh)")
         
         // Check cache first unless force refresh is requested
         let cacheKey = BalanceCacheManager.balanceCacheKey(chainId: chainId, address: address, symbol: symbol)
         
         if !forceRefresh {
             if let cachedBalance = BalanceCacheManager.shared.getCachedBalance(for: cacheKey) {
-                print("✅ Using cached balance: \(cachedBalance)")
+                Self.log.debug("Using cached balance: \(cachedBalance)")
                 return cachedBalance
             }
         } else {
             // Check rate limiting even for force refresh
             if !BalanceCacheManager.shared.canRefreshBalance(for: cacheKey) {
                 if let cachedBalance = BalanceCacheManager.shared.getCachedBalance(for: cacheKey) {
-                    print("⚠️ Rate limited - returning cached balance: \(cachedBalance)")
+                    Self.log.info("Rate limited - returning cached balance: \(cachedBalance)")
                     return cachedBalance
                 }
             }
         }
         
         guard let chain = chainService.getChain(by: chainId) else {
-            print("❌ Unsupported chain: \(chainId)")
+            Self.log.error("Unsupported chain: \(chainId)")
             throw TatumError.unsupportedChain(chainId)
         }
         
-        print("   Chain found: \(chain.name) (\(chain.chainType))")
+        Self.log.debug("Chain found: \(chain.name) (\(chain.chainType.rawValue))")
         
         do {
             let balance = try await fetchBalanceForChain(chain: chain, address: address, symbol: symbol)
             
             // Cache the result
             BalanceCacheManager.shared.cacheBalance(balance, for: cacheKey)
-            print("💾 Cached balance: \(balance)")
+            Self.log.debug("Cached balance: \(balance)")
             
             return balance
         } catch {
-            print("❌ Error in fetchBalance: \(error)")
+            Self.log.error("Error in fetchBalance: \(error)")
             throw error
         }
     }
@@ -85,16 +81,14 @@ final class BalanceService {
         let chain = chainService.getChain(by: chainId)
         let isNativeToken = symbol.uppercased() == chain?.nativeCurrencySymbol.uppercased()
         
-        print("🔗 fetchV4Balance:")
-        print("   Native currency: \(chain?.nativeCurrencySymbol ?? "unknown")")
-        print("   Is native token: \(isNativeToken)")
+        Self.log.debug("fetchV4Balance - Native currency: \(chain?.nativeCurrencySymbol ?? "unknown"), Is native token: \(isNativeToken)")
         
         guard let v4Chain = chainService.getV4ChainName(for: chainId) else {
-            print("❌ Unsupported chain for v4 API: \(chainId)")
+            Self.log.error("Unsupported chain for v4 API: \(chainId)")
             throw TatumError.unsupportedChain(chainId)
         }
         
-        print("   V4 chain: \(v4Chain)")
+        Self.log.debug("V4 chain: \(v4Chain)")
         
         if isNativeToken {
             return try await fetchV4NativeBalance(v4Chain: v4Chain, address: address)
@@ -114,24 +108,24 @@ final class BalanceService {
             throw TatumError.invalidURL
         }
         
-        print("🌐 Fetching v4 native balance from: \(request.url?.absoluteString ?? "")")
+        Self.log.debug("Fetching v4 native balance from: \(request.url?.absoluteString ?? "")")
         
         let (data, _) = try await client.performRequest(request)
         
-        print("📄 V4 native balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
+        Self.log.debug("V4 native balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
         
         let decoder = JSONDecoder()
         let portfolioResponse = try decoder.decode(TatumV4PortfolioResponse.self, from: data)
         
-        print("🔍 Found \(portfolioResponse.result.count) balance items")
+        Self.log.debug("Found \(portfolioResponse.result.count) balance items")
         
         // Find native balance
         if let nativeBalance = portfolioResponse.result.first(where: { $0.type == "native" }) {
             let balance = Double(nativeBalance.balance) ?? 0.0
-            print("✅ Native balance found: \(balance)")
+            Self.log.debug("Native balance found: \(balance)")
             return balance
         } else {
-            print("⚠️ No native balance found")
+            Self.log.info("No native balance found")
             return 0.0
         }
     }
@@ -147,17 +141,17 @@ final class BalanceService {
             throw TatumError.invalidURL
         }
         
-        print("🪙 Fetching v4 token balance from: \(request.url?.absoluteString ?? "")")
-        print("   Looking for symbol: \(symbol)")
+        Self.log.debug("Fetching v4 token balance from: \(request.url?.absoluteString ?? "")")
+        Self.log.debug("Looking for symbol: \(symbol)")
         
         let (data, _) = try await client.performRequest(request)
         
-        print("📄 V4 token balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
+        Self.log.debug("V4 token balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
         
         let decoder = JSONDecoder()
         let portfolioResponse = try decoder.decode(TatumV4PortfolioResponse.self, from: data)
         
-        print("🔍 Found \(portfolioResponse.result.count) token balances")
+        Self.log.debug("Found \(portfolioResponse.result.count) token balances")
         
         // Find matching token by symbol
         let matchingToken = portfolioResponse.result.first { balance in
@@ -166,10 +160,10 @@ final class BalanceService {
         
         if let token = matchingToken {
             let balance = Double(token.balance) ?? 0.0
-            print("✅ Found matching token: \(token.tokenSymbol ?? "unknown"), Balance: \(balance)")
+            Self.log.debug("Found matching token: \(token.tokenSymbol ?? "unknown"), Balance: \(balance)")
             return balance
         } else {
-            print("⚠️ No matching token found for symbol: \(symbol)")
+            Self.log.info("No matching token found for symbol: \(symbol)")
             return 0.0
         }
     }
@@ -177,7 +171,7 @@ final class BalanceService {
     // MARK: - Legacy Balance Fetching
     private func fetchLegacyBalance(chainId: String, address: String, symbol: String) async throws -> Double {
         // Fallback to legacy API for chains not supported by v4
-        print("⚠️ Using legacy API for chain: \(chainId)")
+        Self.log.info("Using legacy API for chain: \(chainId)")
         return 0.0 // Implement if needed
     }
     
@@ -195,7 +189,7 @@ final class BalanceService {
         case "DOGE":
             path = "/dogecoin/address/balance/\(address)"
         default:
-            print("❌ Unsupported UTXO chain: \(chainId)")
+            Self.log.error("Unsupported UTXO chain: \(chainId)")
             throw TatumError.unsupportedChain(chainId)
         }
         
@@ -203,21 +197,18 @@ final class BalanceService {
             throw TatumError.invalidURL
         }
         
-        print("₿ Fetching UTXO balance from: \(request.url?.absoluteString ?? "")")
+        Self.log.debug("Fetching UTXO balance from: \(request.url?.absoluteString ?? "")")
         
         let (data, _) = try await client.performRequest(request)
         
-        print("📄 UTXO balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
+        Self.log.debug("UTXO balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
         
         let decoder = JSONDecoder()
         let balanceResponse = try decoder.decode(TatumUTXOBalance.self, from: data)
         
         // Use confirmed balance (incoming - outgoing, excluding pending)
         let balance = balanceResponse.confirmedBalance
-        print("✅ UTXO balance decoded:")
-        print("   Incoming: \(balanceResponse.incoming)")
-        print("   Outgoing: \(balanceResponse.outgoing)")
-        print("   Confirmed balance: \(balance)")
+        Self.log.debug("UTXO balance decoded - Incoming: \(balanceResponse.incoming), Outgoing: \(balanceResponse.outgoing), Confirmed balance: \(balance)")
         
         return balance
     }
@@ -231,70 +222,39 @@ final class BalanceService {
             return try await fetchTRXBalance(address: address, symbol: symbol)
         case "ADA":
             return try await fetchADABalance(address: address)
+        case "SOL":
+            return try await fetchSOLBalance(address: address)
         default:
-            print("❌ Unsupported other chain: \(chainId)")
+            Self.log.error("Unsupported other chain: \(chainId)")
             throw TatumError.unsupportedChain(chainId)
         }
     }
     
     // MARK: - XRP Balance Fetching (v3 API)
     private func fetchXRPBalance(address: String) async throws -> Double {
-        print("💎 Fetching XRP balance using v3 API for address: \(address)")
+        Self.log.debug("Fetching XRP balance using v3 API for address: \(address)")
         
-        guard let request = client.createV3Request(path: "/xrp/account/tx/\(address)") else {
+        guard let request = client.createV3Request(path: "/xrp/account/\(address)/balance") else {
             throw TatumError.invalidURL
         }
         
         let (data, _) = try await client.performRequest(request)
         
-        print("📄 XRP balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
+        Self.log.debug("XRP balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
         
         let decoder = JSONDecoder()
-        let xrpResponse = try decoder.decode(XRPAccountResponse.self, from: data)
+        let xrpBalanceResponse = try decoder.decode(TatumXRPBalanceResponse.self, from: data)
         
-        // Get the most recent balance from the latest transaction
-        let balance = extractXRPBalance(from: xrpResponse, targetAddress: address)
+        let balance = xrpBalanceResponse.balanceInXRP
+        Self.log.debug("XRP balance extracted: \(balance) XRP (from \(xrpBalanceResponse.balance) drops)")
         
-        print("✅ XRP balance extracted: \(balance)")
         return balance
     }
     
-    private func extractXRPBalance(from response: XRPAccountResponse, targetAddress: String) -> Double {
-        guard let firstTransaction = response.transactions.first else {
-            print("⚠️ No transactions found, returning 0 balance")
-            return 0.0
-        }
-        
-        // Look for the target address in the transaction metadata
-        for affectedNode in firstTransaction.meta.affectedNodes {
-            if let modifiedNode = affectedNode.modifiedNode,
-               modifiedNode.finalFields.account == targetAddress {
-                let balanceString = modifiedNode.finalFields.balance
-                let balanceDrops = Double(balanceString) ?? 0
-                let balanceXRP = balanceDrops / 1_000_000 // Convert drops to XRP
-                print("💎 Found XRP balance in modified node: \(balanceXRP) XRP")
-                return balanceXRP
-            }
-            
-            if let createdNode = affectedNode.createdNode,
-               createdNode.newFields.account == targetAddress {
-                let balanceString = createdNode.newFields.balance
-                let balanceDrops = Double(balanceString) ?? 0
-                let balanceXRP = balanceDrops / 1_000_000 // Convert drops to XRP
-                print("💎 Found XRP balance in created node: \(balanceXRP) XRP")
-                return balanceXRP
-            }
-        }
-        
-        print("⚠️ Could not find balance for address \(targetAddress) in transaction metadata")
-        return 0.0
-    }
     
     // MARK: - TRX Balance Fetching (v3 API)
     private func fetchTRXBalance(address: String, symbol: String) async throws -> Double {
-        print("🚀 Fetching TRX balance using v3 API:")
-        print("   Address: \(address)")
-        print("   Symbol: \(symbol)")
+        Self.log.debug("Fetching TRX balance using v3 API - Address: \(address), Symbol: \(symbol)")
         
         guard let request = client.createV3Request(path: "/tron/account/\(address)") else {
             throw TatumError.invalidURL
@@ -302,7 +262,7 @@ final class BalanceService {
         
         let (data, _) = try await client.performRequest(request)
         
-        print("📄 TRX balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
+        Self.log.debug("TRX balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
         
         let decoder = JSONDecoder()
         let trxResponse = try decoder.decode(TRXAccountResponse.self, from: data)
@@ -311,11 +271,11 @@ final class BalanceService {
         if symbol.uppercased() == "TRX" {
             // Native TRX balance
             balance = trxResponse.balanceTRX
-            print("✅ Native TRX balance extracted: \(balance)")
+            Self.log.debug("Native TRX balance extracted: \(balance)")
         } else {
             // TRC20 token balance
             balance = trxResponse.getTokenBalance(symbol: symbol)
-            print("✅ TRC20 \(symbol) balance extracted: \(balance)")
+            Self.log.debug("TRC20 \(symbol) balance extracted: \(balance)")
         }
         
         return balance
@@ -323,8 +283,7 @@ final class BalanceService {
     
     // MARK: - ADA Balance Fetching (v3 API)
     private func fetchADABalance(address: String) async throws -> Double {
-        print("🔷 Fetching ADA balance using v3 API:")
-        print("   Address: \(address)")
+        Self.log.debug("Fetching ADA balance using v3 API for address: \(address)")
         
         guard let request = client.createV3Request(path: "/ada/account/\(address)") else {
             throw TatumError.invalidURL
@@ -332,7 +291,7 @@ final class BalanceService {
         
         let (data, _) = try await client.performRequest(request)
         
-        print("📄 ADA balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
+        Self.log.debug("ADA balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
         
         let decoder = JSONDecoder()
         let adaBalanceArray = try decoder.decode([TatumADABalanceResponse].self, from: data)
@@ -340,12 +299,32 @@ final class BalanceService {
         // Find ADA balance (should be first and only item for native ADA)
         if let adaBalance = adaBalanceArray.first(where: { $0.currency.symbol.uppercased() == "ADA" }) {
             let balance = adaBalance.humanReadableBalance
-            print("✅ Native ADA balance extracted: \(balance)")
-            print("   Raw balance (lovelace): \(adaBalance.value)")
+            Self.log.debug("Native ADA balance extracted: \(balance) (Raw balance lovelace: \(adaBalance.value))")
             return balance
         } else {
-            print("⚠️ No ADA balance found in response")
+            Self.log.info("No ADA balance found in response")
             return 0.0
         }
+    }
+    
+    // MARK: - SOL Balance Fetching (v3 API)
+    private func fetchSOLBalance(address: String) async throws -> Double {
+        Self.log.debug("Fetching SOL balance using v3 API for address: \(address)")
+        
+        guard let request = client.createV3Request(path: "/solana/account/balance/\(address)") else {
+            throw TatumError.invalidURL
+        }
+        
+        let (data, _) = try await client.performRequest(request)
+        
+        Self.log.debug("SOL balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
+        
+        let decoder = JSONDecoder()
+        let solResponse = try decoder.decode(TatumSOLBalanceResponse.self, from: data)
+        
+        let balance = solResponse.solBalance
+        Self.log.debug("Native SOL balance extracted: \(balance) SOL")
+        
+        return balance
     }
 }

@@ -113,9 +113,23 @@ struct GoalsList: View {
     let onDelete: (Goal) -> Void
     let onRefresh: () async -> Void
     @State private var editingGoal: Goal?
+    @State private var monthlyPlanningViewModel: MonthlyPlanningViewModel?
+    @Environment(\.modelContext) private var modelContext
     
     var body: some View {
         List {
+            // Portfolio-wide Monthly Planning Widget  
+            if !goals.isEmpty {
+                Section {
+                    if let viewModel = monthlyPlanningViewModel {
+                        MonthlyPlanningWidget(viewModel: viewModel)
+                    }
+                }
+                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+            
             Section("Your Goals") {
                 if goals.isEmpty {
                     EmptyGoalsView {
@@ -163,9 +177,18 @@ struct GoalsList: View {
         }
         .onAppear {
             setupShortcuts()
+            // Create the monthly planning view model with model context
+            if monthlyPlanningViewModel == nil {
+                monthlyPlanningViewModel = MonthlyPlanningViewModel(modelContext: modelContext)
+            }
         }
         .sheet(item: $editingGoal) { goal in
             EditGoalView(goal: goal, modelContext: goal.modelContext!)
+                #if os(macOS)
+                .presentationDetents([.large])
+                #else
+                .presentationDetents([.large])
+                #endif
         }
     }
     

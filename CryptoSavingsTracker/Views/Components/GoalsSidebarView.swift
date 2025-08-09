@@ -16,16 +16,42 @@ struct GoalsSidebarView: View {
     @State private var editingGoal: Goal?
     
     var body: some View {
-        List(goals, selection: $selectedGoal) { goal in
-            GoalSidebarRow(goal: goal)
-                .tag(goal)
-                .contextMenu {
-                    GoalSidebarContextMenu(
-                        goal: goal, 
-                        onDelete: { deleteGoal(goal) },
-                        onEdit: { editingGoal = goal }
-                    )
+        List(selection: $selectedGoal) {
+            // Portfolio Overview Section
+            Section {
+                Button(action: {
+                    print("DEBUG: Portfolio Overview button clicked!")
+                    selectedGoal = nil
+                }) {
+                    HStack {
+                        Image(systemName: "chart.pie.fill")
+                            .foregroundColor(.blue)
+                        Text("📊 Portfolio Overview")
+                            .foregroundColor(.primary)
+                            .fontWeight(.semibold)
+                        Spacer()
+                    }
+                    .padding(.vertical, 12)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
                 }
+                .buttonStyle(PlainButtonStyle())
+            }
+            
+            // Individual Goals Section  
+            Section("Your Goals") {
+                ForEach(goals) { goal in
+                    GoalSidebarRow(goal: goal)
+                        .tag(goal)
+                        .contextMenu {
+                            GoalSidebarContextMenu(
+                                goal: goal, 
+                                onDelete: { deleteGoal(goal) },
+                                onEdit: { editingGoal = goal }
+                            )
+                        }
+                }
+            }
         }
         .navigationTitle("Goals")
         .toolbar {
@@ -38,6 +64,11 @@ struct GoalsSidebarView: View {
         }
         .sheet(item: $editingGoal) { goal in
             EditGoalView(goal: goal, modelContext: modelContext)
+                #if os(macOS)
+                .presentationDetents([.large])
+                #else
+                .presentationDetents([.large])
+                #endif
         }
     }
     

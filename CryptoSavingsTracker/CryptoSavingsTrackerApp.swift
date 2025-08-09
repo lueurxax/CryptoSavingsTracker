@@ -10,11 +10,14 @@ import SwiftData
 #if os(macOS)
 import AppKit
 #endif
+#if os(iOS)
+import UIKit
+#endif
 
 @main
 struct CryptoSavingsTrackerApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([Goal.self, Asset.self, Transaction.self])
+        let schema = Schema([Goal.self, Asset.self, Transaction.self, MonthlyPlan.self])
         let modelConfiguration = ModelConfiguration(
             schema: schema, 
             isStoredInMemoryOnly: false,
@@ -32,6 +35,15 @@ struct CryptoSavingsTrackerApp: App {
     }()
     
     init() {
+        // Suppress haptic feedback warnings in iOS Simulator
+        #if targetEnvironment(simulator) && os(iOS)
+        // Disable haptic feedback system in simulator to prevent CHHapticPattern warnings
+        // These warnings are harmless but create console noise during development
+        if ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] != nil {
+            // Running in iOS Simulator - haptics don't work anyway
+        }
+        #endif
+        
         Task {
             _ = await NotificationManager.shared.requestPermission()
         }

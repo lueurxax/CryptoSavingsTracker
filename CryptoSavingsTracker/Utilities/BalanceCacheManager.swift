@@ -37,8 +37,11 @@ final class BalanceCacheManager {
     private var transactionsCache: [String: TransactionsCacheEntry] = [:]
     private let cacheQueue = DispatchQueue(label: "com.cryptosavings.cache", attributes: .concurrent)
     
-    // Cache duration in seconds (15 minutes default)
-    private let cacheDuration: TimeInterval = 15 * 60
+    // Cache duration in seconds (15 minutes default for balances)
+    private let balanceCacheDuration: TimeInterval = 15 * 60
+    
+    // Cache duration for transactions (1 hour - transactions change less frequently)
+    private let transactionsCacheDuration: TimeInterval = 60 * 60
     
     // Minimum time between API calls for the same resource (60 seconds)
     private let minimumRefreshInterval: TimeInterval = 60
@@ -61,7 +64,7 @@ final class BalanceCacheManager {
             let entry = BalanceCacheEntry(
                 balance: balance,
                 timestamp: Date(),
-                expiresAt: Date().addingTimeInterval(self.cacheDuration)
+                expiresAt: Date().addingTimeInterval(self.balanceCacheDuration)
             )
             self.balanceCache[key] = entry
         }
@@ -92,12 +95,18 @@ final class BalanceCacheManager {
         }
     }
     
+    func getAnyTransactions(for key: String) -> [TatumTransaction]? {
+        cacheQueue.sync {
+            return transactionsCache[key]?.transactions
+        }
+    }
+    
     func cacheTransactions(_ transactions: [TatumTransaction], for key: String) {
         cacheQueue.async(flags: .barrier) {
             let entry = TransactionsCacheEntry(
                 transactions: transactions,
                 timestamp: Date(),
-                expiresAt: Date().addingTimeInterval(self.cacheDuration)
+                expiresAt: Date().addingTimeInterval(self.transactionsCacheDuration)
             )
             self.transactionsCache[key] = entry
         }
@@ -125,7 +134,11 @@ final class BalanceCacheManager {
     }
     
     // Generate cache key for transactions
-    static func transactionsCacheKey(chainId: String, address: String) -> String {
-        return "transactions_\(chainId)_\(address)".lowercased()
+    static func transactionsCacheKey(chainId: String, address: String, currency: String? = nil) -> String {
+        if let currency = currency {
+            return "transactions_\(chainId)_\(address)_\(currency)".lowercased()
+        } else {
+            return "transactions_\(chainId)_\(address)".lowercased()
+        }
     }
 }

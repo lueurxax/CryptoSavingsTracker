@@ -99,7 +99,7 @@ extension Goal {
             newDaysRemaining: newDaysRemaining,
             oldTargetAmount: snapshot.targetAmount,
             newTargetAmount: targetAmount,
-            significantChange: abs(newProgress - oldProgress) > 0.1 || abs(newDailyTarget - oldDailyTarget) > 50
+            significantChange: Swift.abs(newProgress - oldProgress) > 0.1 || Swift.abs(newDailyTarget - oldDailyTarget) > 50
         )
     }
     

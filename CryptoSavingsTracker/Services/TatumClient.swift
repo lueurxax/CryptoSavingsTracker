@@ -15,6 +15,7 @@ final class TatumClient {
     private let apiKey: String
     let baseURL = "https://api.tatum.io/v3"
     let v4BaseURL = "https://api.tatum.io/v4"
+    let solanaRPCURL = "https://api.mainnet-beta.solana.com"
     private static let log = Logger(subsystem: "xax.CryptoSavingsTracker", category: "TatumClient")
     
     init() {
@@ -33,20 +34,17 @@ final class TatumClient {
     
     // MARK: - HTTP Request Methods
     func performRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
-        print("🌐 Performing HTTP request:")
-        print("   URL: \(request.url?.absoluteString ?? "nil")")
-        print("   Method: \(request.httpMethod ?? "GET")")
+        Self.log.debug("Performing HTTP request - URL: \(request.url?.absoluteString ?? "nil"), Method: \(request.httpMethod ?? "GET")")
         
         guard !apiKey.isEmpty && apiKey != "YOUR_TATUM_API_KEY" else {
-            print("❌ Missing or invalid API key")
+            Self.log.error("Missing or invalid API key")
             throw TatumError.missingAPIKey
         }
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
-        print("📡 HTTP response received:")
-        print("   Status: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
-        print("   Data size: \(data.count) bytes")
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+        Self.log.debug("HTTP response received - Status: \(statusCode), Data size: \(data.count) bytes")
         
         try validateResponse(response)
         return (data, response)
@@ -60,7 +58,7 @@ final class TatumClient {
         }
         
         guard let url = components?.url else {
-            print("❌ Invalid V3 URL: \(urlString)")
+            Self.log.error("Invalid V3 URL: \(urlString)")
             return nil
         }
         
@@ -78,7 +76,7 @@ final class TatumClient {
         }
         
         guard let url = components?.url else {
-            print("❌ Invalid V4 URL: \(urlString)")
+            Self.log.error("Invalid V4 URL: \(urlString)")
             return nil
         }
         
@@ -96,7 +94,7 @@ final class TatumClient {
         }
         
         guard let url = components?.url else {
-            print("❌ Invalid legacy URL: \(urlString)")
+            Self.log.error("Invalid legacy URL: \(urlString)")
             return nil
         }
         
@@ -106,32 +104,53 @@ final class TatumClient {
         return request
     }
     
+    func createSolanaRPCRequest(method: String, params: [SolanaRPCParam]) -> URLRequest? {
+        guard let url = URL(string: self.solanaRPCURL) else {
+            Self.log.error("Invalid Solana RPC URL: \(self.solanaRPCURL)")
+            return nil
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let rpcRequest = SolanaRPCRequest(method: method, params: params)
+        
+        do {
+            let jsonData = try JSONEncoder().encode(rpcRequest)
+            request.httpBody = jsonData
+        } catch {
+            Self.log.error("Failed to encode Solana RPC request: \(error)")
+            return nil
+        }
+        
+        return request
+    }
+    
     // MARK: - Response Validation
     private func validateResponse(_ response: URLResponse) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
-            print("❌ Response validation failed: Not an HTTP response")
+            Self.log.error("Response validation failed: Not an HTTP response")
             throw TatumError.invalidResponse
         }
         
-        print("🔍 Validating HTTP response:")
-        print("   Status code: \(httpResponse.statusCode)")
-        print("   Headers: \(httpResponse.allHeaderFields)")
+        Self.log.debug("Validating HTTP response - Status code: \(httpResponse.statusCode)")
         
         switch httpResponse.statusCode {
         case 200...299:
-            print("✅ HTTP response validation passed")
+            Self.log.debug("HTTP response validation passed")
             return
         case 401:
-            print("❌ HTTP 401 Unauthorized - API key may be invalid")
+            Self.log.error("HTTP 401 Unauthorized - API key may be invalid")
             throw TatumError.unauthorized
         case 403:
-            print("❌ HTTP 403 Forbidden - Rate limit exceeded or access denied")
+            Self.log.error("HTTP 403 Forbidden - Rate limit exceeded or access denied")
             throw TatumError.rateLimitExceeded
         case 404:
-            print("❌ HTTP 404 Not Found - Address or endpoint not found")
+            Self.log.error("HTTP 404 Not Found - Address or endpoint not found")
             throw TatumError.notFound
         default:
-            print("❌ HTTP \(httpResponse.statusCode) - Unexpected status code")
+            Self.log.error("HTTP \(httpResponse.statusCode) - Unexpected status code")
             throw TatumError.httpError(httpResponse.statusCode)
         }
     }
