@@ -4,18 +4,33 @@
 
 ## 🎯 Goal Display Components
 
-### Primary Components
-- **`GoalRowView`** - iOS goal list row display
+### ✨ NEW: Unified Components (Phase 1 Complete)
+- **`UnifiedGoalRowView`** - Single cross-platform goal row component
+  - **File**: `/Views/Shared/UnifiedGoalRowView.swift`
+  - **Platform**: Universal (iOS, macOS, visionOS)
+  - **Features**: Style-based configuration (.detailed, .compact, .minimal), emoji, progress bar, status badges, description preview
+  - **Dependencies**: `GoalRowViewModel`, `GoalCalculationService`, `AccessibleColors`
+
+- **`GoalRowViewModel`** - Business logic for goal row display
+  - **File**: `/ViewModels/GoalRowViewModel.swift`
+  - **Platform**: Universal
+  - **Features**: Currency-converted progress calculation, status badges, progress animations
+  - **Dependencies**: `GoalCalculationService`, `AccessibleColors`
+
+### Legacy Components (Being Replaced)
+- **`GoalRowView`** - iOS goal list row display *(Legacy)*
   - **File**: `/Views/GoalsListView.swift:183`
   - **Platform**: iOS 
   - **Features**: Emoji, progress bar, status badges, description preview
   - **Dependencies**: `GoalCalculationService`, `AccessibleColors`
+  - **Status**: ⚠️ Being replaced by `UnifiedGoalRowView`
 
-- **`GoalSidebarRow`** - macOS sidebar goal entry
+- **`GoalSidebarRow`** - macOS sidebar goal entry *(Legacy)*
   - **File**: `/Views/Components/GoalsSidebarView.swift:89`
   - **Platform**: macOS
   - **Features**: Emoji, progress bar, progress percentage
   - **Dependencies**: `GoalCalculationService`
+  - **Status**: ⚠️ Being replaced by `UnifiedGoalRowView`
 
 ### Supporting Components
 - **`GoalRowIconView`** - Emoji/icon display

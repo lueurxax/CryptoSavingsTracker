@@ -27,6 +27,9 @@ protocol PlatformCapabilities {
     /// Whether the platform supports gesture navigation
     var supportsGestureNavigation: Bool { get }
     
+    /// Whether the platform supports haptic feedback
+    var supportsHapticFeedback: Bool { get }
+    
     /// Default padding for the platform
     var defaultPadding: CGFloat { get }
     
@@ -38,14 +41,65 @@ protocol PlatformCapabilities {
     
     /// Navigation style preference
     var navigationStyle: NavigationStylePreference { get }
+    
+    /// Modal presentation style preference
+    var modalPresentationStyle: ModalPresentationStyle { get }
+    
+    /// Window management capabilities
+    var windowCapabilities: WindowCapabilities { get }
 }
 
-// MARK: - Navigation Style Preference
+// MARK: - Supporting Types
 
 enum NavigationStylePreference {
     case stack          // iPhone-style navigation
     case splitView      // iPad/macOS-style navigation
     case tabs           // Tab-based navigation
+}
+
+enum ModalPresentationStyle {
+    case sheet          // Full screen or form sheet
+    case popover        // Small contextual overlay
+    case fullScreen     // Complete takeover
+}
+
+struct WindowCapabilities {
+    let supportsMultiple: Bool
+    let supportsResizing: Bool
+    let supportsMinimumSize: Bool
+    let defaultSize: (width: CGFloat, height: CGFloat)?
+}
+
+enum HapticStyle {
+    case light
+    case medium
+    case heavy
+    
+    #if os(iOS)
+    func mapToHapticManager() -> HapticManager.ImpactStyle {
+        switch self {
+        case .light: return .light
+        case .medium: return .medium
+        case .heavy: return .heavy
+        }
+    }
+    #endif
+}
+
+enum HapticNotificationType {
+    case success
+    case warning
+    case error
+    
+    #if os(iOS)
+    func mapToHapticManager() -> HapticManager.NotificationType {
+        switch self {
+        case .success: return .success
+        case .warning: return .warning
+        case .error: return .error
+        }
+    }
+    #endif
 }
 
 // MARK: - Platform Implementations
@@ -57,11 +111,26 @@ struct iOSCapabilities: PlatformCapabilities {
     var supportsHoverStates: Bool { false }
     var supportsWidgets: Bool { true }
     var supportsGestureNavigation: Bool { true }
+    var supportsHapticFeedback: Bool { true }
     var defaultPadding: CGFloat { 16 }
     var minTouchTargetSize: CGFloat { 44 }
     var defaultAnimationDuration: Double { 0.3 }
+    
     var navigationStyle: NavigationStylePreference {
         UIDevice.current.userInterfaceIdiom == .pad ? .splitView : .stack
+    }
+    
+    var modalPresentationStyle: ModalPresentationStyle {
+        UIDevice.current.userInterfaceIdiom == .pad ? .popover : .sheet
+    }
+    
+    var windowCapabilities: WindowCapabilities {
+        WindowCapabilities(
+            supportsMultiple: UIDevice.current.userInterfaceIdiom == .pad,
+            supportsResizing: false,
+            supportsMinimumSize: false,
+            defaultSize: nil
+        )
     }
 }
 #endif
@@ -73,10 +142,23 @@ struct macOSCapabilities: PlatformCapabilities {
     var supportsHoverStates: Bool { true }
     var supportsWidgets: Bool { false }
     var supportsGestureNavigation: Bool { false }
+    var supportsHapticFeedback: Bool { false }
     var defaultPadding: CGFloat { 20 }
     var minTouchTargetSize: CGFloat { 32 }
     var defaultAnimationDuration: Double { 0.2 }
+    
     var navigationStyle: NavigationStylePreference { .splitView }
+    
+    var modalPresentationStyle: ModalPresentationStyle { .sheet }
+    
+    var windowCapabilities: WindowCapabilities {
+        WindowCapabilities(
+            supportsMultiple: true,
+            supportsResizing: true,
+            supportsMinimumSize: true,
+            defaultSize: (width: 900, height: 600)
+        )
+    }
 }
 #endif
 
@@ -87,10 +169,23 @@ struct visionOSCapabilities: PlatformCapabilities {
     var supportsHoverStates: Bool { true }
     var supportsWidgets: Bool { false }
     var supportsGestureNavigation: Bool { true }
+    var supportsHapticFeedback: Bool { false }
     var defaultPadding: CGFloat { 24 }
     var minTouchTargetSize: CGFloat { 48 }
     var defaultAnimationDuration: Double { 0.4 }
+    
     var navigationStyle: NavigationStylePreference { .splitView }
+    
+    var modalPresentationStyle: ModalPresentationStyle { .fullScreen }
+    
+    var windowCapabilities: WindowCapabilities {
+        WindowCapabilities(
+            supportsMultiple: true,
+            supportsResizing: true,
+            supportsMinimumSize: true,
+            defaultSize: (width: 1000, height: 700)
+        )
+    }
 }
 #endif
 
@@ -134,6 +229,40 @@ class PlatformManager: ObservableObject {
     /// Get minimum touch target modifier
     func minTouchTarget() -> some ViewModifier {
         return MinTouchTargetModifier(minSize: capabilities.minTouchTargetSize)
+    }
+    
+    /// Provide haptic feedback if supported by the platform
+    func hapticFeedback(_ style: HapticStyle = .light) {
+        guard capabilities.supportsHapticFeedback else { return }
+        
+        #if os(iOS)
+        HapticManager.shared.impact(style.mapToHapticManager())
+        #endif
+    }
+    
+    /// Provide notification feedback if supported by the platform
+    func hapticNotification(_ type: HapticNotificationType) {
+        guard capabilities.supportsHapticFeedback else { return }
+        
+        #if os(iOS)
+        HapticManager.shared.notification(type.mapToHapticManager())
+        #endif
+    }
+    
+    /// Get platform-appropriate presentation modifier
+    func presentationStyle<Content: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Content) -> some View {
+        switch capabilities.modalPresentationStyle {
+        case .sheet:
+            return AnyView(EmptyView().sheet(isPresented: isPresented, content: content))
+        case .popover:
+            return AnyView(EmptyView().popover(isPresented: isPresented, content: content))
+        case .fullScreen:
+            #if os(iOS)
+            return AnyView(EmptyView().fullScreenCover(isPresented: isPresented, content: content))
+            #else
+            return AnyView(EmptyView().sheet(isPresented: isPresented, content: content))
+            #endif
+        }
     }
 }
 
@@ -210,5 +339,50 @@ extension View {
     func platformAnimation<T: Equatable>(value: T) -> some View {
         let platform = PlatformManager.shared
         return self.animation(platform.animation(), value: value)
+    }
+    
+    /// Add platform-appropriate haptic feedback on value change
+    func platformHaptic<T: Equatable>(_ style: HapticStyle = .light, on trigger: T) -> some View {
+        let platform = PlatformManager.shared
+        return self.onChange(of: trigger) { _, _ in
+            platform.hapticFeedback(style)
+        }
+    }
+    
+    /// Add success haptic feedback on value change
+    func platformSuccessHaptic<T: Equatable>(on trigger: T) -> some View {
+        let platform = PlatformManager.shared
+        return self.onChange(of: trigger) { _, _ in
+            platform.hapticNotification(.success)
+        }
+    }
+    
+    /// Add error haptic feedback on value change
+    func platformErrorHaptic<T: Equatable>(on trigger: T) -> some View {
+        let platform = PlatformManager.shared
+        return self.onChange(of: trigger) { _, _ in
+            platform.hapticNotification(.error)
+        }
+    }
+    
+    /// Present modal using platform-appropriate style
+    func platformModal<Content: View>(
+        isPresented: Binding<Bool>,
+        @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
+        @Environment(\.platformCapabilities) var platform
+        
+        switch platform.modalPresentationStyle {
+        case .sheet:
+            return AnyView(self.sheet(isPresented: isPresented, content: content))
+        case .popover:
+            return AnyView(self.popover(isPresented: isPresented, content: content))
+        case .fullScreen:
+            #if os(iOS)
+            return AnyView(self.fullScreenCover(isPresented: isPresented, content: content))
+            #else
+            return AnyView(self.sheet(isPresented: isPresented, content: content))
+            #endif
+        }
     }
 }

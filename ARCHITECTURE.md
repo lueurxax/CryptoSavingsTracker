@@ -111,10 +111,10 @@ When you need to modify goal display logic:
 
 | Status | Component | Notes |
 |--------|-----------|-------|
-| ❌ **Duplicated** | Goal row display logic | iOS vs macOS use different components |
+| ✅ **Unified (Phase 1)** | Goal row display logic | `UnifiedGoalRowView` with `GoalRowViewModel` |
 | ✅ **Unified** | Progress calculation | Uses GoalCalculationService |
 | ✅ **Unified** | Emoji/description data | Shared Goal model properties |
-| ⚠️ **Partial** | Platform abstraction | ContentView switching but not complete |
+| ✅ **Enhanced (Phase 2)** | Platform abstraction | Enhanced `PlatformCapabilities` with modal styles, haptics, window management |
 
 ---
 
