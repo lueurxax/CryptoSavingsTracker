@@ -100,6 +100,59 @@ struct GoalDetailView: View {
                             .foregroundColor(.secondary)
                         Spacer()
                     }
+                    
+                    // Description section (if exists)
+                    if let description = goal.goalDescription, !description.isEmpty {
+                        Divider()
+                            .padding(.vertical, 4)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "doc.text")
+                                    .foregroundColor(.accessibleSecondary)
+                                Text("Description")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.accessibleSecondary)
+                                Spacer()
+                            }
+                            
+                            Text(description)
+                                .font(.callout)
+                                .foregroundColor(.primary)
+                        }
+                    }
+                    
+                    // Link section (if exists)
+                    if let linkString = goal.link, !linkString.isEmpty, let url = URL(string: linkString.contains("://") ? linkString : "https://\(linkString)") {
+                        Divider()
+                            .padding(.vertical, 4)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "link")
+                                    .foregroundColor(.accessibleSecondary)
+                                Text("Link")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.accessibleSecondary)
+                                Spacer()
+                            }
+                            
+                            Link(destination: url) {
+                                HStack {
+                                    Text(url.host ?? linkString)
+                                        .font(.callout)
+                                        .foregroundColor(.accessiblePrimary)
+                                        .lineLimit(1)
+                                    
+                                    Image(systemName: "arrow.up.right.square")
+                                        .font(.caption2)
+                                        .foregroundColor(.accessiblePrimary)
+                                }
+                            }
+                        }
+                    }
                 }
                 .padding(16)
                 .background(.regularMaterial)

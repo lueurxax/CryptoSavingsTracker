@@ -16,6 +16,7 @@ struct GoalsListContainer: View {
     @Binding var selectedView: DetailViewType
     @Environment(\.modelContext) private var modelContext
     @State private var editingGoal: Goal?
+    @State private var refreshTrigger = UUID()
     
     var body: some View {
         NavigationStack {
@@ -28,7 +29,7 @@ struct GoalsListContainer: View {
                     } else {
                         ForEach(goals) { goal in
                             NavigationLink(destination: DetailContainerView(goal: goal, selectedView: $selectedView)) {
-                                GoalRowView(goal: goal)
+                                GoalRowView(goal: goal, refreshTrigger: refreshTrigger)
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button("Delete", role: .destructive) {

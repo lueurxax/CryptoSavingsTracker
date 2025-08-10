@@ -18,6 +18,7 @@ class GoalEditViewModel: ObservableObject {
     @Published var validationErrors: [String] = []
     @Published var isSaving: Bool = false
     @Published var showingImpactPreview: Bool = false
+    @Published var showingEmojiPicker: Bool = false
     
     // MARK: - Private Properties
     private let originalSnapshot: GoalSnapshot
@@ -64,9 +65,21 @@ class GoalEditViewModel: ObservableObject {
             .store(in: &cancellables)
     }
     
+    // Manual change detection trigger for SwiftData properties
+    func triggerChangeDetection() {
+        AppLog.debug("🔄 Manual change detection triggered", category: .goalEdit)
+        updateDirtyState()
+        validateWithDelay()
+    }
+    
     private func updateDirtyState() {
+        let wasDeep = isDirty
         isDirty = goal.hasChanges(from: originalSnapshot)
         showingImpactPreview = isDirty && hasSignificantChanges
+        
+        if isDirty != wasDeep {
+            AppLog.debug("🔄 Dirty state changed: \(wasDeep) → \(isDirty). canSave: \(canSave)", category: .goalEdit)
+        }
     }
     
     private func validateWithDelay() {
@@ -108,13 +121,23 @@ class GoalEditViewModel: ObservableObject {
             // Update modification timestamp
             goal.lastModifiedDate = Date()
             
+            // Log goal save attempt with detailed field values
+            AppLog.debug("💾 About to save goal '\(goal.name)' with fields:", category: .goalEdit)
+            AppLog.debug("  - emoji: '\(String(describing: goal.emoji))'", category: .goalEdit)
+            AppLog.debug("  - goalDescription: '\(String(describing: goal.goalDescription))'", category: .goalEdit)
+            AppLog.debug("  - link: '\(String(describing: goal.link))'", category: .goalEdit)
+            AppLog.debug("  - targetAmount: \(goal.targetAmount)", category: .goalEdit)
+            AppLog.debug("  - deadline: \(goal.deadline)", category: .goalEdit)
+            
             // Save to SwiftData
             try modelContext.save()
             
-            print("✅ Goal '\(goal.name)' saved successfully")
+            // Verify data was saved by re-reading from context
+            AppLog.info("✅ Goal '\(goal.name)' saved successfully", category: .goalEdit)
+            AppLog.debug("📋 After save verification - emoji: '\(String(describing: goal.emoji))', description: '\(String(describing: goal.goalDescription))', link: '\(String(describing: goal.link))'", category: .goalEdit)
             
         } catch {
-            print("❌ Failed to save goal: \(error)")
+            AppLog.error("Failed to save goal: \(error)", category: .goalEdit)
             throw error
         }
     }
@@ -127,17 +150,36 @@ class GoalEditViewModel: ObservableObject {
         goal.startDate = originalSnapshot.startDate
         goal.reminderFrequency = originalSnapshot.reminderFrequency
         goal.reminderTime = originalSnapshot.reminderTime
+        goal.emoji = originalSnapshot.emoji
+        goal.goalDescription = originalSnapshot.goalDescription
+        goal.link = originalSnapshot.link
         
         // Reset state
         isDirty = false
         validationErrors.removeAll()
         showingImpactPreview = false
         
-        print("📝 Goal changes cancelled")
+        AppLog.debug("Goal changes cancelled", category: .goalEdit)
     }
     
     func resetToOriginal() {
         cancel() // Same behavior for now
+    }
+    
+    // MARK: - URL Validation
+    func isValidURL(_ urlString: String) -> Bool {
+        guard !urlString.isEmpty else { return false }
+        
+        // Add https:// if no scheme is present
+        var urlToValidate = urlString
+        if !urlString.contains("://") {
+            urlToValidate = "https://\(urlString)"
+        }
+        
+        guard let url = URL(string: urlToValidate) else { return false }
+        
+        // Check if URL has valid scheme and host
+        return url.scheme != nil && url.host != nil
     }
     
     // MARK: - Archive Operations
@@ -157,10 +199,10 @@ class GoalEditViewModel: ObservableObject {
             // Save
             try modelContext.save()
             
-            print("📦 Goal '\(goal.name)' archived successfully")
+            AppLog.info("Goal '\(goal.name)' archived successfully", category: .goalEdit)
             
         } catch {
-            print("❌ Failed to archive goal: \(error)")
+            AppLog.error("Failed to archive goal: \(error)", category: .goalEdit)
             throw GoalEditError.archiveFailed(error.localizedDescription)
         }
     }
@@ -183,10 +225,10 @@ class GoalEditViewModel: ObservableObject {
             // Save
             try modelContext.save()
             
-            print("📥 Goal '\(goal.name)' restored successfully")
+            AppLog.info("Goal '\(goal.name)' restored successfully", category: .goalEdit)
             
         } catch {
-            print("❌ Failed to restore goal: \(error)")
+            AppLog.error("Failed to restore goal: \(error)", category: .goalEdit)
             throw GoalEditError.restoreFailed(error.localizedDescription)
         }
     }

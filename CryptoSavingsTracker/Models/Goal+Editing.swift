@@ -39,7 +39,10 @@ extension Goal {
                deadline != snapshot.deadline ||
                startDate != snapshot.startDate ||
                reminderFrequency != snapshot.reminderFrequency ||
-               reminderTime != snapshot.reminderTime
+               reminderTime != snapshot.reminderTime ||
+               emoji != snapshot.emoji ||
+               goalDescription != snapshot.goalDescription ||
+               link != snapshot.link
     }
     
     func createSnapshot() -> GoalSnapshot {
@@ -126,6 +129,9 @@ struct GoalSnapshot: Codable {
     let currency: String
     let reminderFrequency: String?
     let reminderTime: Date?
+    let emoji: String?
+    let goalDescription: String?
+    let link: String?
     let capturedAt: Date
     
     init(from goal: Goal) {
@@ -137,6 +143,9 @@ struct GoalSnapshot: Codable {
         self.currency = goal.currency
         self.reminderFrequency = goal.reminderFrequency
         self.reminderTime = goal.reminderTime
+        self.emoji = goal.emoji
+        self.goalDescription = goal.goalDescription
+        self.link = goal.link
         self.capturedAt = Date()
     }
 }

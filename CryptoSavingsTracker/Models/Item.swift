@@ -10,7 +10,7 @@ import Foundation
 
 @Model
 final class Goal {
-    init(name: String, currency: String, targetAmount: Double, deadline: Date, startDate: Date = Date(), frequency: ReminderFrequency = .weekly) {
+    init(name: String, currency: String, targetAmount: Double, deadline: Date, startDate: Date = Date(), frequency: ReminderFrequency = .weekly, emoji: String? = nil, description: String? = nil, link: String? = nil) {
         self.id = UUID()
         self.name = name
         self.currency = currency
@@ -20,6 +20,9 @@ final class Goal {
         self.assets = []
         self.reminderFrequency = frequency.rawValue
         self.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
+        self.emoji = emoji
+        self.goalDescription = description
+        self.link = link
     }
 
     @Attribute(.unique) var id: UUID
@@ -37,6 +40,11 @@ final class Goal {
     var reminderFrequency: String?
     var reminderTime: Date?
     var firstReminderDate: Date?
+    
+    // Visual and metadata properties
+    var emoji: String?
+    var goalDescription: String?
+    var link: String?
     
     @Relationship(deleteRule: .cascade) var assets: [Asset] = []
     
@@ -105,6 +113,47 @@ final class Goal {
     
     var nextReminder: Date? {
         return remainingDates.first
+    }
+    
+    // Helper for smart emoji suggestions
+    static func suggestEmoji(for goalName: String) -> String? {
+        let lowercasedName = goalName.lowercased()
+        
+        // Common goal categories and their emojis
+        let emojiMap: [(keywords: [String], emoji: String)] = [
+            (["house", "home", "apartment", "mortgage", "property"], "🏠"),
+            (["car", "vehicle", "auto", "tesla", "bmw", "mercedes"], "🚗"),
+            (["travel", "vacation", "trip", "holiday", "tour"], "✈️"),
+            (["education", "college", "university", "course", "degree", "school"], "🎓"),
+            (["wedding", "marriage", "engagement"], "💒"),
+            (["baby", "child", "family"], "👶"),
+            (["phone", "iphone", "samsung", "mobile"], "📱"),
+            (["computer", "laptop", "macbook", "pc", "desktop"], "💻"),
+            (["gaming", "playstation", "xbox", "nintendo", "console"], "🎮"),
+            (["watch", "rolex", "timepiece"], "⌚"),
+            (["camera", "photography", "canon", "nikon"], "📷"),
+            (["bike", "bicycle", "cycling"], "🚴"),
+            (["gym", "fitness", "workout", "health"], "💪"),
+            (["business", "startup", "company", "investment"], "💼"),
+            (["retirement", "pension", "future"], "🏖️"),
+            (["emergency", "fund", "safety", "backup"], "🛡️"),
+            (["gift", "present", "birthday", "christmas"], "🎁"),
+            (["music", "guitar", "piano", "instrument"], "🎵"),
+            (["art", "painting", "drawing"], "🎨"),
+            (["boat", "yacht", "sailing"], "⛵"),
+            (["crypto", "bitcoin", "ethereum", "investment"], "₿"),
+            (["stock", "trading", "market"], "📈"),
+            (["save", "saving", "money", "cash"], "💰")
+        ]
+        
+        for (keywords, emoji) in emojiMap {
+            if keywords.contains(where: { lowercasedName.contains($0) }) {
+                return emoji
+            }
+        }
+        
+        // Default fallback
+        return "🎯"
     }
     
     var suggestedDailyDeposit: Double {
