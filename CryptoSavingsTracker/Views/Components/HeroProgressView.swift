@@ -138,8 +138,8 @@ struct HeroProgressView: View {
     private func updateMetrics() async {
         isLoading = true
         
-        let total = await goal.getCurrentTotal()
-        let prog = await goal.getProgress()
+        let total = await GoalCalculationService.getCurrentTotal(for: goal)
+        let prog = await GoalCalculationService.getProgress(for: goal)
         
         await MainActor.run {
             currentTotal = total

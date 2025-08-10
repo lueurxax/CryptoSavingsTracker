@@ -57,8 +57,8 @@ struct GoalDashboardView: View {
     
     @MainActor
     private func updateDashboard() async {
-        dashboardTotal = await goal.getCurrentTotal()
-        dashboardProgress = await goal.getProgress()
+        dashboardTotal = await GoalCalculationService.getCurrentTotal(for: goal)
+        dashboardProgress = await GoalCalculationService.getProgress(for: goal)
     }
 }
 

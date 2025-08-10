@@ -173,8 +173,8 @@ struct GoalComparisonCard: View {
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
         .task {
-            progress = await goal.getProgress()
-            currentTotal = await goal.getCurrentTotal()
+            progress = await GoalCalculationService.getProgress(for: goal)
+            currentTotal = await GoalCalculationService.getCurrentTotal(for: goal)
         }
     }
 }

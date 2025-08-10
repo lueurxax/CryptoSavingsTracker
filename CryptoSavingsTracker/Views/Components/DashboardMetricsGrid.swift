@@ -72,8 +72,8 @@ struct DashboardMetricsGrid: View {
     }
     
     private func updateMetrics() async {
-        let total = await goal.getCurrentTotal()
-        let prog = await goal.getProgress()
+        let total = await GoalCalculationService.getCurrentTotal(for: goal)
+        let prog = await GoalCalculationService.getProgress(for: goal)
         let remaining = goal.targetAmount - total
         let days = max(goal.daysRemaining, 1)
         
