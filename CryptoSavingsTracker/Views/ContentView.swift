@@ -61,8 +61,8 @@ struct iOSContentView: View {
     
     private func refreshGoalData() async {
         for goal in goals {
-            _ = await goal.getCurrentTotal()
-            _ = await goal.getProgress()
+            _ = await GoalCalculationService.getCurrentTotal(for: goal)
+            _ = await GoalCalculationService.getProgress(for: goal)
         }
     }
 }

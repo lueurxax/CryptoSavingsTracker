@@ -30,15 +30,22 @@ final class BalanceService {
                 Self.log.debug("Using cached balance: \(cachedBalance)")
                 return cachedBalance
             }
-        } else {
-            // Check rate limiting even for force refresh
-            if !BalanceCacheManager.shared.canRefreshBalance(for: cacheKey) {
-                if let cachedBalance = BalanceCacheManager.shared.getCachedBalance(for: cacheKey) {
-                    Self.log.info("Rate limited - returning cached balance: \(cachedBalance)")
-                    return cachedBalance
-                }
-            }
         }
+        
+        // Always check rate limiting to prevent API overload
+        if !BalanceCacheManager.shared.canRefreshBalance(for: cacheKey) {
+            // Return any cached balance we have, even if expired
+            if let cachedBalance = BalanceCacheManager.shared.getFallbackBalance(for: cacheKey) {
+                Self.log.info("Rate limited - returning fallback cached balance: \(cachedBalance)")
+                return cachedBalance
+            }
+            // If no cache at all and rate limited, throw error to show proper UI state
+            Self.log.warning("Rate limited with no cached data for \(chainId):\(symbol)")
+            throw TatumError.rateLimitExceeded
+        }
+        
+        // Mark that we're attempting a request
+        BalanceCacheManager.shared.markRequestAttempt(for: cacheKey)
         
         guard let chain = chainService.getChain(by: chainId) else {
             Self.log.error("Unsupported chain: \(chainId)")
@@ -55,8 +62,30 @@ final class BalanceService {
             Self.log.debug("Cached balance: \(balance)")
             
             return balance
+        } catch TatumError.requestCancelled {
+            // Return cached balance on cancellation if available
+            Self.log.debug("Request cancelled, returning cached balance if available")
+            if let cachedBalance = BalanceCacheManager.shared.getFallbackBalance(for: cacheKey) {
+                return cachedBalance
+            }
+            // Throw error to show proper UI state instead of zero
+            throw TatumError.requestCancelled
+        } catch TatumError.rateLimitExceeded {
+            // Always return cached balance on rate limit
+            Self.log.warning("Rate limit exceeded, using cached balance")
+            if let cachedBalance = BalanceCacheManager.shared.getFallbackBalance(for: cacheKey) {
+                return cachedBalance
+            }
+            // Throw error to show proper UI state instead of zero
+            throw TatumError.rateLimitExceeded
         } catch {
             Self.log.error("Error in fetchBalance: \(error)")
+            // Try to return cached balance on any error
+            if let cachedBalance = BalanceCacheManager.shared.getFallbackBalance(for: cacheKey) {
+                Self.log.info("Returning cached balance due to error: \(cachedBalance)")
+                return cachedBalance
+            }
+            // Always throw error to show proper UI state, never return misleading zero
             throw error
         }
     }

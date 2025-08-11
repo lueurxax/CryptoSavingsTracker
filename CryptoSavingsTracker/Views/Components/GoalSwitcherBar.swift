@@ -123,11 +123,11 @@ struct GoalPill: View {
         }
         .buttonStyle(PlainButtonStyle())
         .task {
-            progress = await goal.getProgress()
+            progress = await GoalCalculationService.getProgress(for: goal)
         }
         .onChange(of: goal.assets) { _, _ in
             Task {
-                progress = await goal.getProgress()
+                progress = await GoalCalculationService.getProgress(for: goal)
             }
         }
     }

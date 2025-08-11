@@ -37,14 +37,17 @@ final class BalanceCacheManager {
     private var transactionsCache: [String: TransactionsCacheEntry] = [:]
     private let cacheQueue = DispatchQueue(label: "com.cryptosavings.cache", attributes: .concurrent)
     
-    // Cache duration in seconds (15 minutes default for balances)
-    private let balanceCacheDuration: TimeInterval = 15 * 60
+    // Cache duration in seconds (30 minutes default for balances - increased to reduce API calls)
+    private let balanceCacheDuration: TimeInterval = 30 * 60
     
-    // Cache duration for transactions (1 hour - transactions change less frequently)
-    private let transactionsCacheDuration: TimeInterval = 60 * 60
+    // Cache duration for transactions (2 hours - transactions change less frequently)
+    private let transactionsCacheDuration: TimeInterval = 2 * 60 * 60
     
-    // Minimum time between API calls for the same resource (60 seconds)
-    private let minimumRefreshInterval: TimeInterval = 60
+    // Minimum time between API calls for the same resource (120 seconds - increased to prevent rate limits)
+    private let minimumRefreshInterval: TimeInterval = 120
+    
+    // Track request timestamps to prevent rapid requests
+    private var lastRequestTimes: [String: Date] = [:]
     
     private init() {}
     
@@ -52,10 +55,28 @@ final class BalanceCacheManager {
     
     func getCachedBalance(for key: String) -> Double? {
         cacheQueue.sync {
-            guard let entry = balanceCache[key], !entry.isExpired else {
-                return nil
+            // Return cached balance even if expired if we're rate limited
+            if let entry = balanceCache[key] {
+                // Check if we're too soon after last request attempt
+                if let lastRequest = lastRequestTimes[key],
+                   Date().timeIntervalSince(lastRequest) < minimumRefreshInterval {
+                    // Return cached value regardless of expiry to avoid rate limits
+                    return entry.balance
+                }
+                
+                // Normal cache expiry check
+                if !entry.isExpired {
+                    return entry.balance
+                }
             }
-            return entry.balance
+            return nil
+        }
+    }
+    
+    // Get cached balance without expiry check (for fallback scenarios)
+    func getFallbackBalance(for key: String) -> Double? {
+        cacheQueue.sync {
+            return balanceCache[key]?.balance
         }
     }
     
@@ -72,9 +93,25 @@ final class BalanceCacheManager {
     
     func canRefreshBalance(for key: String) -> Bool {
         cacheQueue.sync {
+            // Check last request time first to prevent rapid requests
+            if let lastRequest = lastRequestTimes[key] {
+                let timeSinceLastRequest = Date().timeIntervalSince(lastRequest)
+                if timeSinceLastRequest < minimumRefreshInterval {
+                    return false
+                }
+            }
+            
+            // Then check cache entry
             guard let entry = balanceCache[key] else { return true }
             let timeSinceLastUpdate = Date().timeIntervalSince(entry.timestamp)
             return timeSinceLastUpdate >= minimumRefreshInterval
+        }
+    }
+    
+    // Mark that a request was attempted (for rate limiting)
+    func markRequestAttempt(for key: String) {
+        cacheQueue.async(flags: .barrier) {
+            self.lastRequestTimes[key] = Date()
         }
     }
     

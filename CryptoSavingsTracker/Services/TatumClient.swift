@@ -18,6 +18,21 @@ final class TatumClient {
     let solanaRPCURL = "https://api.mainnet-beta.solana.com"
     private static let log = Logger(subsystem: "xax.CryptoSavingsTracker", category: "TatumClient")
     
+    // Track active tasks for cancellation
+    private var activeTasks = Set<URLSessionTask>()
+    private let taskQueue = DispatchQueue(label: "com.cryptosavingstracker.tatumclient.tasks")
+    
+    // Rate limiting configuration
+    private let requestQueue = DispatchQueue(label: "com.cryptosavingstracker.tatumclient.requests", attributes: .concurrent)
+    private let requestSemaphore = DispatchSemaphore(value: 5) // Max 5 concurrent requests
+    private var lastRequestTime: Date = Date.distantPast
+    private let minRequestInterval: TimeInterval = 0.1 // 100ms between requests (10 req/sec max)
+    private var rateLimitResetTime: Date?
+    
+    // Retry configuration
+    private let maxRetryAttempts = 3
+    private let baseRetryDelay: TimeInterval = 1.0
+    
     init() {
         apiKey = Self.loadAPIKey()
     }
@@ -41,13 +56,103 @@ final class TatumClient {
             throw TatumError.missingAPIKey
         }
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        // Check if we're in rate limit cooldown
+        if let resetTime = rateLimitResetTime, Date() < resetTime {
+            let waitTime = resetTime.timeIntervalSinceNow
+            Self.log.info("Rate limit in effect, waiting \(String(format: "%.1f", waitTime)) seconds")
+            try await Task.sleep(nanoseconds: UInt64(waitTime * 1_000_000_000))
+        }
         
-        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
-        Self.log.debug("HTTP response received - Status: \(statusCode), Data size: \(data.count) bytes")
+        // Implement retry logic with exponential backoff
+        var lastError: Error?
         
-        try validateResponse(response)
-        return (data, response)
+        for attempt in 0..<maxRetryAttempts {
+            // Rate limiting: ensure minimum interval between requests
+            await enforceRateLimit()
+            
+            do {
+                // Acquire semaphore to limit concurrent requests
+                _ = await withCheckedContinuation { continuation in
+                    requestQueue.async {
+                        self.requestSemaphore.wait()
+                        continuation.resume()
+                    }
+                }
+                
+                defer {
+                    requestSemaphore.signal()
+                }
+                
+                let (data, response) = try await URLSession.shared.data(for: request)
+                
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+                Self.log.debug("HTTP response received - Status: \(statusCode), Data size: \(data.count) bytes")
+                
+                try validateResponse(response)
+                return (data, response)
+                
+            } catch TatumError.rateLimitExceeded {
+                // Handle rate limit with exponential backoff
+                let delay = baseRetryDelay * pow(2.0, Double(attempt))
+                Self.log.warning("Rate limit hit (attempt \(attempt + 1)/\(self.maxRetryAttempts)), waiting \(delay) seconds")
+                
+                // Set rate limit reset time
+                rateLimitResetTime = Date().addingTimeInterval(delay)
+                
+                if attempt < maxRetryAttempts - 1 {
+                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    lastError = TatumError.rateLimitExceeded
+                    continue
+                } else {
+                    throw TatumError.rateLimitExceeded
+                }
+                
+            } catch let error as URLError where error.code == .cancelled {
+                // Handle cancellation gracefully
+                Self.log.debug("Request cancelled: \(request.url?.absoluteString ?? "")")
+                throw TatumError.requestCancelled
+                
+            } catch {
+                // For other errors, retry with backoff
+                lastError = error
+                
+                if attempt < self.maxRetryAttempts - 1 {
+                    let delay = baseRetryDelay * pow(2.0, Double(attempt))
+                    Self.log.warning("Request failed (attempt \(attempt + 1)/\(self.maxRetryAttempts)): \(error.localizedDescription), retrying in \(delay)s")
+                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    continue
+                } else {
+                    Self.log.error("Request failed after \(self.maxRetryAttempts) attempts: \(error.localizedDescription)")
+                    throw error
+                }
+            }
+        }
+        
+        throw lastError ?? TatumError.invalidResponse
+    }
+    
+    // Enforce minimum interval between requests
+    private func enforceRateLimit() async {
+        requestQueue.sync {
+            let now = Date()
+            let timeSinceLastRequest = now.timeIntervalSince(lastRequestTime)
+            
+            if timeSinceLastRequest < minRequestInterval {
+                let waitTime = minRequestInterval - timeSinceLastRequest
+                Thread.sleep(forTimeInterval: waitTime)
+            }
+            
+            lastRequestTime = Date()
+        }
+    }
+    
+    // Cancel all active requests
+    func cancelAllRequests() {
+        taskQueue.sync {
+            activeTasks.forEach { $0.cancel() }
+            activeTasks.removeAll()
+        }
+        Self.log.debug("Cancelled all active requests")
     }
     
     func createV3Request(path: String, queryItems: [URLQueryItem] = []) -> URLRequest? {
@@ -167,6 +272,7 @@ enum TatumError: Error {
     case unsupportedChain(String)
     case httpError(Int)
     case decodingError(Error)
+    case requestCancelled
 }
 
 extension TatumError: LocalizedError {
@@ -190,6 +296,8 @@ extension TatumError: LocalizedError {
             return "HTTP error: \(code)"
         case .decodingError(let error):
             return "Failed to decode response: \(error.localizedDescription)"
+        case .requestCancelled:
+            return "Request was cancelled"
         }
     }
 }

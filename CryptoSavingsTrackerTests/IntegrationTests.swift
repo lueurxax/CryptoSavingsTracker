@@ -214,7 +214,7 @@ import Foundation
         #expect(syncTotal == 8000) // 5000 USD + 3000 EUR (no conversion)
         
         // Test async calculation (with conversion attempt)
-        let asyncTotal = await goal.getCurrentTotal()
+        let asyncTotal = await GoalCalculationService.getCurrentTotal(for: goal)
         // The exact value depends on exchange rate service, but should be different from sync
         // In fallback mode, it might still be 8000 if conversion fails
         #expect(asyncTotal >= 8000) // Should at least equal the fallback
@@ -237,7 +237,7 @@ import Foundation
         
         // Test with no transactions
         #expect(goal.progress == 0.0)
-        #expect(await goal.getProgress() == 0.0)
+        #expect(await GoalCalculationService.getProgress(for: goal) == 0.0)
         
         // Add transaction for 25% progress
         let transaction = Transaction(amount: 250, asset: asset)
@@ -247,7 +247,7 @@ import Foundation
         context.processPendingChanges()
         
         #expect(goal.progress == 0.25)
-        #expect(await goal.getProgress() == 0.25)
+        #expect(await GoalCalculationService.getProgress(for: goal) == 0.25)
         
         // Add transaction for over 100% progress
         let largeTransaction = Transaction(amount: 1000, asset: asset)
@@ -258,7 +258,7 @@ import Foundation
         
         // Both should cap at 1.0
         #expect(goal.progress == 1.0)
-        #expect(await goal.getProgress() == 1.0)
+        #expect(await GoalCalculationService.getProgress(for: goal) == 1.0)
     }
     
     // MARK: - Reminder System Integration Tests
@@ -413,8 +413,8 @@ import Foundation
         context.processPendingChanges()
         
         // Verify completion
-        let total = await goal.getCurrentTotal()
-        let progress = await goal.getProgress()
+        let total = await GoalCalculationService.getCurrentTotal(for: goal)
+        let progress = await GoalCalculationService.getProgress(for: goal)
         
         #expect(total == 1100)
         #expect(progress == 1.0) // Capped at 100%

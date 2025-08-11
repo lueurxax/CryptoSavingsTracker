@@ -14,6 +14,7 @@ struct MonthlyPlanningWidget: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
     @State private var isExpanded = false
     @State private var lastRefresh: Date?
+    @State private var showingSettings = false
     
     init(viewModel: MonthlyPlanningViewModel) {
         self.viewModel = viewModel
@@ -53,6 +54,9 @@ struct MonthlyPlanningWidget: View {
             await viewModel.refreshCalculations()
             lastRefresh = Date()
             AccessibilityManager.shared.performHapticFeedback(.success)
+        }
+        .sheet(isPresented: $showingSettings) {
+            MonthlyPlanningSettingsView(goals: [])
         }
     }
     
@@ -95,6 +99,21 @@ struct MonthlyPlanningWidget: View {
             }
             
             Spacer()
+            
+            // Settings Button
+            Button(action: {
+                showingSettings = true
+                AccessibilityManager.shared.performHapticFeedback(.selection)
+            }) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(AccessibleColors.primaryInteractive)
+                    .frame(width: 32, height: 32)
+                    .background(AccessibleColors.primaryInteractiveBackground)
+                    .clipShape(Circle())
+            }
+            .accessibilityLabel("Monthly planning settings")
+            .accessibilityHint("Configure display currency and payment deadlines")
             
             // Expand/Collapse Button
             Button(action: {

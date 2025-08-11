@@ -19,11 +19,22 @@ final class MonthlyPlanningViewModel: ObservableObject {
     /// All monthly requirements for active goals
     @Published var monthlyRequirements: [MonthlyRequirement] = []
     
+    /// All active goals
+    @Published var goals: [Goal] = []
+    
     /// Total required amount in display currency
     @Published var totalRequired: Double = 0
     
-    /// Display currency for total calculations
+    /// Settings for monthly planning configuration
+    private let settings = MonthlyPlanningSettings.shared
+    
+    /// Display currency for total calculations (derived from settings)
     @Published var displayCurrency: String = "USD"
+    
+    /// Access to settings for UI components
+    var planningSettings: MonthlyPlanningSettings {
+        settings
+    }
     
     /// Flex adjustment percentage (0.0 to 1.5, where 1.0 = 100%)
     @Published var flexAdjustment: Double = 1.0
@@ -105,8 +116,12 @@ final class MonthlyPlanningViewModel: ObservableObject {
         self.planningService = DIContainer.shared.monthlyPlanningService
         self.flexService = DIContainer.shared.makeFlexAdjustmentService(modelContext: modelContext)
         
+        // Initialize display currency from settings
+        self.displayCurrency = settings.displayCurrency
+        
         setupObservers()
         loadUserPreferences()
+        setupSettingsObservation()
     }
     
     // MARK: - Public Methods
@@ -138,6 +153,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
             
             // Update UI on main thread
             await MainActor.run {
+                self.goals = goals
                 self.monthlyRequirements = requirements
                 self.totalRequired = total
                 self.isLoading = false
@@ -151,7 +167,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 self.error = error
                 self.isLoading = false
             }
-            print("❌ Failed to load monthly requirements: \(error)")
+            AppLog.error("Failed to load monthly requirements: \(error)", category: .monthlyPlanning)
         }
     }
     
@@ -286,8 +302,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
     
     /// Update display currency
     func updateDisplayCurrency(_ currency: String) async {
-        displayCurrency = currency
-        saveUserPreferences()
+        settings.displayCurrency = currency
         await loadMonthlyRequirements()
     }
     
@@ -329,6 +344,31 @@ final class MonthlyPlanningViewModel: ObservableObject {
             .store(in: &cancellables)
     }
     
+    /// Setup observation of settings changes
+    private func setupSettingsObservation() {
+        // Observe currency changes
+        settings.$displayCurrency
+            .receive(on: RunLoop.main)
+            .sink { [weak self] newCurrency in
+                self?.displayCurrency = newCurrency
+                Task { [weak self] in
+                    await self?.loadMonthlyRequirements()
+                }
+            }
+            .store(in: &cancellables)
+        
+        // Observe payment day changes
+        settings.$paymentDay
+            .dropFirst()
+            .debounce(for: .seconds(0.5), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                Task { [weak self] in
+                    await self?.loadMonthlyRequirements()
+                }
+            }
+            .store(in: &cancellables)
+    }
+    
     /// Load saved flex states from SwiftData
     private func loadFlexStates() async {
         do {
@@ -346,13 +386,13 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 }
             }
         } catch {
-            print("⚠️ Failed to load flex states: \(error)")
+            AppLog.warning("Failed to load flex states: \(error)", category: .monthlyPlanning)
         }
     }
     
     /// Save user preferences to UserDefaults
     private func saveUserPreferences() {
-        UserDefaults.standard.set(displayCurrency, forKey: "MonthlyPlanning.DisplayCurrency")
+        // Display currency is now managed by settings
         UserDefaults.standard.set(Array(protectedGoalIds.map { $0.uuidString }), forKey: "MonthlyPlanning.ProtectedGoals")
         UserDefaults.standard.set(Array(skippedGoalIds.map { $0.uuidString }), forKey: "MonthlyPlanning.SkippedGoals")
         UserDefaults.standard.set(flexAdjustment, forKey: "MonthlyPlanning.FlexAdjustment")
@@ -360,7 +400,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
     
     /// Load user preferences from UserDefaults
     private func loadUserPreferences() {
-        displayCurrency = UserDefaults.standard.string(forKey: "MonthlyPlanning.DisplayCurrency") ?? "USD"
+        // Display currency is now managed by settings
         
         if let protectedStrings = UserDefaults.standard.stringArray(forKey: "MonthlyPlanning.ProtectedGoals") {
             protectedGoalIds = Set(protectedStrings.compactMap { UUID(uuidString: $0) })

@@ -26,6 +26,8 @@ struct AssetRowView: View {
     @State private var hoveredTransactionId: UUID?
     @State private var exchangeRates: [String: Double] = [:] // Currency to USD rates
     @State private var goalCurrency: String = ""
+    @State private var balanceState: BalanceState = .loading
+    @State private var isCachedBalance = false
     
     // Exchange rate service
     private let exchangeRateService = ExchangeRateService.shared
@@ -153,32 +155,105 @@ struct AssetRowView: View {
                                             .scaleEffect(0.6)
                                     } else {
                                         VStack(alignment: .trailing, spacing: 1) {
-                                            // Total balance
-                                            Text("\(totalBalance, specifier: "%.8f") \(safeAssetCurrency)")
-                                                .font(.caption)
-                                                .fontWeight(.medium)
-                                            
-                                            // Breakdown if we have both types
-                                            if hasOnChainAddress || manualBalance > 0 {
-                                                HStack(spacing: 4) {
-                                                    if hasOnChainAddress {
-                                                        Text("Chain: \(onChainBalance, specifier: "%.4f")")
+                                            // Show balance based on state
+                                            switch balanceState {
+                                            case .loading:
+                                                if hasOnChainAddress {
+                                                    Text("Loading...")
+                                                        .font(.caption)
+                                                        .foregroundColor(.secondary)
+                                                } else {
+                                                    Text("\(manualBalance, specifier: "%.8f") \(safeAssetCurrency)")
+                                                        .font(.caption)
+                                                        .fontWeight(.medium)
+                                                }
+                                                
+                                            case .loaded(_, let isCached, let lastUpdated):
+                                                // Total balance
+                                                HStack(spacing: 2) {
+                                                    Text("\(totalBalance, specifier: "%.8f") \(safeAssetCurrency)")
+                                                        .font(.caption)
+                                                        .fontWeight(.medium)
+                                                    
+                                                    if isCached {
+                                                        Image(systemName: "clock.arrow.circlepath")
                                                             .font(.caption2)
-                                                            .foregroundColor(.accessiblePrimary)
-                                                    }
-                                                    if manualBalance > 0 {
-                                                        Text("Manual: \(manualBalance, specifier: "%.4f")")
-                                                            .font(.caption2)
-                                                            .foregroundColor(.accessibleStreak)
+                                                            .foregroundColor(.orange)
+                                                            .help("Cached data")
                                                     }
                                                 }
-                                            }
-                                            
-                                            // Last updated
-                                            if let lastUpdate = lastBalanceUpdate {
-                                                Text("Updated: \(lastUpdate, format: .relative(presentation: .numeric))")
-                                                    .font(.caption2)
-                                                    .foregroundColor(.secondary)
+                                                
+                                                // Breakdown if we have both types
+                                                if hasOnChainAddress || manualBalance > 0 {
+                                                    HStack(spacing: 4) {
+                                                        if hasOnChainAddress {
+                                                            Text("Chain: \(onChainBalance, specifier: "%.4f")")
+                                                                .font(.caption2)
+                                                                .foregroundColor(isCached ? .orange : .accessiblePrimary)
+                                                        }
+                                                        if manualBalance > 0 {
+                                                            Text("Manual: \(manualBalance, specifier: "%.4f")")
+                                                                .font(.caption2)
+                                                                .foregroundColor(.accessibleStreak)
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                // Last updated with cache indicator
+                                                if isCached {
+                                                    Text("Cached: \(lastUpdated, format: .relative(presentation: .numeric))")
+                                                        .font(.caption2)
+                                                        .foregroundColor(.orange)
+                                                } else if lastBalanceUpdate != nil {
+                                                    Text("Updated: \(lastUpdated, format: .relative(presentation: .numeric))")
+                                                        .font(.caption2)
+                                                        .foregroundColor(.secondary)
+                                                }
+                                                
+                                            case .error(let message, let cachedBalance, let lastUpdated):
+                                                if let cached = cachedBalance {
+                                                    // Show cached balance with warning
+                                                    VStack(alignment: .trailing, spacing: 1) {
+                                                        HStack(spacing: 2) {
+                                                            Text("\(cached + manualBalance, specifier: "%.8f") \(safeAssetCurrency)")
+                                                                .font(.caption)
+                                                                .fontWeight(.medium)
+                                                            
+                                                            Image(systemName: "exclamationmark.triangle.fill")
+                                                                .font(.caption2)
+                                                                .foregroundColor(.yellow)
+                                                                .help(message)
+                                                        }
+                                                        
+                                                        if let updated = lastUpdated {
+                                                            Text("Last seen: \(updated, format: .relative(presentation: .numeric))")
+                                                                .font(.caption2)
+                                                                .foregroundColor(.yellow)
+                                                        }
+                                                    }
+                                                } else {
+                                                    // Show only manual balance with error indicator
+                                                    VStack(alignment: .trailing, spacing: 1) {
+                                                        HStack(spacing: 2) {
+                                                            Text("\(manualBalance, specifier: "%.8f") \(safeAssetCurrency)")
+                                                                .font(.caption)
+                                                                .fontWeight(.medium)
+                                                            
+                                                            if hasOnChainAddress {
+                                                                Image(systemName: "wifi.slash")
+                                                                    .font(.caption2)
+                                                                    .foregroundColor(.red)
+                                                                    .help("Unable to fetch on-chain balance")
+                                                            }
+                                                        }
+                                                        
+                                                        if hasOnChainAddress {
+                                                            Text("On-chain unavailable")
+                                                                .font(.caption2)
+                                                                .foregroundColor(.red)
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -403,6 +478,10 @@ struct AssetRowView: View {
     private func fetchOnChainBalance(address: String, chainId: String, forceRefresh: Bool = false) async {
         isLoadingBalance = true
         balanceError = nil
+        balanceState = .loading
+        
+        let cacheKey = BalanceCacheManager.balanceCacheKey(chainId: chainId, address: address, symbol: asset.currency)
+        let previousUpdate = BalanceCacheManager.shared.getLastBalanceUpdate(for: cacheKey)
         
         do {
             let balance = try await TatumService.shared.fetchBalance(
@@ -413,9 +492,28 @@ struct AssetRowView: View {
             )
             onChainBalance = balance
             lastBalanceUpdate = Date()
+            
+            // Check if this was from cache
+            let currentUpdate = BalanceCacheManager.shared.getLastBalanceUpdate(for: cacheKey)
+            isCachedBalance = currentUpdate == previousUpdate && !forceRefresh
+            
+            balanceState = .loaded(
+                balance: balance,
+                isCached: isCachedBalance,
+                lastUpdated: currentUpdate ?? Date()
+            )
         } catch {
             balanceError = error.localizedDescription
-            onChainBalance = 0.0
+            
+            // Try to get cached balance as fallback
+            let cachedBalance = BalanceCacheManager.shared.getFallbackBalance(for: cacheKey)
+            onChainBalance = cachedBalance ?? 0.0
+            
+            balanceState = .error(
+                message: error.localizedDescription,
+                cachedBalance: cachedBalance,
+                lastUpdated: previousUpdate
+            )
         }
         
         isLoadingBalance = false
@@ -465,15 +563,15 @@ struct AssetRowView: View {
                 exchangeRates[safeAssetCurrency.uppercased()] = rate
             }
         } catch {
-            print("Failed to load exchange rate for \(safeAssetCurrency): \(error)")
+            AppLog.error("Failed to load exchange rate for \(safeAssetCurrency): \(error)", category: .exchangeRate)
         }
     }
     
     private func deleteTransaction(_ transaction: Transaction) {
         withAnimation(.default) {
-            print("🗑️ Deleting transaction: \(transaction.amount) \(safeAssetCurrency)")
-            print("   Transaction ID: \(transaction.id)")
-            print("   Comment: \(transaction.comment ?? "none")")
+            AppLog.debug("Deleting transaction: \(transaction.amount) \(safeAssetCurrency)", category: .transactionHistory)
+            AppLog.debug("Transaction ID: \(transaction.id)", category: .transactionHistory)
+            AppLog.debug("Comment: \(transaction.comment ?? "none")", category: .transactionHistory)
             
             // Remove from asset's transactions array
             if let index = asset.transactions.firstIndex(where: { $0.id == transaction.id }) {
@@ -486,13 +584,13 @@ struct AssetRowView: View {
             // Save the context
             do {
                 try modelContext.save()
-                print("✅ Transaction deleted successfully")
-                print("   Remaining transaction count: \(asset.transactions.count)")
+                AppLog.info("Transaction deleted successfully", category: .transactionHistory)
+                AppLog.debug("Remaining transaction count: \(asset.transactions.count)", category: .transactionHistory)
                 
                 // SwiftData will automatically update the UI through @Query
                 
             } catch {
-                print("❌ Failed to delete transaction: \(error)")
+                AppLog.error("Failed to delete transaction: \(error)", category: .transactionHistory)
             }
         }
     }

@@ -76,10 +76,10 @@ final class GoalCurrentTotalTests: XCTestCase {
         XCTAssertEqual(assetAmount, 150.0, accuracy: 0.01, "Asset should have 150 USD from transactions")
         
         // Test that getCurrentTotal() returns sum of manual transactions (use saved goal)
-        let total = await savedGoal.getCurrentTotal()
+        let total = await GoalCalculationService.getCurrentTotal(for: savedGoal)
         XCTAssertEqual(total, 150.0, accuracy: 0.01, "Manual asset total should be 150 USD")
         
-        let progress = await savedGoal.getProgress()
+        let progress = await GoalCalculationService.getProgress(for: savedGoal)
         XCTAssertEqual(progress, 0.15, accuracy: 0.01, "Progress should be 15% (150/1000)")
     }
     
@@ -97,7 +97,7 @@ final class GoalCurrentTotalTests: XCTestCase {
         
         // Test that getCurrentTotal() attempts to fetch on-chain balance
         // Note: This will likely fail due to API key or network, but we can test the logic
-        let total = await goal.getCurrentTotal()
+        let total = await GoalCalculationService.getCurrentTotal(for: goal)
         
         // Since we don't have real API access in tests, it should fall back to manual transactions (0)
         // Or use a 1:1 fallback rate if exchange rate fails
@@ -132,7 +132,7 @@ final class GoalCurrentTotalTests: XCTestCase {
         modelContext.processPendingChanges()
         
         // Test mixed calculation
-        let total = await goal.getCurrentTotal()
+        let total = await GoalCalculationService.getCurrentTotal(for: goal)
         print("Mixed assets total: \(total)")
         
         // Should at least include the manual asset amount (200 USD)

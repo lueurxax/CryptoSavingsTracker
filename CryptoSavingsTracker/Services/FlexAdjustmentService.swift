@@ -727,6 +727,7 @@ final class FlexAdjustmentService {
                     total += requirement.requiredMonthly * rate
                 } catch {
                     // Fallback to original amount if conversion fails
+                    AppLog.warning("Exchange rate failed for \(requirement.currency) → \(displayCurrency), using raw value: \(requirement.requiredMonthly) \(requirement.currency). Error: \(error.localizedDescription)", category: .exchangeRate)
                     total += requirement.requiredMonthly
                 }
             }
@@ -750,6 +751,7 @@ final class FlexAdjustmentService {
                     let rate = try await exchangeRateService.fetchRate(from: requirement.currency, to: displayCurrency)
                     total += requirement.requiredMonthly * rate
                 } catch {
+                    AppLog.warning("Exchange rate failed for \(requirement.currency) → \(displayCurrency), using raw value: \(requirement.requiredMonthly) \(requirement.currency). Error: \(error.localizedDescription)", category: .exchangeRate)
                     total += requirement.requiredMonthly
                 }
             }
@@ -772,6 +774,7 @@ final class FlexAdjustmentService {
                     let rate = try await exchangeRateService.fetchRate(from: adjusted.requirement.currency, to: displayCurrency)
                     total += adjusted.adjustedAmount * rate
                 } catch {
+                    AppLog.warning("Exchange rate failed for \(adjusted.requirement.currency) → \(displayCurrency), using raw value: \(adjusted.adjustedAmount) \(adjusted.requirement.currency). Error: \(error.localizedDescription)", category: .exchangeRate)
                     total += adjusted.adjustedAmount
                 }
             }

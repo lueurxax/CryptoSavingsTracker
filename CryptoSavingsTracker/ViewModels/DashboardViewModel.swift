@@ -109,7 +109,7 @@ class DashboardViewModel: ObservableObject {
                         totalBalance += assetBalance * rate
                     } catch {
                         // Use asset balance as is if conversion fails
-                        print("Currency conversion failed for \(asset.currency) to \(goal.currency): \(error)")
+                        AppLog.error("Currency conversion failed for \(asset.currency) to \(goal.currency): \(error)", category: .exchangeRate)
                         totalBalance += assetBalance
                     }
                 } else {
@@ -128,7 +128,7 @@ class DashboardViewModel: ObservableObject {
         
         // Ensure we always have at least the current balance as the most recent point
         if history.isEmpty || (history.last?.date ?? Date.distantPast) < calendar.date(byAdding: .day, value: -1, to: endDate)! {
-            let currentTotal = await goal.getCurrentTotal()
+            let currentTotal = await GoalCalculationService.getCurrentTotal(for: goal)
             history.append(BalanceHistoryPoint(
                 date: endDate,
                 balance: currentTotal,
@@ -138,7 +138,7 @@ class DashboardViewModel: ObservableObject {
         
         // If we have very little data, create more realistic baseline points
         if history.count < 3 {
-            let currentTotal = await goal.getCurrentTotal()
+            let currentTotal = await GoalCalculationService.getCurrentTotal(for: goal)
             
             // Only create artificial history if we actually have a meaningful current total
             if currentTotal > 0 {
@@ -201,9 +201,9 @@ class DashboardViewModel: ObservableObject {
         }
         
         // Debug: Print balance history info
-        print("Generated \(history.count) balance history points for goal: \(goal.name)")
+        AppLog.debug("Generated \(history.count) balance history points for goal: \(goal.name)", category: .performance)
         if let first = history.first, let last = history.last {
-            print("Balance history range: \(first.balance) to \(last.balance)")
+            AppLog.debug("Balance history range: \(first.balance) to \(last.balance)", category: .performance)
         }
         
             balanceHistory = history
@@ -211,7 +211,7 @@ class DashboardViewModel: ObservableObject {
     }
     
     private func loadAssetComposition(for goal: Goal) async {
-        let totalValue = await goal.getCurrentTotal()
+        let totalValue = await GoalCalculationService.getCurrentTotal(for: goal)
         guard totalValue > 0 else {
             assetComposition = []
             assetCompositionState = .loaded
@@ -292,7 +292,7 @@ class DashboardViewModel: ObservableObject {
         daysRemaining = max(0, days)
         
         // Daily target to reach goal
-        let currentTotal = await goal.getCurrentTotal()
+        let currentTotal = await GoalCalculationService.getCurrentTotal(for: goal)
         let remaining = max(0, goal.targetAmount - currentTotal)
         dailyTarget = daysRemaining > 0 ? remaining / Double(daysRemaining) : 0
     }
@@ -313,7 +313,7 @@ class DashboardViewModel: ObservableObject {
         
         var forecast: [ForecastPoint] = []
         var currentDate = startDate
-        let currentBalance = await goal.getCurrentTotal()
+        let currentBalance = await GoalCalculationService.getCurrentTotal(for: goal)
         
         while currentDate <= endDate {
             let daysFromNow = calendar.dateComponents([.day], from: startDate, to: currentDate).day ?? 0
@@ -386,7 +386,7 @@ class DashboardViewModel: ObservableObject {
             )
             return assetBalance * rate
         } catch {
-            print("Failed to get exchange rate for \(asset.currency) to \(goalCurrency): \(error)")
+            AppLog.error("Failed to get exchange rate for \(asset.currency) to \(goalCurrency): \(error)", category: .exchangeRate)
             return assetBalance // Return original value if conversion fails
         }
     }

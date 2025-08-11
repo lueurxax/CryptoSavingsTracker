@@ -287,14 +287,14 @@ struct SimpleDashboardView: View {
             return
         }
         
-        dashboardTotal = await goal.getCurrentTotal()
-        dashboardProgress = await goal.getProgress()
+        dashboardTotal = await GoalCalculationService.getCurrentTotal(for: goal)
+        dashboardProgress = await GoalCalculationService.getProgress(for: goal)
     }
     
     @MainActor
     private func loadAllGoalProgress() async {
         for goal in goals {
-            let progress = await goal.getProgress()
+            let progress = await GoalCalculationService.getProgress(for: goal)
             goalProgressData[goal.id] = progress
         }
     }

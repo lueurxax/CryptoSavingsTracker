@@ -105,7 +105,7 @@ import Foundation
         eurAsset.transactions.append(transaction)
         
         // Test that calculation doesn't crash even if exchange service fails
-        let total = await goal.getCurrentTotal()
+        let total = await GoalCalculationService.getCurrentTotal(for: goal)
         
         // Should return some value (either converted or fallback)
         #expect(total >= 0)

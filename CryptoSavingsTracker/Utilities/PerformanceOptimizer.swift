@@ -155,7 +155,7 @@ final class PerformanceOptimizer: ObservableObject {
             do {
                 return try await operation()
             } catch {
-                print("❌ Background task failed: \(error)")
+                AppLog.error("Background task failed: \(error)", category: .performance)
                 return nil
             }
         }
@@ -164,7 +164,7 @@ final class PerformanceOptimizer: ObservableObject {
             do {
                 return try await operation()
             } catch {
-                print("❌ Background task failed: \(error)")
+                AppLog.error("Background task failed: \(error)", category: .performance)
                 return nil
             }
         }
@@ -253,7 +253,7 @@ final class PerformanceOptimizer: ObservableObject {
             //     await self.cache(requirement, forKey: cacheKey, category: .monthlyRequirements)
             // }
             
-            print("🔄 Prefetched data for \(requirements.count) goals for next month")
+            AppLog.info("Prefetched data for \(requirements.count) goals for next month", category: .performance)
         }
         */
     }
@@ -278,7 +278,7 @@ final class PerformanceOptimizer: ObservableObject {
     
     /// Handle memory pressure by aggressively cleaning cache
     func handleMemoryPressure() async {
-        print("⚠️ Memory pressure detected, cleaning cache...")
+        AppLog.warning("Memory pressure detected, cleaning cache...", category: .cache)
         
         // Remove 50% of least recently used items from memory cache
         let keys = await getAllMemoryCacheKeys()
@@ -295,7 +295,7 @@ final class PerformanceOptimizer: ObservableObject {
         await MainActor.run { [weak self] in 
             self?.memoryUsage = self?.calculateMemoryUsage() ?? 0.0
         }
-        print("✅ Memory cleanup completed")
+        AppLog.info("Memory cleanup completed", category: .cache)
     }
     
     // MARK: - Performance Analytics
@@ -340,7 +340,7 @@ final class PerformanceOptimizer: ObservableObject {
                     self?.backgroundContext = actor
                 }
             } catch {
-                print("❌ Failed to setup background context: \(error)")
+                AppLog.error("Failed to setup background context: \(error)", category: .performance)
             }
         }
         */
@@ -428,7 +428,7 @@ final class PerformanceOptimizer: ObservableObject {
                 let cacheKey = "exchange_\(currency)_\(baseCurrency)"
                 await cache(rate, forKey: cacheKey, category: .exchangeRates, ttl: 3600) // 1 hour
             } catch {
-                print("⚠️ Failed to preload exchange rate for \(currency): \(error)")
+                AppLog.warning("Failed to preload exchange rate for \(currency): \(error)", category: .exchangeRate)
             }
         }
     }
@@ -561,7 +561,7 @@ actor DiskCache {
                 await cleanOldestEntries()
             }
         } catch {
-            print("❌ Failed to store cache entry: \(error)")
+            AppLog.error("Failed to store cache entry: \(error)", category: .cache)
         }
     }
     

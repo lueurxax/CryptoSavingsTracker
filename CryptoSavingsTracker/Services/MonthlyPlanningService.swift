@@ -64,7 +64,7 @@ final class MonthlyPlanningService: ObservableObject {
                     let rate = try await exchangeRateService.fetchRate(from: requirement.currency, to: displayCurrency)
                     total += requirement.requiredMonthly * rate
                 } catch {
-                    print("⚠️ Currency conversion failed for \(requirement.currency) to \(displayCurrency): \(error)")
+                    AppLog.warning("Currency conversion failed for \(requirement.currency) to \(displayCurrency): \(error.localizedDescription)", category: .exchangeRate)
                     total += requirement.requiredMonthly // Fallback to 1:1
                 }
             }
@@ -88,7 +88,7 @@ final class MonthlyPlanningService: ObservableObject {
     /// Calculate requirement for a single goal
     private func calculateRequirementForGoal(_ goal: Goal) async -> MonthlyRequirement {
         // Calculate current total
-        let currentTotal = await goal.getCurrentTotal()
+        let currentTotal = await GoalCalculationService.getCurrentTotal(for: goal)
         let remaining = max(0, goal.targetAmount - currentTotal)
         let monthsRemaining = max(1, calculateMonthsRemaining(from: Date(), to: goal.deadline))
         let requiredMonthly = remaining / Double(monthsRemaining)

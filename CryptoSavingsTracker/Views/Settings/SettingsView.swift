@@ -8,6 +8,9 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @ObservedObject private var monthlySettings = MonthlyPlanningSettings.shared
+    @State private var showingMonthlyPlanningSettings = false
+    
     var body: some View {
         VStack(spacing: 20) {
             Text("Settings")
@@ -18,6 +21,33 @@ struct SettingsView: View {
                 Section("General") {
                     Toggle("Show progress notifications", isOn: .constant(true))
                     Toggle("Auto-refresh exchange rates", isOn: .constant(true))
+                }
+                
+                Section("Monthly Planning") {
+                    HStack {
+                        Label("Display Currency", systemImage: "dollarsign.circle")
+                        Spacer()
+                        Text(monthlySettings.displayCurrency)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack {
+                        Label("Payment Day", systemImage: "calendar")
+                        Spacer()
+                        Text("\(monthlySettings.paymentDay)\(monthlySettings.paymentDay.ordinalSuffix) of month")
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack {
+                        Label("Next Payment", systemImage: "clock")
+                        Spacer()
+                        Text("\(monthlySettings.daysUntilPayment) days")
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Button("Configure Monthly Planning") {
+                        showingMonthlyPlanningSettings = true
+                    }
                 }
                 
                 Section("Display") {
@@ -46,6 +76,27 @@ struct SettingsView: View {
         }
         .platformPadding()
         .frame(width: 500, height: 400)
+        .sheet(isPresented: $showingMonthlyPlanningSettings) {
+            MonthlyPlanningSettingsView(goals: [])
+        }
+    }
+}
+
+// MARK: - Extensions
+
+private extension Int {
+    var ordinalSuffix: String {
+        switch self % 100 {
+        case 11...13:
+            return "th"
+        default:
+            switch self % 10 {
+            case 1: return "st"
+            case 2: return "nd"  
+            case 3: return "rd"
+            default: return "th"
+            }
+        }
     }
 }
 

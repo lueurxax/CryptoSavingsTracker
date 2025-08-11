@@ -61,37 +61,33 @@ class GoalViewModel: ObservableObject {
     }
     
     private func calculateCurrentTotal() async -> Double {
-        print("🎯 GoalViewModel.calculateCurrentTotal() called for: \(goal.name)")
-        print("   Goal currency: \(goal.currency)")
-        print("   Assets count: \(goal.assets.count)")
+        AppLog.debug("Calculating current total for goal '\(goal.name)' (currency: \(goal.currency), assets: \(goal.assets.count))", category: .goalList)
         
         var total: Double = 0
         for (index, asset) in goal.assets.enumerated() {
-            print("   📊 Processing asset [\(index)]: \(asset.currency)")
-            print("      Address: \(asset.address ?? "none")")
-            print("      ChainId: \(asset.chainId ?? "none")")
+            AppLog.debug("Processing asset [\(index)]: \(asset.currency) (address: \(asset.address ?? "none"), chainId: \(asset.chainId ?? "none"))", category: .goalList)
             
             let assetValue = await AssetViewModel.getCurrentAmount(for: asset)
-            print("      Asset value: \(assetValue)")
+            AppLog.debug("Asset value: \(assetValue) \(asset.currency)", category: .goalList)
             
             if asset.currency == goal.currency {
                 total += assetValue
-                print("      Same currency - added directly: \(assetValue)")
+                AppLog.debug("Same currency - added directly: \(assetValue) \(asset.currency)", category: .goalList)
             } else {
                 do {
                     let rate = try await exchangeRateService.fetchRate(from: asset.currency, to: goal.currency)
                     let convertedValue = assetValue * rate
                     total += convertedValue
-                    print("      Converted \(assetValue) \(asset.currency) to \(convertedValue) \(goal.currency) (rate: \(rate))")
+                    AppLog.debug("Converted \(assetValue) \(asset.currency) to \(convertedValue) \(goal.currency) (rate: \(rate))", category: .exchangeRate)
                 } catch {
                     total += assetValue
-                    print("      Exchange rate failed, using raw value: \(assetValue)")
+                    AppLog.warning("Exchange rate failed for \(asset.currency) → \(goal.currency), using raw value: \(assetValue) \(asset.currency). Error: \(error.localizedDescription)", category: .exchangeRate)
                 }
             }
-            print("      Running total: \(total)")
+            AppLog.debug("Running total: \(total) \(goal.currency)", category: .goalList)
         }
         
-        print("🎯 GoalViewModel.calculateCurrentTotal() final result: \(total) \(goal.currency)")
+        AppLog.debug("Final total for goal '\(goal.name)': \(total) \(goal.currency)", category: .goalList)
         return total
     }
     

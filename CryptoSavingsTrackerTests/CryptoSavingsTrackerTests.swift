@@ -326,7 +326,7 @@ import Foundation
         try context.save()
         context.processPendingChanges()
         
-        let total = await goal.getCurrentTotal()
+        let total = await GoalCalculationService.getCurrentTotal(for: goal)
         #expect(total == 300.0)
     }
     
@@ -350,7 +350,7 @@ import Foundation
         try context.save()
         context.processPendingChanges()
         
-        let progress = await goal.getProgress()
+        let progress = await GoalCalculationService.getProgress(for: goal)
         #expect(progress == 0.25) // 250/1000 = 0.25
     }
     
@@ -374,7 +374,7 @@ import Foundation
         try context.save()
         context.processPendingChanges()
         
-        let progress = await goal.getProgress()
+        let progress = await GoalCalculationService.getProgress(for: goal)
         #expect(progress == 1.0) // Should be capped at 1.0
     }
     
@@ -414,7 +414,7 @@ import Foundation
     @Test func goalZeroTargetProgress() async throws {
         let goal = Goal(name: "Zero Target", currency: "USD", targetAmount: 0, deadline: Date())
         
-        let progress = await goal.getProgress()
+        let progress = await GoalCalculationService.getProgress(for: goal)
         #expect(progress == 0.0)
     }
     

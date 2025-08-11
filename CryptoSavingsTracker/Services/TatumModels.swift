@@ -296,7 +296,7 @@ struct XRPAccountResponse: Codable {
     let account: String
     let ledgerIndexMax: Int
     let ledgerIndexMin: Int
-    let limit: Int
+    let limit: Int? // Made optional as it might not always be present
     let transactions: [XRPTransactionDetails]
     let validated: Bool
     
