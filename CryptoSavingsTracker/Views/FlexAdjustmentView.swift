@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import Combine
 
 struct FlexAdjustmentView: View {
     @Environment(\.dismiss) private var dismiss
@@ -41,7 +42,9 @@ struct FlexAdjustmentView: View {
                 adjustedGoalsList
             }
             .navigationTitle("Flex Adjustment")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -106,7 +109,11 @@ struct FlexAdjustmentView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        #if os(iOS)
+        .background(Color(UIColor.systemGray6))
+        #else
+        .background(Color.gray.opacity(0.1))
+        #endif
     }
     
     private var strategySection: some View {
@@ -135,7 +142,11 @@ struct FlexAdjustmentView: View {
                 .foregroundColor(.secondary)
         }
         .padding()
-        .background(Color(.systemBackground))
+        #if os(iOS)
+        .background(Color(UIColor.systemBackground))
+        #else
+        .background(Color(NSColor.windowBackgroundColor))
+        #endif
     }
     
     private var strategyDescription: String {
@@ -189,7 +200,11 @@ struct FlexAdjustmentView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        #if os(iOS)
+        .background(Color(UIColor.systemGray6))
+        #else
+        .background(Color.gray.opacity(0.1))
+        #endif
     }
     
     private var adjustedGoalsList: some View {
@@ -382,7 +397,7 @@ class FlexAdjustmentViewModel: ObservableObject {
         
         // Calculate original requirements
         let monthlyService = DIContainer.shared.monthlyPlanningService
-        originalRequirements = try! await monthlyService.calculateAllRequirements(for: goals)
+        originalRequirements = await monthlyService.calculateMonthlyRequirements(for: goals)
         
         originalTotal = originalRequirements.reduce(0) { $0 + $1.monthlyAmount }
         adjustedTotal = originalTotal
@@ -394,32 +409,51 @@ class FlexAdjustmentViewModel: ObservableObject {
         guard let flexService = flexService else { return }
         
         // Map strategy to service strategy
-        let serviceStrategy: FlexAdjustmentService.RedistributionStrategy
+        let serviceStrategy: RedistributionStrategy
         switch strategy {
         case .balanced:
             serviceStrategy = .balanced
         case .urgent:
-            serviceStrategy = .urgent
+            serviceStrategy = .prioritizeUrgent
         case .largest:
-            serviceStrategy = .largest
+            serviceStrategy = .prioritizeLargest
         case .riskMinimizing:
-            serviceStrategy = .riskMinimizing
+            serviceStrategy = .minimizeRisk
         }
         
-        do {
-            let result = try await flexService.calculateFlexScenarios(
-                for: originalRequirements,
-                flexPercentage: percentage
-            )
-            
-            await MainActor.run {
-                self.adjustedTotal = result.adjustedTotal
-                self.adjustedRequirements = result.adjustedRequirements
-                self.goalsAtRisk = result.impactAnalysis.filter { $0.estimatedDelay > 0 }.count
-                self.hasRiskAnalysis = !result.impactAnalysis.isEmpty
+        // Calculate adjustment amount (negative for reduction, positive for increase)
+        let adjustment = (percentage - 100.0) / 100.0
+        
+        let adjustedResults = await flexService.applyFlexAdjustment(
+            requirements: originalRequirements,
+            adjustment: adjustment,
+            protectedGoalIds: protectedGoals,
+            skippedGoalIds: Set<UUID>(),  // No skipped goals for now
+            strategy: serviceStrategy
+        )
+        
+        await MainActor.run {
+            // Convert AdjustedRequirement back to MonthlyRequirement with adjusted amounts
+            self.adjustedRequirements = adjustedResults.map { adjusted in
+                let req = adjusted.requirement
+                // Create new requirement with adjusted amount
+                return MonthlyRequirement(
+                    goalId: req.goalId,
+                    goalName: req.goalName,
+                    currency: req.currency,
+                    targetAmount: req.targetAmount,
+                    currentTotal: req.currentTotal,
+                    remainingAmount: req.remainingAmount,
+                    monthsRemaining: req.monthsRemaining,
+                    requiredMonthly: adjusted.adjustedAmount,  // Use adjusted amount here
+                    progress: req.progress,
+                    deadline: req.deadline,
+                    status: req.status
+                )
             }
-        } catch {
-            AppLog.error("Failed to calculate flex adjustments: \(error)", category: .monthlyPlanning)
+            self.adjustedTotal = adjustedResults.reduce(0) { $0 + $1.adjustedAmount }
+            self.goalsAtRisk = adjustedResults.filter { $0.impactAnalysis.estimatedDelay > 0 }.count
+            self.hasRiskAnalysis = !adjustedResults.isEmpty
         }
     }
 }

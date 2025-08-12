@@ -39,8 +39,7 @@ final class BalanceService {
                 Self.log.info("Rate limited - returning fallback cached balance: \(cachedBalance)")
                 return cachedBalance
             }
-            // If no cache at all and rate limited, throw error to show proper UI state
-            Self.log.warning("Rate limited with no cached data for \(chainId):\(symbol)")
+            // If no cache at all and rate limited, throw error so UI can show proper state
             throw TatumError.rateLimitExceeded
         }
         

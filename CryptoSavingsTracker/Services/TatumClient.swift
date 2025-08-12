@@ -43,7 +43,7 @@ final class TatumClient {
             if apiKey != "YOUR_TATUM_API_KEY" && !apiKey.isEmpty {
                 // Migrate to Keychain
                 try? KeychainManager.storeAPIKey(apiKey, for: "tatum")
-                Self.log.info("Migrated Tatum API key to Keychain", type: .info)
+                Self.log.info("Migrated Tatum API key to Keychain")
             }
         }
     }

@@ -88,7 +88,9 @@ struct TransactionHistoryView: View {
             }
         }
         .navigationTitle("Transaction History")
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
         .searchable(text: $searchText, prompt: "Search transactions")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -160,7 +162,11 @@ struct TransactionHistoryView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        #if os(iOS)
+        .background(Color(UIColor.systemGray6))
+        #else
+        .background(Color.gray.opacity(0.1))
+        #endif
     }
     
     private var filterSection: some View {
@@ -188,7 +194,11 @@ struct TransactionHistoryView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        #if os(iOS)
+        .background(Color(UIColor.systemBackground))
+        #else
+        .background(Color(NSColor.windowBackgroundColor))
+        #endif
     }
     
     private var transactionList: some View {

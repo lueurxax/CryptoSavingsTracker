@@ -169,30 +169,38 @@ struct EditGoalView: View {
                             isEnabled: Binding(
                                 get: { viewModel.goal.isReminderEnabled },
                                 set: { newValue in
-                                    AppLog.debug("Setting reminder enabled to \(newValue)", category: .goalEdit)
+                                    // Setting reminder enabled to newValue
                                     if newValue {
                                         // Enable reminders
                                         if viewModel.goal.reminderFrequency == nil {
                                             viewModel.goal.reminderFrequency = ReminderFrequency.weekly.rawValue
-                                            AppLog.debug("Set reminderFrequency to weekly", category: .goalEdit)
+                                            // Set reminderFrequency to weekly
                                         }
                                         if viewModel.goal.reminderTime == nil {
                                             viewModel.goal.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
-                                            AppLog.debug("Set reminderTime to 9:00 AM", category: .goalEdit)
+                                            // Set reminderTime to 9:00 AM
                                         }
                                     } else {
                                         // Disable reminders
                                         viewModel.goal.reminderFrequency = nil
                                         viewModel.goal.reminderTime = nil
                                         viewModel.goal.firstReminderDate = nil
-                                        AppLog.debug("Disabled reminders, cleared all reminder data", category: .goalEdit)
+                                        // Disabled reminders, cleared all reminder data
                                     }
-                                    AppLog.debug("isReminderEnabled is now \(viewModel.goal.isReminderEnabled)", category: .goalEdit)
+                                    // isReminderEnabled state updated
                                 }
                             ),
                             frequency: Binding(
-                                get: { viewModel.goal.frequency },
-                                set: { viewModel.goal.frequency = $0 }
+                                get: { 
+                                    guard let rawValue = viewModel.goal.reminderFrequency,
+                                          let frequency = ReminderFrequency(rawValue: rawValue) else { 
+                                        return .weekly // Default to weekly if nil
+                                    }
+                                    return frequency
+                                },
+                                set: { newValue in
+                                    viewModel.goal.reminderFrequency = newValue.rawValue
+                                }
                             ),
                             reminderTime: Binding(
                                 get: { viewModel.goal.reminderTime },
@@ -250,7 +258,7 @@ struct EditGoalView: View {
                                 try await viewModel.save()
                                 dismiss()
                             } catch {
-                                AppLog.error("Save failed: \(error)", category: .goalEdit)
+                                // Save failed: error
                             }
                         }
                     }
@@ -416,21 +424,27 @@ struct ArchiveSection: View {
 }
 
 #Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config)
+    struct PreviewWrapper: View {
+        var body: some View {
+            let config = ModelConfiguration(isStoredInMemoryOnly: true)
+            let container = try! ModelContainer(for: Goal.self, configurations: config)
+            
+            let goal = Goal(
+                name: "Emergency Fund",
+                currency: "USD", 
+                targetAmount: 5000.0,
+                deadline: Date().addingTimeInterval(86400 * 180) // 6 months
+            )
+            goal.reminderFrequency = ReminderFrequency.weekly.rawValue
+            goal.reminderTime = Date()
+            
+            container.mainContext.insert(goal)
+            
+            return EditGoalView(goal: goal, modelContext: container.mainContext)
+        }
+    }
     
-    let goal = Goal(
-        name: "Emergency Fund",
-        currency: "USD", 
-        targetAmount: 5000.0,
-        deadline: Date().addingTimeInterval(86400 * 180) // 6 months
-    )
-    goal.reminderFrequency = ReminderFrequency.weekly.rawValue
-    goal.reminderTime = Date()
-    
-    container.mainContext.insert(goal)
-    
-    return EditGoalView(goal: goal, modelContext: container.mainContext)
+    return PreviewWrapper()
 }
 
 // MARK: - Customization Section

@@ -37,8 +37,10 @@ struct AssetDetailView: View {
             }
             .padding()
         }
-        .navigationTitle(asset.name)
+        .navigationTitle(asset.currency)
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
+        #endif
         .task {
             await loadBalance()
         }
@@ -47,7 +49,7 @@ struct AssetDetailView: View {
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(asset.name)
+                Text(asset.currency)
                     .font(.title)
                     .fontWeight(.bold)
                 
@@ -67,7 +69,11 @@ struct AssetDetailView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        #if os(iOS)
+        .background(Color(UIColor.systemGray6))
+        #else
+        .background(Color.gray.opacity(0.1))
+        #endif
         .cornerRadius(12)
     }
     
@@ -96,7 +102,11 @@ struct AssetDetailView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        #if os(iOS)
+        .background(Color(UIColor.systemBackground))
+        #else
+        .background(Color(NSColor.windowBackgroundColor))
+        #endif
         .cornerRadius(12)
         .shadow(radius: 2)
     }
@@ -107,10 +117,10 @@ struct AssetDetailView: View {
                 .font(.headline)
             
             VStack(spacing: 8) {
-                InfoRow(label: "Type", value: asset.isOnChain ? "On-Chain" : "Manual")
+                InfoRow(label: "Type", value: (asset.address != nil && asset.chainId != nil) ? "On-Chain" : "Manual")
                 InfoRow(label: "Currency", value: asset.currency)
                 
-                if asset.isOnChain {
+                if asset.address != nil && asset.chainId != nil {
                     if let chainId = asset.chainId {
                         InfoRow(label: "Chain", value: chainId)
                     }
@@ -123,7 +133,11 @@ struct AssetDetailView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        #if os(iOS)
+        .background(Color(UIColor.systemGray6))
+        #else
+        .background(Color.gray.opacity(0.1))
+        #endif
         .cornerRadius(12)
     }
     
@@ -180,7 +194,11 @@ struct AssetDetailView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        #if os(iOS)
+        .background(Color(UIColor.systemGray6))
+        #else
+        .background(Color.gray.opacity(0.1))
+        #endif
         .cornerRadius(12)
     }
     
@@ -205,7 +223,7 @@ struct AssetDetailView: View {
     }
     
     private func loadBalance() async {
-        guard asset.isOnChain,
+        guard asset.address != nil && asset.chainId != nil,
               let chainId = asset.chainId,
               let address = asset.address else {
             currentBalance = asset.manualBalance

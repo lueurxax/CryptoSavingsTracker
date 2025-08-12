@@ -87,6 +87,12 @@ class ExchangeRateService {
     }
     
     private func fetchRateFromAPI(from: String, to: String) async throws -> Double {
+        // Check if we should throttle during startup
+        if await StartupThrottler.shared.shouldThrottleAPICall() {
+            // During startup, throw error to indicate rates unavailable
+            throw ExchangeRateError.rateNotAvailable
+        }
+        
         // Common fiat currencies that might need cross-conversion
         let fiatCurrencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "CNY", "INR", "KRW"]
         let fromUppercase = from.uppercased()
@@ -235,6 +241,13 @@ class ExchangeRateService {
         }
     }
     
+    // MARK: - Fallback Rates
+    private func getFallbackRate(from: String, to: String) -> Double? {
+        // NEVER return fake rates - this is dangerous for financial calculations
+        // Only return nil to indicate rate is unavailable
+        return nil
+    }
+    
     // MARK: - Error Recovery Support
     func hasValidConfiguration() -> Bool {
         return apiKey != "YOUR_COINGECKO_API_KEY" && !apiKey.isEmpty
@@ -248,7 +261,22 @@ class ExchangeRateService {
     }
 }
 
-enum ExchangeRateError: Error {
+enum ExchangeRateError: LocalizedError {
     case rateNotAvailable
     case networkError
+    case rateLimitExceeded
+    case apiKeyMissing
+    
+    var errorDescription: String? {
+        switch self {
+        case .rateNotAvailable:
+            return "Exchange rate temporarily unavailable. Please check your internet connection."
+        case .networkError:
+            return "Network error. Please try again later."
+        case .rateLimitExceeded:
+            return "API rate limit exceeded. Please wait before trying again."
+        case .apiKeyMissing:
+            return "API key not configured. Please add your CoinGecko API key in settings."
+        }
+    }
 }

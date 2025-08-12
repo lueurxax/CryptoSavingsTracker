@@ -92,7 +92,7 @@ class DashboardViewModel: ObservableObject {
                 
                 if isRecentDate && (asset.address != nil || asset.chainId != nil) {
                     // Use current on-chain balance for recent dates
-                    assetBalance = await asset.getCurrentAmount()
+                    assetBalance = await AssetViewModel.getCurrentAmount(for: asset)
                 } else {
                     // Use transaction history for older dates
                     let transactions = asset.transactions.filter { $0.date <= currentDate }
@@ -373,7 +373,7 @@ class DashboardViewModel: ObservableObject {
     }
     
     private func getAssetValueInGoalCurrency(asset: Asset, goalCurrency: String) async -> Double {
-        let assetBalance = await asset.getCurrentAmount()
+        let assetBalance = await AssetViewModel.getCurrentAmount(for: asset)
         
         if asset.currency == goalCurrency {
             return assetBalance

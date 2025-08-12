@@ -44,7 +44,9 @@ struct CryptoSavingsTrackerApp: App {
         }
         #endif
         
+        // Mark startup complete after a delay to prevent API spam
         Task {
+            await StartupThrottler.shared.waitForStartup()
             _ = await NotificationManager.shared.requestPermission()
         }
     }

@@ -95,3 +95,52 @@ enum RequirementStatus: String, Sendable, Codable {
         }
     }
 }
+
+// MARK: - Extension for additional computed properties
+extension MonthlyRequirement {
+    var monthlyAmount: Double {
+        return requiredMonthly
+    }
+    
+    var displayAmount: Double {
+        return requiredMonthly
+    }
+    
+    var displayCurrency: String {
+        return currency
+    }
+    
+    var goalCurrency: String {
+        return currency
+    }
+    
+    var daysRemaining: Int {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.day], from: Date(), to: deadline)
+        return max(components.day ?? 0, 0)
+    }
+    
+    var isAchieved: Bool {
+        return currentTotal >= targetAmount
+    }
+    
+    enum RiskLevel: String {
+        case low
+        case medium
+        case high
+        case critical
+    }
+    
+    var riskLevel: RiskLevel? {
+        switch status {
+        case .completed:
+            return nil
+        case .onTrack:
+            return .low
+        case .attention:
+            return .medium
+        case .critical:
+            return .critical
+        }
+    }
+}

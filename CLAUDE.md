@@ -248,6 +248,58 @@ xcodebuild test -scheme CryptoSavingsTracker -destination "platform=macOS"
 - **Code Examples**: Comprehensive usage examples and best practices
 - **Troubleshooting**: Common issues and solutions documented
 
+### 🏗️ Architectural Improvements (v2.2) - COMPLETED
+
+#### Dependency Injection & Error Recovery
+- **Enhanced DIContainer**: Robust dependency injection with error recovery and fallback mechanisms
+- **Service Validation**: ValidatableDependency protocol for service health checks
+- **Graceful Degradation**: Automatic fallback to mock services when real services fail
+- **Dependency State Tracking**: Monitor initialization state of all dependencies
+- **Lazy Initialization**: Services created on-demand with proper error handling
+
+#### Navigation Architecture
+- **Coordinator Pattern**: Centralized navigation management with AppCoordinator
+- **Route-Based Navigation**: Type-safe navigation using enum-based routes
+- **Platform Adaptive**: Different navigation patterns for iOS compact/regular and macOS
+- **Deep Linking Support**: Foundation for URL-based navigation
+- **State Preservation**: Navigation state maintained across app lifecycle
+
+#### Data Access Layer
+- **Repository Pattern**: GoalRepository for centralized data access
+- **Query Optimization**: Efficient SwiftData predicates with local date variables
+- **Batch Operations**: Support for bulk updates and deletes
+- **Transaction Management**: Proper context handling for data operations
+- **Migration Support**: Backward compatible model changes
+
+#### Service Architecture
+- **Protocol-Based Services**: All services implement testable protocols
+- **Mock Services**: Complete mock implementations for testing
+- **Service Protocols**: Unified interface for all service operations
+- **Error Handling**: Comprehensive error types with localized descriptions
+- **Async/Await**: Modern concurrency throughout service layer
+
+#### Performance & Caching
+- **Persistent Balance Cache**: Survives app restarts with UserDefaults storage
+- **Exchange Rate Cache**: Persistent storage for currency conversion rates
+- **Smart Rate Limiting**: 120-second minimum interval between API calls
+- **Startup Throttling**: 3-second delay prevents API spam on launch
+- **Cache Expiration**: 30-minute balance cache, 2-hour transaction cache
+- **Fallback Strategy**: Uses expired cache when rate limited
+
+#### Build System Improvements
+- **Platform Compatibility**: Fixed all iOS/macOS compilation issues
+- **SwiftData Migrations**: Proper handling of optional property additions
+- **Conditional Compilation**: Platform-specific UI properly isolated
+- **Clean Architecture**: Separated concerns across layers
+- **Preview Support**: Fixed Preview compilation issues
+
+#### API Safety & User Trust
+- **No Fake Data**: Removed dangerous hardcoded exchange rates
+- **Transparent Errors**: Clear indication when rates unavailable
+- **Rate Limit Handling**: Graceful degradation without misleading values
+- **Cache Indicators**: UI shows when using cached vs live data
+- **Error Recovery**: Automatic retry with exponential backoff
+
 ### 🎨 Goal Enhancement System (v2.1) - COMPLETED
 
 #### Visual Customization Features

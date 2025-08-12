@@ -7,6 +7,13 @@
 
 import Foundation
 
+// MARK: - Mock Error Type
+enum MockError: Error {
+    case calculationFailed
+    case notificationFailed
+    case networkError
+}
+
 // MARK: - Exchange Rate Service Protocol
 protocol ExchangeRateServiceProtocol {
     func fetchRate(from: String, to: String) async throws -> Double
@@ -28,6 +35,21 @@ protocol TransactionServiceProtocol {
 protocol TatumServiceProtocol: BalanceServiceProtocol, TransactionServiceProtocol {
     var supportedChains: [TatumChain] { get }
     func searchChains(query: String) -> [TatumChain]
+}
+
+// MARK: - Flex Calculation Result
+struct FlexCalculationResult {
+    let originalTotal: Double
+    let adjustedTotal: Double
+    let difference: Double
+    let adjustedRequirements: [MonthlyRequirement]
+    let impactAnalysis: [ImpactAnalysis]
+    
+    struct ImpactAnalysis {
+        let goalId: UUID
+        let estimatedDelay: Int
+        let riskLevel: String
+    }
 }
 
 // MARK: - Monthly Planning Service Protocol
@@ -127,9 +149,9 @@ class MockTatumService: TatumServiceProtocol {
     let transactionService = MockTransactionService()
     
     var supportedChains: [TatumChain] = [
-        TatumChain(id: "ETH", name: "Ethereum", chainType: .evm, nativeCurrencySymbol: "ETH", testnet: false),
-        TatumChain(id: "BTC", name: "Bitcoin", chainType: .utxo, nativeCurrencySymbol: "BTC", testnet: false),
-        TatumChain(id: "SOL", name: "Solana", chainType: .other, nativeCurrencySymbol: "SOL", testnet: false)
+        TatumChain(id: "ETH", name: "Ethereum", nativeCurrencySymbol: "ETH", chainType: .evm),
+        TatumChain(id: "BTC", name: "Bitcoin", nativeCurrencySymbol: "BTC", chainType: .utxo),
+        TatumChain(id: "SOL", name: "Solana", nativeCurrencySymbol: "SOL", chainType: .other)
     ]
     
     func searchChains(query: String) -> [TatumChain] {
@@ -157,31 +179,31 @@ class MockMonthlyPlanningService: MonthlyPlanningServiceProtocol {
     
     func calculateMonthlyRequirement(for goal: Goal) async throws -> MonthlyRequirement {
         if shouldThrowError {
-            throw AppError.calculationError(reason: "Mock error")
+            throw MockError.calculationFailed
         }
+        
+        let monthsRemaining = max(1, goal.daysRemaining / 30)
+        let remainingAmount = max(0, goal.targetAmount - goal.manualTotal)
+        let requiredMonthly = remainingAmount / Double(monthsRemaining)
         
         return MonthlyRequirement(
             goalId: goal.id,
             goalName: goal.name,
-            goalCurrency: goal.currency,
-            currentTotal: goal.manualTotal,
+            currency: goal.currency,
             targetAmount: goal.targetAmount,
-            deadline: goal.deadline,
-            monthlyAmount: 1000,
-            displayAmount: 1000,
-            displayCurrency: "USD",
+            currentTotal: goal.manualTotal,
+            remainingAmount: remainingAmount,
+            monthsRemaining: monthsRemaining,
+            requiredMonthly: requiredMonthly,
             progress: goal.manualProgress,
-            daysRemaining: goal.daysRemaining,
-            monthsRemaining: max(1, goal.daysRemaining / 30),
-            status: .onTrack,
-            riskLevel: .low,
-            isAchieved: goal.isAchieved
+            deadline: goal.deadline,
+            status: .onTrack
         )
     }
     
     func calculateAllRequirements(for goals: [Goal]) async throws -> [MonthlyRequirement] {
         if shouldThrowError {
-            throw AppError.calculationError(reason: "Mock error")
+            throw MockError.calculationFailed
         }
         
         var requirements: [MonthlyRequirement] = []
@@ -193,10 +215,10 @@ class MockMonthlyPlanningService: MonthlyPlanningServiceProtocol {
     
     func calculateFlexScenarios(for requirements: [MonthlyRequirement], flexPercentage: Double) async throws -> FlexCalculationResult {
         if shouldThrowError {
-            throw AppError.calculationError(reason: "Mock error")
+            throw MockError.calculationFailed
         }
         
-        let totalOriginal = requirements.reduce(0) { $0 + $1.monthlyAmount }
+        let totalOriginal = requirements.reduce(0) { $0 + $1.requiredMonthly }
         let totalAdjusted = totalOriginal * (flexPercentage / 100)
         
         return FlexCalculationResult(
@@ -217,21 +239,21 @@ class MockNotificationService: NotificationServiceProtocol {
     
     func scheduleReminder(for goal: Goal) async throws {
         if shouldThrowError {
-            throw AppError.notificationError(reason: "Mock error")
+            throw MockError.notificationFailed
         }
         scheduledReminders.insert(goal.id)
     }
     
     func cancelReminder(for goal: Goal) async throws {
         if shouldThrowError {
-            throw AppError.notificationError(reason: "Mock error")
+            throw MockError.notificationFailed
         }
         scheduledReminders.remove(goal.id)
     }
     
     func requestAuthorization() async throws -> Bool {
         if shouldThrowError {
-            throw AppError.notificationError(reason: "Mock error")
+            throw MockError.notificationFailed
         }
         return authorizationGranted
     }

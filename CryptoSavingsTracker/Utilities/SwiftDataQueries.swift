@@ -28,11 +28,12 @@ struct SwiftDataQueries {
     /// Fetch urgent goals (deadline within 7 days)
     static func urgentGoals() -> FetchDescriptor<Goal> {
         let sevenDaysFromNow = Date().addingTimeInterval(7 * 24 * 60 * 60)
+        let now = Date()
         return FetchDescriptor<Goal>(
             predicate: #Predicate { goal in
                 goal.archivedDate == nil &&
                 goal.deadline <= sevenDaysFromNow &&
-                goal.deadline >= Date()
+                goal.deadline >= now
             },
             sortBy: [
                 SortDescriptor(\.deadline, order: .forward)
@@ -153,7 +154,7 @@ struct SwiftDataQueries {
     static func largeTransactions(threshold: Double) -> FetchDescriptor<Transaction> {
         FetchDescriptor<Transaction>(
             predicate: #Predicate { transaction in
-                abs(transaction.amount) >= threshold
+                transaction.amount >= threshold || transaction.amount <= -threshold
             },
             sortBy: [
                 SortDescriptor(\.amount, order: .reverse)

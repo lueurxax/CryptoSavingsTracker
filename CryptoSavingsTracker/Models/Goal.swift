@@ -72,8 +72,8 @@ final class Goal {
         return manualTotal >= targetAmount
     }
     
-    var isArchived: Bool {
-        return archivedDate != nil
+    var isReminderEnabled: Bool {
+        return reminderFrequency != nil && reminderTime != nil
     }
     
     var status: String {

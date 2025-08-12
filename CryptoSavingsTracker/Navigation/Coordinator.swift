@@ -7,6 +7,8 @@
 
 import Foundation
 import SwiftUI
+import SwiftData
+import Combine
 
 /// Protocol defining the base coordinator interface
 protocol Coordinator: AnyObject, ObservableObject {
@@ -114,7 +116,7 @@ final class AppCoordinator: BaseCoordinator<AppRoute> {
 }
 
 // MARK: - App Routes
-enum AppRoute: Hashable {
+enum AppRoute: Hashable, Identifiable {
     case dashboard
     case goalsList
     case goalDetail(Goal)
@@ -126,6 +128,22 @@ enum AppRoute: Hashable {
     case monthlyPlanning
     case monthlyPlanningSettings
     case flexAdjustment
+    
+    var id: String {
+        switch self {
+        case .dashboard: return "dashboard"
+        case .goalsList: return "goalsList"
+        case .goalDetail(let goal): return "goalDetail-\(goal.id)"
+        case .createGoal: return "createGoal"
+        case .editGoal(let goal): return "editGoal-\(goal.id)"
+        case .assetDetail(let asset): return "assetDetail-\(asset.id)"
+        case .transactionHistory(let asset): return "transactionHistory-\(asset.id)"
+        case .settings: return "settings"
+        case .monthlyPlanning: return "monthlyPlanning"
+        case .monthlyPlanningSettings: return "monthlyPlanningSettings"
+        case .flexAdjustment: return "flexAdjustment"
+        }
+    }
 }
 
 // MARK: - Goal Coordinator
@@ -282,9 +300,11 @@ struct NavigationCoordinatorModifier: ViewModifier {
         .sheet(item: $coordinator.presentedSheet) { route in
             sheetView(for: route)
         }
+        #if os(iOS)
         .fullScreenCover(item: $coordinator.presentedFullScreen) { route in
             fullScreenView(for: route)
         }
+        #endif
     }
     
     @ViewBuilder
@@ -311,9 +331,9 @@ struct NavigationCoordinatorModifier: ViewModifier {
     private func sheetView(for route: AppRoute) -> some View {
         switch route {
         case .createGoal:
-            EditGoalView(goal: nil)
+            CreateGoalWrapper()
         case .editGoal(let goal):
-            EditGoalView(goal: goal)
+            EditGoalWrapper(goal: goal)
         case .settings:
             SettingsView()
         case .monthlyPlanningSettings:
@@ -339,5 +359,39 @@ extension View {
     func withNavigationCoordinator() -> some View {
         self.modifier(NavigationCoordinatorModifier(coordinator: AppCoordinator.shared))
             .environmentObject(AppCoordinator.shared)
+    }
+}
+
+// MARK: - Wrapper Views for EditGoalView
+struct CreateGoalWrapper: View {
+    @Environment(\.modelContext) private var modelContext
+    @State private var newGoal: Goal
+    
+    init() {
+        let goal = Goal(
+            name: "",
+            currency: "USD",
+            targetAmount: 1000,
+            deadline: Date().addingTimeInterval(86400 * 90), // 90 days from now
+            startDate: Date()
+        )
+        self._newGoal = State(initialValue: goal)
+    }
+    
+    var body: some View {
+        EditGoalView(goal: newGoal, modelContext: modelContext)
+            .onAppear {
+                // Insert the new goal into context
+                modelContext.insert(newGoal)
+            }
+    }
+}
+
+struct EditGoalWrapper: View {
+    let goal: Goal
+    @Environment(\.modelContext) private var modelContext
+    
+    var body: some View {
+        EditGoalView(goal: goal, modelContext: modelContext)
     }
 }
