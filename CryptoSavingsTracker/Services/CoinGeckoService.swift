@@ -28,6 +28,7 @@ class CoinGeckoService {
     private let apiKey: String
     private let cache = NSCache<NSString, NSArray>()
     private static let log = Logger(subsystem: "xax.CryptoSavingsTracker", category: "CoinGeckoService")
+    private var isOffline = false
 
     init() {
         apiKey = Self.loadAPIKey()
@@ -147,5 +148,15 @@ class CoinGeckoService {
         }
     }
     
+    // MARK: - Error Recovery Support
+    func hasValidConfiguration() -> Bool {
+        return apiKey != "YOUR_COINGECKO_API_KEY" && !apiKey.isEmpty
+    }
     
+    func setOfflineMode(_ offline: Bool) {
+        isOffline = offline
+        if offline {
+            CoinGeckoService.log.info("CoinGecko service operating in offline mode")
+        }
+    }
 }

@@ -192,9 +192,9 @@ class ErrorHandler: ObservableObject {
     }
     
     private func logError(_ error: AppError) {
-        print("🚨 AppError: \(error.localizedDescription)")
+        AppLog.error("AppError: \(error.localizedDescription)", category: .validation)
         if let recovery = error.recoverySuggestion {
-            print("💡 Recovery: \(recovery)")
+            AppLog.info("Recovery: \(recovery)", category: .validation)
         }
     }
     

@@ -1,8 +1,8 @@
 //
-//  Item.swift
+//  Goal.swift
 //  CryptoSavingsTracker
 //
-//  Created by user on 25/07/2025.
+//  Created by Assistant on 11/08/2025.
 //
 
 import SwiftData
@@ -48,55 +48,72 @@ final class Goal {
     
     @Relationship(deleteRule: .cascade) var assets: [Asset] = []
     
-    // Computed properties for reminder functionality - direct property access for simplicity
-    var frequency: ReminderFrequency {
-        get {
-            guard let freq = reminderFrequency,
-                  let reminder = ReminderFrequency(rawValue: freq) else {
-                return .weekly
-            }
-            return reminder
-        }
-        set {
-            reminderFrequency = newValue.rawValue
-        }
+    // MARK: - Computed Properties
+    
+    var manualTotal: Double {
+        assets.reduce(0) { $0 + $1.manualBalance }
     }
     
-    var isReminderEnabled: Bool {
-        return reminderFrequency != nil
+    var manualProgress: Double {
+        targetAmount > 0 ? min(manualTotal / targetAmount, 1.0) : 0
     }
     
-    // Simple computed properties for basic calculations without external dependencies
     var daysRemaining: Int {
-        let components = Calendar.current.dateComponents([.day], from: Date(), to: deadline)
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.day], from: Date(), to: deadline)
         return max(components.day ?? 0, 0)
     }
     
-    // Manual total from all assets - synchronous calculation without external services
-    var manualTotal: Double {
-        return assets.reduce(0) { total, asset in
-            total + asset.transactions.reduce(0) { $0 + $1.amount }
+    var isExpired: Bool {
+        return deadline < Date()
+    }
+    
+    var isAchieved: Bool {
+        return manualTotal >= targetAmount
+    }
+    
+    var isArchived: Bool {
+        return archivedDate != nil
+    }
+    
+    var status: String {
+        if isAchieved {
+            return "Achieved"
+        } else if isExpired {
+            return "Expired"
+        } else if daysRemaining < 7 {
+            return "Urgent"
+        } else if manualProgress > 0.7 {
+            return "On Track"
+        } else if manualProgress > 0.3 {
+            return "In Progress"
+        } else {
+            return "Just Started"
         }
     }
     
-    // Manual progress based on manual total - synchronous calculation
-    var manualProgress: Double {
-        guard targetAmount > 0 else { return 0 }
-        return min(manualTotal / targetAmount, 1.0)
+    var currentTotal: Double {
+        return manualTotal
     }
     
-    // Legacy properties for backward compatibility - these delegate to the new simple calculations
-    var currentTotal: Double { manualTotal }
-    var progress: Double { manualProgress }
+    var progress: Double {
+        return manualProgress
+    }
     
-    // Simple reminder dates calculation without external service dependencies
+    var frequency: ReminderFrequency? {
+        guard let rawValue = reminderFrequency else { return nil }
+        return ReminderFrequency(rawValue: rawValue)
+    }
+    
     var reminderDates: [Date] {
-        var dates: [Date] = []
-        var currentDate = startDate
+        guard let frequency = frequency,
+              let reminderTime = reminderTime else { return [] }
         
-        while currentDate <= deadline {
+        var dates: [Date] = []
+        var currentDate = firstReminderDate ?? startDate
+        
+        while dates.count < 100 {
             dates.append(currentDate)
-            
             guard let nextDate = Calendar.current.date(byAdding: frequency.dateComponents, to: currentDate) else { break }
             currentDate = nextDate
             
@@ -162,88 +179,8 @@ final class Goal {
         let remainingAmount = max(targetAmount - manualTotal, 0)
         return remainingAmount / Double(daysRemaining)
     }
-    
-    // MARK: - Deprecated Async Methods 
-    // These methods have been removed to break circular dependencies
-    // Use ViewModels with proper dependency injection instead
-    
-    @available(*, deprecated, message: "Use GoalViewModel with dependency injection instead")
-    @MainActor
-    func getCurrentTotal() async -> Double {
-        // Return manual total as fallback
-        return manualTotal
-    }
-    
-    @available(*, deprecated, message: "Use GoalViewModel with dependency injection instead")
-    @MainActor
-    func getProgress() async -> Double {
-        // Return manual progress as fallback
-        return manualProgress
-    }
-    
-    @available(*, deprecated, message: "Use GoalViewModel with dependency injection instead")
-    @MainActor
-    func getSuggestedDeposit() async -> Double {
-        // Return simple calculation as fallback
-        return suggestedDailyDeposit
-    }
-}
-
-@Model
-final class Asset {
-    init(currency: String, goal: Goal, address: String? = nil, chainId: String? = nil) {
-        self.id = UUID()
-        self.currency = currency
-        self.goal = goal
-        self.transactions = []
-        self.address = address
-        self.chainId = chainId
-    }
-
-    @Attribute(.unique) var id: UUID
-    var currency: String
-    var address: String?
-    var chainId: String?
-    
-    @Relationship(deleteRule: .cascade) var transactions: [Transaction] = []
-    @Relationship var goal: Goal
-    
-    var manualBalance: Double {
-        transactions.reduce(0) { $0 + $1.amount }
-    }
-    
-    // For synchronous access, return manual balance only
-    // For accurate totals including on-chain balance, use AssetViewModel
-    var currentAmount: Double {
-        manualBalance
-    }
-    
-    // MARK: - Deprecated Async Methods
-    // This method has been removed to break circular dependencies
-    // Use AssetViewModel with proper dependency injection instead
-    
-    @available(*, deprecated, message: "Use AssetViewModel with dependency injection instead")
-    @MainActor
-    func getCurrentAmount() async -> Double {
-        // Return manual balance as fallback
-        return manualBalance
-    }
-}
-
-@Model
-final class Transaction {
-    init(amount: Double, asset: Asset, comment: String? = nil) {
-        self.id = UUID()
-        self.amount = amount
-        self.date = Date()
-        self.asset = asset
-        self.comment = comment
-    }
-
-    @Attribute(.unique) var id: UUID
-    var amount: Double
-    var date: Date
-    var comment: String?
-    
-    @Relationship var asset: Asset
+    // MARK: - Note on Business Logic
+    // Business logic has been moved to ViewModels (GoalViewModel, AssetViewModel)
+    // This ensures proper separation of concerns and avoids circular dependencies
+    // For calculations use: GoalViewModel.getCurrentTotal(), etc.
 }

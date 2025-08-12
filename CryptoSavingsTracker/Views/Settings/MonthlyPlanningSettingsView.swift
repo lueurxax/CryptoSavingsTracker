@@ -188,8 +188,8 @@ struct MonthlyPlanningSettingsView: View {
         .accessibilityHint("Double tap to select currency for showing total requirements")
         .accessibilityValue("Currently \(settings.displayCurrency)")
         .sheet(isPresented: $showingCurrencyPicker) {
-            // For monthly planning, we want both fiat and crypto options
-            SearchableCurrencyPicker(selectedCurrency: $settings.displayCurrency, pickerType: .crypto)
+            // For monthly planning, we want fiat currency options like in goal settings
+            SearchableCurrencyPicker(selectedCurrency: $settings.displayCurrency, pickerType: .fiat)
                 #if os(macOS)
                 .frame(minWidth: 600, idealWidth: 700, maxWidth: 800, minHeight: 500, maxHeight: 700)
                 #endif

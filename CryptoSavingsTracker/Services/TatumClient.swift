@@ -34,10 +34,21 @@ final class TatumClient {
     private let baseRetryDelay: TimeInterval = 1.0
     
     init() {
-        apiKey = Self.loadAPIKey()
+        // Try to get API key from Keychain first
+        if let keychainKey = KeychainManager.tatumAPIKey {
+            apiKey = keychainKey
+        } else {
+            // Fall back to Config.plist and migrate if found
+            apiKey = Self.loadAPIKeyFromPlist()
+            if apiKey != "YOUR_TATUM_API_KEY" && !apiKey.isEmpty {
+                // Migrate to Keychain
+                try? KeychainManager.storeAPIKey(apiKey, for: "tatum")
+                Self.log.info("Migrated Tatum API key to Keychain", type: .info)
+            }
+        }
     }
     
-    private static func loadAPIKey() -> String {
+    private static func loadAPIKeyFromPlist() -> String {
         guard let path = Bundle.main.path(forResource: "Config", ofType: "plist"),
               let plist = NSDictionary(contentsOfFile: path),
               let key = plist["TatumAPIKey"] as? String else {
@@ -298,6 +309,29 @@ extension TatumError: LocalizedError {
             return "Failed to decode response: \(error.localizedDescription)"
         case .requestCancelled:
             return "Request was cancelled"
+        }
+    }
+}
+
+// MARK: - Error Recovery Support
+extension TatumClient {
+    private var isOffline: Bool {
+        get {
+            UserDefaults.standard.bool(forKey: "TatumClientOfflineMode")
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "TatumClientOfflineMode")
+        }
+    }
+    
+    func hasValidAPIKey() -> Bool {
+        return apiKey != "YOUR_TATUM_API_KEY" && !apiKey.isEmpty
+    }
+    
+    func setOfflineMode(_ offline: Bool) {
+        isOffline = offline
+        if offline {
+            Self.log.info("Tatum client operating in offline mode")
         }
     }
 }

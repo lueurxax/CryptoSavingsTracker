@@ -17,13 +17,28 @@ class ExchangeRateService {
     private var lastFetchTime: [String: Date] = [:]
     private let apiKey: String
     
+    private var isOffline = false
+    
     private static func loadAPIKey() -> String {
+        // Try to get API key from Keychain first
+        if let keychainKey = KeychainManager.coinGeckoAPIKey {
+            return keychainKey
+        }
+        
+        // Fall back to Config.plist and migrate if found
         guard let path = Bundle.main.path(forResource: "Config", ofType: "plist"),
               let plist = NSDictionary(contentsOfFile: path),
               let key = plist["CoinGeckoAPIKey"] as? String else {
             // API key not found in Config.plist - using placeholder
             return "YOUR_COINGECKO_API_KEY"
         }
+        
+        // Migrate to Keychain if we have a valid key
+        if !key.isEmpty && key != "YOUR_COINGECKO_API_KEY" {
+            try? KeychainManager.storeAPIKey(key, for: "coingecko")
+            AppLog.info("Migrated CoinGecko API key to Keychain", category: .api)
+        }
+        
         return key
     }
     
@@ -217,6 +232,18 @@ class ExchangeRateService {
         if let timesData = UserDefaults.standard.data(forKey: "cached_fetch_times"),
            let times = try? JSONDecoder().decode([String: Date].self, from: timesData) {
             lastFetchTime = times
+        }
+    }
+    
+    // MARK: - Error Recovery Support
+    func hasValidConfiguration() -> Bool {
+        return apiKey != "YOUR_COINGECKO_API_KEY" && !apiKey.isEmpty
+    }
+    
+    func setOfflineMode(_ offline: Bool) {
+        isOffline = offline
+        if offline {
+            AppLog.info("Exchange rate service operating in offline mode", category: .api)
         }
     }
 }

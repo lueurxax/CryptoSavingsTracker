@@ -49,4 +49,15 @@ final class TatumService {
     func fetchTransactionHistory(chainId: String, address: String, currency: String? = nil, limit: Int = 50, forceRefresh: Bool = false) async throws -> [TatumTransaction] {
         return try await transactionService.fetchTransactionHistory(chainId: chainId, address: address, currency: currency, limit: limit, forceRefresh: forceRefresh)
     }
+    
+    // MARK: - Error Recovery Support
+    func hasValidConfiguration() -> Bool {
+        // Check if TatumClient has a valid API key
+        return TatumClient.shared.hasValidAPIKey()
+    }
+    
+    func setOfflineMode(_ offline: Bool) {
+        // Propagate offline mode to underlying services
+        TatumClient.shared.setOfflineMode(offline)
+    }
 }
