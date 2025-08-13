@@ -7,7 +7,6 @@
 
 import Foundation
 
-@MainActor
 class StartupThrottler {
     static let shared = StartupThrottler()
     

@@ -117,6 +117,18 @@ final class TatumClient {
                 } else {
                     throw TatumError.rateLimitExceeded
                 }
+            } catch TatumError.httpError(let statusCode) where (500...599).contains(statusCode) {
+                // Handle 5xx server errors with exponential backoff
+                let delay = baseRetryDelay * pow(2.0, Double(attempt))
+                Self.log.warning("Server error (\(statusCode)) (attempt \(attempt + 1)/\(self.maxRetryAttempts)), waiting \(delay) seconds")
+                
+                if attempt < maxRetryAttempts - 1 {
+                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    lastError = TatumError.httpError(statusCode)
+                    continue
+                } else {
+                    throw TatumError.httpError(statusCode)
+                }
                 
             } catch let error as URLError where error.code == .cancelled {
                 // Handle cancellation gracefully
@@ -284,6 +296,7 @@ enum TatumError: Error {
     case httpError(Int)
     case decodingError(Error)
     case requestCancelled
+    case notImplemented
 }
 
 extension TatumError: LocalizedError {
@@ -309,6 +322,8 @@ extension TatumError: LocalizedError {
             return "Failed to decode response: \(error.localizedDescription)"
         case .requestCancelled:
             return "Request was cancelled"
+        case .notImplemented:
+            return "Functionality not implemented"
         }
     }
 }

@@ -15,37 +15,37 @@ enum MockError: Error {
 }
 
 // MARK: - Exchange Rate Service Protocol
-protocol ExchangeRateServiceProtocol {
+protocol ExchangeRateServiceProtocol: Sendable {
     func fetchRate(from: String, to: String) async throws -> Double
     func fetchRatesInBatch(from: String, to currencies: [String]) async throws -> [String: Double]
     func getCachedRate(from: String, to: String) -> Double?
 }
 
 // MARK: - Balance Service Protocol
-protocol BalanceServiceProtocol {
+protocol BalanceServiceProtocol: Sendable {
     func fetchBalance(chainId: String, address: String, symbol: String, forceRefresh: Bool) async throws -> Double
 }
 
 // MARK: - Transaction Service Protocol
-protocol TransactionServiceProtocol {
+protocol TransactionServiceProtocol: Sendable {
     func fetchTransactionHistory(chainId: String, address: String, currency: String?, limit: Int, forceRefresh: Bool) async throws -> [TatumTransaction]
 }
 
 // MARK: - Tatum Service Protocol
-protocol TatumServiceProtocol: BalanceServiceProtocol, TransactionServiceProtocol {
+protocol TatumServiceProtocol: BalanceServiceProtocol, TransactionServiceProtocol, Sendable {
     var supportedChains: [TatumChain] { get }
     func searchChains(query: String) -> [TatumChain]
 }
 
 // MARK: - Flex Calculation Result
-struct FlexCalculationResult {
+struct FlexCalculationResult: Sendable {
     let originalTotal: Double
     let adjustedTotal: Double
     let difference: Double
     let adjustedRequirements: [MonthlyRequirement]
     let impactAnalysis: [ImpactAnalysis]
     
-    struct ImpactAnalysis {
+    struct ImpactAnalysis: Sendable {
         let goalId: UUID
         let estimatedDelay: Int
         let riskLevel: String
@@ -53,14 +53,14 @@ struct FlexCalculationResult {
 }
 
 // MARK: - Monthly Planning Service Protocol
-protocol MonthlyPlanningServiceProtocol {
+protocol MonthlyPlanningServiceProtocol: Sendable {
     func calculateMonthlyRequirement(for goal: Goal) async throws -> MonthlyRequirement
     func calculateAllRequirements(for goals: [Goal]) async throws -> [MonthlyRequirement]
     func calculateFlexScenarios(for requirements: [MonthlyRequirement], flexPercentage: Double) async throws -> FlexCalculationResult
 }
 
 // MARK: - Notification Service Protocol
-protocol NotificationServiceProtocol {
+protocol NotificationServiceProtocol: Sendable {
     func scheduleReminder(for goal: Goal) async throws
     func cancelReminder(for goal: Goal) async throws
     func requestAuthorization() async throws -> Bool

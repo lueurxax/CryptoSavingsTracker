@@ -11,13 +11,14 @@ import os
 
 // MARK: - Transaction Service
 final class TransactionService {
-    static let shared = TransactionService()
-    
-    private let client = TatumClient.shared
-    private let chainService = ChainService.shared
+    private let client: TatumClient
+    private let chainService: ChainService
     private static let log = Logger(subsystem: "xax.CryptoSavingsTracker", category: "TransactionService")
     
-    private init() {}
+    init(client: TatumClient, chainService: ChainService) {
+        self.client = client
+        self.chainService = chainService
+    }
     
     // MARK: - Transaction History Fetching
     func fetchTransactionHistory(chainId: String, address: String, currency: String? = nil, limit: Int = 50, forceRefresh: Bool = false) async throws -> [TatumTransaction] {

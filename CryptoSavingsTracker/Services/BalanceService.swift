@@ -10,83 +10,73 @@ import os
 
 // MARK: - Balance Service
 final class BalanceService {
-    static let shared = BalanceService()
-    
-    private let client = TatumClient.shared
-    private let chainService = ChainService.shared
+    private let client: TatumClient
+    private let chainService: ChainService
+    private let rateLimiter: RateLimiter
     private static let log = Logger(subsystem: "xax.CryptoSavingsTracker", category: "BalanceService")
-    
-    private init() {}
+
+    init(client: TatumClient, chainService: ChainService) {
+        self.client = client
+        self.chainService = chainService
+        let rateLimitInterval = Self.getConfigValue(forKey: "RateLimitInterval") as? Double ?? 5.0
+        self.rateLimiter = RateLimiter(timeInterval: rateLimitInterval)
+    }
+
+    private static func getConfigValue(forKey key: String) -> Any? {
+        guard let path = Bundle.main.path(forResource: "Config", ofType: "plist") else {
+            return nil
+        }
+        let nsDictionary = NSDictionary(contentsOfFile: path)
+        return nsDictionary?[key]
+    }
     
     // MARK: - Balance Fetching (Unified Interface)
     func fetchBalance(chainId: String, address: String, symbol: String, forceRefresh: Bool = false) async throws -> Double {
         Self.log.debug("fetchBalance called - ChainId: \(chainId), Address: \(address), Symbol: \(symbol), ForceRefresh: \(forceRefresh)")
         
-        // Check cache first unless force refresh is requested
         let cacheKey = BalanceCacheManager.balanceCacheKey(chainId: chainId, address: address, symbol: symbol)
-        
-        if !forceRefresh {
-            if let cachedBalance = BalanceCacheManager.shared.getCachedBalance(for: cacheKey) {
-                Self.log.debug("Using cached balance: \(cachedBalance)")
-                return cachedBalance
-            }
+
+        if !forceRefresh, let cachedBalance = BalanceCacheManager.shared.getCachedBalance(for: cacheKey) {
+            Self.log.debug("Using cached balance: \(cachedBalance)")
+            return cachedBalance
         }
-        
-        // Always check rate limiting to prevent API overload
-        if !BalanceCacheManager.shared.canRefreshBalance(for: cacheKey) {
-            // Return any cached balance we have, even if expired
+
+        if rateLimiter.isRateLimited(for: cacheKey) {
             if let cachedBalance = BalanceCacheManager.shared.getFallbackBalance(for: cacheKey) {
                 Self.log.info("Rate limited - returning fallback cached balance: \(cachedBalance)")
                 return cachedBalance
             }
-            // If no cache at all and rate limited, throw error so UI can show proper state
             throw TatumError.rateLimitExceeded
         }
-        
-        // Mark that we're attempting a request
-        BalanceCacheManager.shared.markRequestAttempt(for: cacheKey)
-        
-        guard let chain = chainService.getChain(by: chainId) else {
-            Self.log.error("Unsupported chain: \(chainId)")
-            throw TatumError.unsupportedChain(chainId)
-        }
-        
-        Self.log.debug("Chain found: \(chain.name) (\(chain.chainType.rawValue))")
-        
+
+        rateLimiter.recordRequest(for: cacheKey)
+
         do {
-            let balance = try await fetchBalanceForChain(chain: chain, address: address, symbol: symbol)
-            
-            // Cache the result
-            BalanceCacheManager.shared.cacheBalance(balance, for: cacheKey)
-            Self.log.debug("Cached balance: \(balance)")
-            
+            let balance = try await fetchAndCacheBalance(chainId: chainId, address: address, symbol: symbol, cacheKey: cacheKey)
             return balance
-        } catch TatumError.requestCancelled {
-            // Return cached balance on cancellation if available
-            Self.log.debug("Request cancelled, returning cached balance if available")
-            if let cachedBalance = BalanceCacheManager.shared.getFallbackBalance(for: cacheKey) {
-                return cachedBalance
-            }
-            // Throw error to show proper UI state instead of zero
-            throw TatumError.requestCancelled
-        } catch TatumError.rateLimitExceeded {
-            // Always return cached balance on rate limit
-            Self.log.warning("Rate limit exceeded, using cached balance")
-            if let cachedBalance = BalanceCacheManager.shared.getFallbackBalance(for: cacheKey) {
-                return cachedBalance
-            }
-            // Throw error to show proper UI state instead of zero
-            throw TatumError.rateLimitExceeded
         } catch {
-            Self.log.error("Error in fetchBalance: \(error)")
-            // Try to return cached balance on any error
             if let cachedBalance = BalanceCacheManager.shared.getFallbackBalance(for: cacheKey) {
                 Self.log.info("Returning cached balance due to error: \(cachedBalance)")
                 return cachedBalance
             }
-            // Always throw error to show proper UI state, never return misleading zero
             throw error
         }
+    }
+
+    private func fetchAndCacheBalance(chainId: String, address: String, symbol: String, cacheKey: String) async throws -> Double {
+        guard let chain = chainService.getChain(by: chainId) else {
+            Self.log.error("Unsupported chain: \(chainId)")
+            throw TatumError.unsupportedChain(chainId)
+        }
+
+        Self.log.debug("Chain found: \(chain.name) (\(chain.chainType.rawValue))")
+
+        let balance = try await fetchBalanceForChain(chain: chain, address: address, symbol: symbol)
+        
+        BalanceCacheManager.shared.cacheBalance(balance, for: cacheKey)
+        Self.log.debug("Cached balance: \(balance)")
+        
+        return balance
     }
     
     private func fetchBalanceForChain(chain: TatumChain, address: String, symbol: String) async throws -> Double {
@@ -125,28 +115,31 @@ final class BalanceService {
         }
     }
     
-    private func fetchV4NativeBalance(v4Chain: String, address: String) async throws -> Double {
+    private func fetchV4PortfolioData(v4Chain: String, address: String, tokenTypes: [String]) async throws -> TatumV4PortfolioResponse {
         let queryItems = [
             URLQueryItem(name: "chain", value: v4Chain),
             URLQueryItem(name: "addresses", value: address),
-            URLQueryItem(name: "tokenTypes", value: "native")
+            URLQueryItem(name: "tokenTypes", value: tokenTypes.joined(separator: ","))
         ]
-        
+
         guard let request = client.createV4Request(path: "/data/wallet/portfolio", queryItems: queryItems) else {
             throw TatumError.invalidURL
         }
-        
-        Self.log.debug("Fetching v4 native balance from: \(request.url?.absoluteString ?? "")")
-        
+
+        Self.log.debug("Fetching v4 portfolio data from: \(request.url?.absoluteString ?? "")")
+
         let (data, _) = try await client.performRequest(request)
-        
-        Self.log.debug("V4 native balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
-        
-        let decoder = JSONDecoder()
-        let portfolioResponse = try decoder.decode(TatumV4PortfolioResponse.self, from: data)
-        
+
+        Self.log.debug("V4 portfolio response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
+
+        return try JSONDecoder().decode(TatumV4PortfolioResponse.self, from: data)
+    }
+
+    private func fetchV4NativeBalance(v4Chain: String, address: String) async throws -> Double {
+        let portfolioResponse = try await fetchV4PortfolioData(v4Chain: v4Chain, address: address, tokenTypes: ["native"])
+
         Self.log.debug("Found \(portfolioResponse.result.count) balance items")
-        
+
         // Find native balance
         if let nativeBalance = portfolioResponse.result.first(where: { $0.type == "native" }) {
             let balance = Double(nativeBalance.balance) ?? 0.0
@@ -157,35 +150,17 @@ final class BalanceService {
             return 0.0
         }
     }
-    
+
     private func fetchV4TokenBalance(v4Chain: String, address: String, symbol: String) async throws -> Double {
-        let queryItems = [
-            URLQueryItem(name: "chain", value: v4Chain),
-            URLQueryItem(name: "addresses", value: address),
-            URLQueryItem(name: "tokenTypes", value: "fungible")
-        ]
-        
-        guard let request = client.createV4Request(path: "/data/wallet/portfolio", queryItems: queryItems) else {
-            throw TatumError.invalidURL
-        }
-        
-        Self.log.debug("Fetching v4 token balance from: \(request.url?.absoluteString ?? "")")
-        Self.log.debug("Looking for symbol: \(symbol)")
-        
-        let (data, _) = try await client.performRequest(request)
-        
-        Self.log.debug("V4 token balance response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
-        
-        let decoder = JSONDecoder()
-        let portfolioResponse = try decoder.decode(TatumV4PortfolioResponse.self, from: data)
-        
+        let portfolioResponse = try await fetchV4PortfolioData(v4Chain: v4Chain, address: address, tokenTypes: ["fungible"])
+
         Self.log.debug("Found \(portfolioResponse.result.count) token balances")
-        
+
         // Find matching token by symbol
         let matchingToken = portfolioResponse.result.first { balance in
             balance.tokenSymbol?.uppercased() == symbol.uppercased() && balance.type == "fungible"
         }
-        
+
         if let token = matchingToken {
             let balance = Double(token.balance) ?? 0.0
             Self.log.debug("Found matching token: \(token.tokenSymbol ?? "unknown"), Balance: \(balance)")
@@ -198,23 +173,45 @@ final class BalanceService {
     
     // MARK: - Legacy Balance Fetching
     private func fetchLegacyBalance(chainId: String, address: String, symbol: String) async throws -> Double {
-        // Fallback to legacy API for chains not supported by v4
         Self.log.info("Using legacy API for chain: \(chainId)")
-        return 0.0 // Implement if needed
+
+        let path = "/v3/\(chainId.lowercased())/address/balance/\(address)"
+
+        guard let request = client.createLegacyRequest(path: path) else {
+            throw TatumError.invalidURL
+        }
+
+        let (data, _) = try await client.performRequest(request)
+
+        let decoder = JSONDecoder()
+        let balanceResponse = try decoder.decode(TatumBalanceResponse.self, from: data)
+
+        return Double(balanceResponse.balance) ?? 0.0
     }
     
+    private enum ChainID: String {
+        case btc = "BTC"
+        case ltc = "LTC"
+        case bch = "BCH"
+        case doge = "DOGE"
+        case xrp = "XRP"
+        case trx = "TRX"
+        case ada = "ADA"
+        case sol = "SOL"
+    }
+
     // MARK: - UTXO Balance Fetching
     private func fetchUTXOBalance(chainId: String, address: String) async throws -> Double {
         let path: String
         
         switch chainId {
-        case "BTC":
+        case ChainID.btc.rawValue:
             path = "/bitcoin/address/balance/\(address)"
-        case "LTC":
+        case ChainID.ltc.rawValue:
             path = "/litecoin/address/balance/\(address)"
-        case "BCH":
+        case ChainID.bch.rawValue:
             path = "/bcash/address/balance/\(address)"
-        case "DOGE":
+        case ChainID.doge.rawValue:
             path = "/dogecoin/address/balance/\(address)"
         default:
             Self.log.error("Unsupported UTXO chain: \(chainId)")
@@ -244,13 +241,13 @@ final class BalanceService {
     // MARK: - Other Chain Balance Fetching
     private func fetchOtherBalance(chainId: String, address: String, symbol: String) async throws -> Double {
         switch chainId.uppercased() {
-        case "XRP":
+        case ChainID.xrp.rawValue:
             return try await fetchXRPBalance(address: address)
-        case "TRX":
+        case ChainID.trx.rawValue:
             return try await fetchTRXBalance(address: address, symbol: symbol)
-        case "ADA":
+        case ChainID.ada.rawValue:
             return try await fetchADABalance(address: address)
-        case "SOL":
+        case ChainID.sol.rawValue:
             return try await fetchSOLBalance(address: address)
         default:
             Self.log.error("Unsupported other chain: \(chainId)")

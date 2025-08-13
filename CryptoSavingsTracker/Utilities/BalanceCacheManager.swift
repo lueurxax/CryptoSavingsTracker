@@ -43,15 +43,8 @@ final class BalanceCacheManager {
     // Cache duration for transactions (2 hours - transactions change less frequently)
     private let transactionsCacheDuration: TimeInterval = 2 * 60 * 60
     
-    // Minimum time between API calls for the same resource (120 seconds - increased to prevent rate limits)
-    private let minimumRefreshInterval: TimeInterval = 120
-    
-    // Track request timestamps to prevent rapid requests
-    private var lastRequestTimes: [String: Date] = [:]
-    
     // Persistent storage keys
     private let balanceCacheKey = "com.cryptosavings.balance.cache"
-    private let lastRequestTimesKey = "com.cryptosavings.balance.lastRequests"
     
     private init() {
         loadPersistedCache()
@@ -61,21 +54,10 @@ final class BalanceCacheManager {
     
     func getCachedBalance(for key: String) -> Double? {
         cacheQueue.sync {
-            // Return cached balance even if expired if we're rate limited
-            if let entry = balanceCache[key] {
-                // Check if we're too soon after last request attempt
-                if let lastRequest = lastRequestTimes[key],
-                   Date().timeIntervalSince(lastRequest) < minimumRefreshInterval {
-                    // Return cached value regardless of expiry to avoid rate limits
-                    return entry.balance
-                }
-                
-                // Normal cache expiry check
-                if !entry.isExpired {
-                    return entry.balance
-                }
+            guard let entry = balanceCache[key], !entry.isExpired else {
+                return nil
             }
-            return nil
+            return entry.balance
         }
     }
     
@@ -97,31 +79,6 @@ final class BalanceCacheManager {
             print("[BalanceCache] Cached balance \(balance) for key: \(key)")
             self.persistCache()
             print("[BalanceCache] Persisted \(self.balanceCache.count) entries to disk")
-        }
-    }
-    
-    func canRefreshBalance(for key: String) -> Bool {
-        cacheQueue.sync {
-            // Check last request time first to prevent rapid requests
-            if let lastRequest = lastRequestTimes[key] {
-                let timeSinceLastRequest = Date().timeIntervalSince(lastRequest)
-                if timeSinceLastRequest < minimumRefreshInterval {
-                    return false
-                }
-            }
-            
-            // Then check cache entry
-            guard let entry = balanceCache[key] else { return true }
-            let timeSinceLastUpdate = Date().timeIntervalSince(entry.timestamp)
-            return timeSinceLastUpdate >= minimumRefreshInterval
-        }
-    }
-    
-    // Mark that a request was attempted (for rate limiting)
-    func markRequestAttempt(for key: String) {
-        cacheQueue.async(flags: .barrier) {
-            self.lastRequestTimes[key] = Date()
-            self.persistCache()
         }
     }
     
@@ -193,7 +150,6 @@ final class BalanceCacheManager {
     
     private func loadPersistedCache() {
         cacheQueue.async(flags: .barrier) {
-            // Load balance cache
             if let data = UserDefaults.standard.data(forKey: self.balanceCacheKey),
                let decodedCache = try? JSONDecoder().decode([String: BalanceCacheEntry].self, from: data) {
                 // Only load non-expired entries or entries less than 24 hours old
@@ -206,29 +162,14 @@ final class BalanceCacheManager {
             } else {
                 print("[BalanceCache] No persisted cache found on disk")
             }
-            
-            // Load last request times
-            if let data = UserDefaults.standard.data(forKey: self.lastRequestTimesKey),
-               let decodedTimes = try? JSONDecoder().decode([String: Date].self, from: data) {
-                // Only keep recent request times (within last hour)
-                let oneHourAgo = Date().addingTimeInterval(-3600)
-                self.lastRequestTimes = decodedTimes.filter { $0.value > oneHourAgo }
-            }
         }
     }
     
     private func persistCache() {
-        // Already called from within a barrier block, so directly save
-        // Save balance cache
         if let encoded = try? JSONEncoder().encode(self.balanceCache) {
             UserDefaults.standard.set(encoded, forKey: self.balanceCacheKey)
             UserDefaults.standard.synchronize() // Force immediate save
         }
-        
-        // Save last request times
-        if let encoded = try? JSONEncoder().encode(self.lastRequestTimes) {
-            UserDefaults.standard.set(encoded, forKey: self.lastRequestTimesKey)
-            UserDefaults.standard.synchronize() // Force immediate save
-        }
     }
 }
+

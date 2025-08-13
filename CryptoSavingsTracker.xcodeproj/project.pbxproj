@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CEAAFF942E4BE42F00A6B5A3 /* ARCHITECTURE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFF932E4BE42F00A6B5A3 /* ARCHITECTURE.md */; };
 		CED9DDB22E34C1A000203A83 /* CLAUDE.md in Resources */ = {isa = PBXBuildFile; fileRef = CED9DDB12E34C1A000203A83 /* CLAUDE.md */; };
 		CED9DE692E36232E00203A83 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE672E36232E00203A83 /* LICENSE */; };
 		CED9DE6A2E36232E00203A83 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE682E36232E00203A83 /* README.md */; };
@@ -39,6 +40,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		CEAAFF932E4BE42F00A6B5A3 /* ARCHITECTURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ARCHITECTURE.md; sourceTree = "<group>"; };
 		CED9DDB12E34C1A000203A83 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
 		CED9DE672E36232E00203A83 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		CED9DE682E36232E00203A83 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -152,6 +154,7 @@
 		CEF7B1D72E33FAB400FB26B3 = {
 			isa = PBXGroup;
 			children = (
+				CEAAFF932E4BE42F00A6B5A3 /* ARCHITECTURE.md */,
 				CEDD1EE32E4698B20026BFEF /* docs */,
 				CEEB9AA32E44D564002B697E /* .claude */,
 				CED9DE6D2E362A2C00203A83 /* Config.example.plist */,
@@ -308,6 +311,7 @@
 				CEDD1EE62E4698B20026BFEF /* .gitkeep in Resources */,
 				CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */,
 				CED9DE6A2E36232E00203A83 /* README.md in Resources */,
+				CEAAFF942E4BE42F00A6B5A3 /* ARCHITECTURE.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

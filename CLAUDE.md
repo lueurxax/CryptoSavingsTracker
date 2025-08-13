@@ -94,6 +94,15 @@ This is a SwiftUI cryptocurrency savings tracker app built for iOS, macOS, and v
 - **Currency Conversion**: Async exchange rate calculations working correctly
 - **UI Responsiveness**: Proper MainActor usage for smooth UI updates
 
+#### Architectural Improvements
+- **Dependency Injection**: Removed singleton anti-patterns from BalanceService/TransactionService
+- **Repository Pattern**: Implemented GoalRepository for data access with ModelContext injection
+- **Coordinator Pattern**: Added AppCoordinator for navigation management
+- **Error Recovery**: DIContainer with automatic fallback services and health checks
+- **Rate Limiting**: Multi-layer API protection with RateLimiter and StartupThrottler
+- **Persistent Caching**: BalanceCacheManager with UserDefaults persistence and fallback data
+- **Structured Logging**: Replaced all print statements with AppLog categories (16 categories)
+
 #### API Enhancements
 - **TRX Support**: Added Tron (TRX) blockchain support using Tatum v3 API
   - Native TRX balance fetching with sun to TRX conversion (1,000,000 sun = 1 TRX)

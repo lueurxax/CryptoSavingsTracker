@@ -126,19 +126,76 @@ When you need to modify goal display logic:
 Services/
 ├── GoalCalculationService.swift      ← **Currency-converted progress**
 ├── ExchangeRateService.swift         ← Currency conversion
-├── BalanceService.swift              ← Blockchain balance fetching
+├── BalanceService.swift              ← Blockchain balance fetching (DI)
+├── TransactionService.swift          ← Transaction history fetching (DI)
+├── TatumService.swift                ← Blockchain data wrapper (DI)
 ├── MonthlyPlanningService.swift      ← Required monthly calculations
 └── FlexAdjustmentService.swift       ← Payment flexibility
 ```
 
 ### Service Responsibilities
 
-| Service | Purpose | Used By |
-|---------|---------|---------|
-| `GoalCalculationService` | Currency-converted progress/totals | **ALL goal display components** |
-| `ExchangeRateService` | Real-time exchange rates | Goal calculations, displays |
-| `BalanceService` | On-chain balance fetching | Asset management, calculations |
-| `MonthlyPlanningService` | Required payment calculations | Planning views, widgets |
+| Service | Purpose | Initialization | Used By |
+|---------|---------|---------------|---------|
+| `GoalCalculationService` | Currency-converted progress/totals | Singleton | **ALL goal display components** |
+| `ExchangeRateService` | Real-time exchange rates | Singleton | Goal calculations, displays |
+| `BalanceService` | On-chain balance fetching | DI (TatumClient, ChainService) | Asset management, calculations |
+| `TransactionService` | Transaction history | DI (TatumClient, ChainService) | Transaction views |
+| `TatumService` | Blockchain API wrapper | DI (TatumClient, ChainService) | Views, ViewModels |
+| `MonthlyPlanningService` | Required payment calculations | DI (ExchangeRateService) | Planning views, widgets |
+
+### Dependency Injection Architecture
+
+```swift
+// Services now use dependency injection instead of singletons
+let balanceService = BalanceService(
+    client: TatumClient.shared,
+    chainService: ChainService.shared
+)
+
+// DIContainer manages service creation with error recovery
+DIContainer.shared.coinGeckoService     // Returns service or fallback
+DIContainer.shared.exchangeRateService  // Automatic error handling
+```
+
+### Error Recovery Strategy
+
+The `DIContainer` implements a robust error recovery pattern:
+
+```swift
+// Automatic fallback when service creation fails
+var coinGeckoService: CoinGeckoService {
+    do {
+        let service = try createCoinGeckoService()
+        return service
+    } catch {
+        AppLog.error("Failed to create service: \(error)")
+        return createMockCoinGeckoService()  // Fallback service
+    }
+}
+```
+
+**Key Features:**
+- Circular dependency detection
+- Service validation after initialization
+- Health check capabilities
+- Automatic retry for failed services
+- Fallback/mock services for critical functionality
+
+### API Rate Limiting Architecture
+
+```
+Utilities/
+├── RateLimiter.swift         ← Per-key rate limiting
+├── StartupThrottler.swift    ← Prevents startup API spam
+└── BalanceCacheManager.swift ← Persistent cache with fallback
+```
+
+**Rate Limiting Strategy:**
+1. **StartupThrottler**: 3-second delay after app startup
+2. **RateLimiter**: 5-second cooldown per unique request key
+3. **BalanceCacheManager**: 30-minute cache for balances, 2-hour for transactions
+4. **Fallback Cache**: Returns stale data when rate limited
 
 ---
 
@@ -244,14 +301,24 @@ iOSContentView        macOSContentView
 ✅ **Service Layer**: Separation of business logic from views  
 ✅ **SwiftData Integration**: Modern Core Data replacement  
 ✅ **Platform Abstraction**: PlatformCapabilities system  
-✅ **Dependency Injection**: DIContainer for service management  
+✅ **Dependency Injection**: DIContainer with error recovery  
+✅ **Repository Pattern**: GoalRepository for data access  
+✅ **Coordinator Pattern**: AppCoordinator for navigation  
+✅ **Error Recovery**: Automatic fallback services in DIContainer  
+
+### Recent Improvements
+
+✅ **Service Dependency Injection**: Removed singleton anti-pattern from BalanceService/TransactionService  
+✅ **Rate Limiting**: Implemented RateLimiter for API calls  
+✅ **Persistent Caching**: BalanceCacheManager with UserDefaults persistence  
+✅ **Startup Throttling**: StartupThrottler prevents API spam  
+✅ **Structured Logging**: AppLog with 16 categories replacing print statements  
 
 ### Patterns Needing Improvement
 
 ❌ **View Unification**: Multiple goal row implementations  
 ❌ **Complete Platform Abstraction**: Still uses `#if os()` conditionals  
 ❌ **Component Documentation**: No searchable component registry  
-❌ **Consistent Architecture**: Mixed async patterns, deprecated methods  
 
 ### Recommended Patterns
 
@@ -303,12 +370,19 @@ grep -r "#if os(" --include="*.swift" .
 - ✅ Implemented comprehensive logging system with categories
 - ✅ Enhanced Goal model with visual properties (emoji, description, link)
 - ✅ Resolved SwiftUI compilation timeouts through view decomposition
+- ✅ **Dependency Injection Refactor**: Removed singleton anti-patterns from services
+- ✅ **Repository Pattern**: Implemented GoalRepository for data access
+- ✅ **Coordinator Pattern**: Added AppCoordinator for navigation management
+- ✅ **Error Recovery**: DIContainer with automatic fallback services
+- ✅ **Rate Limiting**: Added RateLimiter and StartupThrottler for API management
+- ✅ **Persistent Caching**: BalanceCacheManager with UserDefaults persistence
+- ✅ **Structured Logging**: Replaced all print statements with AppLog categories
 
 ### Next Refactoring Priorities:
 1. **Unify goal row components** (eliminate iOS/macOS duplication)
 2. **Complete platform abstraction** (remove conditional compilation)
 3. **Create component registry** (searchable UI component map)
-4. **Implement proper service injection** (eliminate direct service calls from views)
+4. **Protocol-based service mocking** (improve testability)
 
 ---
 

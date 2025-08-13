@@ -12,7 +12,7 @@ struct AddAssetView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @StateObject private var currencyViewModel = CurrencyViewModel()
-    private let tatumService = TatumService.shared
+    private let tatumService = TatumService(client: TatumClient.shared, chainService: ChainService.shared)
     
     let goal: Goal
     

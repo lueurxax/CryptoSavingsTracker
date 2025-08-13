@@ -112,7 +112,7 @@ class NotificationManager {
     func scheduleMonthlyPaymentReminders(
         requirements: [MonthlyRequirement],
         modelContext: ModelContext,
-        settings: MonthlyReminderSettings = .default
+        settings: MonthlyReminderSettings
     ) async {
         let center = UNUserNotificationCenter.current()
         

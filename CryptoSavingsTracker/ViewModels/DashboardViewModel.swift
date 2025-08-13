@@ -35,10 +35,21 @@ class DashboardViewModel: ObservableObject {
     var isLoadingHeatmap: Bool { heatmapState.isLoading }
     
     private let exchangeRateService = ExchangeRateService.shared
-    private let balanceService = BalanceService.shared
-    private let transactionService = TransactionService.shared
+    private let balanceService: BalanceService
+    private let transactionService: TransactionService
     
     private var currentGoal: Goal?
+    
+    init() {
+        self.balanceService = BalanceService(
+            client: TatumClient.shared,
+            chainService: ChainService.shared
+        )
+        self.transactionService = TransactionService(
+            client: TatumClient.shared,
+            chainService: ChainService.shared
+        )
+    }
     
     func loadData(for goal: Goal, modelContext: ModelContext) async {
         currentGoal = goal

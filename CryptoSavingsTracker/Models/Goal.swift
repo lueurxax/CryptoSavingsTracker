@@ -107,7 +107,7 @@ final class Goal {
     
     var reminderDates: [Date] {
         guard let frequency = frequency,
-              let reminderTime = reminderTime else { return [] }
+              let _ = reminderTime else { return [] }
         
         var dates: [Date] = []
         var currentDate = firstReminderDate ?? startDate

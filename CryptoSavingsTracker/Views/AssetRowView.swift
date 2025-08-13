@@ -113,7 +113,8 @@ struct AssetRowView: View {
                                         .monospaced()
                                 }
                                 
-                                if let chainId = safeAssetChainId, let chain = TatumService.shared.supportedChains.first(where: { $0.id == chainId }) {
+                                let tatumService = TatumService(client: TatumClient.shared, chainService: ChainService.shared)
+                                if let chainId = safeAssetChainId, let chain = tatumService.supportedChains.first(where: { $0.id == chainId }) {
                                     Text(chain.name)
                                         .font(.caption2)
                                         .foregroundColor(.accessiblePrimary)
@@ -484,7 +485,8 @@ struct AssetRowView: View {
         let previousUpdate = BalanceCacheManager.shared.getLastBalanceUpdate(for: cacheKey)
         
         do {
-            let balance = try await TatumService.shared.fetchBalance(
+            let tatumService = TatumService(client: TatumClient.shared, chainService: ChainService.shared)
+            let balance = try await tatumService.fetchBalance(
                 chainId: chainId, 
                 address: address, 
                 symbol: asset.currency,
@@ -525,7 +527,8 @@ struct AssetRowView: View {
         
         do {
             // Fetching on-chain transactions
-            let transactions = try await TatumService.shared.fetchTransactionHistory(
+            let tatumService = TatumService(client: TatumClient.shared, chainService: ChainService.shared)
+            let transactions = try await tatumService.fetchTransactionHistory(
                 chainId: chainId,
                 address: address,
                 currency: safeAssetCurrency,

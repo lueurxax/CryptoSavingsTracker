@@ -13,17 +13,16 @@ import os
 // This service now acts as a facade, delegating to the smaller specialized services
 
 final class TatumService {
-    static let shared = TatumService()
-    
-    // Delegate to specialized services
-    private let chainService = ChainService.shared
-    private let balanceService = BalanceService.shared
-    private let transactionService = TransactionService.shared
+    private let client: TatumClient
+    private let chainService: ChainService
     
     // Expose chain data for backward compatibility
     @Published var supportedChains: [TatumChain] = []
     
-    init() {
+    init(client: TatumClient, chainService: ChainService) {
+        self.client = client
+        self.chainService = chainService
+        
         // Mirror chain data from ChainService
         supportedChains = chainService.supportedChains
         
@@ -42,22 +41,24 @@ final class TatumService {
     
     // MARK: - Balance Methods (Delegate to BalanceService)
     func fetchBalance(chainId: String, address: String, symbol: String, forceRefresh: Bool = false) async throws -> Double {
+        let balanceService = BalanceService(client: client, chainService: chainService)
         return try await balanceService.fetchBalance(chainId: chainId, address: address, symbol: symbol, forceRefresh: forceRefresh)
     }
     
     // MARK: - Transaction Methods (Delegate to TransactionService)
     func fetchTransactionHistory(chainId: String, address: String, currency: String? = nil, limit: Int = 50, forceRefresh: Bool = false) async throws -> [TatumTransaction] {
+        let transactionService = TransactionService(client: client, chainService: chainService)
         return try await transactionService.fetchTransactionHistory(chainId: chainId, address: address, currency: currency, limit: limit, forceRefresh: forceRefresh)
     }
     
     // MARK: - Error Recovery Support
     func hasValidConfiguration() -> Bool {
         // Check if TatumClient has a valid API key
-        return TatumClient.shared.hasValidAPIKey()
+        return client.hasValidAPIKey()
     }
     
     func setOfflineMode(_ offline: Bool) {
         // Propagate offline mode to underlying services
-        TatumClient.shared.setOfflineMode(offline)
+        client.setOfflineMode(offline)
     }
 }

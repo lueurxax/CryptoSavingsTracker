@@ -234,7 +234,8 @@ struct AssetDetailView: View {
         balanceError = nil
         
         do {
-            let balance = try await TatumService.shared.fetchBalance(
+            let tatumService = TatumService(client: TatumClient.shared, chainService: ChainService.shared)
+            let balance = try await tatumService.fetchBalance(
                 chainId: chainId,
                 address: address,
                 symbol: asset.currency

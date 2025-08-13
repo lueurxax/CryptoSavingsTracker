@@ -561,7 +561,9 @@ actor DiskCache {
                 await cleanOldestEntries()
             }
         } catch {
-            AppLog.error("Failed to store cache entry: \(error)", category: .cache)
+            await MainActor.run {
+                AppLog.error("Failed to store cache entry: \(error)", category: .cache)
+            }
         }
     }
     
@@ -607,9 +609,11 @@ actor DiskCache {
             guard let urls = try? FileManager.default.contentsOfDirectory(at: categoryURL, includingPropertiesForKeys: nil) else { continue }
             
             for url in urls {
-                if let entry = await retrieve(forKey: url.lastPathComponent, category: category),
-                   entry.isExpired {
-                    await remove(forKey: url.lastPathComponent, category: category)
+                if let entry = await retrieve(forKey: url.lastPathComponent, category: category) {
+                    let isExpired = await MainActor.run { entry.isExpired }
+                    if isExpired {
+                        await remove(forKey: url.lastPathComponent, category: category)
+                    }
                 }
             }
         }

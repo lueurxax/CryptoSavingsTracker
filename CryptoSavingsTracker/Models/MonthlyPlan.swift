@@ -10,7 +10,7 @@ import SwiftData
 
 /// SwiftData model for persisting monthly planning calculations and user preferences
 @Model
-final class MonthlyPlan: @unchecked Sendable {
+final class MonthlyPlan {
     
     // MARK: - Primary Properties
     @Attribute(.unique) var id: UUID

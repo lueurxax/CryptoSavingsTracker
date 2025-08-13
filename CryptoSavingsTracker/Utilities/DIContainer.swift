@@ -117,104 +117,103 @@ class DIContainer: ObservableObject {
                 return service
             }
             
-            // Check for circular dependency
-            guard !isInitializing("monthlyPlanningService") else {
-                AppLog.error("Circular dependency detected for MonthlyPlanningService", category: .validation)
+            do {
+                let service = try createMonthlyPlanningService()
+                _monthlyPlanningService = service
+                return service
+            } catch {
+                AppLog.error("Failed to create MonthlyPlanningService: \(error)", category: .validation)
+                // Return a fallback service
                 return createFallbackMonthlyPlanningService()
             }
-            
-            setInitializing("monthlyPlanningService")
-            
-            let service = MonthlyPlanningService(exchangeRateService: exchangeRateService)
-            _monthlyPlanningService = service
-            
-            setInitialized("monthlyPlanningService")
-            return service
         }
     }
     
-    // MARK: - Initialization
-    private init() {
-        Task {
-            await initializeServices()
-        }
+    // MARK: - Repository Pattern Implementation
+    func makeGoalRepository(modelContext: ModelContext) -> GoalRepository {
+        return GoalRepository(modelContext: modelContext)
     }
     
-    // MARK: - Service Initialization with Recovery
+    // MARK: - Service Initialization with Error Recovery
     private func initializeServices() async {
-        AppLog.info("Initializing DI container services", category: .validation)
-        
-        // Initialize services in dependency order
-        await initializeService("coinGeckoService") { [weak self] in
-            self?._coinGeckoService = try self?.createCoinGeckoService()
+        // Initialize services that can run in parallel
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { @MainActor in
+                _ = self.coinGeckoService
+            }
+            
+            group.addTask { @MainActor in
+                _ = self.tatumService
+            }
+            
+            group.addTask { @MainActor in
+                _ = self.exchangeRateService
+            }
+            
+            group.addTask { @MainActor in
+                _ = self.monthlyPlanningService
+            }
         }
         
-        await initializeService("tatumService") { [weak self] in
-            self?._tatumService = try self?.createTatumService()
-        }
-        
-        await initializeService("exchangeRateService") { [weak self] in
-            self?._exchangeRateService = try self?.createExchangeRateService()
-        }
-        
-        // Validate all services
+        // Validate all services after initialization
         await validateAllServices()
     }
     
-    private func initializeService(_ name: String, initializer: () throws -> Void) async {
-        do {
-            setInitializing(name)
-            try initializer()
-            setInitialized(name)
-            AppLog.debug("Successfully initialized \(name)", category: .validation)
-        } catch {
-            setFailed(name, error: error)
-            AppLog.error("Failed to initialize \(name): \(error)", category: .validation)
-        }
-    }
-    
-    // MARK: - Service Creation with Validation
+    // MARK: - Service Creation Methods
     private func createCoinGeckoService() throws -> CoinGeckoService {
-        let service = CoinGeckoService()
-        
-        // Validate API key is configured
-        if !service.hasValidConfiguration() {
-            throw DependencyError.initializationFailed("CoinGecko API key not configured")
+        if isInitializing("CoinGeckoService") {
+            throw DependencyError.circularDependency("CoinGeckoService")
         }
         
-        return service
+        setInitializing("CoinGeckoService")
+        defer { setInitialized("CoinGeckoService") }
+        
+        return CoinGeckoService()
     }
     
     private func createTatumService() throws -> TatumService {
-        let service = TatumService()
-        
-        // Validate API key is configured
-        if !service.hasValidConfiguration() {
-            throw DependencyError.initializationFailed("Tatum API key not configured")
+        if isInitializing("TatumService") {
+            throw DependencyError.circularDependency("TatumService")
         }
         
-        return service
+        setInitializing("TatumService")
+        defer { setInitialized("TatumService") }
+        
+        return TatumService(client: TatumClient.shared, chainService: ChainService.shared)
     }
     
     private func createExchangeRateService() throws -> ExchangeRateService {
-        return ExchangeRateService()
+        if isInitializing("ExchangeRateService") {
+            throw DependencyError.circularDependency("ExchangeRateService")
+        }
+        
+        setInitializing("ExchangeRateService")
+        defer { setInitialized("ExchangeRateService") }
+        
+        return ExchangeRateService.shared
     }
     
-    // MARK: - Fallback Service Creation
+    private func createMonthlyPlanningService() throws -> MonthlyPlanningService {
+        if isInitializing("MonthlyPlanningService") {
+            throw DependencyError.circularDependency("MonthlyPlanningService")
+        }
+        
+        setInitializing("MonthlyPlanningService")
+        defer { setInitialized("MonthlyPlanningService") }
+        
+        return MonthlyPlanningService(exchangeRateService: exchangeRateService)
+    }
+    
+    
+    // MARK: - Mock/Fallback Services
     private func createMockCoinGeckoService() -> CoinGeckoService {
-        AppLog.warning("Using mock CoinGeckoService due to initialization failure", category: .validation)
-        // Return a service that works with cached data only
-        let service = CoinGeckoService()
-        service.setOfflineMode(true)
-        return service
+        AppLog.warning("Using mock CoinGeckoService", category: .validation)
+        return CoinGeckoService()
     }
     
     private func createMockTatumService() -> TatumService {
-        AppLog.warning("Using mock TatumService due to initialization failure", category: .validation)
-        // Return a service that works with cached data only
-        let service = TatumService()
-        service.setOfflineMode(true)
-        return service
+        AppLog.warning("Using mock TatumService", category: .validation)
+        return TatumService(client: TatumClient.shared, chainService: ChainService.shared)
     }
     
     private func createFallbackExchangeRateService() -> ExchangeRateService {
@@ -259,7 +258,6 @@ class DIContainer: ObservableObject {
     private func isInitializing(_ dependency: String) -> Bool {
         stateLock.lock()
         defer { stateLock.unlock() }
-        
         if case .initializing = dependencyStates[dependency] {
             return true
         }
@@ -316,14 +314,13 @@ class DIContainer: ObservableObject {
     }
     
     // MARK: - Health Check
-    func performHealthCheck() async -> [String: Bool] {
+    func performHealthCheck() -> [String: Bool] {
         var results: [String: Bool] = [:]
         
         stateLock.lock()
-        let states = dependencyStates
-        stateLock.unlock()
+        defer { stateLock.unlock() }
         
-        for (dependency, state) in states {
+        for (dependency, state) in dependencyStates {
             switch state {
             case .initialized:
                 results[dependency] = true
@@ -337,12 +334,10 @@ class DIContainer: ObservableObject {
         return results
     }
     
-    // MARK: - Reset and Recovery
+    // MARK: - Error Recovery
     func resetFailedServices() async {
-        AppLog.info("Attempting to reset failed services", category: .validation)
-        
         stateLock.lock()
-        let failedServices = dependencyStates.compactMap { key, value -> String? in
+        let failedServices = dependencyStates.compactMap { (key, value) -> String? in
             if case .failed = value {
                 return key
             }
@@ -351,27 +346,32 @@ class DIContainer: ObservableObject {
         stateLock.unlock()
         
         for serviceName in failedServices {
-            AppLog.info("Resetting \(serviceName)", category: .validation)
+            AppLog.info("Attempting to reset failed service: \(serviceName)", category: .validation)
             
+            // Reset the specific service based on name
             switch serviceName {
-            case "coinGeckoService":
+            case "CoinGeckoService":
                 _coinGeckoService = nil
-            case "tatumService":
+            case "TatumService":
                 _tatumService = nil
-            case "exchangeRateService":
+            case "ExchangeRateService":
                 _exchangeRateService = nil
-            case "monthlyPlanningService":
+            case "MonthlyPlanningService":
                 _monthlyPlanningService = nil
             default:
                 break
             }
             
-            stateLock.lock()
-            dependencyStates[serviceName] = .notInitialized
-            stateLock.unlock()
+            resetServiceState(serviceName)
         }
         
         // Reinitialize services
         await initializeServices()
+    }
+
+    private func resetServiceState(_ serviceName: String) {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        dependencyStates[serviceName] = .notInitialized
     }
 }

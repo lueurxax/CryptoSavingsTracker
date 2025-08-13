@@ -88,7 +88,7 @@ class ExchangeRateService {
     
     private func fetchRateFromAPI(from: String, to: String) async throws -> Double {
         // Check if we should throttle during startup
-        if await StartupThrottler.shared.shouldThrottleAPICall() {
+        if StartupThrottler.shared.shouldThrottleAPICall() {
             // During startup, throw error to indicate rates unavailable
             throw ExchangeRateError.rateNotAvailable
         }
