@@ -65,6 +65,10 @@ class BaseCoordinator<Route: Hashable>: ObservableObject, Coordinator {
     func popToRoot() {
         navigationPath = NavigationPath()
     }
+    
+    deinit {
+        // Explicit deinit to avoid compiler crash
+    }
 }
 
 // MARK: - Main App Coordinator
