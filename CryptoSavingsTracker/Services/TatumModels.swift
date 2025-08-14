@@ -735,9 +735,9 @@ struct TatumSOLBalanceResponse: Codable {
 }
 
 // MARK: - Solana RPC Models
-struct SolanaRPCRequest: Codable {
-    let jsonrpc: String = "2.0"
-    let id: Int = 1
+struct SolanaRPCRequest: Encodable {
+    let jsonrpc = "2.0"
+    let id = 1
     let method: String
     let params: [SolanaRPCParam]
 }

@@ -29,7 +29,7 @@ struct GoalsListContainer: View {
                     } else {
                         ForEach(goals) { goal in
                             NavigationLink(destination: DetailContainerView(goal: goal, selectedView: $selectedView)) {
-                                GoalRowView(goal: goal, refreshTrigger: refreshTrigger)
+                                UnifiedGoalRowView.iOS(goal: goal, refreshTrigger: refreshTrigger)
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button("Delete", role: .destructive) {
@@ -67,18 +67,14 @@ struct GoalsListContainer: View {
                 }
             }
             .onAppear {
-                #if os(iOS)
-                setupShortcuts()
-                #endif
+                if PlatformManager.shared.capabilities.supportsHapticFeedback {
+                    setupShortcuts()
+                }
             }
         }
         .sheet(item: $editingGoal) { goal in
             EditGoalView(goal: goal, modelContext: modelContext)
-                #if os(macOS)
                 .presentationDetents([.large])
-                #else
-                .presentationDetents([.large])
-                #endif
         }
     }
     

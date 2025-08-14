@@ -86,11 +86,11 @@ struct AdjustedRequirement: Identifiable, Sendable {
 
 /// Advanced service for handling flexible payment adjustments with intelligent redistribution
 @MainActor
-final class FlexAdjustmentService {
+final class FlexAdjustmentService: FlexAdjustmentServiceProtocol {
     
     // MARK: - Dependencies
     
-    private let exchangeRateService: ExchangeRateService
+    private let exchangeRateService: ExchangeRateServiceProtocol
     private let modelContext: ModelContext
     
     // MARK: - Cache
@@ -101,7 +101,7 @@ final class FlexAdjustmentService {
     
     // MARK: - Initialization
     
-    init(exchangeRateService: ExchangeRateService, modelContext: ModelContext) {
+    init(exchangeRateService: ExchangeRateServiceProtocol, modelContext: ModelContext) {
         self.exchangeRateService = exchangeRateService
         self.modelContext = modelContext
     }
@@ -402,7 +402,7 @@ final class FlexAdjustmentService {
         skippedGoalIds: Set<UUID>
     ) async -> [AdjustedRequirement] {
         
-        var requirements = adjustedRequirements
+        let requirements = adjustedRequirements
         let netExcess = excessAmount - deficitAmount
         
         guard netExcess > 1.0 else { return requirements } // No meaningful redistribution needed

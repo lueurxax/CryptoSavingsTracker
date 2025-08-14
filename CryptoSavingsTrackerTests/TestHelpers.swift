@@ -134,8 +134,7 @@ struct TestAssertions {
 
 // MARK: - Mock Services for Testing
 
-class MockExchangeRateService {
-    static let shared = MockExchangeRateService()
+class MockExchangeRateService: ExchangeRateServiceProtocol {
     
     private let mockRates: [String: [String: Double]] = [
         "USD": ["EUR": 0.85, "GBP": 0.75, "JPY": 110.0],
@@ -149,13 +148,16 @@ class MockExchangeRateService {
             return 1.0
         }
         
-        if let fromRates = mockRates[from],
-           let rate = fromRates[to] {
-            return rate
-        }
-        
-        // Return a default rate for unknown currency pairs
-        return 1.0
+        let key = "\(from)-\(to)"
+        return mockRates[key] ?? 1.0
+    }
+    
+    func hasValidConfiguration() -> Bool {
+        return true // Mock service is always valid
+    }
+    
+    func setOfflineMode(_ offline: Bool) {
+        // Do nothing for mock service
     }
 }
 

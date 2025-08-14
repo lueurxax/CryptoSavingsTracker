@@ -41,7 +41,7 @@ struct GoalsSidebarView: View {
             // Individual Goals Section  
             Section("Your Goals") {
                 ForEach(goals) { goal in
-                    GoalSidebarRow(goal: goal)
+                    UnifiedGoalRowView.macOS(goal: goal)
                         .tag(goal)
                         .contextMenu {
                             GoalSidebarContextMenu(
@@ -64,11 +64,7 @@ struct GoalsSidebarView: View {
         }
         .sheet(item: $editingGoal) { goal in
             EditGoalView(goal: goal, modelContext: modelContext)
-                #if os(macOS)
                 .presentationDetents([.large])
-                #else
-                .presentationDetents([.large])
-                #endif
         }
     }
     
@@ -86,101 +82,7 @@ struct GoalsSidebarView: View {
     }
 }
 
-/// Individual row in the goals sidebar
-struct GoalSidebarRow: View {
-    let goal: Goal
-    @State private var displayEmoji: String? = nil
-    @State private var progressAnimation: Double = 0
-    @State private var asyncProgress: Double = 0
-    
-    private var progressBarColor: Color {
-        let progress = asyncProgress
-        if progress >= 0.75 {
-            return .green
-        } else if progress >= 0.5 {
-            return .orange
-        } else {
-            return .red
-        }
-    }
-    
-    var body: some View {
-        HStack(spacing: 8) {
-            // Emoji or icon
-            if let emoji = displayEmoji, !emoji.isEmpty {
-                Text(emoji)
-                    .font(.title3)
-                    .frame(width: 20, height: 20)
-            } else {
-                Image(systemName: "target")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .frame(width: 20, height: 20)
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(goal.name)
-                    .font(.headline)
-                    .fontWeight(.medium)
-                
-                HStack {
-                    Text("Target: \(String(format: "%.0f", goal.targetAmount)) \(goal.currency)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    Text("\(goal.daysRemaining) days left")
-                        .font(.caption2)
-                        .foregroundColor(goal.daysRemaining < 30 ? .red : .secondary)
-                }
-                
-                // Progress bar
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        // Background track
-                        RoundedRectangle(cornerRadius: 1)
-                            .fill(Color.gray.opacity(0.2))
-                            .frame(height: 3)
-                        
-                        // Progress fill
-                        RoundedRectangle(cornerRadius: 1)
-                            .fill(progressBarColor)
-                            .frame(width: geometry.size.width * progressAnimation, height: 3)
-                            .animation(.easeInOut(duration: 0.6), value: progressAnimation)
-                    }
-                }
-                .frame(height: 3)
-                
-                // Progress percentage
-                Text("\(Int(asyncProgress * 100))% complete")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(.vertical, 2)
-        .onAppear {
-            displayEmoji = goal.emoji
-        }
-        .task {
-            // Load async currency-converted progress
-            await loadAsyncProgress()
-        }
-    }
-    
-    private func loadAsyncProgress() async {
-        // Use the proper service that does currency conversion
-        let newProgress = await GoalCalculationService.getProgress(for: goal)
-        
-        await MainActor.run {
-            asyncProgress = newProgress
-            
-            withAnimation(.easeOut(duration: 0.8)) {
-                progressAnimation = newProgress
-            }
-        }
-    }
-}
+
 
 /// Context menu for goal actions in sidebar
 struct GoalSidebarContextMenu: View {

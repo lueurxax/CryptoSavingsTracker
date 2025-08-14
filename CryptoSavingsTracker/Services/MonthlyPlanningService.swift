@@ -11,10 +11,10 @@ import Combine
 
 /// Service responsible for calculating monthly savings requirements and managing payment plans
 @MainActor
-final class MonthlyPlanningService: ObservableObject {
+final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableObject {
     
     // MARK: - Dependencies
-    private let exchangeRateService: ExchangeRateService
+    private let exchangeRateService: ExchangeRateServiceProtocol
     
     // MARK: - Performance Cache
     private var planCache: [UUID: CachedPlan] = [:]
@@ -26,7 +26,7 @@ final class MonthlyPlanningService: ObservableObject {
     @Published var lastCalculationError: Error?
     
     // MARK: - Initialization
-    init(exchangeRateService: ExchangeRateService) {
+    init(exchangeRateService: ExchangeRateServiceProtocol) {
         self.exchangeRateService = exchangeRateService
     }
     

@@ -16,6 +16,7 @@ struct HoverTooltipView<Content: View>: View {
     
     @State private var isHovering = false
     @State private var hoverLocation: CGPoint = .zero
+    @Environment(\.platformCapabilities) private var platform
     
     init(
         title: String,
@@ -47,8 +48,7 @@ struct HoverTooltipView<Content: View>: View {
                 }
             
             // Desktop-only tooltip
-            #if os(macOS)
-            if isHovering {
+            if platform.supportsHoverTooltips && isHovering {
                 tooltipContent
                     .position(
                         x: min(max(hoverLocation.x, 80), 400),
@@ -57,7 +57,6 @@ struct HoverTooltipView<Content: View>: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
                     .zIndex(1000)
             }
-            #endif
         }
     }
     

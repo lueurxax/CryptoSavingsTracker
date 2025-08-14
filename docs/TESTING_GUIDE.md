@@ -207,9 +207,7 @@ func testCompleteMonthlyPlanningWorkflow() async {
 @Test("Performance optimizer caching integration")
 func testPerformanceOptimizerIntegration() async {
     let optimizer = PerformanceOptimizer.shared
-    let testData = [
-        MonthlyRequirement(goalId: UUID(), goalName: "Test", requiredMonthly: 1000)
-    ]
+    let testData = createLargeRequirementSet(count: 1000)
     
     // Cache data
     await optimizer.cache(testData, forKey: "test_requirements", category: .monthlyRequirements)
@@ -276,7 +274,7 @@ func testMonthlyPlanningWidgetExpansion() throws {
     XCTAssertTrue(expandButton.exists)
     expandButton.tap()
     
-    // Verify expanded content
+    // Verify expanded content appears
     let goalBreakdown = widget.staticTexts["Goal Breakdown"]
     XCTAssertTrue(goalBreakdown.waitForExistence(timeout: 2))
     
@@ -478,14 +476,14 @@ func testKeyboardNavigation() throws {
     planningTab.tap()
     
     // Test Tab key navigation
-    app.typeKey("\\t", modifierFlags: [])
+    app.typeKey("\t", modifierFlags: [])
     
     // Verify focus moves between elements
     let focusedElement = app.firstResponder
     XCTAssertTrue(focusedElement.exists)
     
     // Test Enter key activation
-    app.typeKey("\\r", modifierFlags: [])
+    app.typeKey("\r", modifierFlags: [])
     #endif
 }
 ```
@@ -604,7 +602,7 @@ func testUIResponsiveness() {
 
 ```swift
 class MockExchangeRateService: ExchangeRateService {
-    private var mockRates: [String: Double] = [:]
+    private var mockRates: [String: Double] = [: ]
     
     func setRate(from: String, to: String, rate: Double) {
         let key = "\(from)-\(to)"
@@ -617,7 +615,7 @@ class MockExchangeRateService: ExchangeRateService {
     }
     
     override func fetchRates(currencies: [(from: String, to: String)]) async throws -> [String: Double] {
-        var results: [String: Double] = [:]
+        var results: [String: Double] = [: ]
         for (from, to) in currencies {
             let key = "\(from)-\(to)"
             results[key] = mockRates[key] ?? 1.0
@@ -772,3 +770,87 @@ Tests must pass these quality gates:
 ---
 
 *Testing Guide v2.0.0 - Updated August 9, 2025*
+## Comprehensive Test Plan
+
+This test plan outlines a strategy for ensuring the quality, reliability, and performance of the CryptoSavingsTracker application. It builds upon the existing test infrastructure and identifies areas for further enhancement.
+
+### 1. Current Test Coverage Summary
+
+*   **Unit Tests (Swift Testing):**
+    *   **Strengths:** Good coverage for core data models (`Goal`, `Asset`, `Transaction`), `ReminderFrequency` enum, and basic `GoalCalculationService` functions. Includes tests for SwiftData persistence and relationships.
+    *   **Areas for Improvement:** While the `DIContainer` has been refactored to use protocols, the existing unit tests for services (e.g., `ExchangeRateServiceTests`) still directly interact with singletons or concrete implementations. This limits true isolation and mocking capabilities.
+*   **UI Tests (XCTest):**
+    *   **Strengths:** Comprehensive coverage of critical user flows (goal creation, asset/transaction management, goal deletion, navigation). Effective use of launch arguments and environment variables for controlling test data and simulating conditions (e.g., offline mode). Includes basic performance and accessibility checks.
+    *   **Areas for Improvement:** Can be expanded to cover more edge cases, complex interactions, and a wider range of accessibility features.
+
+### 2. Key Functionalities to Test
+
+The following are the core functionalities of CryptoSavingsTracker that require thorough testing:
+
+*   **Goal Management:** Create, Edit, Delete (including associated assets/transactions), Reminder Configuration, Deadline handling.
+*   **Asset Management:** Add, Remove, Manual Balance updates, On-chain Balance fetching (for various chains/currencies).
+*   **Transaction Tracking:** Add Manual Transactions (deposits/withdrawals), Fetch On-chain Transaction History, Correct parsing and display of transaction details.
+*   **Progress Tracking & Visualization:** Accurate calculation of goal progress, current total, daily targets. Correct rendering and data integrity of charts (Balance History, Asset Composition).
+*   **Monthly Planning:** Accurate calculation of monthly requirements, application of flex adjustments (various strategies), correct redistribution logic, persistence of planning settings.
+*   **API Integration:** Robust error handling for CoinGecko and Tatum APIs (network errors, rate limits, invalid responses). Correct data mapping from API responses to app models.
+*   **Data Persistence:** Reliable saving and loading of all application data using SwiftData, including relationships between models.
+*   **Platform Adaptiveness:** Consistent and functional UI/UX across iOS, macOS, and visionOS. Platform-specific navigation and UI elements (e.g., sheets vs. popovers).
+*   **Accessibility:** VoiceOver support. Keyboard navigation (macOS).
+*   **Notifications:** Scheduling and canceling local notifications for reminders.
+
+### 3. Proposed Test Plan
+
+#### 3.1. Test Types and Focus Areas
+
+*   **Unit Testing (Enhanced):**
+    *   **Focus:** Isolated testing of individual functions, methods, and business logic components.
+    *   **Actionable Items:**
+        *   **Refactor Service Tests:** Update existing service tests (e.g., `ExchangeRateServiceTests`, `BalanceServiceTests`, `TransactionServiceTests`, `MonthlyPlanningServiceTests`) to fully leverage the new protocol-based dependency injection. This will involve creating mock implementations of service protocols and injecting them into the services under test.
+        *   **Expand Coverage:** Add unit tests for new or complex logic, especially within `GoalCalculationService`, `FlexAdjustmentService` (for various redistribution strategies), and any complex data transformations.
+        *   **Error Handling:** Ensure comprehensive unit tests for all defined error cases in services.
+*   **UI Testing (Expanded):**
+    *   **Focus:** End-to-end user flows, UI interactions, and visual correctness across platforms.
+    *   **Actionable Items:**
+        *   **Edge Cases:** Add UI tests for edge cases (e.g., empty states for all relevant screens, very large/small numbers, long text inputs, invalid API keys).
+        *   **Complex Interactions:** Test multi-step interactions thoroughly (e.g., creating a goal, adding multiple assets, recording transactions, then verifying overall progress).
+        *   **Platform-Specific UI:** Explicitly test UI elements that differ between platforms (e.g., popovers vs. sheets, context menus, toolbar items).
+        *   **Accessibility:** Expand UI tests to include more explicit accessibility assertions (e.g., checking `accessibilityLabel`, `accessibilityValue`, `accessibilityHint` for key elements).
+*   **Integration Testing:**
+    *   **Focus:** Verify interactions between different modules and services, especially data flow from API to UI.
+    *   **Actionable Items:**
+        *   **API Integration:** Test the full data pipeline from fetching data from Tatum/CoinGecko (using controlled mock servers or recorded responses) through the services, view models, and finally to the UI.
+        *   **SwiftData Integration:** Ensure that data persistence and retrieval work correctly across app launches and complex data manipulations.
+        *   **Cross-Feature Consistency:** Verify that changes in one part of the app (e.g., adding a transaction) correctly update related views and calculations (e.g., goal progress, monthly planning).
+*   **Performance Testing:**
+    *   **Focus:** Measure and optimize app launch times, UI responsiveness, and data loading speeds.
+    *   **Actionable Items:**
+        *   **Dedicated Performance Suite:** Create a separate test suite for performance metrics using `XCTMeasure` and `XCTOSSignpostMetric` for critical user journeys (e.g., app launch, loading a goal with many assets/transactions, monthly planning calculations).
+        *   **API Call Latency:** Monitor and set thresholds for API response times.
+*   **Accessibility Testing:**
+    *   **Focus:** Ensure the application is usable by individuals with disabilities.
+    *   **Actionable Items:**
+        *   **Manual VoiceOver Review:** Conduct thorough manual testing with VoiceOver enabled on both iOS and macOS.
+        *   **Keyboard Navigation (macOS):** Verify all interactive elements are reachable and operable via keyboard.
+        *   **Dynamic Type:** Test the UI's responsiveness to different font sizes.
+        *   **Color Contrast:** Verify sufficient color contrast for all UI elements.
+*   **Regression Testing:**
+    *   **Focus:** Ensure that new changes do not introduce regressions in existing functionalities.
+    *   **Actionable Items:**
+        *   Maintain a comprehensive suite of automated unit and UI tests that are run before every major release.
+        *   Prioritize tests for critical paths and frequently modified areas.
+
+#### 3.2. Test Execution Strategy
+
+*   **Automated Testing:**
+    *   **Continuous Integration (CI):** Integrate all unit, UI, and selected integration tests into a CI pipeline (e.g., GitHub Actions, GitLab CI). Tests should run automatically on every pull request or commit to `main`.
+    *   **Nightly Builds:** Run a more extensive suite of tests (including performance and accessibility checks) on nightly builds.
+*   **Manual Testing:**
+    *   **Exploratory Testing:** Conduct exploratory testing sessions to uncover unexpected bugs and usability issues.
+    *   **User Acceptance Testing (UAT):** Involve end-users or stakeholders in UAT before major releases.
+    *   **Accessibility Audits:** Perform periodic manual accessibility audits.
+
+#### 3.3. Reporting
+
+*   **CI Reports:** Generate automated test reports (e.g., JUnit XML) that can be integrated into CI dashboards.
+*   **Bug Tracking:** Use a bug tracking system (e.g., Jira, GitHub Issues) to log, prioritize, and track defects.
+*   **Test Summaries:** Provide regular summaries of test results, coverage, and identified risks to the development team and stakeholders.

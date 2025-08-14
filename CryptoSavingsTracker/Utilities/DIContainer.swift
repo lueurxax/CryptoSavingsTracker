@@ -53,8 +53,8 @@ class DIContainer: ObservableObject {
     private let stateLock = NSLock()
     
     // MARK: - Services with Error Recovery
-    private var _coinGeckoService: CoinGeckoService?
-    var coinGeckoService: CoinGeckoService {
+    private var _coinGeckoService: CoinGeckoServiceProtocol?
+    var coinGeckoService: CoinGeckoServiceProtocol {
         get {
             if let service = _coinGeckoService {
                 return service
@@ -72,8 +72,8 @@ class DIContainer: ObservableObject {
         }
     }
     
-    private var _tatumService: TatumService?
-    var tatumService: TatumService {
+    private var _tatumService: TatumServiceProtocol?
+    var tatumService: TatumServiceProtocol {
         get {
             if let service = _tatumService {
                 return service
@@ -91,8 +91,8 @@ class DIContainer: ObservableObject {
         }
     }
     
-    private var _exchangeRateService: ExchangeRateService?
-    var exchangeRateService: ExchangeRateService {
+    private var _exchangeRateService: ExchangeRateServiceProtocol?
+    var exchangeRateService: ExchangeRateServiceProtocol {
         get {
             if let service = _exchangeRateService {
                 return service
@@ -110,8 +110,8 @@ class DIContainer: ObservableObject {
         }
     }
     
-    private var _monthlyPlanningService: MonthlyPlanningService?
-    var monthlyPlanningService: MonthlyPlanningService {
+    private var _monthlyPlanningService: MonthlyPlanningServiceProtocol?
+    var monthlyPlanningService: MonthlyPlanningServiceProtocol {
         get {
             if let service = _monthlyPlanningService {
                 return service
@@ -160,7 +160,7 @@ class DIContainer: ObservableObject {
     }
     
     // MARK: - Service Creation Methods
-    private func createCoinGeckoService() throws -> CoinGeckoService {
+    private func createCoinGeckoService() throws -> CoinGeckoServiceProtocol {
         if isInitializing("CoinGeckoService") {
             throw DependencyError.circularDependency("CoinGeckoService")
         }
@@ -171,7 +171,7 @@ class DIContainer: ObservableObject {
         return CoinGeckoService()
     }
     
-    private func createTatumService() throws -> TatumService {
+    private func createTatumService() throws -> TatumServiceProtocol {
         if isInitializing("TatumService") {
             throw DependencyError.circularDependency("TatumService")
         }
@@ -182,7 +182,7 @@ class DIContainer: ObservableObject {
         return TatumService(client: TatumClient.shared, chainService: ChainService.shared)
     }
     
-    private func createExchangeRateService() throws -> ExchangeRateService {
+    private func createExchangeRateService() throws -> ExchangeRateServiceProtocol {
         if isInitializing("ExchangeRateService") {
             throw DependencyError.circularDependency("ExchangeRateService")
         }
@@ -193,7 +193,7 @@ class DIContainer: ObservableObject {
         return ExchangeRateService.shared
     }
     
-    private func createMonthlyPlanningService() throws -> MonthlyPlanningService {
+    private func createMonthlyPlanningService() throws -> MonthlyPlanningServiceProtocol {
         if isInitializing("MonthlyPlanningService") {
             throw DependencyError.circularDependency("MonthlyPlanningService")
         }
@@ -206,24 +206,24 @@ class DIContainer: ObservableObject {
     
     
     // MARK: - Mock/Fallback Services
-    private func createMockCoinGeckoService() -> CoinGeckoService {
+    private func createMockCoinGeckoService() -> CoinGeckoServiceProtocol {
         AppLog.warning("Using mock CoinGeckoService", category: .validation)
         return CoinGeckoService()
     }
     
-    private func createMockTatumService() -> TatumService {
+    private func createMockTatumService() -> TatumServiceProtocol {
         AppLog.warning("Using mock TatumService", category: .validation)
         return TatumService(client: TatumClient.shared, chainService: ChainService.shared)
     }
     
-    private func createFallbackExchangeRateService() -> ExchangeRateService {
+    private func createFallbackExchangeRateService() -> ExchangeRateServiceProtocol {
         AppLog.warning("Using fallback ExchangeRateService", category: .validation)
         let service = ExchangeRateService()
         service.setOfflineMode(true)
         return service
     }
     
-    private func createFallbackMonthlyPlanningService() -> MonthlyPlanningService {
+    private func createFallbackMonthlyPlanningService() -> MonthlyPlanningServiceProtocol {
         AppLog.warning("Using fallback MonthlyPlanningService", category: .validation)
         return MonthlyPlanningService(exchangeRateService: createFallbackExchangeRateService())
     }
@@ -336,14 +336,18 @@ class DIContainer: ObservableObject {
     
     // MARK: - Error Recovery
     func resetFailedServices() async {
-        stateLock.lock()
-        let failedServices = dependencyStates.compactMap { (key, value) -> String? in
-            if case .failed = value {
-                return key
+        // Use async-safe approach to get failed services
+        let failedServices = await withCheckedContinuation { continuation in
+            stateLock.lock()
+            let services = dependencyStates.compactMap { (key, value) -> String? in
+                if case .failed = value {
+                    return key
+                }
+                return nil
             }
-            return nil
+            stateLock.unlock()
+            continuation.resume(returning: services)
         }
-        stateLock.unlock()
         
         for serviceName in failedServices {
             AppLog.info("Attempting to reset failed service: \(serviceName)", category: .validation)

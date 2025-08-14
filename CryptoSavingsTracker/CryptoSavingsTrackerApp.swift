@@ -19,21 +19,21 @@ struct CryptoSavingsTrackerApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([Goal.self, Asset.self, Transaction.self, MonthlyPlan.self])
         let modelConfiguration = ModelConfiguration(
-            schema: schema, 
+            schema: schema,
             isStoredInMemoryOnly: false,
             // Enable automatic migration for optional property additions like firstReminderDate
             allowsSave: true,
             groupContainer: .none,
             cloudKitDatabase: .none
         )
-        
+
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()
-    
+
     init() {
         // Suppress haptic feedback warnings in iOS Simulator
         #if targetEnvironment(simulator) && os(iOS)
@@ -43,7 +43,7 @@ struct CryptoSavingsTrackerApp: App {
             // Running in iOS Simulator - haptics don't work anyway
         }
         #endif
-        
+
         // Mark startup complete after a delay to prevent API spam
         Task {
             await StartupThrottler.shared.waitForStartup()
@@ -56,7 +56,7 @@ struct CryptoSavingsTrackerApp: App {
             OnboardingContentView()
         }
         .modelContainer(sharedModelContainer)
-        
+
         #if os(macOS)
         // Additional window for goal comparison
         WindowGroup("Goal Comparison", id: "goal-comparison") {
@@ -64,7 +64,7 @@ struct CryptoSavingsTrackerApp: App {
         }
         .modelContainer(sharedModelContainer)
         .defaultSize(width: 1200, height: 800)
-        
+
         // Settings window
         WindowGroup("Settings", id: "settings") {
             SettingsView()

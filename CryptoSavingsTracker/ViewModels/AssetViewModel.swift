@@ -23,10 +23,10 @@ class AssetViewModel: ObservableObject {
     @Published var isCachedData: Bool = false
     
     private let asset: Asset
-    private let tatumService: TatumService
+    private let tatumService: TatumServiceProtocol
     private let modelContext: ModelContext?
     
-    init(asset: Asset, tatumService: TatumService, modelContext: ModelContext? = nil) {
+    init(asset: Asset, tatumService: TatumServiceProtocol, modelContext: ModelContext? = nil) {
         self.asset = asset
         self.tatumService = tatumService
         self.modelContext = modelContext

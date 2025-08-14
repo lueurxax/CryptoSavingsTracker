@@ -13,7 +13,7 @@ import SwiftData
 /// Clean, minimal ContentView using platform abstraction
 struct ContentView: View {
     @Environment(\.platformCapabilities) private var platform
-    
+
     var body: some View {
         Group {
             switch platform.navigationStyle {
@@ -35,7 +35,7 @@ struct iOSContentView: View {
     @Query private var goals: [Goal]
     @State private var selectedView: DetailViewType = .details
     @Environment(\.modelContext) private var modelContext
-    
+
     var body: some View {
         NavigationStack {
             GoalsList(
@@ -46,7 +46,7 @@ struct iOSContentView: View {
             )
         }
     }
-    
+
     private func deleteGoal(_ goal: Goal) {
         withAnimation {
             Task {
@@ -54,11 +54,11 @@ struct iOSContentView: View {
             }
             modelContext.delete(goal)
             try? modelContext.save()
-            
+
             NotificationCenter.default.post(name: .goalDeleted, object: goal)
         }
     }
-    
+
     private func refreshGoalData() async {
         for goal in goals {
             _ = await GoalCalculationService.getCurrentTotal(for: goal)
@@ -73,7 +73,7 @@ struct macOSContentView: View {
     @Query private var goals: [Goal]
     @State private var selectedGoal: Goal?
     @State private var selectedView: DetailViewType = .details
-    
+
     var body: some View {
         NavigationSplitView {
             GoalsSidebarView(
@@ -116,10 +116,10 @@ struct GoalsList: View {
     @State private var monthlyPlanningViewModel: MonthlyPlanningViewModel?
     @State private var refreshTrigger = UUID()
     @Environment(\.modelContext) private var modelContext
-    
+
     var body: some View {
         List {
-            // Portfolio-wide Monthly Planning Widget  
+            // Portfolio-wide Monthly Planning Widget
             if !goals.isEmpty {
                 Section {
                     if let viewModel = monthlyPlanningViewModel {
@@ -130,7 +130,7 @@ struct GoalsList: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             }
-            
+
             Section("Your Goals") {
                 if goals.isEmpty {
                     EmptyGoalsView {
@@ -139,14 +139,14 @@ struct GoalsList: View {
                 } else {
                     ForEach(goals) { goal in
                         NavigationLink(destination: DetailContainerView(goal: goal, selectedView: $selectedView)) {
-                            GoalRowView(goal: goal, refreshTrigger: refreshTrigger)
+                            UnifiedGoalRowView.iOS(goal: goal, refreshTrigger: refreshTrigger)
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button("Delete", role: .destructive) {
                                 onDelete(goal)
                             }
                             .tint(.red)
-                            
+
                             Button("Edit") {
                                 editingGoal = goal
                             }
@@ -154,7 +154,7 @@ struct GoalsList: View {
                         }
                         .contextMenu {
                             GoalContextMenuContent(
-                                goal: goal, 
+                                goal: goal,
                                 onDelete: { onDelete(goal) },
                                 onEdit: { editingGoal = goal }
                             )
@@ -185,14 +185,10 @@ struct GoalsList: View {
         }
         .sheet(item: $editingGoal) { goal in
             EditGoalView(goal: goal, modelContext: goal.modelContext!)
-                #if os(macOS)
                 .presentationDetents([.large])
-                #else
-                .presentationDetents([.large])
-                #endif
         }
     }
-    
+
     private func setupShortcuts() {
         // iOS Shortcuts integration handled in ShortcutsProvider.swift
     }
@@ -204,23 +200,23 @@ struct GoalContextMenuContent: View {
     let goal: Goal
     let onDelete: () -> Void
     let onEdit: () -> Void
-    
+
     var body: some View {
         Group {
             Button("Edit Goal") {
                 onEdit()
             }
-            
+
             Button("Add Asset") {
                 // Add asset action
             }
-            
+
             Button("Add Transaction") {
                 // Add transaction action
             }
-            
+
             Divider()
-            
+
             Button("Delete Goal", role: .destructive) {
                 onDelete()
             }
@@ -235,13 +231,13 @@ struct GoalContextMenuContent: View {
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config)
-    
+
     let goal1 = Goal(name: "Bitcoin Savings", currency: "USD", targetAmount: 50000, deadline: Date().addingTimeInterval(86400 * 90))
     let goal2 = Goal(name: "Ethereum Fund", currency: "USD", targetAmount: 25000, deadline: Date().addingTimeInterval(86400 * 60))
-    
+
     container.mainContext.insert(goal1)
     container.mainContext.insert(goal2)
-    
+
     return ContentView()
         .modelContainer(container)
 }

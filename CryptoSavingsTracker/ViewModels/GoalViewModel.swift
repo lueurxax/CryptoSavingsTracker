@@ -18,10 +18,10 @@ class GoalViewModel: ObservableObject {
     
     private let goal: Goal
     private var modelContext: ModelContext?
-    private let tatumService: TatumService
-    private let exchangeRateService: ExchangeRateService
+    private let tatumService: TatumServiceProtocol
+    private let exchangeRateService: ExchangeRateServiceProtocol
     
-    init(goal: Goal, tatumService: TatumService, exchangeRateService: ExchangeRateService) {
+    init(goal: Goal, tatumService: TatumServiceProtocol, exchangeRateService: ExchangeRateServiceProtocol) {
         self.goal = goal
         self.tatumService = tatumService
         self.exchangeRateService = exchangeRateService
@@ -37,7 +37,7 @@ class GoalViewModel: ObservableObject {
         )
     }
     
-    convenience init(goal: Goal, modelContext: ModelContext, tatumService: TatumService, exchangeRateService: ExchangeRateService) {
+    convenience init(goal: Goal, modelContext: ModelContext, tatumService: TatumServiceProtocol, exchangeRateService: ExchangeRateServiceProtocol) {
         self.init(goal: goal, tatumService: tatumService, exchangeRateService: exchangeRateService)
         self.modelContext = modelContext
     }
@@ -49,15 +49,21 @@ class GoalViewModel: ObservableObject {
     func refreshValues() async {
         isLoading = true
         
+        // Add small delay to show loading state properly
+        if currentTotal == 0 && progress == 0 {
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        }
+        
         let total = await calculateCurrentTotal()
         let prog = calculateProgress(currentTotal: total)
         let deposit = calculateSuggestedDeposit(currentTotal: total)
         
-        self.currentTotal = total
-        self.progress = prog
-        self.suggestedDeposit = deposit
-        
-        isLoading = false
+        await MainActor.run {
+            self.currentTotal = total
+            self.progress = prog
+            self.suggestedDeposit = deposit
+            self.isLoading = false
+        }
     }
     
     private func calculateCurrentTotal() async -> Double {

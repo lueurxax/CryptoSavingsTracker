@@ -9,7 +9,7 @@ import Foundation
 
 // Import protocol definitions - this should be resolved by having them in the same module
 
-class ExchangeRateService {
+class ExchangeRateService: ExchangeRateServiceProtocol {
     static let shared = ExchangeRateService()
     
     private var cachedRates: [String: [String: Double]] = [:]

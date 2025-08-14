@@ -21,15 +21,35 @@ class GoalRowViewModel: ObservableObject {
     @Published var progressAnimation: Double = 0
     @Published var isLoading: Bool = false
     @Published var hasError: Bool = false
+    @Published var shimmerOffset: Double = -0.5
+    @Published var hasLoadedInitialData = false
     
     // MARK: - Properties
     let goal: Goal
-    private var hasLoadedInitialData = false
+    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Initialization
     init(goal: Goal) {
         self.goal = goal
         self.displayEmoji = goal.emoji
+        
+        // Start shimmer animation
+        withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+            shimmerOffset = 1.5
+        }
+        
+        // Listen for refresh notifications
+        NotificationCenter.default.publisher(for: .goalProgressRefreshed)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                // If this is a global refresh or specific to this goal, refresh data
+                if notification.object == nil || (notification.object as? Goal)?.id == self.goal.id {
+                    Task {
+                        await self.refreshData()
+                    }
+                }
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Computed Properties

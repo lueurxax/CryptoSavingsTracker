@@ -10,7 +10,7 @@ import Foundation
 /// Service for performing goal calculations with proper separation of concerns
 /// This avoids having model objects directly instantiate ViewModels
 @MainActor
-class GoalCalculationService {
+class GoalCalculationService: GoalCalculationServiceProtocol {
     
     /// Calculate current total for a goal using proper ViewModel delegation
     static func getCurrentTotal(for goal: Goal) async -> Double {

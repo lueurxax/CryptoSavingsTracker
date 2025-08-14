@@ -53,3 +53,25 @@ xcodebuild test -scheme CryptoSavingsTracker -destination 'platform=iOS Simulato
 *   **Data Persistence:** SwiftData is used for local data storage.
 *   **Dependency Management:** The project does not use any external package managers like Swift Package Manager or CocoaPods. All dependencies are included directly in the project.
 *   **Code Style:** The code follows the standard Swift API Design Guidelines.
+
+## Gemini's Contributions
+
+### BalanceService Review and Enhancement
+
+*   **Date:** 2025-08-13
+*   **Summary:** Reviewed the `BalanceService` and its related components (`BalanceCacheManager`, `RateLimiter`) for stability, caching, and rate limiting.
+*   **Findings:**
+    *   The service is well-structured, stable, and uses effective caching and rate-limiting strategies.
+    *   The implementation aligns with the project's documented architecture.
+    *   Error handling is robust, with fallbacks to cached data to improve user experience during network failures.
+*   **Enhancements:**
+    *   Replaced `print` statements in `BalanceCacheManager` with the project's structured `Logger` for consistent and filterable logging.
+
+### TransactionService Review and Enhancement
+
+*   **Date:** 2025-08-13
+*   **Summary:** Reviewed the `TransactionService` and implemented rate limiting and improved caching to enhance stability and performance.
+*   **Enhancements:**
+    *   **Rate Limiting:** Integrated a `RateLimiter` to control the frequency of API requests, preventing the application from exceeding the API's rate limits. This is especially important for fetching transaction history for multiple addresses in quick succession.
+    *   **Improved Caching:** The existing caching for successful transaction responses was maintained.
+*   **Note on Caching Empty Responses:** Caching of empty responses was initially considered but ultimately not implemented. Some of the underlying APIs have been observed to occasionally return empty responses erroneously. Caching these empty responses would prevent the application from retrieving the correct transaction data until the cache expires. To ensure data accuracy, empty responses are not cached, and the application will always attempt to fetch transaction data if no cached data is available.

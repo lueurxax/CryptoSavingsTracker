@@ -308,81 +308,39 @@ iOSContentView        macOSContentView
 
 ### Recent Improvements
 
+✅ **View Unification**: Unified `GoalRowView` and `GoalSidebarRow` into a single `UnifiedGoalRowView` component.
+✅ **Protocol-Based Services**: Refactored all services to use protocols for improved testability and mocking.
+✅ **Component Registry**: Created a `COMPONENT_REGISTRY.md` file to document all reusable UI components.
+✅ **UI and Design Enhancements**:
+    - Improved visual hierarchy in `GoalDetailView`.
+    - Enhanced interactivity of `FlexAdjustmentSlider`.
+    - Simplified the design of `MonthlyPlanningWidget`.
+    - Added animations and transitions to `DetailContainerView`.
 ✅ **Service Dependency Injection**: Removed singleton anti-pattern from BalanceService/TransactionService  
 ✅ **Rate Limiting**: Implemented RateLimiter for API calls  
 ✅ **Persistent Caching**: BalanceCacheManager with UserDefaults persistence  
 ✅ **Startup Throttling**: StartupThrottler prevents API spam  
-✅ **Structured Logging**: AppLog with 16 categories replacing print statements  
+✅ **Structured Logging**: AppLog with 16 categories replacing print statements
 
 ### Patterns Needing Improvement
 
-❌ **View Unification**: Multiple goal row implementations  
-❌ **Complete Platform Abstraction**: Still uses `#if os()` conditionals  
-❌ **Component Documentation**: No searchable component registry  
+❌ **Complete Platform Abstraction**: Still uses `#if os()` conditionals in some views.
 
 ### Recommended Patterns
 
-🎯 **Unified Components**: Single configurable goal row  
 🎯 **Protocol-Driven Abstraction**: Remove platform conditionals  
-🎯 **Component Registry**: Searchable architecture documentation  
-🎯 **Complete MVVM**: Move all business logic to ViewModels  
+🎯 **Complete MVVM**: Move all business logic to ViewModels
 
 ---
 
-## Quick Reference
+## UI and Design Review
 
-### 🚨 **When Modifying Goal Display:**
+A UI and design review was conducted to identify areas for improvement. The following enhancements have been implemented:
 
-1. **Find components**: Check `GoalRowView` (iOS) + `GoalSidebarRow` (macOS)
-2. **Use proper service**: Always `GoalCalculationService` for progress
-3. **Test both platforms**: iOS and macOS have separate implementations  
-4. **Update documentation**: Maintain this architecture guide
-
-### 📁 **File Quick Access:**
-
-- **iOS Goal List**: `/Views/GoalsListView.swift`
-- **macOS Goal Sidebar**: `/Views/Components/GoalsSidebarView.swift`
-- **Progress Calculation**: `/Services/GoalCalculationService.swift`
-- **Platform Switching**: `/Views/ContentView.swift`
-- **Goal Model**: `/Models/Item.swift`
-
-### 🔍 **Search Patterns:**
-
-```bash
-# Find all goal display components
-grep -r "GoalRowView\|GoalSidebarRow" --include="*.swift" .
-
-# Find progress calculation usage
-grep -r "getProgress\|getCurrentTotal" --include="*.swift" .
-
-# Find platform conditionals
-grep -r "#if os(" --include="*.swift" .
-```
-
----
-
-## Maintenance Notes
-
-### Last Updated: August 2025
-
-### Recent Architectural Changes:
-- ✅ Fixed progress bar currency conversion across all platforms
-- ✅ Implemented comprehensive logging system with categories
-- ✅ Enhanced Goal model with visual properties (emoji, description, link)
-- ✅ Resolved SwiftUI compilation timeouts through view decomposition
-- ✅ **Dependency Injection Refactor**: Removed singleton anti-patterns from services
-- ✅ **Repository Pattern**: Implemented GoalRepository for data access
-- ✅ **Coordinator Pattern**: Added AppCoordinator for navigation management
-- ✅ **Error Recovery**: DIContainer with automatic fallback services
-- ✅ **Rate Limiting**: Added RateLimiter and StartupThrottler for API management
-- ✅ **Persistent Caching**: BalanceCacheManager with UserDefaults persistence
-- ✅ **Structured Logging**: Replaced all print statements with AppLog categories
-
-### Next Refactoring Priorities:
-1. **Unify goal row components** (eliminate iOS/macOS duplication)
-2. **Complete platform abstraction** (remove conditional compilation)
-3. **Create component registry** (searchable UI component map)
-4. **Protocol-based service mocking** (improve testability)
+*   **Improved Visual Hierarchy in `GoalDetailView`**: The font size of the section headers has been increased and more vertical spacing has been added between sections to improve readability.
+*   **Enhanced `FlexAdjustmentSlider` Interactivity**: A live-updating label has been added to the slider to display the precise percentage as the user drags it.
+*   **Simplified `MonthlyPlanningWidget` Design**: The design of the widget has been simplified to focus on the most critical information and to use a more spacious layout.
+*   **Incorporated More Animations and Transitions**: A smooth cross-fade transition has been added when switching between the "Details" and "Dashboard" tabs in the `DetailContainerView`.
 
 ---
 

@@ -10,7 +10,10 @@ import os
 
 
 // MARK: - Transaction Service
-final class TransactionService {
+final class TransactionService: TransactionServiceProtocol {
+    private let rateLimiter = RateLimiter(
+        timeInterval: 1.0
+    ) // 1 request per 1 seconds
     private let client: TatumClient
     private let chainService: ChainService
     private static let log = Logger(subsystem: "xax.CryptoSavingsTracker", category: "TransactionService")
@@ -24,41 +27,46 @@ final class TransactionService {
     func fetchTransactionHistory(chainId: String, address: String, currency: String? = nil, limit: Int = 50, forceRefresh: Bool = false) async throws -> [TatumTransaction] {
         Self.log.debug("fetchTransactionHistory called - ChainId: \(chainId), Address: \(address), Limit: \(limit)")
         
-        // Check cache first
-        let cacheKey = BalanceCacheManager.transactionsCacheKey(chainId: chainId, address: address, currency: currency)
+        let rateLimitKey = "\(chainId)-\(address)"
         
-        if !forceRefresh {
-            if let cachedTransactions = BalanceCacheManager.shared.getCachedTransactions(for: cacheKey) {
-                Self.log.debug("Using cached transactions (count: \(cachedTransactions.count))")
-                return cachedTransactions
+        let transactions: [TatumTransaction] = try await rateLimiter.execute(key: rateLimitKey) {
+            // Check cache first
+            let cacheKey = BalanceCacheManager.transactionsCacheKey(chainId: chainId, address: address, currency: currency)
+            
+            if !forceRefresh {
+                if let cachedTransactions = BalanceCacheManager.shared.getCachedTransactions(for: cacheKey) {
+                    Self.log.debug("Using cached transactions (count: \(cachedTransactions.count))")
+                    return cachedTransactions
+                }
             }
-        }
-        
-        guard let chain = chainService.getChain(by: chainId) else {
-            throw TatumError.unsupportedChain(chainId)
-        }
-        
-        let transactions = try await fetchTransactionsForChain(chain: chain, address: address, currency: currency, limit: limit)
-        
-        // Only cache non-empty results, and fall back to cached data if API returns empty
-        if !transactions.isEmpty {
-            BalanceCacheManager.shared.cacheTransactions(transactions, for: cacheKey)
-            Self.log.debug("Cached \(transactions.count) transactions for \(chainId)")
-            return transactions
-        } else {
-            // If API returned empty, try to use cached data (even if expired)
-            Self.log.info("API returned empty transactions for \(chainId), attempting cache fallback")
-            if let cachedTransactions = BalanceCacheManager.shared.getCachedTransactions(for: cacheKey) {
-                Self.log.info("Using fresh cached transactions for \(chainId) (count: \(cachedTransactions.count))")
-                return cachedTransactions
-            } else if let anyCachedTransactions = BalanceCacheManager.shared.getAnyTransactions(for: cacheKey) {
-                Self.log.info("Using expired cached transactions for \(chainId) (count: \(anyCachedTransactions.count))")
-                return anyCachedTransactions
+            
+            guard let chain = self.chainService.getChain(by: chainId) else {
+                throw TatumError.unsupportedChain(chainId)
+            }
+            
+            let fetchedTransactions = try await self.fetchTransactionsForChain(chain: chain, address: address, currency: currency, limit: limit)
+            
+            // Only cache non-empty results, and fall back to cached data if API returns empty
+            if !fetchedTransactions.isEmpty {
+                BalanceCacheManager.shared.cacheTransactions(fetchedTransactions, for: cacheKey)
+                Self.log.debug("Cached \(fetchedTransactions.count) transactions for \(chainId)")
+                return fetchedTransactions
             } else {
-                Self.log.info("No cached transactions available for \(chainId)")
-                return []
+                // If API returned empty, try to use cached data (even if expired)
+                Self.log.info("API returned empty transactions for \(chainId), attempting cache fallback")
+                if let cachedTransactions = BalanceCacheManager.shared.getCachedTransactions(for: cacheKey) {
+                    Self.log.info("Using fresh cached transactions for \(chainId) (count: \(cachedTransactions.count))")
+                    return cachedTransactions
+                } else if let anyCachedTransactions = BalanceCacheManager.shared.getAnyTransactions(for: cacheKey) {
+                    Self.log.info("Using expired cached transactions for \(chainId) (count: \(anyCachedTransactions.count))")
+                    return anyCachedTransactions
+                } else {
+                    Self.log.info("No cached transactions available for \(chainId)")
+                    return []
+                }
             }
         }
+        return transactions
     }
     
     private func fetchTransactionsForChain(chain: TatumChain, address: String, currency: String?, limit: Int) async throws -> [TatumTransaction] {

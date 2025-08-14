@@ -2,263 +2,101 @@
 //  ServiceProtocols.swift
 //  CryptoSavingsTracker
 //
-//  Created by Assistant on 11/08/2025.
+//  Created by user on 13/08/2025.
 //
 
 import Foundation
 
-// MARK: - Mock Error Type
-enum MockError: Error {
-    case calculationFailed
-    case notificationFailed
-    case networkError
-}
-
-// MARK: - Exchange Rate Service Protocol
-protocol ExchangeRateServiceProtocol: Sendable {
-    func fetchRate(from: String, to: String) async throws -> Double
-    func fetchRatesInBatch(from: String, to currencies: [String]) async throws -> [String: Double]
-    func getCachedRate(from: String, to: String) -> Double?
-}
-
-// MARK: - Balance Service Protocol
-protocol BalanceServiceProtocol: Sendable {
+protocol BalanceServiceProtocol {
     func fetchBalance(chainId: String, address: String, symbol: String, forceRefresh: Bool) async throws -> Double
 }
 
-// MARK: - Transaction Service Protocol
-protocol TransactionServiceProtocol: Sendable {
-    func fetchTransactionHistory(chainId: String, address: String, currency: String?, limit: Int, forceRefresh: Bool) async throws -> [TatumTransaction]
-}
-
-// MARK: - Tatum Service Protocol
-protocol TatumServiceProtocol: BalanceServiceProtocol, TransactionServiceProtocol, Sendable {
+protocol ChainServiceProtocol {
     var supportedChains: [TatumChain] { get }
-    func searchChains(query: String) -> [TatumChain]
+    func predictChain(for symbol: String) -> TatumChain?
+    func getChain(by id: String) -> TatumChain?
+    func isChainSupported(_ chainId: String) -> Bool
+    func getV4ChainName(for chainId: String) -> String?
+    func supportsV4API(_ chainId: String) -> Bool
 }
 
-// MARK: - Flex Calculation Result
-struct FlexCalculationResult: Sendable {
-    let originalTotal: Double
-    let adjustedTotal: Double
-    let difference: Double
-    let adjustedRequirements: [MonthlyRequirement]
-    let impactAnalysis: [ImpactAnalysis]
-    
-    struct ImpactAnalysis: Sendable {
-        let goalId: UUID
-        let estimatedDelay: Int
-        let riskLevel: String
-    }
+protocol CoinGeckoServiceProtocol {
+    var coins: [String] { get }
+    var coinInfos: [CoinInfo] { get }
+    var supportedCurrencies: [String] { get }
+    func fetchCoins() async
+    func fetchSupportedCurrencies() async
+    func hasValidConfiguration() -> Bool
+    func setOfflineMode(_ offline: Bool)
 }
 
-// MARK: - Monthly Planning Service Protocol
-protocol MonthlyPlanningServiceProtocol: Sendable {
-    func calculateMonthlyRequirement(for goal: Goal) async throws -> MonthlyRequirement
-    func calculateAllRequirements(for goals: [Goal]) async throws -> [MonthlyRequirement]
-    func calculateFlexScenarios(for requirements: [MonthlyRequirement], flexPercentage: Double) async throws -> FlexCalculationResult
+protocol ExchangeRateServiceProtocol {
+    func fetchRate(from: String, to: String) async throws -> Double
+    func hasValidConfiguration() -> Bool
+    func setOfflineMode(_ offline: Bool)
 }
 
-// MARK: - Notification Service Protocol
-protocol NotificationServiceProtocol: Sendable {
-    func scheduleReminder(for goal: Goal) async throws
-    func cancelReminder(for goal: Goal) async throws
-    func requestAuthorization() async throws -> Bool
-    func checkAuthorizationStatus() async -> Bool
+protocol FlexAdjustmentServiceProtocol {
+    func applyFlexAdjustment(
+        requirements: [MonthlyRequirement],
+        adjustment: Double,
+        protectedGoalIds: Set<UUID>,
+        skippedGoalIds: Set<UUID>,
+        strategy: RedistributionStrategy
+    ) async -> [AdjustedRequirement]
+
+    func calculateOptimalAdjustment(
+        requirements: [MonthlyRequirement],
+        targetTotal: Double,
+        protectedGoalIds: Set<UUID>,
+        skippedGoalIds: Set<UUID>,
+        displayCurrency: String
+    ) async -> OptimalAdjustmentResult
+
+    func simulateAdjustment(
+        requirements: [MonthlyRequirement],
+        adjustment: Double,
+        protectedGoalIds: Set<UUID>,
+        skippedGoalIds: Set<UUID>
+    ) async -> AdjustmentSimulation
+
+    func clearCache()
 }
 
-// MARK: - Mock Implementations
-
-// Mock Exchange Rate Service
-class MockExchangeRateService: ExchangeRateServiceProtocol {
-    var mockRates: [String: Double] = [:]
-    var shouldThrowError = false
-    var fetchRateCallCount = 0
-    
-    func fetchRate(from: String, to: String) async throws -> Double {
-        fetchRateCallCount += 1
-        
-        if shouldThrowError {
-            throw ExchangeRateError.networkError
-        }
-        
-        if from == to {
-            return 1.0
-        }
-        
-        let key = "\(from)-\(to)"
-        return mockRates[key] ?? 1.5
-    }
-    
-    func fetchRatesInBatch(from: String, to currencies: [String]) async throws -> [String: Double] {
-        if shouldThrowError {
-            throw ExchangeRateError.networkError
-        }
-        
-        var results: [String: Double] = [:]
-        for currency in currencies {
-            results[currency] = try await fetchRate(from: from, to: currency)
-        }
-        return results
-    }
-    
-    func getCachedRate(from: String, to: String) -> Double? {
-        if from == to {
-            return 1.0
-        }
-        let key = "\(from)-\(to)"
-        return mockRates[key]
-    }
+protocol GoalCalculationServiceProtocol {
+    static func getCurrentTotal(for goal: Goal) async -> Double
+    static func getProgress(for goal: Goal) async -> Double
+    static func getSuggestedDeposit(for goal: Goal) async -> Double
+    static func getDaysRemaining(for goal: Goal) -> Int
+    static func isReminderEnabled(for goal: Goal) -> Bool
+    static func getReminderFrequency(for goal: Goal) -> ReminderFrequency
+    static func getReminderDates(for goal: Goal) -> [Date]
+    static func getRemainingReminderDates(for goal: Goal) -> [Date]
+    static func getNextReminder(for goal: Goal) -> Date?
+    static func getManualTotal(for goal: Goal) -> Double
+    static func getManualProgress(for goal: Goal) -> Double
 }
 
-// Mock Balance Service
-class MockBalanceService: BalanceServiceProtocol {
-    var mockBalances: [String: Double] = [:]
-    var shouldThrowError = false
-    var fetchBalanceCallCount = 0
-    
-    func fetchBalance(chainId: String, address: String, symbol: String, forceRefresh: Bool) async throws -> Double {
-        fetchBalanceCallCount += 1
-        
-        if shouldThrowError {
-            throw TatumError.rateLimitExceeded
-        }
-        
-        let key = "\(chainId)-\(address)-\(symbol)"
-        return mockBalances[key] ?? 0.0
-    }
+protocol MonthlyPlanningServiceProtocol {
+    var isCalculating: Bool { get }
+    var lastCalculationError: Error? { get }
+    var needsCacheRefresh: Bool { get }
+
+    func calculateMonthlyRequirements(for goals: [Goal]) async -> [MonthlyRequirement]
+    func calculateTotalRequired(for goals: [Goal], displayCurrency: String) async -> Double
+    func getMonthlyRequirement(for goal: Goal) async -> MonthlyRequirement?
+    func clearCache()
 }
 
-// Mock Transaction Service
-class MockTransactionService: TransactionServiceProtocol {
-    var mockTransactions: [TatumTransaction] = []
-    var shouldThrowError = false
-    
-    func fetchTransactionHistory(chainId: String, address: String, currency: String?, limit: Int, forceRefresh: Bool) async throws -> [TatumTransaction] {
-        if shouldThrowError {
-            throw TatumError.rateLimitExceeded
-        }
-        
-        return Array(mockTransactions.prefix(limit))
-    }
+protocol TatumServiceProtocol {
+    var supportedChains: [TatumChain] { get }
+    func predictChain(for symbol: String) -> TatumChain?
+    func fetchBalance(chainId: String, address: String, symbol: String, forceRefresh: Bool) async throws -> Double
+    func fetchTransactionHistory(chainId: String, address: String, currency: String?, limit: Int, forceRefresh: Bool) async throws -> [TatumTransaction]
+    func hasValidConfiguration() -> Bool
+    func setOfflineMode(_ offline: Bool)
 }
 
-// Mock Tatum Service
-class MockTatumService: TatumServiceProtocol {
-    let balanceService = MockBalanceService()
-    let transactionService = MockTransactionService()
-    
-    var supportedChains: [TatumChain] = [
-        TatumChain(id: "ETH", name: "Ethereum", nativeCurrencySymbol: "ETH", chainType: .evm),
-        TatumChain(id: "BTC", name: "Bitcoin", nativeCurrencySymbol: "BTC", chainType: .utxo),
-        TatumChain(id: "SOL", name: "Solana", nativeCurrencySymbol: "SOL", chainType: .other)
-    ]
-    
-    func searchChains(query: String) -> [TatumChain] {
-        let lowercased = query.lowercased()
-        return supportedChains.filter { chain in
-            chain.name.lowercased().contains(lowercased) ||
-            chain.id.lowercased().contains(lowercased) ||
-            chain.nativeCurrencySymbol.lowercased().contains(lowercased)
-        }
-    }
-    
-    func fetchBalance(chainId: String, address: String, symbol: String, forceRefresh: Bool) async throws -> Double {
-        return try await balanceService.fetchBalance(chainId: chainId, address: address, symbol: symbol, forceRefresh: forceRefresh)
-    }
-    
-    func fetchTransactionHistory(chainId: String, address: String, currency: String?, limit: Int, forceRefresh: Bool) async throws -> [TatumTransaction] {
-        return try await transactionService.fetchTransactionHistory(chainId: chainId, address: address, currency: currency, limit: limit, forceRefresh: forceRefresh)
-    }
-}
-
-// Mock Monthly Planning Service
-class MockMonthlyPlanningService: MonthlyPlanningServiceProtocol {
-    var mockRequirements: [MonthlyRequirement] = []
-    var shouldThrowError = false
-    
-    func calculateMonthlyRequirement(for goal: Goal) async throws -> MonthlyRequirement {
-        if shouldThrowError {
-            throw MockError.calculationFailed
-        }
-        
-        let monthsRemaining = max(1, goal.daysRemaining / 30)
-        let remainingAmount = max(0, goal.targetAmount - goal.manualTotal)
-        let requiredMonthly = remainingAmount / Double(monthsRemaining)
-        
-        return MonthlyRequirement(
-            goalId: goal.id,
-            goalName: goal.name,
-            currency: goal.currency,
-            targetAmount: goal.targetAmount,
-            currentTotal: goal.manualTotal,
-            remainingAmount: remainingAmount,
-            monthsRemaining: monthsRemaining,
-            requiredMonthly: requiredMonthly,
-            progress: goal.manualProgress,
-            deadline: goal.deadline,
-            status: .onTrack
-        )
-    }
-    
-    func calculateAllRequirements(for goals: [Goal]) async throws -> [MonthlyRequirement] {
-        if shouldThrowError {
-            throw MockError.calculationFailed
-        }
-        
-        var requirements: [MonthlyRequirement] = []
-        for goal in goals {
-            requirements.append(try await calculateMonthlyRequirement(for: goal))
-        }
-        return requirements
-    }
-    
-    func calculateFlexScenarios(for requirements: [MonthlyRequirement], flexPercentage: Double) async throws -> FlexCalculationResult {
-        if shouldThrowError {
-            throw MockError.calculationFailed
-        }
-        
-        let totalOriginal = requirements.reduce(0) { $0 + $1.requiredMonthly }
-        let totalAdjusted = totalOriginal * (flexPercentage / 100)
-        
-        return FlexCalculationResult(
-            originalTotal: totalOriginal,
-            adjustedTotal: totalAdjusted,
-            difference: totalAdjusted - totalOriginal,
-            adjustedRequirements: requirements,
-            impactAnalysis: []
-        )
-    }
-}
-
-// Mock Notification Service
-class MockNotificationService: NotificationServiceProtocol {
-    var authorizationGranted = true
-    var scheduledReminders: Set<UUID> = []
-    var shouldThrowError = false
-    
-    func scheduleReminder(for goal: Goal) async throws {
-        if shouldThrowError {
-            throw MockError.notificationFailed
-        }
-        scheduledReminders.insert(goal.id)
-    }
-    
-    func cancelReminder(for goal: Goal) async throws {
-        if shouldThrowError {
-            throw MockError.notificationFailed
-        }
-        scheduledReminders.remove(goal.id)
-    }
-    
-    func requestAuthorization() async throws -> Bool {
-        if shouldThrowError {
-            throw MockError.notificationFailed
-        }
-        return authorizationGranted
-    }
-    
-    func checkAuthorizationStatus() async -> Bool {
-        return authorizationGranted
-    }
+protocol TransactionServiceProtocol {
+    func fetchTransactionHistory(chainId: String, address: String, currency: String?, limit: Int, forceRefresh: Bool) async throws -> [TatumTransaction]
 }

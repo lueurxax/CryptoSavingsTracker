@@ -104,7 +104,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
     
     // MARK: - Dependencies
     
-    private let planningService: MonthlyPlanningService
+    private let planningService: MonthlyPlanningServiceProtocol
     private let modelContext: ModelContext
     private var flexService: FlexAdjustmentService?
     private var cancellables = Set<AnyCancellable>()

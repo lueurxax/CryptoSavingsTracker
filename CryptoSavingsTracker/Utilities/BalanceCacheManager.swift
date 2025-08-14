@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 
 // Cache entry for balance data
 struct BalanceCacheEntry: Codable {
@@ -31,6 +32,7 @@ struct TransactionsCacheEntry {
 
 // Singleton cache manager
 final class BalanceCacheManager {
+    private static let log = Logger(subsystem: "xax.CryptoSavingsTracker", category: "BalanceCacheManager")
     static let shared = BalanceCacheManager()
     
     private var balanceCache: [String: BalanceCacheEntry] = [:]
@@ -76,9 +78,9 @@ final class BalanceCacheManager {
                 expiresAt: Date().addingTimeInterval(self.balanceCacheDuration)
             )
             self.balanceCache[key] = entry
-            print("[BalanceCache] Cached balance \(balance) for key: \(key)")
+            Self.log.info("Cached balance \(balance, privacy: .public) for key: \(key, privacy: .public)")
             self.persistCache()
-            print("[BalanceCache] Persisted \(self.balanceCache.count) entries to disk")
+            Self.log.info("Persisted \(self.balanceCache.count, privacy: .public) entries to disk")
         }
     }
     
@@ -158,9 +160,9 @@ final class BalanceCacheManager {
                     // Keep if not expired OR if it was cached within last 24 hours
                     !entry.value.isExpired || entry.value.timestamp > oneDayAgo
                 }
-                print("[BalanceCache] Loaded \(self.balanceCache.count) cached balances from disk")
+                Self.log.info("Loaded \(self.balanceCache.count, privacy: .public) cached balances from disk")
             } else {
-                print("[BalanceCache] No persisted cache found on disk")
+                Self.log.info("No persisted cache found on disk")
             }
         }
     }

@@ -84,16 +84,6 @@ struct MonthlyPlanningWidget: View {
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundColor(statusColor)
-                        
-                        if let shortestDeadline = viewModel.statistics.shortestDeadline {
-                            Text("by \(shortestDeadline, format: .dateTime.month().day())")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(.quaternary)
-                                .clipShape(Capsule())
-                        }
                     }
                 }
             }
@@ -143,11 +133,6 @@ struct MonthlyPlanningWidget: View {
             VStack(spacing: 12) {
                 // Quick Stats
                 quickStatsView
-                
-                // Quick Actions
-                if viewModel.hasFlexibleGoals {
-                    quickActionsView
-                }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
@@ -300,7 +285,7 @@ struct MonthlyPlanningWidget: View {
     
     @ViewBuilder
     private var goalBreakdownView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             HStack {
                 Text("Goal Breakdown")
                     .font(.subheadline)
@@ -366,14 +351,14 @@ struct MonthlyPlanningWidget: View {
                     .foregroundColor(.secondary)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 8)
     }
     
     // MARK: - Flex Controls View
     
     @ViewBuilder
     private var flexControlsView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             HStack {
                 Text("Flex Adjustment")
                     .font(.subheadline)

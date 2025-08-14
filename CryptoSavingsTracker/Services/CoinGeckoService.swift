@@ -15,7 +15,7 @@ struct CoinInfo: Codable, Identifiable {
 }
 
 // Service layer should not be UI-aware
-class CoinGeckoService {
+class CoinGeckoService: CoinGeckoServiceProtocol {
     static let shared = CoinGeckoService()
     
     // Crypto currencies (for assets)

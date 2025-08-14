@@ -246,7 +246,7 @@ struct AsyncErrorHandler {
         if let errorHandler = errorHandler {
             handler = errorHandler
         } else {
-            handler = await ErrorHandler.shared
+            handler = ErrorHandler.shared
         }
         do {
             return try await operation()
@@ -269,7 +269,7 @@ struct AsyncErrorHandler {
                 appError = .invalidResponse
             }
             
-            await handler.handle(appError)
+            handler.handle(appError)
             
             return nil
         }
@@ -286,7 +286,7 @@ struct AsyncErrorHandler {
         if let errorHandler = errorHandler {
             handler = errorHandler
         } else {
-            handler = await ErrorHandler.shared
+            handler = ErrorHandler.shared
         }
         var lastError: Error?
         
@@ -306,7 +306,7 @@ struct AsyncErrorHandler {
         // All attempts failed
         if lastError != nil {
             let appError = AppError.requestTimeout // Simplified mapping
-            await handler.handle(appError)
+            handler.handle(appError)
         }
         
         return nil

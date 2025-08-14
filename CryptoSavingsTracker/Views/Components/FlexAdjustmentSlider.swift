@@ -29,6 +29,7 @@ struct FlexAdjustmentSlider: View {
     // Animation
     @State private var sliderScale: CGFloat = 1.0
     @State private var impactHaptic = false
+    @State private var sliderValueLabel: String = ""
     
     init(viewModel: MonthlyPlanningViewModel) {
         self.viewModel = viewModel
@@ -141,6 +142,17 @@ struct FlexAdjustmentSlider: View {
                 HStack {
                     Spacer()
                     
+                    if isAdjusting {
+                        Text(sliderValueLabel)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(adjustmentColor)
+                            .padding(4)
+                            .background(Color.white.opacity(0.8))
+                            .cornerRadius(4)
+                            .offset(x: sliderThumbOffset - 12, y: -24)
+                    }
+
                     Circle()
                         .fill(.white)
                         .frame(width: 24, height: 24)
@@ -409,6 +421,7 @@ struct FlexAdjustmentSlider: View {
         // Convert drag to slider value (0.0 to 2.0)
         let dragPercentage = max(0, min(1, value.location.x / max(1, value.startLocation.x * 2)))
         tempAdjustment = dragPercentage * 2.0
+        sliderValueLabel = "\(Int(tempAdjustment * 100))%"
         
         // Scale effect for thumb
         withAnimation(.easeOut(duration: 0.1)) {

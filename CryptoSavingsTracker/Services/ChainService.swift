@@ -23,7 +23,7 @@ struct TatumChain: Codable, Identifiable, Hashable {
 }
 
 // MARK: - Chain Service
-final class ChainService {
+final class ChainService: ChainServiceProtocol {
     static let shared = ChainService()
     
     // Cache for supported chains

@@ -9,7 +9,7 @@ import Foundation
 import os
 
 // MARK: - Balance Service
-final class BalanceService {
+final class BalanceService: BalanceServiceProtocol {
     private let client: TatumClient
     private let chainService: ChainService
     private let rateLimiter: RateLimiter

@@ -7,8 +7,20 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		CEAAFF942E4BE42F00A6B5A3 /* ARCHITECTURE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFF932E4BE42F00A6B5A3 /* ARCHITECTURE.md */; };
-		CED9DDB22E34C1A000203A83 /* CLAUDE.md in Resources */ = {isa = PBXBuildFile; fileRef = CED9DDB12E34C1A000203A83 /* CLAUDE.md */; };
+		CEAAFFA02E4DBC0100A6B5A3 /* TROUBLESHOOTING.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFF9F2E4DBC0100A6B5A3 /* TROUBLESHOOTING.md */; };
+		CEAAFFA12E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_FEATURE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFF9E2E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_FEATURE.md */; };
+		CEAAFFA22E4DBC0100A6B5A3 /* IMPLEMENTATION_ROADMAP.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFF9B2E4DBC0100A6B5A3 /* IMPLEMENTATION_ROADMAP.md */; };
+		CEAAFFA32E4DBC0100A6B5A3 /* nownodes.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFF9C2E4DBC0100A6B5A3 /* nownodes.md */; };
+		CEAAFFA42E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_ARCHITECTURE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFF9D2E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_ARCHITECTURE.md */; };
+		CEAAFFAE2E4E4A5F00A6B5A3 /* GEMINI.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFA92E4E4A5F00A6B5A3 /* GEMINI.md */; };
+		CEAAFFAF2E4E4A5F00A6B5A3 /* API_REFERENCE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFA52E4E4A5F00A6B5A3 /* API_REFERENCE.md */; };
+		CEAAFFB02E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFA82E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md */; };
+		CEAAFFB12E4E4A5F00A6B5A3 /* TESTING_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFAD2E4E4A5F00A6B5A3 /* TESTING_GUIDE.md */; };
+		CEAAFFB22E4E4A5F00A6B5A3 /* MIGRATION_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFAA2E4E4A5F00A6B5A3 /* MIGRATION_GUIDE.md */; };
+		CEAAFFB32E4E4A5F00A6B5A3 /* ARCHITECTURE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFA62E4E4A5F00A6B5A3 /* ARCHITECTURE.md */; };
+		CEAAFFB42E4E4A5F00A6B5A3 /* CLAUDE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFA72E4E4A5F00A6B5A3 /* CLAUDE.md */; };
+		CEAAFFB52E4E4A5F00A6B5A3 /* REFACTORING_PLAN.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFAB2E4E4A5F00A6B5A3 /* REFACTORING_PLAN.md */; };
+		CEAAFFB62E4E4A5F00A6B5A3 /* REQUIRED_MONTHLY_DOCUMENTATION.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFAC2E4E4A5F00A6B5A3 /* REQUIRED_MONTHLY_DOCUMENTATION.md */; };
 		CED9DE692E36232E00203A83 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE672E36232E00203A83 /* LICENSE */; };
 		CED9DE6A2E36232E00203A83 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE682E36232E00203A83 /* README.md */; };
 		CED9DE6C2E362A1D00203A83 /* Config.plist in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE6B2E362A1D00203A83 /* Config.plist */; };
@@ -40,8 +52,20 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		CEAAFF932E4BE42F00A6B5A3 /* ARCHITECTURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ARCHITECTURE.md; sourceTree = "<group>"; };
-		CED9DDB12E34C1A000203A83 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
+		CEAAFF9B2E4DBC0100A6B5A3 /* IMPLEMENTATION_ROADMAP.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_ROADMAP.md; sourceTree = "<group>"; };
+		CEAAFF9C2E4DBC0100A6B5A3 /* nownodes.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = nownodes.md; sourceTree = "<group>"; };
+		CEAAFF9D2E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_ARCHITECTURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = REQUIRED_MONTHLY_ARCHITECTURE.md; sourceTree = "<group>"; };
+		CEAAFF9E2E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_FEATURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = REQUIRED_MONTHLY_FEATURE.md; sourceTree = "<group>"; };
+		CEAAFF9F2E4DBC0100A6B5A3 /* TROUBLESHOOTING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TROUBLESHOOTING.md; sourceTree = "<group>"; };
+		CEAAFFA52E4E4A5F00A6B5A3 /* API_REFERENCE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = API_REFERENCE.md; sourceTree = "<group>"; };
+		CEAAFFA62E4E4A5F00A6B5A3 /* ARCHITECTURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ARCHITECTURE.md; sourceTree = "<group>"; };
+		CEAAFFA72E4E4A5F00A6B5A3 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
+		CEAAFFA82E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = COMPONENT_REGISTRY.md; sourceTree = "<group>"; };
+		CEAAFFA92E4E4A5F00A6B5A3 /* GEMINI.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = GEMINI.md; sourceTree = "<group>"; };
+		CEAAFFAA2E4E4A5F00A6B5A3 /* MIGRATION_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MIGRATION_GUIDE.md; sourceTree = "<group>"; };
+		CEAAFFAB2E4E4A5F00A6B5A3 /* REFACTORING_PLAN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = REFACTORING_PLAN.md; sourceTree = "<group>"; };
+		CEAAFFAC2E4E4A5F00A6B5A3 /* REQUIRED_MONTHLY_DOCUMENTATION.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = REQUIRED_MONTHLY_DOCUMENTATION.md; sourceTree = "<group>"; };
+		CEAAFFAD2E4E4A5F00A6B5A3 /* TESTING_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TESTING_GUIDE.md; sourceTree = "<group>"; };
 		CED9DE672E36232E00203A83 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		CED9DE682E36232E00203A83 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		CED9DE6B2E362A1D00203A83 /* Config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.plist; sourceTree = "<group>"; };
@@ -125,6 +149,20 @@
 		CEDD1EE32E4698B20026BFEF /* docs */ = {
 			isa = PBXGroup;
 			children = (
+				CEAAFFA52E4E4A5F00A6B5A3 /* API_REFERENCE.md */,
+				CEAAFFA62E4E4A5F00A6B5A3 /* ARCHITECTURE.md */,
+				CEAAFFA72E4E4A5F00A6B5A3 /* CLAUDE.md */,
+				CEAAFFA82E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md */,
+				CEAAFFA92E4E4A5F00A6B5A3 /* GEMINI.md */,
+				CEAAFFAA2E4E4A5F00A6B5A3 /* MIGRATION_GUIDE.md */,
+				CEAAFFAB2E4E4A5F00A6B5A3 /* REFACTORING_PLAN.md */,
+				CEAAFFAC2E4E4A5F00A6B5A3 /* REQUIRED_MONTHLY_DOCUMENTATION.md */,
+				CEAAFFAD2E4E4A5F00A6B5A3 /* TESTING_GUIDE.md */,
+				CEAAFF9B2E4DBC0100A6B5A3 /* IMPLEMENTATION_ROADMAP.md */,
+				CEAAFF9C2E4DBC0100A6B5A3 /* nownodes.md */,
+				CEAAFF9D2E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_ARCHITECTURE.md */,
+				CEAAFF9E2E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_FEATURE.md */,
+				CEAAFF9F2E4DBC0100A6B5A3 /* TROUBLESHOOTING.md */,
 				CEDD1EE02E4698B20026BFEF /* screenshots */,
 				CEDD1EE12E4698B20026BFEF /* sample-data.md */,
 				CEDD1EE22E4698B20026BFEF /* SCREENSHOT_GUIDE.md */,
@@ -154,14 +192,12 @@
 		CEF7B1D72E33FAB400FB26B3 = {
 			isa = PBXGroup;
 			children = (
-				CEAAFF932E4BE42F00A6B5A3 /* ARCHITECTURE.md */,
 				CEDD1EE32E4698B20026BFEF /* docs */,
 				CEEB9AA32E44D564002B697E /* .claude */,
 				CED9DE6D2E362A2C00203A83 /* Config.example.plist */,
 				CED9DE6B2E362A1D00203A83 /* Config.plist */,
 				CED9DE672E36232E00203A83 /* LICENSE */,
 				CED9DE682E36232E00203A83 /* README.md */,
-				CED9DDB12E34C1A000203A83 /* CLAUDE.md */,
 				CEF7B1E22E33FAB400FB26B3 /* CryptoSavingsTracker */,
 				CEF7B1F42E33FAB600FB26B3 /* CryptoSavingsTrackerTests */,
 				CEF7B1FE2E33FAB600FB26B3 /* CryptoSavingsTrackerUITests */,
@@ -299,11 +335,24 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CED9DDB22E34C1A000203A83 /* CLAUDE.md in Resources */,
 				CEEB9AA42E44D564002B697E /* ux-reviewer.md in Resources */,
 				CEEB9AA52E44D564002B697E /* architecture-critic.md in Resources */,
+				CEAAFFA02E4DBC0100A6B5A3 /* TROUBLESHOOTING.md in Resources */,
+				CEAAFFA12E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_FEATURE.md in Resources */,
+				CEAAFFA22E4DBC0100A6B5A3 /* IMPLEMENTATION_ROADMAP.md in Resources */,
+				CEAAFFA32E4DBC0100A6B5A3 /* nownodes.md in Resources */,
+				CEAAFFA42E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_ARCHITECTURE.md in Resources */,
 				CEEB9AA62E44D564002B697E /* settings.local.json in Resources */,
 				CED9DE692E36232E00203A83 /* LICENSE in Resources */,
+				CEAAFFAE2E4E4A5F00A6B5A3 /* GEMINI.md in Resources */,
+				CEAAFFAF2E4E4A5F00A6B5A3 /* API_REFERENCE.md in Resources */,
+				CEAAFFB02E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md in Resources */,
+				CEAAFFB12E4E4A5F00A6B5A3 /* TESTING_GUIDE.md in Resources */,
+				CEAAFFB22E4E4A5F00A6B5A3 /* MIGRATION_GUIDE.md in Resources */,
+				CEAAFFB32E4E4A5F00A6B5A3 /* ARCHITECTURE.md in Resources */,
+				CEAAFFB42E4E4A5F00A6B5A3 /* CLAUDE.md in Resources */,
+				CEAAFFB52E4E4A5F00A6B5A3 /* REFACTORING_PLAN.md in Resources */,
+				CEAAFFB62E4E4A5F00A6B5A3 /* REQUIRED_MONTHLY_DOCUMENTATION.md in Resources */,
 				CEDD20D52E4781850026BFEF /* tatum.md in Resources */,
 				CED9DE6C2E362A1D00203A83 /* Config.plist in Resources */,
 				CEDD1EE42E4698B20026BFEF /* sample-data.md in Resources */,
@@ -311,7 +360,6 @@
 				CEDD1EE62E4698B20026BFEF /* .gitkeep in Resources */,
 				CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */,
 				CED9DE6A2E36232E00203A83 /* README.md in Resources */,
-				CEAAFF942E4BE42F00A6B5A3 /* ARCHITECTURE.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

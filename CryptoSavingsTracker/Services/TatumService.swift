@@ -12,7 +12,7 @@ import os
 // MARK: - Facade Service (Backward Compatibility)
 // This service now acts as a facade, delegating to the smaller specialized services
 
-final class TatumService {
+final class TatumService: TatumServiceProtocol {
     private let client: TatumClient
     private let chainService: ChainService
     

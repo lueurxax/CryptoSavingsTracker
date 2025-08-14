@@ -34,4 +34,17 @@ final class RateLimiter {
         defer { lock.unlock() }
         requestTimestamps[key] = Date()
     }
+    
+    func execute<T>(key: String, operation: () async throws -> T) async throws -> T {
+        // Wait if rate limited
+        while isRateLimited(for: key) {
+            try await Task.sleep(nanoseconds: 100_000_000) // Sleep for 0.1 seconds
+        }
+        
+        // Record the request
+        recordRequest(for: key)
+        
+        // Execute the operation
+        return try await operation()
+    }
 }

@@ -19,9 +19,9 @@ class CurrencyViewModel: ObservableObject {
     
     @Published var isLoading = false
     
-    private let coinGeckoService: CoinGeckoService
+    private let coinGeckoService: CoinGeckoServiceProtocol
     
-    init(coinGeckoService: CoinGeckoService) {
+    init(coinGeckoService: CoinGeckoServiceProtocol) {
         self.coinGeckoService = coinGeckoService
         loadInitialData()
     }

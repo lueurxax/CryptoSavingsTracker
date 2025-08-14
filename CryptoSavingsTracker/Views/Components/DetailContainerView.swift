@@ -24,6 +24,7 @@ struct DetailContainerView: View {
                     Text("Details")
                 }
                 .tag(DetailViewType.details)
+                .transition(.opacity)
             
             DashboardViewForGoal(goal: goal)
                 .tabItem {
@@ -31,11 +32,11 @@ struct DetailContainerView: View {
                     Text("Dashboard")
                 }
                 .tag(DetailViewType.dashboard)
+                .transition(.opacity)
         }
+        .animation(.easeInOut, value: selectedView)
         .navigationTitle(goal.name)
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+        .modifier(InlineNavBarModifier())
     }
 }
 

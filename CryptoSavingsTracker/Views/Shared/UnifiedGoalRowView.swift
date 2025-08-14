@@ -159,16 +159,44 @@ struct UnifiedGoalRowView: View {
     private var progressBar: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                // Background track
-                RoundedRectangle(cornerRadius: style == .compact ? 1 : 2)
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(height: style.progressBarHeight)
-                
-                // Progress fill
-                RoundedRectangle(cornerRadius: style == .compact ? 1 : 2)
-                    .fill(viewModel.progressBarColor)
-                    .frame(width: geometry.size.width * viewModel.progressAnimation, height: style.progressBarHeight)
-                    .animation(.easeInOut(duration: 0.6), value: viewModel.progressAnimation)
+                if viewModel.isLoading && !viewModel.hasLoadedInitialData {
+                    // Show shimmer effect while loading
+                    RoundedRectangle(cornerRadius: style == .compact ? 1 : 2)
+                        .fill(Color.gray.opacity(0.1))
+                        .frame(height: style.progressBarHeight)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: style == .compact ? 1 : 2)
+                                .fill(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [
+                                            Color.gray.opacity(0.1),
+                                            Color.gray.opacity(0.3),
+                                            Color.gray.opacity(0.1)
+                                        ]),
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: geometry.size.width * 0.3, height: style.progressBarHeight)
+                                .offset(x: geometry.size.width * viewModel.shimmerOffset)
+                                .animation(
+                                    Animation.linear(duration: 1.5)
+                                        .repeatForever(autoreverses: false),
+                                    value: viewModel.shimmerOffset
+                                )
+                        )
+                } else {
+                    // Background track
+                    RoundedRectangle(cornerRadius: style == .compact ? 1 : 2)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: style.progressBarHeight)
+                    
+                    // Progress fill
+                    RoundedRectangle(cornerRadius: style == .compact ? 1 : 2)
+                        .fill(viewModel.progressBarColor)
+                        .frame(width: max(0, geometry.size.width * viewModel.progressAnimation), height: style.progressBarHeight)
+                        .animation(.easeInOut(duration: 0.6), value: viewModel.progressAnimation)
+                }
             }
         }
         .frame(height: style.progressBarHeight)

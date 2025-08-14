@@ -47,6 +47,8 @@ protocol PlatformCapabilities {
     
     /// Window management capabilities
     var windowCapabilities: WindowCapabilities { get }
+    var inlineNavigationBar: Bool { get }
+    var supportsHoverTooltips: Bool { get }
 }
 
 // MARK: - Supporting Types
@@ -132,6 +134,8 @@ struct iOSCapabilities: PlatformCapabilities {
             defaultSize: nil
         )
     }
+    var inlineNavigationBar: Bool { true }
+    var supportsHoverTooltips: Bool { false }
 }
 #endif
 
@@ -159,6 +163,8 @@ struct macOSCapabilities: PlatformCapabilities {
             defaultSize: (width: 900, height: 600)
         )
     }
+    var inlineNavigationBar: Bool { false }
+    var supportsHoverTooltips: Bool { true }
 }
 #endif
 
@@ -186,6 +192,8 @@ struct visionOSCapabilities: PlatformCapabilities {
             defaultSize: (width: 1000, height: 700)
         )
     }
+    var inlineNavigationBar: Bool { false }
+    var supportsHoverTooltips: Bool { true }
 }
 #endif
 
@@ -384,5 +392,21 @@ extension View {
             return AnyView(self.sheet(isPresented: isPresented, content: content))
             #endif
         }
+    }
+}
+
+struct InlineNavBarModifier: ViewModifier {
+    @Environment(\.platformCapabilities) private var platform
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        if platform.inlineNavigationBar {
+            content.navigationBarTitleDisplayMode(.inline)
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
     }
 }
