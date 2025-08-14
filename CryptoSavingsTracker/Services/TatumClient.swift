@@ -20,10 +20,10 @@ final class TatumClient {
     
     // Track active tasks for cancellation
     private var activeTasks = Set<URLSessionTask>()
-    private let taskQueue = DispatchQueue(label: "com.cryptosavingstracker.tatumclient.tasks")
+    private let taskQueue = DispatchQueue(label: "com.cryptosavingstracker.tatumclient.tasks", qos: .userInitiated)
     
     // Rate limiting configuration
-    private let requestQueue = DispatchQueue(label: "com.cryptosavingstracker.tatumclient.requests", attributes: .concurrent)
+    private let requestQueue = DispatchQueue(label: "com.cryptosavingstracker.tatumclient.requests", qos: .userInitiated, attributes: .concurrent)
     private let requestSemaphore = DispatchSemaphore(value: 5) // Max 5 concurrent requests
     private var lastRequestTime: Date = Date.distantPast
     private let minRequestInterval: TimeInterval = 0.1 // 100ms between requests (10 req/sec max)
@@ -84,7 +84,7 @@ final class TatumClient {
             do {
                 // Acquire semaphore to limit concurrent requests
                 _ = await withCheckedContinuation { continuation in
-                    requestQueue.async {
+                    requestQueue.async(qos: .userInitiated, flags: .enforceQoS) {
                         self.requestSemaphore.wait()
                         continuation.resume()
                     }
