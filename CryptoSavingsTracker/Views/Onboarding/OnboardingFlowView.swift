@@ -165,14 +165,17 @@ struct OnboardingFlowView: View {
                 
                 modelContext.insert(goal)
                 
-                // Create recommended assets
+                // Create recommended assets with allocations
                 let assetRecommendations = template.generateAssets()
                 for recommendation in assetRecommendations.prefix(3) { // Limit to 3 assets for simplicity
                     let asset = Asset(
-                        currency: recommendation.currency,
-                        goal: goal
+                        currency: recommendation.currency
                     )
                     modelContext.insert(asset)
+                    
+                    // Create 100% allocation to this goal
+                    let allocation = AssetAllocation(asset: asset, goal: goal, percentage: 1.0)
+                    modelContext.insert(allocation)
                 }
                 
                 try modelContext.save()

@@ -17,7 +17,7 @@ final class Goal {
         self.targetAmount = targetAmount
         self.deadline = deadline
         self.startDate = startDate
-        self.assets = []
+        self.allocations = []
         self.reminderFrequency = frequency.rawValue
         self.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
         self.emoji = emoji
@@ -46,12 +46,15 @@ final class Goal {
     var goalDescription: String?
     var link: String?
     
-    @Relationship(deleteRule: .cascade) var assets: [Asset] = []
+    @Relationship(deleteRule: .cascade) var allocations: [AssetAllocation] = []
     
     // MARK: - Computed Properties
     
     var manualTotal: Double {
-        assets.reduce(0) { $0 + $1.manualBalance }
+        allocations.reduce(0) { result, allocation in
+            guard let asset = allocation.asset else { return result }
+            return result + (asset.manualBalance * allocation.percentage)
+        }
     }
     
     var manualProgress: Double {
@@ -179,6 +182,49 @@ final class Goal {
         let remainingAmount = max(targetAmount - manualTotal, 0)
         return remainingAmount / Double(daysRemaining)
     }
+    
+    // MARK: - Allocation Helper Methods
+    
+    /// Get all assets allocated to this goal
+    var allocatedAssets: [Asset] {
+        allocations.compactMap { $0.asset }
+    }
+    
+    /// Get unique assets (without duplicates) allocated to this goal
+    var uniqueAllocatedAssets: [Asset] {
+        let assets = allocatedAssets
+        var uniqueAssets: [Asset] = []
+        var seenIds: Set<UUID> = []
+        
+        for asset in assets {
+            if !seenIds.contains(asset.id) {
+                uniqueAssets.append(asset)
+                seenIds.insert(asset.id)
+            }
+        }
+        
+        return uniqueAssets
+    }
+    
+    /// Get the total percentage allocated from a specific asset
+    func getAllocationPercentage(from asset: Asset) -> Double {
+        return allocations.first { $0.asset?.id == asset.id }?.percentage ?? 0.0
+    }
+    
+    /// Get the allocated value from a specific asset
+    func getAllocatedValue(from asset: Asset, totalAssetValue: Double) -> Double {
+        let percentage = getAllocationPercentage(from: asset)
+        return totalAssetValue * percentage
+    }
+    
+    /// Get allocation breakdown showing asset and percentage pairs
+    var allocationBreakdown: [(asset: Asset, percentage: Double)] {
+        return allocations.compactMap { allocation in
+            guard let asset = allocation.asset else { return nil }
+            return (asset: asset, percentage: allocation.percentage)
+        }
+    }
+    
     // MARK: - Note on Business Logic
     // Business logic has been moved to ViewModels (GoalViewModel, AssetViewModel)
     // This ensures proper separation of concerns and avoids circular dependencies

@@ -125,7 +125,7 @@ struct GoalPill: View {
         .task {
             progress = await GoalCalculationService.getProgress(for: goal)
         }
-        .onChange(of: goal.assets) { _, _ in
+        .onChange(of: goal.allocations) { _, _ in
             Task {
                 progress = await GoalCalculationService.getProgress(for: goal)
             }

@@ -67,10 +67,10 @@ class GoalViewModel: ObservableObject {
     }
     
     private func calculateCurrentTotal() async -> Double {
-        AppLog.debug("Calculating current total for goal '\(goal.name)' (currency: \(goal.currency), assets: \(goal.assets.count))", category: .goalList)
+        AppLog.debug("Calculating current total for goal '\(goal.name)' (currency: \(goal.currency), assets: \(goal.allocatedAssets.count))", category: .goalList)
         
         var total: Double = 0
-        for (index, asset) in goal.assets.enumerated() {
+        for (index, asset) in goal.allocatedAssets.enumerated() {
             AppLog.debug("Processing asset [\(index)]: \(asset.currency) (address: \(asset.address ?? "none"), chainId: \(asset.chainId ?? "none"))", category: .goalList)
             
             let assetValue = await AssetViewModel.getCurrentAmount(for: asset)

@@ -1,473 +1,420 @@
-    //
-    //  AssetRowView.swift
-    //  CryptoSavingsTracker
-    //
-    //  Created by user on 26/07/2025.
-    //
+//
+//  AssetRowView.swift
+//  CryptoSavingsTracker
+//
+//  Created by Claude on 04/08/2025.
+//
 
 import SwiftUI
 import SwiftData
 
 struct AssetRowView: View {
     @Environment(\.modelContext) private var modelContext
+    @Query private var allTransactions: [Transaction]
+    
     let asset: Asset
+    let goal: Goal? // Optional goal context to show allocation for specific goal
     let isExpanded: Bool
     let onToggleExpanded: () -> Void
+    var onDelete: (() -> Void)? = nil
     
-    @Query private var allTransactions: [Transaction]
-    @State private var showingAddTransaction = false
-    @State private var onChainBalance: Double = 0.0
     @State private var isLoadingBalance = false
-    @State private var balanceError: String?
-    @State private var onChainTransactions: [TatumTransaction] = []
-    @State private var isLoadingTransactions = false
-    @State private var lastBalanceUpdate: Date?
-    @State private var isRefreshing = false
-    @State private var hoveredTransactionId: UUID?
-    @State private var exchangeRates: [String: Double] = [:] // Currency to USD rates
-    @State private var goalCurrency: String = ""
+    @State private var onChainBalance: Double = 0
     @State private var balanceState: BalanceState = .loading
-    @State private var isCachedBalance = false
-    
-    // Exchange rate service
-    private let exchangeRateService = ExchangeRateService.shared
-    
-    private var assetTransactions: [Transaction] {
-        return allTransactions.filter { $0.asset.id == asset.id }.sorted(by: { $0.date > $1.date })
-    }
-    
-    private var shouldShowOnChainTransactions: Bool {
-        return safeAssetAddress != nil && safeAssetChainId != nil && !onChainTransactions.isEmpty
-    }
-    
-    private var manualBalance: Double {
-        return assetTransactions.reduce(0) { $0 + $1.amount }
-    }
-    
-    private var totalBalance: Double {
-        return onChainBalance + manualBalance
-    }
-    
-    private var hasOnChainAddress: Bool {
-        return safeAssetAddress != nil && safeAssetChainId != nil && !safeAssetAddress!.isEmpty
-    }
-    
-        // Safe access properties to prevent crashes when asset is deleted
-    private var safeAssetCurrency: String {
-        return asset.currency
-    }
+    @State private var lastBalanceUpdate: Date? = nil
+    @State private var isLoadingTransactions = false
+    @State private var onChainTransactions: [TatumTransaction] = []
+    @State private var isRefreshing = false
+    @State private var hoveredTransactionId: UUID? = nil
+    @State private var showingAddTransaction = false
+    @State private var showingAllocationView = false
+    @State private var exchangeRates: [String: Double] = [:]
     
     private var safeAssetAddress: String? {
-        return asset.address
+        guard let address = asset.address else { return nil }
+        return address.isEmpty ? nil : address
+    }
+    
+    private var safeAssetCurrency: String {
+        asset.currency.isEmpty ? "Unknown" : asset.currency
     }
     
     private var safeAssetChainId: String? {
-        return asset.chainId
+        guard let chainId = asset.chainId else { return nil }
+        return chainId.isEmpty ? nil : chainId
     }
     
-    // Calculate USD equivalent for transaction
-    private func usdValue(for transaction: Transaction) -> String? {
-        guard let rate = exchangeRates[safeAssetCurrency.uppercased()] else { return nil }
-        let usdAmount = transaction.amount * rate
-        return String(format: "~$%.2f", abs(usdAmount))
+    private var hasOnChainAddress: Bool {
+        safeAssetAddress != nil && safeAssetChainId != nil
     }
     
-    // Calculate impact on goal progress
-    private func goalImpact(for transaction: Transaction) -> String? {
-        guard !goalCurrency.isEmpty else { return nil }
-        
-        let goalTotal = asset.goal.targetAmount
-        let impactPercent = abs(transaction.amount) / goalTotal * 100
-        
-        if impactPercent >= 0.1 { // Only show if impact is >= 0.1%
-            let direction = transaction.amount >= 0 ? "+" : "-"
-            return "\(direction)\(String(format: "%.1f", impactPercent))% of goal"
+    private var assetTransactions: [Transaction] {
+        allTransactions.filter { $0.asset.id == asset.id }
+    }
+    
+    private var totalBalance: Double {
+        onChainBalance + manualBalance
+    }
+    
+    private var manualBalance: Double {
+        assetTransactions.reduce(0) { $0 + $1.amount }
+    }
+    
+    private var isSharedAsset: Bool {
+        asset.allocations.count > 1
+    }
+    
+    private var currentGoalAllocation: Double {
+        // If we have a goal context, find the allocation for this specific goal
+        if let goal = goal {
+            return asset.allocations.first(where: { $0.goal?.id == goal.id })?.percentage ?? 0
         }
-        return nil
+        // Otherwise, if only one allocation exists, use it
+        if asset.allocations.count == 1 {
+            return asset.allocations.first?.percentage ?? 1.0
+        }
+        return 1.0
     }
     
-    init(asset: Asset, isExpanded: Bool, onToggleExpanded: @escaping () -> Void) {
+    private var allocatedBalance: Double {
+        totalBalance * currentGoalAllocation
+    }
+    
+    init(asset: Asset, goal: Goal? = nil, isExpanded: Bool, onToggleExpanded: @escaping () -> Void, onDelete: (() -> Void)? = nil) {
         self.asset = asset
+        self.goal = goal
         self.isExpanded = isExpanded
         self.onToggleExpanded = onToggleExpanded
+        self.onDelete = onDelete
         let assetId = asset.id
         self._allTransactions = Query(filter: #Predicate<Transaction> { transaction in
             transaction.asset.id == assetId
-        }, sort: \Transaction.date)
+        }, sort: \Transaction.date, order: .reverse)
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
+            // Main Header
             Button(action: onToggleExpanded) {
-                HStack {
+                HStack(spacing: 12) {
+                    // Currency and address info
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(safeAssetCurrency)
-                                    .font(.headline)
-                                
-                                if let address = safeAssetAddress, !address.isEmpty {
-                                    Text("\(String(address.prefix(8)))...\(String(address.suffix(6)))")
+                            Text(safeAssetCurrency)
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            
+                            if isSharedAsset {
+                                Image(systemName: "chart.pie.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.purple)
+                            }
+                        }
+                        
+                        if let address = safeAssetAddress {
+                            Text("\(String(address.prefix(8)))...\(String(address.suffix(6)))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .monospaced()
+                        }
+                        
+                        if isSharedAsset && goal != nil {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chart.pie.fill")
+                                    .font(.caption2)
+                                    .foregroundColor(.purple)
+                                Text("\(Int(currentGoalAllocation * 100))%")
+                                    .font(.caption2)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.purple)
+                                Text("•")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("\(allocatedBalance, specifier: "%.4f") \(safeAssetCurrency)")
+                                    .font(.caption2)
+                                    .foregroundColor(.purple)
+                            }
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    // Balance and refresh
+                    HStack(spacing: 8) {
+                        if hasOnChainAddress {
+                            Button(action: {
+                                Task {
+                                    await refreshBalances()
+                                }
+                            }) {
+                                Image(systemName: isRefreshing ? "arrow.clockwise.circle.fill" : "arrow.clockwise.circle")
+                                    .foregroundColor(isRefreshing ? .gray : .blue)
+                                    .imageScale(.medium)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .disabled(isRefreshing)
+                        }
+                        
+                        VStack(alignment: .trailing, spacing: 2) {
+                            if isLoadingBalance {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                            } else {
+                                // Show allocated amount if shared and in goal context
+                                if isSharedAsset && goal != nil {
+                                    Text("\(allocatedBalance, specifier: "%.6f") \(safeAssetCurrency)")
+                                        .font(.system(.body, design: .monospaced))
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.purple)
+                                    
+                                    Text("of \(totalBalance, specifier: "%.4f") total")
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
-                                        .monospaced()
-                                }
-                                
-                                let tatumService = TatumService(client: TatumClient.shared, chainService: ChainService.shared)
-                                if let chainId = safeAssetChainId, let chain = tatumService.supportedChains.first(where: { $0.id == chainId }) {
-                                    Text(chain.name)
-                                        .font(.caption2)
-                                        .foregroundColor(.accessiblePrimary)
-                                }
-                            }
-                            
-                            if let address = safeAssetAddress, !address.isEmpty {
-                                Text("On-chain")
-                                    .font(.caption2)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(AccessibleColors.primaryInteractiveBackground)
-                                    .foregroundColor(.accessiblePrimary)
-                                    .cornerRadius(4)
-                            }
-                            
-                            Spacer()
-                            
-                            VStack(alignment: .trailing, spacing: 2) {
-                                HStack(spacing: 4) {
-                                    if hasOnChainAddress {
-                                        Button(action: {
-                                            Task {
-                                                await refreshBalances()
-                                            }
-                                        }) {
-                                            Image(systemName: isRefreshing ? "arrow.clockwise.circle.fill" : "arrow.clockwise.circle")
-                                                .foregroundColor(isRefreshing ? .gray : .blue)
-                                                .imageScale(.small)
-                                                .frame(minWidth: 44, minHeight: 44)
-                                                .contentShape(Rectangle())
-                                        }
-                                        .disabled(isRefreshing)
-                                        .buttonStyle(PlainButtonStyle())
-                                    }
+                                } else {
+                                    Text("\(totalBalance, specifier: "%.6f") \(safeAssetCurrency)")
+                                        .font(.system(.body, design: .monospaced))
+                                        .fontWeight(.medium)
                                     
-                                    if isLoadingBalance && hasOnChainAddress {
-                                        ProgressView()
-                                            .scaleEffect(0.6)
-                                    } else {
-                                        VStack(alignment: .trailing, spacing: 1) {
-                                            // Show balance based on state
-                                            switch balanceState {
-                                            case .loading:
-                                                if hasOnChainAddress {
-                                                    Text("Loading...")
-                                                        .font(.caption)
-                                                        .foregroundColor(.secondary)
-                                                } else {
-                                                    Text("\(manualBalance, specifier: "%.8f") \(safeAssetCurrency)")
-                                                        .font(.caption)
-                                                        .fontWeight(.medium)
-                                                }
-                                                
-                                            case .loaded(_, let isCached, let lastUpdated):
-                                                // Total balance
-                                                HStack(spacing: 2) {
-                                                    Text("\(totalBalance, specifier: "%.8f") \(safeAssetCurrency)")
-                                                        .font(.caption)
-                                                        .fontWeight(.medium)
-                                                    
-                                                    if isCached {
-                                                        Image(systemName: "clock.arrow.circlepath")
-                                                            .font(.caption2)
-                                                            .foregroundColor(.orange)
-                                                            .help("Cached data")
-                                                    }
-                                                }
-                                                
-                                                // Breakdown if we have both types
-                                                if hasOnChainAddress || manualBalance > 0 {
-                                                    HStack(spacing: 4) {
-                                                        if hasOnChainAddress {
-                                                            Text("Chain: \(onChainBalance, specifier: "%.4f")")
-                                                                .font(.caption2)
-                                                                .foregroundColor(isCached ? .orange : .accessiblePrimary)
-                                                        }
-                                                        if manualBalance > 0 {
-                                                            Text("Manual: \(manualBalance, specifier: "%.4f")")
-                                                                .font(.caption2)
-                                                                .foregroundColor(.accessibleStreak)
-                                                        }
-                                                    }
-                                                }
-                                                
-                                                // Last updated with cache indicator
-                                                if isCached {
-                                                    Text("Cached: \(lastUpdated, format: .relative(presentation: .numeric))")
-                                                        .font(.caption2)
-                                                        .foregroundColor(.orange)
-                                                } else if lastBalanceUpdate != nil {
-                                                    Text("Updated: \(lastUpdated, format: .relative(presentation: .numeric))")
-                                                        .font(.caption2)
-                                                        .foregroundColor(.secondary)
-                                                }
-                                                
-                                            case .error(let message, let cachedBalance, let lastUpdated):
-                                                if let cached = cachedBalance {
-                                                    // Show cached balance with warning
-                                                    VStack(alignment: .trailing, spacing: 1) {
-                                                        HStack(spacing: 2) {
-                                                            Text("\(cached + manualBalance, specifier: "%.8f") \(safeAssetCurrency)")
-                                                                .font(.caption)
-                                                                .fontWeight(.medium)
-                                                            
-                                                            Image(systemName: "exclamationmark.triangle.fill")
-                                                                .font(.caption2)
-                                                                .foregroundColor(.yellow)
-                                                                .help(message)
-                                                        }
-                                                        
-                                                        if let updated = lastUpdated {
-                                                            Text("Last seen: \(updated, format: .relative(presentation: .numeric))")
-                                                                .font(.caption2)
-                                                                .foregroundColor(.yellow)
-                                                        }
-                                                    }
-                                                } else {
-                                                    // Show only manual balance with error indicator
-                                                    VStack(alignment: .trailing, spacing: 1) {
-                                                        HStack(spacing: 2) {
-                                                            Text("\(manualBalance, specifier: "%.8f") \(safeAssetCurrency)")
-                                                                .font(.caption)
-                                                                .fontWeight(.medium)
-                                                            
-                                                            if hasOnChainAddress {
-                                                                Image(systemName: "wifi.slash")
-                                                                    .font(.caption2)
-                                                                    .foregroundColor(.red)
-                                                                    .help("Unable to fetch on-chain balance")
-                                                            }
-                                                        }
-                                                        
-                                                        if hasOnChainAddress {
-                                                            Text("On-chain unavailable")
-                                                                .font(.caption2)
-                                                                .foregroundColor(.red)
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                    if hasOnChainAddress && manualBalance != 0 {
+                                        HStack(spacing: 4) {
+                                            Text("Chain: \(onChainBalance, specifier: "%.4f")")
+                                                .font(.caption2)
+                                                .foregroundColor(.blue)
+                                            Text("•")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                            Text("Manual: \(manualBalance, specifier: "%.4f")")
+                                                .font(.caption2)
+                                                .foregroundColor(.green)
                                         }
                                     }
                                 }
                             }
                         }
+                        
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .foregroundColor(.secondary)
+                            .imageScale(.small)
                     }
-                    
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .foregroundColor(.secondary)
                 }
             }
             .buttonStyle(PlainButtonStyle())
-            .padding(12)
-            .background(.regularMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
+            .padding()
+            .background(Color.gray.opacity(0.05))
+            .cornerRadius(12)
             
+            // Expanded Content
             if isExpanded {
-                VStack(alignment: .leading, spacing: 8) {
-                        // On-chain transactions section
-                    if shouldShowOnChainTransactions {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text("On-Chain History")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.accessiblePrimary)
-                                if isLoadingTransactions {
-                                    ProgressView()
-                                        .scaleEffect(0.5)
-                                }
-                                Spacer()
-                            }
-                            .padding(.leading)
-                            
-                            ForEach(onChainTransactions.prefix(10)) { transaction in
-                                HStack {
-                                    VStack(alignment: .leading) {
-                                        HStack {
-                                            // Use amount field and check transactionSubtype for direction
-                                            let amount = Double(transaction.amount ?? "0") ?? 0
-                                            let isSent = transaction.transactionSubtype == "sent"
-                                            let displayAmount = isSent ? -amount : amount
-                                            let displaySign = displayAmount >= 0 ? "+" : ""
-                                            
-                                            Text("\(displaySign)\(displayAmount, specifier: "%.8f")")
-                                                .font(.caption)
-                                                .foregroundColor(displayAmount >= 0 ? .green : .red)
-                                            Text(safeAssetCurrency)
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                            Text("(On-chain)")
-                                                .font(.caption2)
-                                                .foregroundColor(.accessiblePrimary)
-                                        }
-                                        Text(transaction.date, format: .dateTime.day().month().year())
-                                            .font(.caption2)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    Spacer()
-                                }
-                                .padding(.leading)
-                            }
-                        }
-                    }
-                    
-                        // Manual transactions section
-                    if !assetTransactions.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Manual Entries")
+                VStack(alignment: .leading, spacing: 12) {
+                    // Action Buttons
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            showingAddTransaction = true
+                        }) {
+                            Label("Add Transaction", systemImage: "plus.circle")
                                 .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.primary)
-                                .padding(.horizontal, 12)
-                            
-                            ForEach(assetTransactions) { transaction in
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Button(action: {
+                            showingAllocationView = true
+                        }) {
+                            Label("Manage Allocations", systemImage: "chart.pie")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.purple)
+                        
+                        if hasOnChainAddress {
+                            Button(action: {
+                                Task {
+                                    await fetchOnChainTransactions(
+                                        address: safeAssetAddress!,
+                                        chainId: safeAssetChainId!,
+                                        forceRefresh: true
+                                    )
+                                }
+                            }) {
+                                Label("Update Transactions", systemImage: "arrow.triangle.2.circlepath")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.orange)
+                        }
+                        
+                        Spacer()
+                        
+                        if let onDelete = onDelete {
+                            Button(action: onDelete) {
+                                Label("Delete Asset", systemImage: "trash")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.red)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    
+                    Divider()
+                    
+                    // Transactions List
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Recent Transactions")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+                        
+                        if assetTransactions.isEmpty && onChainTransactions.isEmpty {
+                            Text("No transactions yet")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .italic()
+                                .padding()
+                                .frame(maxWidth: .infinity)
+                        } else {
+                            // Manual Transactions
+                            if !assetTransactions.isEmpty {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ForEach(assetTransactions.prefix(5)) { transaction in
                                         HStack {
-                                            Text("\(transaction.amount, specifier: "%.8f")")
-                                                .font(.caption)
-                                                .foregroundColor(transaction.amount >= 0 ? .green : .red)
-                                            Text(safeAssetCurrency)
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                            Text("(Manual)")
-                                                .font(.caption2)
-                                                .foregroundColor(.accessibleStreak)
-                                        }
-                                        
-                                        HStack(spacing: 8) {
-                                            Text(transaction.date, format: .dateTime.day().month().year())
-                                                .font(.caption2)
-                                                .foregroundColor(.secondary)
-                                            
-                                            // USD value
-                                            if let usdVal = usdValue(for: transaction) {
-                                                Text(usdVal)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                HStack {
+                                                    Text("\(transaction.amount >= 0 ? "+" : "")\(transaction.amount, specifier: "%.6f")")
+                                                        .font(.system(.caption, design: .monospaced))
+                                                        .foregroundColor(transaction.amount >= 0 ? .green : .red)
+                                                    
+                                                    Text("Manual")
+                                                        .font(.caption2)
+                                                        .padding(.horizontal, 4)
+                                                        .padding(.vertical, 1)
+                                                        .background(Color.blue.opacity(0.1))
+                                                        .foregroundColor(.blue)
+                                                        .cornerRadius(4)
+                                                }
+                                                
+                                                Text(transaction.date, format: .dateTime.day().month().year())
                                                     .font(.caption2)
-                                                    .foregroundColor(.accessiblePrimary)
-                                                    .padding(.horizontal, 4)
-                                                    .padding(.vertical, 1)
-                                                    .background(Color.accessiblePrimaryBackground)
-                                                    .cornerRadius(4)
+                                                    .foregroundColor(.secondary)
+                                                
+                                                if let comment = transaction.comment, !comment.isEmpty {
+                                                    Text(comment)
+                                                        .font(.caption2)
+                                                        .foregroundColor(.secondary)
+                                                        .italic()
+                                                        .lineLimit(1)
+                                                }
                                             }
                                             
-                                            // Goal impact
-                                            if let impact = goalImpact(for: transaction) {
-                                                Text(impact)
-                                                    .font(.caption2)
-                                                    .foregroundColor(.accessibleSecondary)
-                                                    .padding(.horizontal, 4)
-                                                    .padding(.vertical, 1)
-                                                    .background(Color.gray.opacity(0.1))
-                                                    .cornerRadius(4)
+                                            Spacer()
+                                            
+                                            Button(action: {
+                                                deleteTransaction(transaction)
+                                            }) {
+                                                Image(systemName: "trash")
+                                                    .font(.caption)
+                                                    .foregroundColor(.red.opacity(0.7))
                                             }
+                                            .buttonStyle(PlainButtonStyle())
+                                            .onHover { hovering in
+                                                hoveredTransactionId = hovering ? transaction.id : nil
+                                            }
+                                            .opacity(hoveredTransactionId == transaction.id ? 1 : 0.5)
                                         }
-                                        
-                                        if let comment = transaction.comment, !comment.isEmpty {
-                                            Text(comment)
-                                                .font(.caption2)
-                                                .foregroundColor(.secondary)
-                                                .italic()
-                                        }
-                                    }
-                                    Spacer()
-                                    
-                                    Button(action: {
-                                        deleteTransaction(transaction)
-                                    }) {
-                                        Image(systemName: "trash")
-                                            .foregroundColor(hoveredTransactionId == transaction.id ? .red : .secondary)
-                                            .font(.system(size: 14))
-                                            .frame(minWidth: 44, minHeight: 44)
-                                            .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(PlainButtonStyle())
-                                    .accessibilityLabel("Delete transaction")
-                                    .accessibilityHint("Permanently removes this \(transaction.amount, specifier: "%.8f") \(safeAssetCurrency) transaction")
-                                    .onHover { hovering in
-                                        hoveredTransactionId = hovering ? transaction.id : nil
+                                        .padding(.horizontal)
+                                        .padding(.vertical, 4)
+                                        .background(Color.gray.opacity(0.02))
+                                        .cornerRadius(6)
                                     }
                                 }
-                                .padding(8)
-                                .background(.regularMaterial)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .shadow(color: .black.opacity(0.03), radius: 2, x: 0, y: 1)
+                                .padding(.horizontal, 8)
+                            }
+                            
+                            // On-chain Transactions
+                            if !onChainTransactions.isEmpty {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("On-chain")
+                                        .font(.caption2)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.orange)
+                                        .padding(.horizontal)
+                                        .padding(.top, 4)
+                                    
+                                    ForEach(onChainTransactions.prefix(3), id: \.hash) { tx in
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                HStack {
+                                                    let amount = Double(tx.amount ?? "0") ?? 0
+                                                    Text("\(amount >= 0 ? "+" : "")\(amount, specifier: "%.6f")")
+                                                        .font(.system(.caption, design: .monospaced))
+                                                        .foregroundColor(amount >= 0 ? .green : .red)
+                                                    
+                                                    Text("On-chain")
+                                                        .font(.caption2)
+                                                        .padding(.horizontal, 4)
+                                                        .padding(.vertical, 1)
+                                                        .background(Color.orange.opacity(0.1))
+                                                        .foregroundColor(.orange)
+                                                        .cornerRadius(4)
+                                                }
+                                                
+                                                Text(tx.date, format: .dateTime.day().month().year())
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            
+                                            Spacer()
+                                        }
+                                        .padding(.horizontal)
+                                        .padding(.vertical, 4)
+                                    }
+                                }
+                                .padding(.horizontal, 8)
                             }
                         }
-                        .padding(8)
-                        .background(.regularMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
-                        .animation(.default, value: assetTransactions.count)
                     }
-                    
-                        // No transactions message
-                    if assetTransactions.isEmpty && !shouldShowOnChainTransactions {
-                        VStack(spacing: 8) {
-                            EmptyStateView(
-                                icon: "arrow.left.arrow.right.circle",
-                                title: "No Transactions",
-                                description: "Add transactions to track your \(asset.currency) activity"
-                            )
-                        }
-                        .padding(.horizontal)
-                        .frame(height: 120)
-                    }
-                    
-                    Button(action: {
-                        showingAddTransaction = true
-                    }) {
-                        HStack {
-                            Image(systemName: "plus.circle")
-                            Text("Add Transaction")
-                        }
-                        .font(.caption)
-                        .foregroundColor(.accessiblePrimary)
-                    }
-                    .padding(.leading)
+                    .padding(.bottom, 8)
                 }
+                .background(Color.gray.opacity(0.02))
+                .cornerRadius(8)
+                .padding(.top, 4)
             }
         }
         .task {
-            // Load goal currency
-            goalCurrency = asset.goal.currency
-            
-            // Load exchange rates for USD conversion
-            await loadExchangeRates()
-            
-            // Only fetch if we don't have cached data
-            if let address = safeAssetAddress, let chainId = safeAssetChainId, !address.isEmpty {
-                // Use cache-aware fetch (won't make API call if cached)
-                await fetchOnChainBalance(address: address, chainId: chainId, forceRefresh: false)
-                await fetchOnChainTransactions(address: address, chainId: chainId, forceRefresh: false)
-            }
+            await loadInitialData()
         }
-#if os(macOS)
-        .popover(isPresented: $showingAddTransaction) {
-            AddTransactionView(asset: asset)
-                .frame(minWidth: 350, minHeight: 250)
-        }
-#else
         .sheet(isPresented: $showingAddTransaction) {
             AddTransactionView(asset: asset)
         }
-#endif
+        .sheet(isPresented: $showingAllocationView) {
+            AssetSharingView(asset: asset)
+        }
+    }
+    
+    private func loadInitialData() async {
+        // Load balance
+        if hasOnChainAddress {
+            await fetchOnChainBalance(
+                address: safeAssetAddress!,
+                chainId: safeAssetChainId!,
+                forceRefresh: false
+            )
+        }
+    }
+    
+    private func deleteTransaction(_ transaction: Transaction) {
+        modelContext.delete(transaction)
+        do {
+            try modelContext.save()
+        } catch {
+            // Silent failure - transaction remains visible
+        }
     }
     
     @MainActor
     private func refreshBalances() async {
-        guard let address = safeAssetAddress, let chainId = safeAssetChainId, !address.isEmpty else { return }
+        guard let address = safeAssetAddress, let chainId = safeAssetChainId else { return }
         
         isRefreshing = true
         await fetchOnChainBalance(address: address, chainId: chainId, forceRefresh: true)
@@ -475,146 +422,69 @@ struct AssetRowView: View {
         isRefreshing = false
     }
     
-    @MainActor
-    private func fetchOnChainBalance(address: String, chainId: String, forceRefresh: Bool = false) async {
+    private func fetchOnChainBalance(address: String, chainId: String, forceRefresh: Bool) async {
         isLoadingBalance = true
-        balanceError = nil
-        balanceState = .loading
         
-        let cacheKey = BalanceCacheManager.balanceCacheKey(chainId: chainId, address: address, symbol: asset.currency)
-        let previousUpdate = BalanceCacheManager.shared.getLastBalanceUpdate(for: cacheKey)
+        let balanceService = BalanceService(
+            client: TatumClient.shared,
+            chainService: ChainService.shared
+        )
         
         do {
-            let tatumService = TatumService(client: TatumClient.shared, chainService: ChainService.shared)
-            let balance = try await tatumService.fetchBalance(
-                chainId: chainId, 
-                address: address, 
+            let balance = try await balanceService.fetchBalance(
+                chainId: chainId,
+                address: address,
                 symbol: asset.currency,
                 forceRefresh: forceRefresh
             )
-            onChainBalance = balance
-            lastBalanceUpdate = Date()
             
-            // Check if this was from cache
-            let currentUpdate = BalanceCacheManager.shared.getLastBalanceUpdate(for: cacheKey)
-            isCachedBalance = currentUpdate == previousUpdate && !forceRefresh
-            
-            balanceState = .loaded(
-                balance: balance,
-                isCached: isCachedBalance,
-                lastUpdated: currentUpdate ?? Date()
-            )
+            await MainActor.run {
+                onChainBalance = balance
+                balanceState = .loaded(balance: balance, isCached: false, lastUpdated: Date())
+                lastBalanceUpdate = Date()
+                isLoadingBalance = false
+            }
         } catch {
-            balanceError = error.localizedDescription
-            
-            // Try to get cached balance as fallback
-            let cachedBalance = BalanceCacheManager.shared.getFallbackBalance(for: cacheKey)
-            onChainBalance = cachedBalance ?? 0.0
-            
-            balanceState = .error(
-                message: error.localizedDescription,
-                cachedBalance: cachedBalance,
-                lastUpdated: previousUpdate
-            )
+            await MainActor.run {
+                // Silent failure - cached balance will be used
+                balanceState = .error(
+                    message: error.localizedDescription,
+                    cachedBalance: onChainBalance > 0 ? onChainBalance : nil,
+                    lastUpdated: lastBalanceUpdate
+                )
+                isLoadingBalance = false
+            }
         }
-        
-        isLoadingBalance = false
     }
     
-    @MainActor
-    private func fetchOnChainTransactions(address: String, chainId: String, forceRefresh: Bool = false) async {
+    private func fetchOnChainTransactions(address: String, chainId: String, forceRefresh: Bool) async {
+        guard hasOnChainAddress else { return }
+        
         isLoadingTransactions = true
         
+        let transactionService = TransactionService(
+            client: TatumClient.shared,
+            chainService: ChainService.shared
+        )
+        
         do {
-            // Fetching on-chain transactions
-            let tatumService = TatumService(client: TatumClient.shared, chainService: ChainService.shared)
-            let transactions = try await tatumService.fetchTransactionHistory(
+            let transactions = try await transactionService.fetchTransactionHistory(
                 chainId: chainId,
                 address: address,
-                currency: safeAssetCurrency,
-                limit: 20,
+                currency: asset.currency,
+                limit: 10,
                 forceRefresh: forceRefresh
             )
-            onChainTransactions = transactions
-        } catch {
-            // Transaction fetch failed
-            if let tatumError = error as? TatumError {
-                switch tatumError {
-                case .notFound:
-                    // No transactions found for this address and chain
-                    break
-                default:
-                    // Unhandled Tatum error occurred
-                    break
-                }
-            }
-            onChainTransactions = []
-        }
-        
-        isLoadingTransactions = false
-    }
-    
-    // Load exchange rates for USD conversion
-    private func loadExchangeRates() async {
-        do {
-            // Only load if we don't have the rate cached
-            if exchangeRates[safeAssetCurrency.uppercased()] == nil {
-                let rate = try await exchangeRateService.fetchRate(
-                    from: safeAssetCurrency,
-                    to: "USD"
-                )
-                exchangeRates[safeAssetCurrency.uppercased()] = rate
+            await MainActor.run {
+                onChainTransactions = transactions
+                isLoadingTransactions = false
             }
         } catch {
-            AppLog.error("Failed to load exchange rate for \(safeAssetCurrency): \(error)", category: .exchangeRate)
-        }
-    }
-    
-    private func deleteTransaction(_ transaction: Transaction) {
-        withAnimation(.default) {
-            AppLog.debug("Deleting transaction: \(transaction.amount) \(safeAssetCurrency)", category: .transactionHistory)
-            AppLog.debug("Transaction ID: \(transaction.id)", category: .transactionHistory)
-            AppLog.debug("Comment: \(transaction.comment ?? "none")", category: .transactionHistory)
-            
-            // Remove from asset's transactions array
-            if let index = asset.transactions.firstIndex(where: { $0.id == transaction.id }) {
-                asset.transactions.remove(at: index)
-            }
-            
-            // Delete from model context
-            modelContext.delete(transaction)
-            
-            // Save the context
-            do {
-                try modelContext.save()
-                AppLog.info("Transaction deleted successfully", category: .transactionHistory)
-                AppLog.debug("Remaining transaction count: \(asset.transactions.count)", category: .transactionHistory)
-                
-                // SwiftData will automatically update the UI through @Query
-                
-            } catch {
-                AppLog.error("Failed to delete transaction: \(error)", category: .transactionHistory)
+            await MainActor.run {
+                // Silent failure - empty transaction list
+                onChainTransactions = []
+                isLoadingTransactions = false
             }
         }
     }
-}
-
-#Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config)
-    
-    let goal = Goal(name: "Sample Goal", currency: "USD", targetAmount: 10000.0, deadline: Date().addingTimeInterval(86400 * 30))
-    let asset = Asset(currency: "BTC", goal: goal)
-    let transaction = Transaction(amount: 0.005, asset: asset)
-    
-    container.mainContext.insert(goal)
-    container.mainContext.insert(asset)
-    container.mainContext.insert(transaction)
-    
-    return List {
-        AssetRowView(asset: asset, isExpanded: true) {
-                // Toggle action
-        }
-    }
-    .modelContainer(container)
 }

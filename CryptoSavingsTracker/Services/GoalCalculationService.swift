@@ -98,7 +98,10 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     
     /// Calculate manual balance total (transactions only, no API calls)
     nonisolated static func getManualTotal(for goal: Goal) -> Double {
-        return goal.assets.reduce(0) { $0 + $1.manualBalance }
+        return goal.allocations.reduce(0) { result, allocation in
+            guard let asset = allocation.asset else { return result }
+            return result + (asset.manualBalance * allocation.percentage)
+        }
     }
     
     /// Calculate basic progress using manual balance only
@@ -106,5 +109,97 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
         let total = getManualTotal(for: goal)
         guard goal.targetAmount > 0 else { return 0 }
         return min(total / goal.targetAmount, 1.0)
+    }
+    
+    // MARK: - Allocation-Aware Calculations
+    
+    /// Calculate total value for a goal including both manual balance and on-chain balance with currency conversion
+    /// This method properly handles asset allocations and currency conversions
+    static func getTotalValue(for goal: Goal) async -> Double {
+        var totalValue = 0.0
+        
+        for allocation in goal.allocations {
+            guard let asset = allocation.asset else { continue }
+            
+            // Get the asset's total value (including on-chain balance if available)
+            let assetViewModel = AssetViewModel(asset: asset, tatumService: TatumService(client: TatumClient.shared, chainService: ChainService.shared))
+            await assetViewModel.refreshBalances()
+            
+            // Get asset value in the goal's currency
+            let assetValueInGoalCurrency = await getAssetValueInGoalCurrency(
+                asset: asset,
+                goalCurrency: goal.currency,
+                assetViewModel: assetViewModel
+            )
+            
+            // Add the allocated portion to the total
+            totalValue += assetValueInGoalCurrency * allocation.percentage
+        }
+        
+        return totalValue
+    }
+    
+    /// Helper method to get asset value in the goal's currency
+    private static func getAssetValueInGoalCurrency(
+        asset: Asset,
+        goalCurrency: String,
+        assetViewModel: AssetViewModel
+    ) async -> Double {
+        let totalAssetValue = assetViewModel.totalBalance
+        
+        // If asset currency matches goal currency, no conversion needed
+        if asset.currency.uppercased() == goalCurrency.uppercased() {
+            return totalAssetValue
+        }
+        
+        // Convert from asset currency to goal currency
+        do {
+            let exchangeRate = try await ExchangeRateService.shared.fetchRate(
+                from: asset.currency,
+                to: goalCurrency
+            )
+            return totalAssetValue * exchangeRate
+        } catch {
+            print("Failed to get exchange rate from \(asset.currency) to \(goalCurrency): \(error)")
+            // Fallback to manual balance only if conversion fails
+            return asset.manualBalance
+        }
+    }
+    
+    /// Get allocated value from a specific asset to a goal
+    static func getAllocatedValue(from asset: Asset, to goal: Goal) async -> Double {
+        guard let allocation = goal.allocations.first(where: { $0.asset?.id == asset.id }) else {
+            return 0.0
+        }
+        
+        let assetViewModel = AssetViewModel(asset: asset, tatumService: TatumService(client: TatumClient.shared, chainService: ChainService.shared))
+        await assetViewModel.refreshBalances()
+        
+        let assetValueInGoalCurrency = await getAssetValueInGoalCurrency(
+            asset: asset,
+            goalCurrency: goal.currency,
+            assetViewModel: assetViewModel
+        )
+        
+        return assetValueInGoalCurrency * allocation.percentage
+    }
+    
+    /// Get a breakdown of value contributions from each asset to a goal
+    static func getValueBreakdown(for goal: Goal) async -> [(asset: Asset, value: Double, percentage: Double)] {
+        var breakdown: [(asset: Asset, value: Double, percentage: Double)] = []
+        
+        for allocation in goal.allocations {
+            guard let asset = allocation.asset else { continue }
+            
+            let allocatedValue = await getAllocatedValue(from: asset, to: goal)
+            
+            breakdown.append((
+                asset: asset,
+                value: allocatedValue,
+                percentage: allocation.percentage
+            ))
+        }
+        
+        return breakdown.sorted { $0.value > $1.value }
     }
 }

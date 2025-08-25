@@ -16,6 +16,7 @@ struct AssetDetailView: View {
     @State private var currentBalance: Double = 0
     @State private var isLoadingBalance = false
     @State private var balanceError: String?
+    @State private var showingAllocationView = false
     
     var body: some View {
         ScrollView {
@@ -203,22 +204,36 @@ struct AssetDetailView: View {
     }
     
     private var actionButtons: some View {
-        HStack(spacing: 12) {
-            Button(action: {
-                coordinator.goalCoordinator.showAddTransaction(to: asset)
-            }) {
-                Label("Add Transaction", systemImage: "plus.circle")
-                    .frame(maxWidth: .infinity)
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                Button(action: {
+                    coordinator.goalCoordinator.showAddTransaction(to: asset)
+                }) {
+                    Label("Add Transaction", systemImage: "plus.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                
+                Button(action: {
+                    coordinator.goalCoordinator.showEditAsset(asset)
+                }) {
+                    Label("Edit Asset", systemImage: "pencil.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
             }
-            .buttonStyle(.borderedProminent)
             
             Button(action: {
-                coordinator.goalCoordinator.showEditAsset(asset)
+                showingAllocationView = true
             }) {
-                Label("Edit Asset", systemImage: "pencil.circle")
+                Label("Manage Goal Allocations", systemImage: "chart.pie")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            .tint(.purple)
+        }
+        .sheet(isPresented: $showingAllocationView) {
+            AssetAllocationView(asset: asset)
         }
     }
     

@@ -162,7 +162,7 @@ struct GoalComparisonCard: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text("\(goal.assets.count)")
+                    Text("\(goal.allocatedAssets.count)")
                         .font(.caption)
                         .fontWeight(.medium)
                 }

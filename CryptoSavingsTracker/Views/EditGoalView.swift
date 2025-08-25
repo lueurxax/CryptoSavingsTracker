@@ -107,7 +107,7 @@ struct EditGoalView: View {
                         // Start Date
                         FormField(label: "Start Date") {
                             VStack(spacing: 8) {
-                                if !viewModel.goal.assets.isEmpty {
+                                if !viewModel.goal.allocatedAssets.isEmpty {
                                     HStack {
                                         Image(systemName: "info.circle.fill")
                                             .foregroundColor(AccessibleColors.warning)
@@ -129,9 +129,9 @@ struct EditGoalView: View {
                                     displayedComponents: .date
                                 )
                                 .datePickerStyle(.compact)
-                                .disabled(!viewModel.goal.assets.isEmpty)
+                                .disabled(!viewModel.goal.allocatedAssets.isEmpty)
                                 .accessibilityLabel("Goal start date")
-                                .accessibilityHint(!viewModel.goal.assets.isEmpty ? "Cannot change start date when transactions exist" : "Select when you want to start this goal")
+                                .accessibilityHint(!viewModel.goal.allocatedAssets.isEmpty ? "Cannot change start date when transactions exist" : "Select when you want to start this goal")
                             }
                         }
                         

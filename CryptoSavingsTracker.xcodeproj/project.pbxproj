@@ -29,6 +29,7 @@
 		CEDD1EE52E4698B20026BFEF /* SCREENSHOT_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEDD1EE22E4698B20026BFEF /* SCREENSHOT_GUIDE.md */; };
 		CEDD1EE62E4698B20026BFEF /* .gitkeep in Resources */ = {isa = PBXBuildFile; fileRef = CEDD1EDF2E4698B20026BFEF /* .gitkeep */; };
 		CEDD20D52E4781850026BFEF /* tatum.md in Resources */ = {isa = PBXBuildFile; fileRef = CEDD20D42E4781850026BFEF /* tatum.md */; };
+		CEE6B8F02E5CD5E50091BD2F /* ASSET_MANAGEMENT_ENHANCEMENT.md in Resources */ = {isa = PBXBuildFile; fileRef = CEE6B8EF2E5CD5E40091BD2F /* ASSET_MANAGEMENT_ENHANCEMENT.md */; };
 		CEEB9AA42E44D564002B697E /* ux-reviewer.md in Resources */ = {isa = PBXBuildFile; fileRef = CEEB9AA02E44D564002B697E /* ux-reviewer.md */; };
 		CEEB9AA52E44D564002B697E /* architecture-critic.md in Resources */ = {isa = PBXBuildFile; fileRef = CEEB9A9F2E44D564002B697E /* architecture-critic.md */; };
 		CEEB9AA62E44D564002B697E /* settings.local.json in Resources */ = {isa = PBXBuildFile; fileRef = CEEB9AA22E44D564002B697E /* settings.local.json */; };
@@ -74,6 +75,7 @@
 		CEDD1EE12E4698B20026BFEF /* sample-data.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "sample-data.md"; sourceTree = "<group>"; };
 		CEDD1EE22E4698B20026BFEF /* SCREENSHOT_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SCREENSHOT_GUIDE.md; sourceTree = "<group>"; };
 		CEDD20D42E4781850026BFEF /* tatum.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = tatum.md; sourceTree = "<group>"; };
+		CEE6B8EF2E5CD5E40091BD2F /* ASSET_MANAGEMENT_ENHANCEMENT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ASSET_MANAGEMENT_ENHANCEMENT.md; sourceTree = "<group>"; };
 		CEEB9A9F2E44D564002B697E /* architecture-critic.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "architecture-critic.md"; sourceTree = "<group>"; };
 		CEEB9AA02E44D564002B697E /* ux-reviewer.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "ux-reviewer.md"; sourceTree = "<group>"; };
 		CEEB9AA22E44D564002B697E /* settings.local.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = settings.local.json; sourceTree = "<group>"; };
@@ -149,6 +151,7 @@
 		CEDD1EE32E4698B20026BFEF /* docs */ = {
 			isa = PBXGroup;
 			children = (
+				CEE6B8EF2E5CD5E40091BD2F /* ASSET_MANAGEMENT_ENHANCEMENT.md */,
 				CEAAFFA52E4E4A5F00A6B5A3 /* API_REFERENCE.md */,
 				CEAAFFA62E4E4A5F00A6B5A3 /* ARCHITECTURE.md */,
 				CEAAFFA72E4E4A5F00A6B5A3 /* CLAUDE.md */,
@@ -358,6 +361,7 @@
 				CEDD1EE42E4698B20026BFEF /* sample-data.md in Resources */,
 				CEDD1EE52E4698B20026BFEF /* SCREENSHOT_GUIDE.md in Resources */,
 				CEDD1EE62E4698B20026BFEF /* .gitkeep in Resources */,
+				CEE6B8F02E5CD5E50091BD2F /* ASSET_MANAGEMENT_ENHANCEMENT.md in Resources */,
 				CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */,
 				CED9DE6A2E36232E00203A83 /* README.md in Resources */,
 			);
@@ -425,6 +429,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 10;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -481,6 +486,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 10;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -563,6 +569,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -586,6 +593,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -625,6 +633,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -641,6 +650,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -651,6 +661,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -676,6 +687,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -700,6 +712,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -724,6 +737,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;

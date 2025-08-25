@@ -48,7 +48,7 @@ struct GoalDashboardView: View {
             await viewModel.loadData(for: goal, modelContext: goal.modelContext!)
             await updateDashboard()
         }
-        .onChange(of: goal.assets) { _, _ in
+        .onChange(of: goal.allocations) { _, _ in
             Task {
                 await updateDashboard()
             }
@@ -348,13 +348,13 @@ struct RecentActivityPlaceholder: View {
                 .font(.headline)
                 .fontWeight(.medium)
             
-            if goal.assets.isEmpty {
+            if goal.allocatedAssets.isEmpty {
                 Text("No recent activity")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .padding(.vertical, 20)
             } else {
-                Text("Activity: \(goal.assets.count) assets")
+                Text("Activity: \(goal.allocatedAssets.count) assets")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .padding(.vertical, 20)

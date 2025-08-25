@@ -609,21 +609,20 @@ struct AddAssetView: View {
         do {
             let newAsset = Asset(
                 currency: currency.uppercased(),
-                goal: goal,
                 address: finalAddress,
                 chainId: finalChainId
             )
             
-            // CRITICAL: Establish bidirectional relationship
-            goal.assets.append(newAsset)
-            
-            print("   Assets count before insert: \(goal.assets.count)")
-            
             modelContext.insert(newAsset)
+            
+            // Create allocation for this asset to the goal (100% by default)
+            let allocation = AssetAllocation(asset: newAsset, goal: goal, percentage: 1.0)
+            modelContext.insert(allocation)
+            
             try modelContext.save()
             
-            print("✅ Asset saved successfully")
-            print("   Goal assets count after save: \(goal.assets.count)")
+            print("✅ Asset saved successfully with 100% allocation to goal")
+            print("   Goal allocations count after save: \(goal.allocations.count)")
             
             await MainActor.run {
                 isLoading = false

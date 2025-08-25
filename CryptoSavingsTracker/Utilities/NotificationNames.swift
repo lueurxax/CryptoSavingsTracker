@@ -10,4 +10,5 @@ import Foundation
 extension Notification.Name {
     static let goalDeleted = Notification.Name("goalDeleted")
     static let goalProgressRefreshed = Notification.Name("goalProgressRefreshed")
+    static let goalUpdated = Notification.Name("goalUpdated")
 }

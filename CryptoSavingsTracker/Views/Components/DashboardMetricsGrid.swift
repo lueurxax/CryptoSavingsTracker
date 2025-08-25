@@ -64,7 +64,7 @@ struct DashboardMetricsGrid: View {
         .task {
             await updateMetrics()
         }
-        .onChange(of: goal.assets) { _, _ in
+        .onChange(of: goal.allocations) { _, _ in
             Task {
                 await updateMetrics()
             }

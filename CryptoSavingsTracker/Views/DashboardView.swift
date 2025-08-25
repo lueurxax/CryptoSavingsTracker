@@ -497,7 +497,7 @@ struct SummaryStatsView: View {
                     
                     HStack(spacing: 16) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("\(goal.assets.count)")
+                            Text("\(goal.allocatedAssets.count)")
                                 .font(.headline)
                                 .fontWeight(.bold)
                             Text("Assets")
@@ -1041,7 +1041,7 @@ struct MobileForecastSection: View {
             await updateData()
             await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext!.container))
         }
-        .onChange(of: goal.assets) { _, _ in
+        .onChange(of: goal.allocations) { _, _ in
             Task { 
                 await updateData()
                 await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext!.container))
@@ -1126,7 +1126,7 @@ struct DesktopForecastSection: View {
         .task {
             await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext!.container))
         }
-        .onChange(of: goal.assets) { _, _ in
+        .onChange(of: goal.allocations) { _, _ in
             Task { 
                 await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext!.container))
             }

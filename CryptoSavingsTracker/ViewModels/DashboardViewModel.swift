@@ -94,7 +94,7 @@ class DashboardViewModel: ObservableObject {
             // Calculate total balance for this date by querying transactions up to this date
             var totalBalance: Double = 0
             
-            for asset in goal.assets {
+            for asset in goal.allocatedAssets {
                 // For historical dates, use transaction-based calculation only
                 // For recent dates (last 7 days), include on-chain balance if available
                 let isRecentDate = currentDate >= calendar.date(byAdding: .day, value: -7, to: endDate)!
@@ -160,7 +160,7 @@ class DashboardViewModel: ObservableObject {
                 var baselineHistory: [BalanceHistoryPoint] = []
                 
                 // Calculate actual balance progression based on transaction dates
-                let allTransactions = goal.assets.flatMap { $0.transactions }.sorted { $0.date < $1.date }
+                let allTransactions = goal.allocatedAssets.flatMap { $0.transactions }.sorted { $0.date < $1.date }
                 
                 if !allTransactions.isEmpty {
                     // Use actual transaction-based progression
@@ -232,7 +232,7 @@ class DashboardViewModel: ObservableObject {
         let colors = AccessibleColors.chartColors
         var composition: [AssetComposition] = []
         
-        for (index, asset) in goal.assets.enumerated() {
+        for (index, asset) in goal.allocatedAssets.enumerated() {
             let assetValue = await getAssetValueInGoalCurrency(asset: asset, goalCurrency: goal.currency)
             let percentage = (assetValue / totalValue) * 100
             
@@ -253,7 +253,7 @@ class DashboardViewModel: ObservableObject {
         var activityData: [HeatmapDay] = []
         
         // Collect all transactions from all assets
-        let allTransactions = goal.assets.flatMap { $0.transactions }
+        let allTransactions = goal.allocatedAssets.flatMap { $0.transactions }
         totalTransactions = allTransactions.count
         
         // Generate heatmap data for the last year

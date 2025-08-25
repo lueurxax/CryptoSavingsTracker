@@ -100,11 +100,25 @@ class AssetRepository: AssetRepositoryProtocol {
     }
     
     func fetchAssets(for goalId: UUID) async throws -> [Asset] {
-        let predicate = #Predicate<Asset> { asset in
-            asset.goal.id == goalId
+        // Fetch allocations for the goal, then extract unique assets
+        let allocPredicate = #Predicate<AssetAllocation> { allocation in
+            allocation.goal?.id == goalId
         }
-        let descriptor = FetchDescriptor<Asset>(predicate: predicate)
-        return try modelContext.fetch(descriptor)
+        let allocDescriptor = FetchDescriptor<AssetAllocation>(predicate: allocPredicate)
+        let allocations = try modelContext.fetch(allocDescriptor)
+        
+        // Extract unique assets from allocations
+        var uniqueAssets: [Asset] = []
+        var seenIds: Set<UUID> = []
+        
+        for allocation in allocations {
+            if let asset = allocation.asset, !seenIds.contains(asset.id) {
+                uniqueAssets.append(asset)
+                seenIds.insert(asset.id)
+            }
+        }
+        
+        return uniqueAssets
     }
     
     func fetchAsset(by id: UUID) async throws -> Asset? {

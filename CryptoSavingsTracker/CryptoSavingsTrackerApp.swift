@@ -16,8 +16,8 @@ import UIKit
 
 @main
 struct CryptoSavingsTrackerApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([Goal.self, Asset.self, Transaction.self, MonthlyPlan.self])
+    static let sharedModelContainer: ModelContainer = {
+        let schema = Schema([Goal.self, Asset.self, Transaction.self, MonthlyPlan.self, AssetAllocation.self])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
@@ -48,6 +48,16 @@ struct CryptoSavingsTrackerApp: App {
         Task {
             await StartupThrottler.shared.waitForStartup()
             _ = await NotificationManager.shared.requestPermission()
+            
+            // Perform data migration if needed
+            do {
+                let migrationService = MigrationService(modelContext: CryptoSavingsTrackerApp.sharedModelContainer.mainContext)
+                try await migrationService.performMigrationIfNeeded()
+            } catch {
+                print("Migration failed: \(error)")
+                // In production, you might want to handle this more gracefully
+                // For now, we'll continue with the app startup
+            }
         }
     }
 
@@ -55,14 +65,14 @@ struct CryptoSavingsTrackerApp: App {
         WindowGroup {
             OnboardingContentView()
         }
-        .modelContainer(sharedModelContainer)
+        .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
 
         #if os(macOS)
         // Additional window for goal comparison
         WindowGroup("Goal Comparison", id: "goal-comparison") {
             GoalComparisonView()
         }
-        .modelContainer(sharedModelContainer)
+        .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
         .defaultSize(width: 1200, height: 800)
 
         // Settings window
@@ -73,4 +83,5 @@ struct CryptoSavingsTrackerApp: App {
         .defaultSize(width: 600, height: 400)
         #endif
     }
+    
 }

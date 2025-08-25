@@ -256,7 +256,7 @@ struct SimpleDashboardView: View {
                             await viewModel.loadData(for: goal, modelContext: modelContext)
                         }
                     }
-                    .onChange(of: selectedGoalOrFirst?.assets) {
+                    .onChange(of: selectedGoalOrFirst?.allocations) {
                         Task {
                             await updateDashboard()
                         }
@@ -403,7 +403,7 @@ struct InteractiveSummaryStatsView: View {
             
             // Initial animation on appear
             withAnimation(.easeInOut(duration: 0.8).delay(0.4)) {
-                animatedAssetCount = goal.assets.count
+                animatedAssetCount = goal.allocatedAssets.count
                 animatedProgress = dashboardProgress
             }
             // Delay transaction count and streak until viewModel data is likely loaded
@@ -414,7 +414,7 @@ struct InteractiveSummaryStatsView: View {
                 }
             }
         }
-        .onChange(of: goal.assets.count) { oldValue, newValue in
+        .onChange(of: goal.allocatedAssets.count) { oldValue, newValue in
             withAnimation(.easeInOut(duration: 0.6)) {
                 animatedAssetCount = newValue
             }
@@ -799,7 +799,7 @@ struct RecentTransactionsSheet: View {
     
     private func loadRecentTransactions() {
         // Get all transactions for this goal's assets, sorted by date
-        let goalAssets = goal.assets
+        let goalAssets = goal.allocatedAssets
         let allTransactions = goalAssets.flatMap { $0.transactions }
         recentTransactions = Array(allTransactions.sorted { $0.date > $1.date })
     }

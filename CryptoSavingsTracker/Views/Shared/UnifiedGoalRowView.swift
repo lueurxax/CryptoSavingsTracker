@@ -68,7 +68,7 @@ struct UnifiedGoalRowView: View {
                 await viewModel.refreshData()
             }
         }
-        .onChange(of: goal.assets.count) { _, _ in
+        .onChange(of: goal.allocatedAssets.count) { _, _ in
             Task {
                 await viewModel.refreshData()
             }

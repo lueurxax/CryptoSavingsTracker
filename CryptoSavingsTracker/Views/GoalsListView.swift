@@ -31,6 +31,14 @@ struct GoalsListView: View {
                     )
                 } else {
                     List {
+                        // Unallocated Assets Warning Section
+                        Section {
+                            UnallocatedAssetsSection()
+                        }
+                        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        
                         // Portfolio-wide Monthly Planning Widget
                         Section {
                             if let viewModel = monthlyPlanningViewModel {

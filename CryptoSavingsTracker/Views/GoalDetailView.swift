@@ -29,14 +29,20 @@ struct GoalDetailView: View {
         self.goal = goal
         let goalId = goal.id
         self._allAssets = Query(filter: #Predicate<Asset> { asset in
-            asset.goal.id == goalId
+            asset.allocations.contains { allocation in
+                allocation.goal?.id == goalId
+            }
         }, sort: \Asset.currency)
         
         self._goalViewModel = State(initialValue: GoalViewModel(goal: goal))
     }
     
     private var goalAssets: [Asset] {
-        allAssets.filter { $0.goal.id == goal.id }
+        allAssets.filter { asset in
+            asset.allocations.contains { allocation in
+                allocation.goal?.id == goal.id
+            }
+        }
     }
     
     // MARK: - Sub Views
@@ -221,7 +227,7 @@ struct GoalDetailView: View {
             }
         }
         .task(id: goal.id) { await goalViewModel.refreshValues() }
-        .onChange(of: goal.assets) { _, _ in
+        .onChange(of: goal.allocations) { _, _ in
             Task { await goalViewModel.refreshValues() }
         }
     }
@@ -330,13 +336,29 @@ struct GoalDetailView: View {
                 ForEach(goalAssets) { asset in
                     AssetRowView(
                         asset: asset,
-                        isExpanded: expandedAssets.contains(asset.id)
-                    ) {
-                        withAnimation(.default) {
-                            if expandedAssets.contains(asset.id) { expandedAssets.remove(asset.id) }
-                            else { expandedAssets.insert(asset.id) }
+                        goal: goal,
+                        isExpanded: expandedAssets.contains(asset.id),
+                        onToggleExpanded: {
+                            withAnimation(.default) {
+                                if expandedAssets.contains(asset.id) { 
+                                    expandedAssets.remove(asset.id) 
+                                } else { 
+                                    expandedAssets.insert(asset.id) 
+                                }
+                            }
+                        },
+                        onDelete: {
+                            withAnimation(.default) {
+                                expandedAssets.remove(asset.id)
+                                modelContext.delete(asset)
+                                do {
+                                    try modelContext.save()
+                                } catch {
+                                    print("Failed to delete asset: \(error)")
+                                }
+                            }
                         }
-                    }
+                    )
                 }
                 .onDelete(perform: deleteAssets)
                 .animation(.default, value: goalAssets.count)

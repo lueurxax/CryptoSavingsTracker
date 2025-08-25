@@ -114,11 +114,13 @@ struct SwiftDataQueries {
         )
     }
     
-    /// Fetch assets for a specific goal
+    /// Fetch assets for a specific goal (through allocations)
     static func assetsForGoal(goalId: UUID) -> FetchDescriptor<Asset> {
         FetchDescriptor<Asset>(
             predicate: #Predicate { asset in
-                asset.goal.id == goalId
+                asset.allocations.contains { allocation in
+                    allocation.goal?.id == goalId
+                }
             }
         )
     }

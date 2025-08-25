@@ -150,7 +150,12 @@ struct AddTransactionView: View {
         }
         
         Task {
-            await NotificationManager.shared.scheduleReminders(for: asset.goal)
+            // Schedule reminders for all goals this asset is allocated to
+            for allocation in asset.allocations {
+                if let goal = allocation.goal {
+                    await NotificationManager.shared.scheduleReminders(for: goal)
+                }
+            }
         }
         dismiss()
     }
@@ -161,7 +166,7 @@ struct AddTransactionView: View {
     let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config)
     
     let goal = Goal(name: "Sample Goal", currency: "USD", targetAmount: 10000.0, deadline: Date().addingTimeInterval(86400 * 30))
-    let asset = Asset(currency: "BTC", goal: goal)
+    let asset = Asset(currency: "BTC")
     container.mainContext.insert(goal)
     container.mainContext.insert(asset)
     
