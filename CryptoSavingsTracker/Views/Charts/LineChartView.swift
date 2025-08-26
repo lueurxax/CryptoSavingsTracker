@@ -14,19 +14,22 @@ struct LineChartView: View {
     let showGrid: Bool
     let showLegend: Bool
     let animateOnAppear: Bool
+    let targetValue: Double
     
     init(
         dataPoints: [BalanceHistoryPoint],
         timeRange: ChartTimeRange = .month,
         showGrid: Bool = true,
         showLegend: Bool = true,
-        animateOnAppear: Bool = true
+        animateOnAppear: Bool = true,
+        targetValue: Double = 0
     ) {
         self.dataPoints = dataPoints
         self._selectedTimeRange = State(initialValue: timeRange)
         self.showGrid = showGrid
         self.showLegend = showLegend
         self.animateOnAppear = animateOnAppear
+        self.targetValue = targetValue
     }
     
     private var filteredData: [BalanceHistoryPoint] {
@@ -84,12 +87,12 @@ struct LineChartView: View {
                 .frame(minWidth: 200, minHeight: 44)
             }
             
-            // Chart using SimpleLineChartView
-            SimpleLineChartView(
+            // Interactive enhanced line chart with tooltip and target support
+            EnhancedLineChartView(
                 dataPoints: filteredData,
-                height: 250,
-                showAxes: showGrid,
-                showGradient: true
+                targetValue: targetValue,
+                currency: currency,
+                height: 250
             )
             
             // Legend

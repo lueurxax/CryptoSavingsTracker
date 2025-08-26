@@ -137,10 +137,7 @@ class DIContainer: ObservableObject {
     var goalCalculationService: GoalCalculationServiceProtocol {
         get {
             if let svc = _goalCalculationService { return svc }
-            let svc = GoalCalculationService(
-                exchangeRateService: exchangeRateService,
-                tatumService: tatumService
-            )
+            let svc = GoalCalculationService(container: self)
             _goalCalculationService = svc
             return svc
         }

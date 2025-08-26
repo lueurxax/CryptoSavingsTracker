@@ -1,14 +1,29 @@
-# Required Monthly Feature - Testing Guide
+# User and Developer Guides
 
-## Overview
+This document provides a collection of guides for developers and contributors.
+
+## Contents
+
+1.  [Testing Guide](#testing-guide)
+2.  [Migration Guide](#migration-guide)
+3.  [Screenshot Guide](#screenshot-guide)
+4.  [Troubleshooting Guide](#troubleshooting-guide)
+
+---
+
+## Testing Guide
+
+### Required Monthly Feature - Testing Guide
+
+#### Overview
 
 This guide provides comprehensive testing strategies for the Required Monthly feature, including unit tests, integration tests, UI tests, accessibility tests, and performance benchmarks.
 
 ---
 
-## Test Architecture
+#### Test Architecture
 
-### Testing Pyramid
+##### Testing Pyramid
 
 ```
         UI Tests (20 tests)
@@ -18,7 +33,7 @@ This guide provides comprehensive testing strategies for the Required Monthly fe
 Unit Tests (25)                              Performance Tests (10)
 ```
 
-### Test Categories
+##### Test Categories
 
 1. **Unit Tests**: Individual component logic
 2. **Integration Tests**: Service interaction and data flow
@@ -28,13 +43,13 @@ Unit Tests (25)                              Performance Tests (10)
 
 ---
 
-## Unit Tests
+#### Unit Tests
 
 **Location**: `CryptoSavingsTrackerTests/MonthlyPlanningTests.swift`
 
-### Financial Calculation Tests
+##### Financial Calculation Tests
 
-#### Basic Monthly Requirement Calculation
+###### Basic Monthly Requirement Calculation
 ```swift
 @Test("Basic monthly requirement calculation")
 func testBasicMonthlyRequirement() {
@@ -54,7 +69,7 @@ func testBasicMonthlyRequirement() {
 }
 ```
 
-#### Edge Cases
+###### Edge Cases
 ```swift
 @Test("Zero amount goal handling")
 func testZeroAmountGoal() {
@@ -76,7 +91,7 @@ func testPastDeadlineGoal() {
 }
 ```
 
-### Status Determination Tests
+##### Status Determination Tests
 
 ```swift
 @Test("Requirement status determination")
@@ -107,7 +122,7 @@ func testRequirementStatusLogic() {
 }
 ```
 
-### Flex Adjustment Tests
+##### Flex Adjustment Tests
 
 ```swift
 @Test("Flex adjustment redistribution")
@@ -139,7 +154,7 @@ func testFlexAdjustmentRedistribution() async {
 }
 ```
 
-### Currency Conversion Tests
+##### Currency Conversion Tests
 
 ```swift
 @Test("Currency conversion with exchange rates")
@@ -164,11 +179,11 @@ func testCurrencyConversion() async {
 
 ---
 
-## Integration Tests
+#### Integration Tests
 
 **Location**: `CryptoSavingsTrackerTests/IntegrationTests.swift`
 
-### Service Coordination Tests
+##### Service Coordination Tests
 
 ```swift
 @Test("End-to-end monthly planning workflow")
@@ -201,7 +216,7 @@ func testCompleteMonthlyPlanningWorkflow() async {
 }
 ```
 
-### Performance Cache Integration
+##### Performance Cache Integration
 
 ```swift
 @Test("Performance optimizer caching integration")
@@ -224,7 +239,7 @@ func testPerformanceOptimizerIntegration() async {
 }
 ```
 
-### Notification Integration
+##### Notification Integration
 
 ```swift
 @Test("Monthly payment reminder integration")
@@ -250,11 +265,11 @@ func testNotificationIntegration() async {
 
 ---
 
-## UI Tests
+#### UI Tests
 
 **Location**: `CryptoSavingsTrackerUITests/MonthlyPlanningUITests.swift`
 
-### Widget Interaction Tests
+##### Widget Interaction Tests
 
 ```swift
 func testMonthlyPlanningWidgetExpansion() throws {
@@ -287,7 +302,7 @@ func testMonthlyPlanningWidgetExpansion() throws {
 }
 ```
 
-### Planning View Navigation
+##### Planning View Navigation
 
 ```swift
 func testPlanningViewNavigation() throws {
@@ -318,7 +333,7 @@ func testPlanningViewNavigation() throws {
 }
 ```
 
-### Flex Adjustment Interaction
+##### Flex Adjustment Interaction
 
 ```swift
 func testFlexAdjustmentSliderInteraction() throws {
@@ -350,7 +365,7 @@ func testFlexAdjustmentSliderInteraction() throws {
 }
 ```
 
-### Cross-Platform UI Tests
+##### Cross-Platform UI Tests
 
 ```swift
 #if os(macOS)
@@ -375,7 +390,7 @@ func testMacOSSplitViewLayout() throws {
 #endif
 ```
 
-### Error State Testing
+##### Error State Testing
 
 ```swift
 func testOfflineErrorHandling() throws {
@@ -396,11 +411,11 @@ func testOfflineErrorHandling() throws {
 
 ---
 
-## Accessibility Tests
+#### Accessibility Tests
 
 **Location**: `CryptoSavingsTrackerTests/AccessibilityTests.swift`
 
-### WCAG Compliance Tests
+##### WCAG Compliance Tests
 
 ```swift
 @Test("Color contrast ratios meet WCAG AA standards")
@@ -419,7 +434,7 @@ func testColorContrastCompliance() {
 }
 ```
 
-### VoiceOver Description Tests
+##### VoiceOver Description Tests
 
 ```swift
 @Test("VoiceOver currency descriptions")
@@ -443,7 +458,7 @@ func testVoiceOverCurrencyDescriptions() {
 }
 ```
 
-### Chart Accessibility Tests
+##### Chart Accessibility Tests
 
 ```swift
 @Test("Chart accessibility descriptions")
@@ -467,7 +482,7 @@ func testChartAccessibilityLabels() {
 }
 ```
 
-### Keyboard Navigation Tests
+##### Keyboard Navigation Tests
 
 ```swift
 func testKeyboardNavigation() throws {
@@ -488,7 +503,7 @@ func testKeyboardNavigation() throws {
 }
 ```
 
-### Screen Reader Tests
+##### Screen Reader Tests
 
 ```swift
 func testVoiceOverSupport() throws {
@@ -511,11 +526,11 @@ func testVoiceOverSupport() throws {
 
 ---
 
-## Performance Tests
+#### Performance Tests
 
 **Location**: `CryptoSavingsTrackerTests/PerformanceTests.swift`
 
-### Calculation Performance
+##### Calculation Performance
 
 ```swift
 @Test("Monthly requirement calculation performance")
@@ -532,7 +547,7 @@ func testCalculationPerformance() async {
 }
 ```
 
-### Cache Performance
+##### Cache Performance
 
 ```swift
 @Test("Cache retrieval performance")
@@ -557,7 +572,7 @@ func testCachePerformance() async {
 }
 ```
 
-### Memory Usage Tests
+##### Memory Usage Tests
 
 ```swift
 @Test("Memory usage within limits")
@@ -578,7 +593,7 @@ func testMemoryUsage() async {
 }
 ```
 
-### UI Responsiveness Tests
+##### UI Responsiveness Tests
 
 ```swift
 func testUIResponsiveness() {
@@ -596,9 +611,9 @@ func testUIResponsiveness() {
 
 ---
 
-## Mock Objects and Test Helpers
+#### Mock Objects and Test Helpers
 
-### MockExchangeRateService
+##### MockExchangeRateService
 
 ```swift
 class MockExchangeRateService: ExchangeRateService {
@@ -625,7 +640,7 @@ class MockExchangeRateService: ExchangeRateService {
 }
 ```
 
-### Test Data Factories
+##### Test Data Factories
 
 ```swift
 func createTestGoal(
@@ -662,9 +677,9 @@ func createTestRequirement(
 
 ---
 
-## Test Execution
+#### Test Execution
 
-### Running All Tests
+##### Running All Tests
 
 ```bash
 # Run all tests
@@ -680,9 +695,9 @@ xcodebuild test -scheme CryptoSavingsTracker -destination "platform=macOS" -only
 xcodebuild test -scheme CryptoSavingsTracker -destination "platform=macOS" -only-testing:CryptoSavingsTrackerTests/AccessibilityTests
 ```
 
-### Test Configuration
+##### Test Configuration
 
-#### Test Environment Variables
+###### Test Environment Variables
 ```swift
 app.launchEnvironment["UITEST_RESET_DATA"] = "1"
 app.launchEnvironment["UITEST_MOCK_DATA"] = "monthly_planning"
@@ -690,16 +705,16 @@ app.launchEnvironment["UITEST_SIMULATE_OFFLINE"] = "1"
 app.launchEnvironment["UITEST_ACCESSIBILITY"] = "1"
 ```
 
-#### Test Schemes
+###### Test Schemes
 - **Debug**: Full test suite with detailed logging
 - **Release**: Performance and stability tests
 - **Accessibility**: Focus on WCAG compliance
 
 ---
 
-## Continuous Integration
+#### Continuous Integration
 
-### GitHub Actions Workflow
+##### GitHub Actions Workflow
 
 ```yaml
 name: Test Suite
@@ -727,12 +742,12 @@ jobs:
         xcrun xccov view --report --json DerivedData/Logs/Test/*.xcresult > coverage.json
 ```
 
-### Quality Gates
+##### Quality Gates
 
 Tests must pass these quality gates:
 
 - ✅ **Unit Test Coverage**: >90%
-- ✅ **Integration Test Coverage**: >80%  
+- ✅ **Integration Test Coverage**: >80%
 - ✅ **UI Test Coverage**: >70%
 - ✅ **Accessibility Compliance**: 100% WCAG AA
 - ✅ **Performance Benchmarks**: All within limits
@@ -741,9 +756,9 @@ Tests must pass these quality gates:
 
 ---
 
-## Best Practices
+#### Best Practices
 
-### Test Organization
+##### Test Organization
 
 1. **Group by Feature**: Tests organized by feature area
 2. **Clear Naming**: Test names describe what they verify
@@ -751,7 +766,7 @@ Tests must pass these quality gates:
 4. **Isolation**: Each test is independent
 5. **Deterministic**: Tests produce consistent results
 
-### Test Data Management
+##### Test Data Management
 
 1. **Factories**: Use factory methods for test data creation
 2. **Cleanup**: Reset state between tests
@@ -759,7 +774,7 @@ Tests must pass these quality gates:
 4. **Edge Cases**: Test boundary conditions
 5. **Error Scenarios**: Test failure paths
 
-### Accessibility Testing
+##### Accessibility Testing
 
 1. **Automated Checks**: Use accessibility APIs for validation
 2. **Manual Testing**: Test with real assistive technologies
@@ -770,11 +785,11 @@ Tests must pass these quality gates:
 ---
 
 *Testing Guide v2.0.0 - Updated August 9, 2025*
-## Comprehensive Test Plan
+### Comprehensive Test Plan
 
 This test plan outlines a strategy for ensuring the quality, reliability, and performance of the CryptoSavingsTracker application. It builds upon the existing test infrastructure and identifies areas for further enhancement.
 
-### 1. Current Test Coverage Summary
+#### 1. Current Test Coverage Summary
 
 *   **Unit Tests (Swift Testing):**
     *   **Strengths:** Good coverage for core data models (`Goal`, `Asset`, `Transaction`), `ReminderFrequency` enum, and basic `GoalCalculationService` functions. Includes tests for SwiftData persistence and relationships.
@@ -783,7 +798,7 @@ This test plan outlines a strategy for ensuring the quality, reliability, and pe
     *   **Strengths:** Comprehensive coverage of critical user flows (goal creation, asset/transaction management, goal deletion, navigation). Effective use of launch arguments and environment variables for controlling test data and simulating conditions (e.g., offline mode). Includes basic performance and accessibility checks.
     *   **Areas for Improvement:** Can be expanded to cover more edge cases, complex interactions, and a wider range of accessibility features.
 
-### 2. Key Functionalities to Test
+#### 2. Key Functionalities to Test
 
 The following are the core functionalities of CryptoSavingsTracker that require thorough testing:
 
@@ -798,9 +813,9 @@ The following are the core functionalities of CryptoSavingsTracker that require 
 *   **Accessibility:** VoiceOver support. Keyboard navigation (macOS).
 *   **Notifications:** Scheduling and canceling local notifications for reminders.
 
-### 3. Proposed Test Plan
+#### 3. Proposed Test Plan
 
-#### 3.1. Test Types and Focus Areas
+##### 3.1. Test Types and Focus Areas
 
 *   **Unit Testing (Enhanced):**
     *   **Focus:** Isolated testing of individual functions, methods, and business logic components.
@@ -839,7 +854,7 @@ The following are the core functionalities of CryptoSavingsTracker that require 
         *   Maintain a comprehensive suite of automated unit and UI tests that are run before every major release.
         *   Prioritize tests for critical paths and frequently modified areas.
 
-#### 3.2. Test Execution Strategy
+##### 3.2. Test Execution Strategy
 
 *   **Automated Testing:**
     *   **Continuous Integration (CI):** Integrate all unit, UI, and selected integration tests into a CI pipeline (e.g., GitHub Actions, GitLab CI). Tests should run automatically on every pull request or commit to `main`.
@@ -849,8 +864,555 @@ The following are the core functionalities of CryptoSavingsTracker that require 
     *   **User Acceptance Testing (UAT):** Involve end-users or stakeholders in UAT before major releases.
     *   **Accessibility Audits:** Perform periodic manual accessibility audits.
 
-#### 3.3. Reporting
+##### 3.3. Reporting
 
 *   **CI Reports:** Generate automated test reports (e.g., JUnit XML) that can be integrated into CI dashboards.
 *   **Bug Tracking:** Use a bug tracking system (e.g., Jira, GitHub Issues) to log, prioritize, and track defects.
 *   **Test Summaries:** Provide regular summaries of test results, coverage, and identified risks to the development team and stakeholders.
+
+---
+
+## Migration Guide
+
+### Required Monthly Feature - Migration Guide
+
+#### Quick Migration Checklist
+
+##### ✅ Required Changes (Must Do)
+
+###### 1. Update Model Container
+```swift
+// BEFORE
+let container = try ModelContainer(for: Goal.self, Asset.self, Transaction.self)
+
+// AFTER  
+let container = try ModelContainer(for: 
+    Goal.self, 
+    Asset.self, 
+    Transaction.self,
+    MonthlyPlan.self  // 👈 Add this new model
+)
+```
+
+###### 2. Update DIContainer
+Add these methods to your `DIContainer.swift`:
+
+```swift
+// Add private property
+private lazy var _monthlyPlanningService = MonthlyPlanningService(
+    exchangeRateService: exchangeRateService
+)
+
+// Add public accessor
+var monthlyPlanningService: MonthlyPlanningService {
+    return _monthlyPlanningService
+}
+
+// Add factory method
+func makeFlexAdjustmentService(modelContext: ModelContext) -> FlexAdjustmentService {
+    return FlexAdjustmentService(
+        planningService: monthlyPlanningService,
+        modelContext: modelContext
+    )
+}
+```
+
+##### 🎯 Optional Enhancements (Recommended)
+
+###### 3. Add Planning Tab
+```swift
+TabView {
+    // Your existing tabs...
+    
+    NavigationView {
+        PlanningView(viewModel: MonthlyPlanningViewModel(modelContext: modelContext))
+    }
+    .tabItem {
+        Image(systemName: "calendar.badge.clock")
+        Text("Planning")
+    }
+}
+```
+
+###### 4. Add Dashboard Widget
+```swift
+// In your main dashboard view
+VStack(spacing: 16) {
+    // Existing dashboard widgets...
+    
+    MonthlyPlanningWidget(
+        viewModel: MonthlyPlanningViewModel(modelContext: modelContext)
+    )
+}
+```
+
+---
+
+#### File Additions
+
+Copy these new files to your project:
+
+##### Core Services
+- `Services/MonthlyPlanningService.swift`
+- `Services/FlexAdjustmentService.swift` 
+- `Services/ExchangeRateService.swift` (enhanced)
+
+##### Data Models  
+- `Models/MonthlyPlan.swift`
+- `Models/MonthlyRequirement.swift`
+
+##### ViewModels
+- `ViewModels/MonthlyPlanningViewModel.swift`
+
+##### UI Components
+- `Views/Components/MonthlyPlanningWidget.swift`
+- `Views/Components/FlexAdjustmentSlider.swift`
+- `Views/Planning/PlanningView.swift`
+- `Views/Planning/iOSCompactPlanningView.swift`
+- `Views/Planning/iOSRegularPlanningView.swift` 
+- `Views/Planning/macOSPlanningView.swift`
+- `Views/Planning/GoalRequirementRow.swift`
+
+##### Utilities & Performance
+- `Utilities/PerformanceOptimizer.swift`
+- `Utilities/AccessibilityManager.swift`
+- `Utilities/AccessibilityViewModifiers.swift`
+- `Utilities/AccessibleColors.swift` (enhanced)
+
+##### Testing
+- `CryptoSavingsTrackerTests/MonthlyPlanningTests.swift`
+- `CryptoSavingsTrackerTests/FlexAdjustmentTests.swift`
+- `CryptoSavingsTrackerTests/AccessibilityTests.swift`
+- `CryptoSavingsTrackerUITests/MonthlyPlanningUITests.swift`
+
+---
+
+#### Common Migration Issues
+
+##### Issue 1: "Cannot find MonthlyPlan in scope"
+**Solution**: Make sure you added `MonthlyPlan.swift` to your project and included it in ModelContainer.
+
+##### Issue 2: "No member 'monthlyPlanningService'"
+**Solution**: Update DIContainer.swift with the new service properties and methods.
+
+##### Issue 3: Build errors with AccessibleColors
+**Solution**: The enhanced AccessibleColors file has new properties. Make sure you're using the updated version.
+
+##### Issue 4: Currency conversion not working
+**Solution**: Verify your CoinGecko API key is set in Config.plist and not the placeholder value.
+
+---
+
+#### Testing Your Migration
+
+Run these tests to verify everything is working:
+
+##### 1. Basic Functionality Test
+```swift
+// In your app, create a test goal and verify monthly calculation appears
+let testGoal = Goal(name: "Test", targetAmount: 12000, deadline: Date().addingTimeInterval(86400 * 365))
+// Should see monthly requirement of ~$1000
+```
+
+##### 2. Widget Test
+- Open dashboard
+- Look for "Required This Month" widget
+- Tap "Show more" to expand
+- Verify goal breakdown appears
+
+##### 3. Planning View Test
+- Navigate to Planning tab
+- Verify goals list appears  
+- Test flex adjustment slider
+- Check that adjustments update in real-time
+
+##### 4. Accessibility Test
+- Enable VoiceOver (Settings > Accessibility > VoiceOver)
+- Navigate through planning interface
+- Verify currency amounts are spoken clearly
+- Test focus indicators are visible
+
+---
+
+#### Build Configuration
+
+##### Xcode Project Settings
+Make sure these files are added to your target:
+- All new Swift files should be added to main app target
+- Test files should be added to appropriate test targets
+- No changes to Info.plist required
+
+##### Dependencies
+No new external dependencies required. The feature uses:
+- SwiftUI (built-in)
+- SwiftData (built-in)
+- Combine (built-in)
+- UserNotifications (built-in)
+
+---
+
+#### Rollback Plan
+
+If you need to rollback the migration:
+
+##### 1. Remove New Files
+Delete all files listed in "File Additions" section above.
+
+##### 2. Revert Model Container
+```swift  
+// Revert to original
+let container = try ModelContainer(for: Goal.self, Asset.self, Transaction.self)
+```
+
+##### 3. Revert DIContainer
+Remove the new monthlyPlanningService properties and methods.
+
+##### 4. Remove Navigation
+Remove Planning tab from your main TabView.
+
+**Note**: Your existing data (Goals, Assets, Transactions) will remain intact. Only the new monthly planning data will be lost.
+
+---
+
+#### Performance Considerations
+
+##### Memory Usage
+- Expected increase: ~10-50MB for caching
+- Automatic cache cleanup every hour
+- Memory pressure handling included
+
+##### CPU Usage  
+- Background processing for calculations
+- Batch API calls to reduce network overhead
+- Intelligent caching reduces repeated calculations
+
+##### Battery Impact
+- Minimal - calculations run on-demand
+- Background processing uses .utility QoS
+- Haptic feedback respects user preferences
+
+---
+
+#### Support
+
+After migration, if you encounter issues:
+
+1. **Check Build Errors**: Usually missing files or incorrect ModelContainer setup
+2. **Verify API Configuration**: CoinGecko API key in Config.plist  
+3. **Run Tests**: Use included test suite to verify functionality
+4. **Check Console**: Look for error messages with solutions
+
+For detailed troubleshooting, see the full documentation: `REQUIRED_MONTHLY_DOCUMENTATION.md`
+
+---
+
+*Migration Guide v2.0.0 - Updated August 9, 2025*
+
+---
+
+## Screenshot Guide
+
+### Screenshot Guide for CryptoSavingsTracker
+
+This guide will help you capture professional screenshots for the README that showcase the app's key features and cross-platform experience.
+
+#### 📱 iOS Screenshots (iPhone)
+
+##### Setup
+1. Use iPhone 15 Pro or iPhone 15 Pro Max simulator for best quality
+2. Use Light mode for consistency
+3. Create sample data before screenshots
+
+##### Required Screenshots
+
+###### 1. `ios-goals-list.png` - Main Goals List
+- **What to show**: Main screen with 2-3 sample goals
+- **Sample data**: 
+  - "Vacation Fund" - $5000 USD, 30% progress
+  - "Emergency Savings" - $10000 USD, 67% progress  
+  - "New Car" - $25000 USD, 12% progress
+- **Key elements**: Progress bars, amounts, deadlines
+- **How to capture**: Navigate to main screen, take screenshot with Cmd+Shift+4
+
+###### 2. `ios-goal-details.png` - Goal Detail View
+- **What to show**: Detailed view of one goal with assets
+- **Sample data**: "Vacation Fund" with BTC, ETH assets
+- **Key elements**: 
+  - Progress ring at the top
+  - Edit/Delete buttons (our new feature!)
+  - Asset list with balances
+  - Charts section (expanded)
+- **How to capture**: Tap on a goal, ensure charts are expanded
+
+###### 3. `ios-add-goal.png` - Add New Goal Screen
+- **What to show**: Goal creation form
+- **Key elements**:
+  - Goal name field
+  - Currency picker (USD selected)
+  - Target amount field
+  - Deadline picker
+  - Save button
+- **How to capture**: Tap "+" button, fill in sample data partially
+
+###### 4. `ios-add-asset.png` - Add Asset Screen
+- **What to show**: Asset creation form
+- **Key elements**:
+  - Currency selection (BTC or ETH)
+  - Optional address field
+  - Chain selection if address is filled
+  - Form validation
+- **How to capture**: From goal detail, tap "Add Asset"
+
+###### 5. `ios-currency-picker.png` - Currency Search & Selection
+- **What to show**: Currency picker with search
+- **Key elements**:
+  - Search bar with "BTC" typed
+  - Smart sorting in action (Bitcoin at top)
+  - List of cryptocurrencies with symbols and names
+- **How to capture**: In Add Asset, tap currency field, type "BTC"
+
+###### 6. `ios-progress.png` - Progress Tracking
+- **What to show**: Goal with good progress and charts
+- **Key elements**:
+  - Large progress ring showing 67%+
+  - Balance history chart
+  - Asset composition pie chart
+  - Timeline view
+- **How to capture**: Select goal with multiple assets and transactions
+
+#### 💻 macOS Screenshots
+
+##### Setup
+1. Use standard macOS window size (not fullscreen)
+2. Use Light mode for consistency
+3. Position window nicely on screen
+
+##### Required Screenshots
+
+###### 1. `macos-main.png` - Split View Interface
+- **What to show**: Main macOS interface with sidebar
+- **Key elements**:
+  - Goals sidebar on left with 3-4 goals
+  - Goal detail view on right
+  - Native macOS styling
+  - Toolbar with edit/delete buttons (our new feature!)
+- **How to capture**: Cmd+Shift+3 or Cmd+Shift+4 for selection
+
+###### 2. `macos-goal-management.png` - Goal Management
+- **What to show**: Context menu or edit functionality
+- **Key elements**:
+  - Right-click context menu on sidebar goal
+  - OR edit goal sheet open
+  - Show edit/delete options clearly
+- **How to capture**: Right-click on goal in sidebar
+
+###### 3. `macos-assets.png` - Asset Management
+- **What to show**: Asset view with macOS-specific features
+- **Key elements**:
+  - Asset list in detail view
+  - macOS-style buttons and controls
+  - Add Asset popover (if possible)
+- **How to capture**: Click "Add Asset" to show popover
+
+#### 🎨 Screenshot Best Practices
+
+##### Data Preparation
+1. **Create realistic sample data**: 
+   ```
+   Goals:
+   - "Emergency Fund" ($10,000 USD, 67% complete, 45 days left)
+   - "Vacation Savings" ($5,000 USD, 34% complete, 120 days left)  
+   - "New Car" ($25,000 USD, 12% complete, 365 days left)
+   
+   Assets per goal:
+   - Bitcoin (BTC): $2,450
+   - Ethereum (ETH): $1,200
+   - Solana (SOL): $350
+   ```
+
+2. **Use round numbers** for better visual appeal
+3. **Show progress** - avoid 0% or 100% goals
+4. **Include dates** that make sense (future deadlines)
+
+##### Visual Quality
+- **High resolution**: Use 2x or 3x simulator scales
+- **Good lighting**: Light mode with proper contrast
+- **Clean UI**: No debug info or placeholder text
+- **Consistent sizing**: All screenshots should be similar scale
+
+##### Platform-Specific Tips
+
+###### iOS:
+- Show native iOS elements (navigation bars, toolbars)
+- Capture swipe actions if possible
+- Show context menus on long press
+- Demonstrate the new unified currency sorting
+
+###### macOS:
+- Show split-view layout clearly
+- Highlight toolbar buttons (our edit/delete feature)
+- Demonstrate popover vs sheet differences
+- Show right-click context menus
+
+#### 📸 Taking Screenshots
+
+##### iOS Simulator:
+1. Open iOS Simulator
+2. Choose "Device" > "Screenshot" or Cmd+S
+3. Screenshots save to Desktop by default
+
+##### macOS App:
+1. Use Cmd+Shift+4 for selection tool
+2. Cmd+Shift+3 for full screen
+3. Use Preview to crop/adjust if needed
+
+##### File Naming:
+- Use exact names from README: `ios-goals-list.png`, etc.
+- Save as PNG format
+- Optimize file sizes (under 500KB each)
+
+#### 🚀 After Capturing
+
+1. **Review each screenshot** for clarity and content
+2. **Resize if needed** to consistent dimensions
+3. **Place in `/docs/screenshots/` directory**
+4. **Test README** to ensure all images display correctly
+5. **Commit and push** the screenshots with the README update
+
+#### 📋 Screenshot Checklist
+
+##### iOS Screenshots:
+- [ ] `ios-goals-list.png` - Main goals screen
+- [ ] `ios-goal-details.png` - Goal detail with edit buttons
+- [ ] `ios-add-goal.png` - Goal creation form  
+- [ ] `ios-add-asset.png` - Asset creation form
+- [ ] `ios-currency-picker.png` - Smart currency search
+- [ ] `ios-progress.png` - Progress tracking with charts
+
+##### macOS Screenshots:
+- [ ] `macos-main.png` - Split-view interface
+- [ ] `macos-goal-management.png` - Edit/delete functionality
+- [ ] `macos-assets.png` - Asset management
+
+##### Quality Check:
+- [ ] All images under 500KB
+- [ ] Consistent lighting/theme
+- [ ] Realistic sample data
+- [ ] Key features highlighted
+- [ ] No debug/placeholder content
+
+Good luck! These screenshots will really showcase the professional quality and cross-platform nature of your app! 📱💻
+
+---
+
+## Troubleshooting Guide
+
+### Common Console Warnings and How to Fix Them
+
+#### 🔇 Haptic Feedback Warnings (iOS Simulator)
+
+**Symptoms:**
+```
+CHHapticPattern.mm:487 +[CHHapticPattern patternForKey:error:]: Failed to read pattern library data
+<_UIKBFeedbackGenerator: 0x...>: Error creating CHHapticPattern
+```
+
+**Cause:** iOS Simulator doesn't have full haptic feedback support, causing system components (like keyboard) to generate warnings when trying to provide haptic feedback.
+
+**Impact:** ✅ **Harmless** - These warnings:
+- Don't affect app functionality
+- Only appear in iOS Simulator (not on real devices)
+- Are generated by system components, not your app
+- Don't indicate any bugs in your code
+
+**Solutions:**
+
+##### Option 1: Ignore Them (Recommended)
+These warnings are safe to ignore as they're system-level iOS Simulator limitations.
+
+##### Option 2: Use Custom Haptic Manager
+We've included a `HapticManager` utility that automatically disables haptics in simulator:
+
+```swift
+// Safe haptic feedback that won't generate warnings
+HapticManager.shared.impact(.light)
+HapticManager.shared.notification(.success)
+HapticManager.shared.selection()
+
+// SwiftUI integration
+Button("Save") { } 
+    .successHaptic(on: saveSuccess)
+```
+
+##### Option 3: Filter Console Output
+In Xcode, you can filter out these warnings:
+1. Open Console in Xcode
+2. Add filter: `-CHHapticPattern -UIKBFeedbackGenerator`
+3. This will hide haptic-related warnings
+
+#### 🔤 RTIInputSystemClient Warnings
+
+**Symptoms:**
+```
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:] perform input operation requires a valid sessionID
+```
+
+**Cause:** iOS Simulator text input system handling differences from real devices.
+
+**Impact:** ✅ **Harmless** - This warning:
+- Doesn't affect text input functionality
+- Only appears in iOS Simulator
+- Is a known iOS Simulator limitation
+
+**Solution:** Safe to ignore - text input works normally despite the warning.
+
+### 🛠️ Development Tips
+
+#### Building in Xcode Beta
+- Expect additional warnings from beta toolchain
+- Most Metal/GPU warnings are cosmetic in beta
+- Focus on functionality over warning count during development
+
+#### Clean Build Issues
+If you encounter build issues:
+1. **Clean Build Folder**: Product → Clean Build Folder (⌘⇧K)
+2. **Clear DerivedData**: `rm -rf ~/Library/Developer/Xcode/DerivedData`
+3. **Reset Simulator**: Device → Erase All Content and Settings
+
+#### Performance in Simulator
+- SwiftData operations may be slower in simulator
+- Network requests have different timing than real devices
+- Use real device testing for performance validation
+
+### 🚀 Best Practices
+
+#### Console Management
+- Filter out system warnings during development
+- Focus on your app's log messages and errors
+- Use `print()` with prefixes for easy filtering: `print("🔔 MyApp: message")`
+
+#### Testing Strategy
+1. **Simulator**: UI layout, basic functionality, debugging
+2. **Real Device**: Performance, haptics, camera, notifications
+3. **Multiple Devices**: Different screen sizes and capabilities
+
+#### Memory Management
+- These warnings don't indicate memory leaks
+- Use Instruments for actual memory profiling
+- SwiftData handles most memory management automatically
+
+---
+
+### 📞 Need More Help? 
+
+If you encounter warnings not covered here:
+1. Check if they appear on real devices
+2. Search Apple Developer Forums
+3. File feedback with Apple if it's a framework issue
+
+Remember: **Not all console output indicates problems** - focus on functionality over warning count!
+
+---
+
+*Last Updated: August 2025*
+*This guide helps you focus on what matters during development.*

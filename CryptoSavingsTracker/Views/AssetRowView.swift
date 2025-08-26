@@ -439,6 +439,12 @@ struct AssetRowView: View {
                 chainId: safeAssetChainId!,
                 forceRefresh: false
             )
+            // Also load recent on-chain transactions so history is available on open
+            await fetchOnChainTransactions(
+                address: safeAssetAddress!,
+                chainId: safeAssetChainId!,
+                forceRefresh: false
+            )
         }
     }
     

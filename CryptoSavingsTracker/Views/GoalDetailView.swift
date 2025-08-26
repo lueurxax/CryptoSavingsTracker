@@ -182,10 +182,6 @@ struct GoalDetailView: View {
             
             progressRingSection
             
-            if showingCharts {
-                chartContentSection
-            }
-            
             if showingCharts && !dashboardViewModel.assetComposition.isEmpty {
                 CompactAssetCompositionView(
                     assetCompositions: dashboardViewModel.assetComposition,
@@ -232,89 +228,7 @@ struct GoalDetailView: View {
         }
     }
     
-    @ViewBuilder
-    private var chartContentSection: some View {
-        if let error = dashboardViewModel.balanceHistoryState.error {
-            ChartErrorView(
-                error: error,
-                canRetry: dashboardViewModel.balanceHistoryState.canRetry,
-                onRetry: { Task { await dashboardViewModel.retryBalanceHistory(for: goal, modelContext: modelContext) } }
-            )
-            .padding(12)
-            .background(.regularMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
-        } else if !dashboardViewModel.balanceHistory.isEmpty {
-            balanceHistoryChart
-        } else {
-            emptyChartState
-        }
-    }
-    
-    @ViewBuilder
-    private var balanceHistoryChart: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Balance History").font(.subheadline).fontWeight(.medium)
-                Spacer()
-                if let latest = dashboardViewModel.balanceHistory.last,
-                   let first = dashboardViewModel.balanceHistory.first {
-                    let change = latest.balance - first.balance
-                    let changePercent = first.balance > 0 ? (change / first.balance) * 100 : 0
-                    HStack(spacing: 4) {
-                        Image(systemName: change >= 0 ? "arrow.up.right" : "arrow.down.right")
-                            .font(.caption2)
-                            .foregroundColor(change >= 0 ? AccessibleColors.success : AccessibleColors.error)
-                        Text("\(change >= 0 ? "+" : "")\(String(format: "%.2f", change)) (\(String(format: "%.1f", changePercent))%)")
-                            .font(.caption2)
-                            .foregroundColor(change >= 0 ? AccessibleColors.success : AccessibleColors.error)
-                    }
-                }
-            }
-            EnhancedLineChartView(
-                dataPoints: dashboardViewModel.balanceHistory,
-                targetValue: goal.targetAmount,
-                currency: goal.currency,
-                height: 140
-            )
-        }
-        .padding(12)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
-    }
-    
-    @ViewBuilder
-    private var emptyChartState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "chart.line.uptrend.xyaxis")
-                .font(.system(size: 40))
-                .foregroundColor(.accessibleSecondary)
-            VStack(spacing: 4) {
-                Text("No History Yet").font(.headline).fontWeight(.medium)
-                Text("Add a deposit to see your progress over time")
-                    .font(.subheadline)
-                    .foregroundColor(.accessibleSecondary)
-                    .multilineTextAlignment(.center)
-            }
-            Button(action: { showingAddAsset = true }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus.circle.fill")
-                    Text("Add First Asset")
-                }
-                .font(.subheadline)
-                .foregroundColor(.accessiblePrimary)
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .padding(.top, 4)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
-    }
+    // Balance history views removed per request.
     
     @ViewBuilder
     private var assetsSection: some View {

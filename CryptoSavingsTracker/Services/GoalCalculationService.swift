@@ -14,10 +14,17 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     private let exchangeRateService: ExchangeRateServiceProtocol
     private let tatumService: TatumServiceProtocol
 
-    init(exchangeRateService: ExchangeRateServiceProtocol = DIContainer.shared.exchangeRateService,
-         tatumService: TatumServiceProtocol = DIContainer.shared.tatumService) {
+    init(exchangeRateService: ExchangeRateServiceProtocol,
+         tatumService: TatumServiceProtocol) {
         self.exchangeRateService = exchangeRateService
         self.tatumService = tatumService
+    }
+
+    convenience init(container: DIContainer = DIContainer.shared) {
+        self.init(
+            exchangeRateService: container.exchangeRateService,
+            tatumService: container.tatumService
+        )
     }
 
     // Instance methods prefer injected services (better for testing)

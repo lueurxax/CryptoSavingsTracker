@@ -101,11 +101,12 @@ struct ForecastChartView: View {
                 )
             }
             
-            SimpleLineChartView(
+            // Use enhanced interactive chart for full history + forecast with tooltip
+            EnhancedLineChartView(
                 dataPoints: combinedData,
-                height: 300,
-                showAxes: true,
-                showGradient: true
+                targetValue: targetValue,
+                currency: currency,
+                height: 300
             )
             
             // Target line indicator (visual overlay)

@@ -18,6 +18,7 @@ struct EnhancedLineChartView: View, InteractiveChart {
     @State var hoveredPoint: BalanceHistoryPoint?
     @State private var hoverLocation: CGPoint = .zero
     @State private var showingPointDetails = false
+    @State private var isDragging: Bool = false
     
     init(
         dataPoints: [BalanceHistoryPoint],
@@ -72,18 +73,38 @@ struct EnhancedLineChartView: View, InteractiveChart {
                     
                     // Data points with hover interaction
                     dataPointsWithHover(chartWidth: chartWidth, chartHeight: chartHeight)
-                    
-                    // Hover tooltip
-                    #if os(macOS)
-                    if let hoveredPoint = hoveredPoint {
-                        hoverTooltip(for: hoveredPoint)
+
+                    // Crosshair + tooltip for active point (hovered or selected)
+                    if let active = hoveredPoint ?? selectedPoint {
+                        crosshairAndTooltip(for: active,
+                                            chartWidth: chartWidth,
+                                            chartHeight: chartHeight)
                     }
-                    #endif
                 }
                 
                 // Axis labels
                 axisLabels(chartWidth: chartWidth, chartHeight: chartHeight)
             }
+            // Drag interaction across the chart area (iOS/macOS)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        guard !sortedPoints.isEmpty else { return }
+                        let x = min(max(value.location.x, chartPadding), chartPadding + chartWidth)
+                        let ratio = (x - chartPadding) / chartWidth
+                        let idx = max(0, min(sortedPoints.count - 1, Int(round(ratio * CGFloat(sortedPoints.count - 1)))))
+                        let active = sortedPoints[idx]
+                        selectedPoint = active
+                        isDragging = true
+                        // Update hover location for tooltip positioning
+                        let pts = chartPoints(chartWidth: chartWidth, chartHeight: chartHeight)
+                        if idx < pts.count { hoverLocation = pts[idx] }
+                    }
+                    .onEnded { _ in
+                        isDragging = false
+                    }
+            )
         }
         .frame(height: height + 30) // Extra space for axis labels
     }
@@ -229,6 +250,7 @@ struct EnhancedLineChartView: View, InteractiveChart {
     private func dataPointsWithHover(chartWidth: CGFloat, chartHeight: CGFloat) -> some View {
         let points = chartPoints(chartWidth: chartWidth, chartHeight: chartHeight)
         
+        let hitSize: CGFloat = 44 // larger hit area for easier hover/select
         ForEach(Array(zip(points.indices, points)), id: \.0) { index, point in
             let dataPoint = sortedPoints[index]
             
@@ -236,7 +258,7 @@ struct EnhancedLineChartView: View, InteractiveChart {
                 // Larger invisible hover area
                 Circle()
                     .fill(Color.clear)
-                    .frame(width: 20, height: 20)
+                    .frame(width: hitSize, height: hitSize)
                     .chartInteraction(
                         point: dataPoint,
                         onInteraction: onInteraction
@@ -270,12 +292,10 @@ struct EnhancedLineChartView: View, InteractiveChart {
             Text(point.date.formatted(.dateTime.month().day().year()))
                 .font(.caption)
                 .fontWeight(.medium)
-            
             Text("\(String(format: "%.2f", point.balance)) \(currency)")
                 .font(.callout)
                 .fontWeight(.bold)
                 .foregroundColor(AccessibleColors.chartColor(at: 0))
-            
             let progress = targetValue > 0 ? (point.balance / targetValue) * 100 : 0
             Text("\(String(format: "%.1f", progress))% of target")
                 .font(.caption2)
@@ -285,8 +305,30 @@ struct EnhancedLineChartView: View, InteractiveChart {
         .background(.regularMaterial)
         .cornerRadius(8)
         .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-        .position(x: min(max(hoverLocation.x, 60), 300), y: max(hoverLocation.y - 40, 30))
-        .zIndex(1000)
+    }
+
+    @ViewBuilder
+    private func crosshairAndTooltip(for point: BalanceHistoryPoint,
+                                     chartWidth: CGFloat,
+                                     chartHeight: CGFloat) -> some View {
+        let points = chartPoints(chartWidth: chartWidth, chartHeight: chartHeight)
+        if let idx = sortedPoints.firstIndex(where: { $0.id == point.id }), idx < points.count {
+            let p = points[idx]
+            // Vertical guide line
+            Path { path in
+                path.move(to: CGPoint(x: p.x, y: chartPadding))
+                path.addLine(to: CGPoint(x: p.x, y: chartPadding + chartHeight))
+            }
+            .stroke(Color.gray.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+            
+            // Floating tooltip positioned near the point with clamping
+            hoverTooltip(for: point)
+                .position(
+                    x: min(max(p.x, chartPadding + 70), chartPadding + chartWidth - 70),
+                    y: max(p.y - 40, 30)
+                )
+                .zIndex(1000)
+        }
     }
     
     @ViewBuilder
@@ -312,25 +354,25 @@ struct EnhancedLineChartView: View, InteractiveChart {
                     Spacer()
                     
                     // X-axis dates
-                    if let firstPoint = sortedPoints.first,
-                       let lastPoint = sortedPoints.last {
-                        HStack {
-                            Text(firstPoint.date.formatted(.dateTime.month(.abbreviated).day()))
+                    // X-axis tick labels: show all if <= 8 points, else ~6 evenly spaced
+                    HStack(spacing: 0) {
+                        let count = sortedPoints.count
+                        let indices: [Int] = {
+                            if count <= 8 { return Array(0..<count) }
+                            let slots = 6
+                            return (0...slots).map { i in Int(round(Double(count - 1) * Double(i) / Double(slots))) }
+                        }()
+                        ForEach(indices, id: \.self) { i in
+                            let dateText = sortedPoints[i].date.formatted(.dateTime.month(.abbreviated).day())
+                            Text(dateText)
                                 .font(.caption2)
                                 .foregroundColor(.accessibleSecondary)
-                            
-                            Spacer()
-                            
-                            if sortedPoints.count > 1 {
-                                Text(lastPoint.date.formatted(.dateTime.month(.abbreviated).day()))
-                                    .font(.caption2)
-                                    .foregroundColor(.accessibleSecondary)
-                            }
+                                .frame(maxWidth: .infinity, alignment: i == 0 ? .leading : (i == indices.last ? .trailing : .center))
                         }
-                        .padding(.horizontal, chartPadding)
-                        .padding(.top, 8)
                     }
-                    
+                    .padding(.horizontal, chartPadding)
+                    .padding(.top, 8)
+                
                     // X-axis label
                     Text("Date")
                         .font(.caption2)
@@ -381,12 +423,7 @@ struct EnhancedLineChartView: View, InteractiveChart {
             if let balancePoint = point as? BalanceHistoryPoint {
                 hoveredPoint = balancePoint
                 // Update hover location for tooltip positioning
-                if let index = dataPoints.firstIndex(where: { $0.id == balancePoint.id }) {
-                    let points = chartPoints(chartWidth: 300, chartHeight: height - chartPadding)
-                    if index < points.count {
-                        hoverLocation = points[index]
-                    }
-                }
+                // hoverLocation is dynamically computed in crosshairAndTooltip using geometry
             } else {
                 hoveredPoint = nil
             }

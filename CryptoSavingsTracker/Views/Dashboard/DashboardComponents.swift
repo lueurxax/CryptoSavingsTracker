@@ -146,10 +146,11 @@ struct ThreeColumnDashboardLayout: View {
             }
             .frame(maxWidth: .infinity)
             
-            // Right Column: Quick Actions & Stats
+            // Right Column: Quick Actions, Insights & Activity
             VStack(spacing: 16) {
-                QuickActionsPlaceholder(goal: goal)
-                RecentActivityPlaceholder(goal: goal)
+                QuickActionsView(goal: goal)
+                InsightsView(viewModel: viewModel, goal: goal)
+                RecentActivityView(goal: goal, viewModel: viewModel)
             }
             .frame(maxWidth: 300)
         }
@@ -183,6 +184,14 @@ struct TwoColumnDashboardLayout: View {
                     dashboardTotal: dashboardTotal,
                     dashboardProgress: dashboardProgress
                 )
+                // Optional: show utility panels below charts on medium screens
+                VStack(spacing: 16) {
+                    InsightsView(viewModel: viewModel, goal: goal)
+                    HStack(alignment: .top, spacing: 16) {
+                        QuickActionsView(goal: goal)
+                        RecentActivityView(goal: goal, viewModel: viewModel)
+                    }
+                }
             }
             .frame(maxWidth: .infinity)
         }
@@ -301,64 +310,121 @@ struct ForecastPlaceholderView: View {
     }
 }
 
-// MARK: - Placeholder Components
+// MARK: - Quick Actions
 
-/// Placeholder for QuickActionsCard
-struct QuickActionsPlaceholder: View {
+struct QuickActionsView: View {
+    @Environment(\.modelContext) private var modelContext
     let goal: Goal
+    @State private var showingAddAsset = false
+    @State private var showingAddTransaction = false
+    @State private var showingEditGoal = false
+    @State private var selectedAsset: Asset?
+
+    private var goalAssets: [Asset] { goal.allocatedAssets }
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("Quick Actions")
                 .font(.headline)
                 .fontWeight(.medium)
             
             VStack(spacing: 8) {
-                Button("Add Asset") {
-                    // Add asset action
+                Button(action: { showingAddAsset = true }) {
+                    label(icon: "plus.circle.fill", title: "Add Asset")
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .background(AccessibleColors.primaryInteractive)
+                        .cornerRadius(8)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(.blue)
-                .foregroundColor(.white)
-                .cornerRadius(6)
                 
-                Button("Add Transaction") {
-                    // Add transaction action
+                Button(action: { 
+                    selectedAsset = goalAssets.first
+                    showingAddTransaction = selectedAsset != nil
+                }) {
+                    label(icon: "arrow.down.circle.fill", title: "Add Transaction")
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .background(goalAssets.isEmpty ? Color.gray.opacity(0.4) : AccessibleColors.success)
+                        .cornerRadius(8)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(.green)
-                .foregroundColor(.white)
-                .cornerRadius(6)
+                .disabled(goalAssets.isEmpty)
+                
+                Button(action: { showingEditGoal = true }) {
+                    label(icon: "pencil.circle.fill", title: "Edit Goal")
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .background(AccessibleColors.warning)
+                        .cornerRadius(8)
+                }
             }
         }
         .padding()
         .background(.regularMaterial)
         .cornerRadius(12)
+        .sheet(isPresented: $showingAddAsset) { AddAssetView(goal: goal) }
+        .sheet(isPresented: $showingAddTransaction) {
+            if let asset = selectedAsset { AddTransactionView(asset: asset) }
+        }
+        .sheet(isPresented: $showingEditGoal) { EditGoalView(goal: goal, modelContext: modelContext) }
+    }
+    
+    private func label(icon: String, title: String) -> some View {
+        HStack {
+            Image(systemName: icon)
+            Text(title).fontWeight(.semibold)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
     }
 }
 
-/// Placeholder for RecentActivityCard
-struct RecentActivityPlaceholder: View {
+// MARK: - Recent Activity
+
+struct RecentActivityView: View {
     let goal: Goal
+    @ObservedObject var viewModel: DashboardViewModel
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("Recent Activity")
                 .font(.headline)
                 .fontWeight(.medium)
             
-            if goal.allocatedAssets.isEmpty {
+            if viewModel.recentTransactions.isEmpty {
                 Text("No recent activity")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .padding(.vertical, 20)
+                    .foregroundColor(.accessibleSecondary)
+                    .padding(.vertical, 8)
             } else {
-                Text("Activity: \(goal.allocatedAssets.count) assets")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .padding(.vertical, 20)
+                ForEach(viewModel.recentTransactions.prefix(5), id: \.id) { tx in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tx.asset.currency)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            if let note = tx.comment, !note.isEmpty {
+                                Text(note)
+                                    .font(.caption)
+                                    .foregroundColor(.accessibleSecondary)
+                            }
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 2) {
+                            let amountText = String(format: "%@%.2f", tx.amount >= 0 ? "+" : "", tx.amount)
+                            Text(amountText)
+                                .font(.subheadline)
+                                .foregroundColor(tx.amount >= 0 ? AccessibleColors.success : AccessibleColors.error)
+                            Text(tx.date.formatted(.dateTime.month(.abbreviated).day()))
+                                .font(.caption2)
+                                .foregroundColor(.accessibleSecondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    Divider()
+                }
             }
         }
         .padding()

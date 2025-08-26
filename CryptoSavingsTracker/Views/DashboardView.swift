@@ -50,6 +50,9 @@ struct DashboardView: View {
                                 // Balance Trend Chart - Always Visible
                             ChartSection(goal: currentGoal)
                             
+                                // Insights Widget
+                            MobileInsightsSection(goal: currentGoal)
+                            
                                 // Forecast Widget
                             MobileForecastSection(goal: currentGoal)
                         }
@@ -212,14 +215,7 @@ struct SimpleTrendChart: View {
     }
 }
 
-struct QuickActionsView: View {
-    let goal: Goal
-    @Binding var showingTrendChart: Bool
-    
-    var body: some View {
-        EmptyView()
-    }
-}
+// Deprecated placeholder removed; real QuickActionsView lives in DashboardComponents.swift
 
 struct DashboardEmptyState: View {
     var body: some View {
@@ -299,7 +295,8 @@ struct DashboardWidgetView: View {
                     LineChartView(
                         dataPoints: viewModel.balanceHistory,
                         timeRange: .month,
-                        animateOnAppear: false
+                        animateOnAppear: false,
+                        targetValue: goal.targetAmount
                     )
                 } else {
                     ChartPlaceholderView(type: .lineChart)
@@ -971,6 +968,20 @@ struct DashboardViewForGoal: View {
 }
 
 // MARK: - Mobile Forecast Section
+// MARK: - Mobile Insights Section
+
+struct MobileInsightsSection: View {
+    let goal: Goal
+    @StateObject private var viewModel = DIContainer.shared.makeDashboardViewModel()
+    
+    var body: some View {
+        InsightsView(viewModel: viewModel, goal: goal)
+            .task {
+                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
+            }
+    }
+}
+
 struct MobileForecastSection: View {
     let goal: Goal
     @StateObject private var viewModel = DIContainer.shared.makeDashboardViewModel()

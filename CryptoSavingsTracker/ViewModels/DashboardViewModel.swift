@@ -17,6 +17,7 @@ class DashboardViewModel: ObservableObject {
     @Published var forecastData: [ForecastPoint] = []
     @Published var heatmapData: [HeatmapDay] = []
     @Published var transactionCount: Int = 0
+    @Published var recentTransactions: [Transaction] = []
     @Published var daysRemaining: Int = 0
     @Published var dailyTarget: Double = 0
     @Published var streak: Int = 0
@@ -267,6 +268,11 @@ class DashboardViewModel: ObservableObject {
         // Collect all transactions from all assets
         let allTransactions = goal.allocatedAssets.flatMap { $0.transactions }
         totalTransactions = allTransactions.count
+        // Recent transactions (latest 5)
+        let recent = allTransactions
+            .sorted { $0.date > $1.date }
+            .prefix(5)
+        recentTransactions = Array(recent)
         
         // Generate heatmap data for the last year
         let calendar = Calendar.current

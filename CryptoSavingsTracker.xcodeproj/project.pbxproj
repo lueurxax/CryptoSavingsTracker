@@ -7,29 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		CEAAFFA02E4DBC0100A6B5A3 /* TROUBLESHOOTING.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFF9F2E4DBC0100A6B5A3 /* TROUBLESHOOTING.md */; };
-		CEAAFFA12E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_FEATURE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFF9E2E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_FEATURE.md */; };
-		CEAAFFA22E4DBC0100A6B5A3 /* IMPLEMENTATION_ROADMAP.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFF9B2E4DBC0100A6B5A3 /* IMPLEMENTATION_ROADMAP.md */; };
-		CEAAFFA32E4DBC0100A6B5A3 /* nownodes.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFF9C2E4DBC0100A6B5A3 /* nownodes.md */; };
-		CEAAFFA42E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_ARCHITECTURE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFF9D2E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_ARCHITECTURE.md */; };
-		CEAAFFAE2E4E4A5F00A6B5A3 /* GEMINI.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFA92E4E4A5F00A6B5A3 /* GEMINI.md */; };
-		CEAAFFAF2E4E4A5F00A6B5A3 /* API_REFERENCE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFA52E4E4A5F00A6B5A3 /* API_REFERENCE.md */; };
 		CEAAFFB02E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFA82E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md */; };
-		CEAAFFB12E4E4A5F00A6B5A3 /* TESTING_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFAD2E4E4A5F00A6B5A3 /* TESTING_GUIDE.md */; };
-		CEAAFFB22E4E4A5F00A6B5A3 /* MIGRATION_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFAA2E4E4A5F00A6B5A3 /* MIGRATION_GUIDE.md */; };
 		CEAAFFB32E4E4A5F00A6B5A3 /* ARCHITECTURE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFA62E4E4A5F00A6B5A3 /* ARCHITECTURE.md */; };
-		CEAAFFB42E4E4A5F00A6B5A3 /* CLAUDE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFA72E4E4A5F00A6B5A3 /* CLAUDE.md */; };
-		CEAAFFB52E4E4A5F00A6B5A3 /* REFACTORING_PLAN.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFAB2E4E4A5F00A6B5A3 /* REFACTORING_PLAN.md */; };
 		CEAAFFB62E4E4A5F00A6B5A3 /* REQUIRED_MONTHLY_DOCUMENTATION.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFAC2E4E4A5F00A6B5A3 /* REQUIRED_MONTHLY_DOCUMENTATION.md */; };
 		CED9DE692E36232E00203A83 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE672E36232E00203A83 /* LICENSE */; };
 		CED9DE6A2E36232E00203A83 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE682E36232E00203A83 /* README.md */; };
 		CED9DE6C2E362A1D00203A83 /* Config.plist in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE6B2E362A1D00203A83 /* Config.plist */; };
 		CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE6D2E362A2C00203A83 /* Config.example.plist */; };
 		CEDD1EE42E4698B20026BFEF /* sample-data.md in Resources */ = {isa = PBXBuildFile; fileRef = CEDD1EE12E4698B20026BFEF /* sample-data.md */; };
-		CEDD1EE52E4698B20026BFEF /* SCREENSHOT_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEDD1EE22E4698B20026BFEF /* SCREENSHOT_GUIDE.md */; };
 		CEDD1EE62E4698B20026BFEF /* .gitkeep in Resources */ = {isa = PBXBuildFile; fileRef = CEDD1EDF2E4698B20026BFEF /* .gitkeep */; };
-		CEDD20D52E4781850026BFEF /* tatum.md in Resources */ = {isa = PBXBuildFile; fileRef = CEDD20D42E4781850026BFEF /* tatum.md */; };
-		CEE6B8F02E5CD5E50091BD2F /* ASSET_MANAGEMENT_ENHANCEMENT.md in Resources */ = {isa = PBXBuildFile; fileRef = CEE6B8EF2E5CD5E40091BD2F /* ASSET_MANAGEMENT_ENHANCEMENT.md */; };
 		CEEB9AA42E44D564002B697E /* ux-reviewer.md in Resources */ = {isa = PBXBuildFile; fileRef = CEEB9AA02E44D564002B697E /* ux-reviewer.md */; };
 		CEEB9AA52E44D564002B697E /* architecture-critic.md in Resources */ = {isa = PBXBuildFile; fileRef = CEEB9A9F2E44D564002B697E /* architecture-critic.md */; };
 		CEEB9AA62E44D564002B697E /* settings.local.json in Resources */ = {isa = PBXBuildFile; fileRef = CEEB9AA22E44D564002B697E /* settings.local.json */; };
@@ -53,29 +39,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		CEAAFF9B2E4DBC0100A6B5A3 /* IMPLEMENTATION_ROADMAP.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_ROADMAP.md; sourceTree = "<group>"; };
-		CEAAFF9C2E4DBC0100A6B5A3 /* nownodes.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = nownodes.md; sourceTree = "<group>"; };
-		CEAAFF9D2E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_ARCHITECTURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = REQUIRED_MONTHLY_ARCHITECTURE.md; sourceTree = "<group>"; };
-		CEAAFF9E2E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_FEATURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = REQUIRED_MONTHLY_FEATURE.md; sourceTree = "<group>"; };
-		CEAAFF9F2E4DBC0100A6B5A3 /* TROUBLESHOOTING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TROUBLESHOOTING.md; sourceTree = "<group>"; };
-		CEAAFFA52E4E4A5F00A6B5A3 /* API_REFERENCE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = API_REFERENCE.md; sourceTree = "<group>"; };
 		CEAAFFA62E4E4A5F00A6B5A3 /* ARCHITECTURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ARCHITECTURE.md; sourceTree = "<group>"; };
-		CEAAFFA72E4E4A5F00A6B5A3 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
 		CEAAFFA82E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = COMPONENT_REGISTRY.md; sourceTree = "<group>"; };
-		CEAAFFA92E4E4A5F00A6B5A3 /* GEMINI.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = GEMINI.md; sourceTree = "<group>"; };
-		CEAAFFAA2E4E4A5F00A6B5A3 /* MIGRATION_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MIGRATION_GUIDE.md; sourceTree = "<group>"; };
-		CEAAFFAB2E4E4A5F00A6B5A3 /* REFACTORING_PLAN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = REFACTORING_PLAN.md; sourceTree = "<group>"; };
 		CEAAFFAC2E4E4A5F00A6B5A3 /* REQUIRED_MONTHLY_DOCUMENTATION.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = REQUIRED_MONTHLY_DOCUMENTATION.md; sourceTree = "<group>"; };
-		CEAAFFAD2E4E4A5F00A6B5A3 /* TESTING_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TESTING_GUIDE.md; sourceTree = "<group>"; };
 		CED9DE672E36232E00203A83 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		CED9DE682E36232E00203A83 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		CED9DE6B2E362A1D00203A83 /* Config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.plist; sourceTree = "<group>"; };
 		CED9DE6D2E362A2C00203A83 /* Config.example.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.example.plist; sourceTree = "<group>"; };
 		CEDD1EDF2E4698B20026BFEF /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
 		CEDD1EE12E4698B20026BFEF /* sample-data.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "sample-data.md"; sourceTree = "<group>"; };
-		CEDD1EE22E4698B20026BFEF /* SCREENSHOT_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SCREENSHOT_GUIDE.md; sourceTree = "<group>"; };
-		CEDD20D42E4781850026BFEF /* tatum.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = tatum.md; sourceTree = "<group>"; };
-		CEE6B8EF2E5CD5E40091BD2F /* ASSET_MANAGEMENT_ENHANCEMENT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ASSET_MANAGEMENT_ENHANCEMENT.md; sourceTree = "<group>"; };
 		CEEB9A9F2E44D564002B697E /* architecture-critic.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "architecture-critic.md"; sourceTree = "<group>"; };
 		CEEB9AA02E44D564002B697E /* ux-reviewer.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "ux-reviewer.md"; sourceTree = "<group>"; };
 		CEEB9AA22E44D564002B697E /* settings.local.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = settings.local.json; sourceTree = "<group>"; };
@@ -151,25 +123,11 @@
 		CEDD1EE32E4698B20026BFEF /* docs */ = {
 			isa = PBXGroup;
 			children = (
-				CEE6B8EF2E5CD5E40091BD2F /* ASSET_MANAGEMENT_ENHANCEMENT.md */,
-				CEAAFFA52E4E4A5F00A6B5A3 /* API_REFERENCE.md */,
 				CEAAFFA62E4E4A5F00A6B5A3 /* ARCHITECTURE.md */,
-				CEAAFFA72E4E4A5F00A6B5A3 /* CLAUDE.md */,
 				CEAAFFA82E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md */,
-				CEAAFFA92E4E4A5F00A6B5A3 /* GEMINI.md */,
-				CEAAFFAA2E4E4A5F00A6B5A3 /* MIGRATION_GUIDE.md */,
-				CEAAFFAB2E4E4A5F00A6B5A3 /* REFACTORING_PLAN.md */,
 				CEAAFFAC2E4E4A5F00A6B5A3 /* REQUIRED_MONTHLY_DOCUMENTATION.md */,
-				CEAAFFAD2E4E4A5F00A6B5A3 /* TESTING_GUIDE.md */,
-				CEAAFF9B2E4DBC0100A6B5A3 /* IMPLEMENTATION_ROADMAP.md */,
-				CEAAFF9C2E4DBC0100A6B5A3 /* nownodes.md */,
-				CEAAFF9D2E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_ARCHITECTURE.md */,
-				CEAAFF9E2E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_FEATURE.md */,
-				CEAAFF9F2E4DBC0100A6B5A3 /* TROUBLESHOOTING.md */,
 				CEDD1EE02E4698B20026BFEF /* screenshots */,
 				CEDD1EE12E4698B20026BFEF /* sample-data.md */,
-				CEDD1EE22E4698B20026BFEF /* SCREENSHOT_GUIDE.md */,
-				CEDD20D42E4781850026BFEF /* tatum.md */,
 			);
 			path = docs;
 			sourceTree = "<group>";
@@ -340,28 +298,14 @@
 			files = (
 				CEEB9AA42E44D564002B697E /* ux-reviewer.md in Resources */,
 				CEEB9AA52E44D564002B697E /* architecture-critic.md in Resources */,
-				CEAAFFA02E4DBC0100A6B5A3 /* TROUBLESHOOTING.md in Resources */,
-				CEAAFFA12E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_FEATURE.md in Resources */,
-				CEAAFFA22E4DBC0100A6B5A3 /* IMPLEMENTATION_ROADMAP.md in Resources */,
-				CEAAFFA32E4DBC0100A6B5A3 /* nownodes.md in Resources */,
-				CEAAFFA42E4DBC0100A6B5A3 /* REQUIRED_MONTHLY_ARCHITECTURE.md in Resources */,
 				CEEB9AA62E44D564002B697E /* settings.local.json in Resources */,
 				CED9DE692E36232E00203A83 /* LICENSE in Resources */,
-				CEAAFFAE2E4E4A5F00A6B5A3 /* GEMINI.md in Resources */,
-				CEAAFFAF2E4E4A5F00A6B5A3 /* API_REFERENCE.md in Resources */,
 				CEAAFFB02E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md in Resources */,
-				CEAAFFB12E4E4A5F00A6B5A3 /* TESTING_GUIDE.md in Resources */,
-				CEAAFFB22E4E4A5F00A6B5A3 /* MIGRATION_GUIDE.md in Resources */,
 				CEAAFFB32E4E4A5F00A6B5A3 /* ARCHITECTURE.md in Resources */,
-				CEAAFFB42E4E4A5F00A6B5A3 /* CLAUDE.md in Resources */,
-				CEAAFFB52E4E4A5F00A6B5A3 /* REFACTORING_PLAN.md in Resources */,
 				CEAAFFB62E4E4A5F00A6B5A3 /* REQUIRED_MONTHLY_DOCUMENTATION.md in Resources */,
-				CEDD20D52E4781850026BFEF /* tatum.md in Resources */,
 				CED9DE6C2E362A1D00203A83 /* Config.plist in Resources */,
 				CEDD1EE42E4698B20026BFEF /* sample-data.md in Resources */,
-				CEDD1EE52E4698B20026BFEF /* SCREENSHOT_GUIDE.md in Resources */,
 				CEDD1EE62E4698B20026BFEF /* .gitkeep in Resources */,
-				CEE6B8F02E5CD5E50091BD2F /* ASSET_MANAGEMENT_ENHANCEMENT.md in Resources */,
 				CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */,
 				CED9DE6A2E36232E00203A83 /* README.md in Resources */,
 			);
@@ -427,8 +371,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_APP_SANDBOX = YES;
@@ -465,6 +411,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = xax.CryptoSavingsTracker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -484,8 +431,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_APP_SANDBOX = YES;
@@ -522,6 +471,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = xax.CryptoSavingsTracker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
