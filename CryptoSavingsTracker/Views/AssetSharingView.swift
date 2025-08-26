@@ -55,11 +55,10 @@ struct AssetSharingView: View {
                         
                         // Allocation status
                         // Pie chart visualization
-                        AllocationPieChart(
+                        SimplePieChart(
                             allocations: allocationData,
                             unallocatedPercentage: remainingPercentage
                         )
-                        .frame(height: 250)
                     }
                     .padding()
                     .background(Color.gray.opacity(0.05))
@@ -96,63 +95,13 @@ struct AssetSharingView: View {
                                 .cornerRadius(10)
                         } else {
                             ForEach(goals) { goal in
-                                VStack(spacing: 12) {
-                                    // Goal header
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(goal.name)
-                                                .font(.headline)
-                                            Text("Target: \(goal.currency) \(Int(goal.targetAmount))")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                        
-                                        Spacer()
-                                        
-                                        // Current allocation
-                                        VStack(alignment: .trailing) {
-                                            Text("\(Int((allocations[goal.id] ?? 0) * 100))%")
-                                                .font(.title2)
-                                                .fontWeight(.bold)
-                                                .foregroundColor(allocations[goal.id] ?? 0 > 0 ? .blue : .secondary)
-                                            
-                                            if allocations[goal.id] ?? 0 > 0 {
-                                                Text("allocated")
-                                                    .font(.caption2)
-                                                    .foregroundColor(.blue)
-                                            }
-                                        }
-                                    }
-                                    
-                                    // Slider
-                                    Slider(
-                                        value: Binding(
-                                            get: { allocations[goal.id] ?? 0 },
-                                            set: { allocations[goal.id] = $0 }
-                                        ),
-                                        in: 0...1,
-                                        step: 0.05
+                                GoalAllocationCard(
+                                    goal: goal,
+                                    allocation: Binding(
+                                        get: { allocations[goal.id] ?? 0 },
+                                        set: { allocations[goal.id] = $0 }
                                     )
-                                    .tint(.blue)
-                                    
-                                    // Quick percentage buttons
-                                    HStack(spacing: 8) {
-                                        ForEach([0, 25, 50, 75, 100], id: \.self) { percent in
-                                            Button(action: {
-                                                allocations[goal.id] = Double(percent) / 100.0
-                                            }) {
-                                                Text("\(percent)%")
-                                                    .font(.caption)
-                                                    .frame(maxWidth: .infinity)
-                                            }
-                                            .buttonStyle(.bordered)
-                                            .tint(allocations[goal.id] == Double(percent) / 100.0 ? .blue : .gray)
-                                        }
-                                    }
-                                }
-                                .padding()
-                                .background(Color.gray.opacity(0.05))
-                                .cornerRadius(10)
+                                )
                             }
                         }
                     }

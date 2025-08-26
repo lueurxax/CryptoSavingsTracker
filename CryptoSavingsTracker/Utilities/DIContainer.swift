@@ -109,6 +109,42 @@ class DIContainer: ObservableObject {
             }
         }
     }
+
+    // Balance service
+    private var _balanceService: BalanceServiceProtocol?
+    var balanceService: BalanceServiceProtocol {
+        get {
+            if let svc = _balanceService { return svc }
+            let svc = BalanceService(client: TatumClient.shared, chainService: ChainService.shared)
+            _balanceService = svc
+            return svc
+        }
+    }
+
+    // Transaction service
+    private var _transactionService: TransactionServiceProtocol?
+    var transactionService: TransactionServiceProtocol {
+        get {
+            if let svc = _transactionService { return svc }
+            let svc = TransactionService(client: TatumClient.shared, chainService: ChainService.shared)
+            _transactionService = svc
+            return svc
+        }
+    }
+
+    // Goal calculation service
+    private var _goalCalculationService: GoalCalculationServiceProtocol?
+    var goalCalculationService: GoalCalculationServiceProtocol {
+        get {
+            if let svc = _goalCalculationService { return svc }
+            let svc = GoalCalculationService(
+                exchangeRateService: exchangeRateService,
+                tatumService: tatumService
+            )
+            _goalCalculationService = svc
+            return svc
+        }
+    }
     
     private var _monthlyPlanningService: MonthlyPlanningServiceProtocol?
     var monthlyPlanningService: MonthlyPlanningServiceProtocol {
@@ -252,6 +288,10 @@ class DIContainer: ObservableObject {
     
     func makeCurrencyViewModel() -> CurrencyViewModel {
         return CurrencyViewModel(coinGeckoService: coinGeckoService)
+    }
+
+    func makeDashboardViewModel() -> DashboardViewModel {
+        return DashboardViewModel(container: self)
     }
     
     // MARK: - Dependency State Management

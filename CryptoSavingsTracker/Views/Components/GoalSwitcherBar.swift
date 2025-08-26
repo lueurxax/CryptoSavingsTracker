@@ -123,11 +123,13 @@ struct GoalPill: View {
         }
         .buttonStyle(PlainButtonStyle())
         .task {
-            progress = await GoalCalculationService.getProgress(for: goal)
+            let calc = DIContainer.shared.goalCalculationService
+            progress = await calc.getProgress(for: goal)
         }
         .onChange(of: goal.allocations) { _, _ in
             Task {
-                progress = await GoalCalculationService.getProgress(for: goal)
+                let calc = DIContainer.shared.goalCalculationService
+                progress = await calc.getProgress(for: goal)
             }
         }
     }

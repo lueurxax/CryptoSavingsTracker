@@ -8,6 +8,18 @@
 import SwiftData
 import Foundation
 
+/// Simple schema versioning
+enum SchemaVersion: Int, Comparable {
+    case v1 = 1
+    case v2 = 2
+    
+    static var latest: SchemaVersion { .v2 }
+    
+    static func < (lhs: SchemaVersion, rhs: SchemaVersion) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+}
+
 /// Service responsible for handling data migrations between schema versions
 @MainActor
 class MigrationService {

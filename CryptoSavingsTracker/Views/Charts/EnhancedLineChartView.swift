@@ -312,16 +312,17 @@ struct EnhancedLineChartView: View, InteractiveChart {
                     Spacer()
                     
                     // X-axis dates
-                    if !sortedPoints.isEmpty {
+                    if let firstPoint = sortedPoints.first,
+                       let lastPoint = sortedPoints.last {
                         HStack {
-                            Text(sortedPoints.first!.date.formatted(.dateTime.month(.abbreviated).day()))
+                            Text(firstPoint.date.formatted(.dateTime.month(.abbreviated).day()))
                                 .font(.caption2)
                                 .foregroundColor(.accessibleSecondary)
                             
                             Spacer()
                             
                             if sortedPoints.count > 1 {
-                                Text(sortedPoints.last!.date.formatted(.dateTime.month(.abbreviated).day()))
+                                Text(lastPoint.date.formatted(.dateTime.month(.abbreviated).day()))
                                     .font(.caption2)
                                     .foregroundColor(.accessibleSecondary)
                             }

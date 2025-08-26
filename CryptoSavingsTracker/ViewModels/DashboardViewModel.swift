@@ -34,20 +34,32 @@ class DashboardViewModel: ObservableObject {
     var isLoadingForecast: Bool { forecastState.isLoading }
     var isLoadingHeatmap: Bool { heatmapState.isLoading }
     
-    private let exchangeRateService = ExchangeRateService.shared
-    private let balanceService: BalanceService
-    private let transactionService: TransactionService
+    private let exchangeRateService: ExchangeRateServiceProtocol
+    private let balanceService: BalanceServiceProtocol
+    private let transactionService: TransactionServiceProtocol
+    private let goalCalculationService: GoalCalculationServiceProtocol
     
     private var currentGoal: Goal?
     
-    init() {
-        self.balanceService = BalanceService(
-            client: TatumClient.shared,
-            chainService: ChainService.shared
-        )
-        self.transactionService = TransactionService(
-            client: TatumClient.shared,
-            chainService: ChainService.shared
+    init(
+        exchangeRateService: ExchangeRateServiceProtocol,
+        balanceService: BalanceServiceProtocol,
+        transactionService: TransactionServiceProtocol,
+        goalCalculationService: GoalCalculationServiceProtocol
+    ) {
+        self.exchangeRateService = exchangeRateService
+        self.balanceService = balanceService
+        self.transactionService = transactionService
+        self.goalCalculationService = goalCalculationService
+    }
+
+    convenience init(container: DIContainer? = nil) {
+        let actualContainer = container ?? DIContainer.shared
+        self.init(
+            exchangeRateService: actualContainer.exchangeRateService,
+            balanceService: actualContainer.balanceService,
+            transactionService: actualContainer.transactionService,
+            goalCalculationService: actualContainer.goalCalculationService
         )
     }
     
@@ -139,7 +151,7 @@ class DashboardViewModel: ObservableObject {
         
         // Ensure we always have at least the current balance as the most recent point
         if history.isEmpty || (history.last?.date ?? Date.distantPast) < calendar.date(byAdding: .day, value: -1, to: endDate)! {
-            let currentTotal = await GoalCalculationService.getCurrentTotal(for: goal)
+            let currentTotal = await goalCalculationService.getCurrentTotal(for: goal)
             history.append(BalanceHistoryPoint(
                 date: endDate,
                 balance: currentTotal,
@@ -149,7 +161,7 @@ class DashboardViewModel: ObservableObject {
         
         // If we have very little data, create more realistic baseline points
         if history.count < 3 {
-            let currentTotal = await GoalCalculationService.getCurrentTotal(for: goal)
+            let currentTotal = await goalCalculationService.getCurrentTotal(for: goal)
             
             // Only create artificial history if we actually have a meaningful current total
             if currentTotal > 0 {
@@ -162,10 +174,10 @@ class DashboardViewModel: ObservableObject {
                 // Calculate actual balance progression based on transaction dates
                 let allTransactions = goal.allocatedAssets.flatMap { $0.transactions }.sorted { $0.date < $1.date }
                 
-                if !allTransactions.isEmpty {
+                if !allTransactions.isEmpty, let firstTransaction = allTransactions.first {
                     // Use actual transaction-based progression
                     var runningBalance: Double = 0
-                    var lastTransactionDate = allTransactions.first!.date
+                    var lastTransactionDate = firstTransaction.date
                     
                     // Add starting point
                     baselineHistory.append(BalanceHistoryPoint(
@@ -222,7 +234,7 @@ class DashboardViewModel: ObservableObject {
     }
     
     private func loadAssetComposition(for goal: Goal) async {
-        let totalValue = await GoalCalculationService.getCurrentTotal(for: goal)
+        let totalValue = await goalCalculationService.getCurrentTotal(for: goal)
         guard totalValue > 0 else {
             assetComposition = []
             assetCompositionState = .loaded
@@ -303,7 +315,7 @@ class DashboardViewModel: ObservableObject {
         daysRemaining = max(0, days)
         
         // Daily target to reach goal
-        let currentTotal = await GoalCalculationService.getCurrentTotal(for: goal)
+        let currentTotal = await goalCalculationService.getCurrentTotal(for: goal)
         let remaining = max(0, goal.targetAmount - currentTotal)
         dailyTarget = daysRemaining > 0 ? remaining / Double(daysRemaining) : 0
     }
@@ -324,7 +336,7 @@ class DashboardViewModel: ObservableObject {
         
         var forecast: [ForecastPoint] = []
         var currentDate = startDate
-        let currentBalance = await GoalCalculationService.getCurrentTotal(for: goal)
+        let currentBalance = await goalCalculationService.getCurrentTotal(for: goal)
         
         while currentDate <= endDate {
             let daysFromNow = calendar.dateComponents([.day], from: startDate, to: currentDate).day ?? 0
@@ -353,10 +365,10 @@ class DashboardViewModel: ObservableObject {
     }
     
     private func calculateGrowthRate(from history: [BalanceHistoryPoint]) -> Double {
-        guard history.count >= 2 else { return 0 }
+        guard history.count >= 2,
+              let first = history.first?.balance,
+              let last = history.last?.balance else { return 0 }
         
-        let first = history.first!.balance
-        let last = history.last!.balance
         let days = Double(history.count)
         
         return days > 0 ? (last - first) / days : 0

@@ -9,6 +9,11 @@ import Foundation
 import os
 
 // MARK: - Base HTTP Client
+@globalActor
+actor TatumClientActor {
+    static let shared = TatumClientActor()
+}
+
 final class TatumClient {
     static let shared = TatumClient()
     
@@ -16,18 +21,18 @@ final class TatumClient {
     let baseURL = "https://api.tatum.io/v3"
     let v4BaseURL = "https://api.tatum.io/v4"
     let solanaRPCURL = "https://api.mainnet-beta.solana.com"
-    private static let log = Logger(subsystem: "xax.CryptoSavingsTracker", category: "TatumClient")
+    private nonisolated static let log = Logger(subsystem: "xax.CryptoSavingsTracker", category: "TatumClient")
     
     // Track active tasks for cancellation
     private var activeTasks = Set<URLSessionTask>()
     private let taskQueue = DispatchQueue(label: "com.cryptosavingstracker.tatumclient.tasks", qos: .userInitiated)
     
-    // Rate limiting configuration
-    private let requestQueue = DispatchQueue(label: "com.cryptosavingstracker.tatumclient.requests", qos: .userInitiated, attributes: .concurrent)
-    private let requestSemaphore = DispatchSemaphore(value: 5) // Max 5 concurrent requests
-    private var lastRequestTime: Date = Date.distantPast
+    // Rate limiting using async/await instead of semaphores
+    private let maxConcurrentRequests = 5
+    @TatumClientActor private var activeRequestCount = 0
+    @TatumClientActor private var lastRequestTime: Date = Date.distantPast
     private let minRequestInterval: TimeInterval = 0.1 // 100ms between requests (10 req/sec max)
-    private var rateLimitResetTime: Date?
+    @TatumClientActor private var rateLimitResetTime: Date?
     
     // Retry configuration
     private let maxRetryAttempts = 3
@@ -68,11 +73,7 @@ final class TatumClient {
         }
         
         // Check if we're in rate limit cooldown
-        if let resetTime = rateLimitResetTime, Date() < resetTime {
-            let waitTime = resetTime.timeIntervalSinceNow
-            Self.log.info("Rate limit in effect, waiting \(String(format: "%.1f", waitTime)) seconds")
-            try await Task.sleep(nanoseconds: UInt64(waitTime * 1_000_000_000))
-        }
+        await checkRateLimitCooldown()
         
         // Implement retry logic with exponential backoff
         var lastError: Error?
@@ -82,16 +83,13 @@ final class TatumClient {
             await enforceRateLimit()
             
             do {
-                // Acquire semaphore to limit concurrent requests
-                _ = await withCheckedContinuation { continuation in
-                    requestQueue.async(qos: .userInitiated, flags: .enforceQoS) {
-                        self.requestSemaphore.wait()
-                        continuation.resume()
-                    }
-                }
+                // Use async concurrency control instead of semaphore
+                await waitForRequestSlot()
                 
                 defer {
-                    requestSemaphore.signal()
+                    Task { @TatumClientActor in
+                        activeRequestCount -= 1
+                    }
                 }
                 
                 let (data, response) = try await URLSession.shared.data(for: request)
@@ -108,7 +106,7 @@ final class TatumClient {
                 Self.log.warning("Rate limit hit (attempt \(attempt + 1)/\(self.maxRetryAttempts)), waiting \(delay) seconds")
                 
                 // Set rate limit reset time
-                rateLimitResetTime = Date().addingTimeInterval(delay)
+                await setRateLimitResetTime(Date().addingTimeInterval(delay))
                 
                 if attempt < maxRetryAttempts - 1 {
                     try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
@@ -154,19 +152,44 @@ final class TatumClient {
         throw lastError ?? TatumError.invalidResponse
     }
     
-    // Enforce minimum interval between requests
-    private func enforceRateLimit() async {
-        requestQueue.sync {
-            let now = Date()
-            let timeSinceLastRequest = now.timeIntervalSince(lastRequestTime)
-            
-            if timeSinceLastRequest < minRequestInterval {
-                let waitTime = minRequestInterval - timeSinceLastRequest
-                Thread.sleep(forTimeInterval: waitTime)
-            }
-            
-            lastRequestTime = Date()
+    // Check rate limit cooldown
+    @TatumClientActor
+    private func checkRateLimitCooldown() async {
+        if let resetTime = rateLimitResetTime, Date() < resetTime {
+            let waitTime = resetTime.timeIntervalSinceNow
+            Self.log.info("Rate limit in effect, waiting \(String(format: "%.1f", waitTime)) seconds")
+            try? await Task.sleep(nanoseconds: UInt64(waitTime * 1_000_000_000))
         }
+    }
+    
+    // Set rate limit reset time
+    @TatumClientActor
+    private func setRateLimitResetTime(_ time: Date) async {
+        rateLimitResetTime = time
+    }
+    
+    // Wait for an available request slot
+    @TatumClientActor
+    private func waitForRequestSlot() async {
+        while activeRequestCount >= maxConcurrentRequests {
+            // Wait a bit before checking again
+            try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        }
+        activeRequestCount += 1
+    }
+    
+    // Enforce minimum interval between requests
+    @TatumClientActor
+    private func enforceRateLimit() async {
+        let now = Date()
+        let timeSinceLastRequest = now.timeIntervalSince(lastRequestTime)
+        
+        if timeSinceLastRequest < minRequestInterval {
+            let waitTime = minRequestInterval - timeSinceLastRequest
+            try? await Task.sleep(nanoseconds: UInt64(waitTime * 1_000_000_000))
+        }
+        
+        lastRequestTime = Date()
     }
     
     // Cancel all active requests

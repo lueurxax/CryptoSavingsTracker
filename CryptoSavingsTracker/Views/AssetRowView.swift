@@ -207,50 +207,89 @@ struct AssetRowView: View {
             if isExpanded {
                 VStack(alignment: .leading, spacing: 12) {
                     // Action Buttons
-                    HStack(spacing: 8) {
-                        Button(action: {
-                            showingAddTransaction = true
-                        }) {
-                            Label("Add Transaction", systemImage: "plus.circle")
-                                .font(.caption)
-                        }
-                        .buttonStyle(.bordered)
-                        
-                        Button(action: {
-                            showingAllocationView = true
-                        }) {
-                            Label("Manage Allocations", systemImage: "chart.pie")
-                                .font(.caption)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.purple)
-                        
-                        if hasOnChainAddress {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            // Add Transaction Button
                             Button(action: {
-                                Task {
-                                    await fetchOnChainTransactions(
-                                        address: safeAssetAddress!,
-                                        chainId: safeAssetChainId!,
-                                        forceRefresh: true
-                                    )
-                                }
+                                showingAddTransaction = true
                             }) {
-                                Label("Update Transactions", systemImage: "arrow.triangle.2.circlepath")
-                                    .font(.caption)
+                                VStack(spacing: 4) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.title3)
+                                        .foregroundColor(.blue)
+                                    Text("Add")
+                                        .font(.caption2)
+                                        .foregroundColor(.primary)
+                                }
+                                .frame(width: 60, height: 50)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(10)
                             }
-                            .buttonStyle(.bordered)
-                            .tint(.orange)
-                        }
-                        
-                        Spacer()
-                        
-                        if let onDelete = onDelete {
-                            Button(action: onDelete) {
-                                Label("Delete Asset", systemImage: "trash")
-                                    .font(.caption)
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            // Manage Allocations Button
+                            Button(action: {
+                                showingAllocationView = true
+                            }) {
+                                VStack(spacing: 4) {
+                                    Image(systemName: "chart.pie.fill")
+                                        .font(.title3)
+                                        .foregroundColor(.purple)
+                                    Text("Share")
+                                        .font(.caption2)
+                                        .foregroundColor(.primary)
+                                }
+                                .frame(width: 60, height: 50)
+                                .background(Color.purple.opacity(0.1))
+                                .cornerRadius(10)
                             }
-                            .buttonStyle(.bordered)
-                            .tint(.red)
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            if hasOnChainAddress {
+                                // Update Transactions Button
+                                Button(action: {
+                                    Task {
+                                        await fetchOnChainTransactions(
+                                            address: safeAssetAddress!,
+                                            chainId: safeAssetChainId!,
+                                            forceRefresh: true
+                                        )
+                                    }
+                                }) {
+                                    VStack(spacing: 4) {
+                                        Image(systemName: "arrow.triangle.2.circlepath")
+                                            .font(.title3)
+                                            .foregroundColor(.orange)
+                                        Text("Refresh")
+                                            .font(.caption2)
+                                            .foregroundColor(.primary)
+                                    }
+                                    .frame(width: 60, height: 50)
+                                    .background(Color.orange.opacity(0.1))
+                                    .cornerRadius(10)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                            
+                            Spacer()
+                            
+                            if let onDelete = onDelete {
+                                // Delete Button
+                                Button(action: onDelete) {
+                                    VStack(spacing: 4) {
+                                        Image(systemName: "trash.fill")
+                                            .font(.title3)
+                                            .foregroundColor(.red)
+                                        Text("Delete")
+                                            .font(.caption2)
+                                            .foregroundColor(.primary)
+                                    }
+                                    .frame(width: 60, height: 50)
+                                    .background(Color.red.opacity(0.1))
+                                    .cornerRadius(10)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
                         }
                     }
                     .padding(.horizontal)
@@ -425,10 +464,7 @@ struct AssetRowView: View {
     private func fetchOnChainBalance(address: String, chainId: String, forceRefresh: Bool) async {
         isLoadingBalance = true
         
-        let balanceService = BalanceService(
-            client: TatumClient.shared,
-            chainService: ChainService.shared
-        )
+        let balanceService = DIContainer.shared.balanceService
         
         do {
             let balance = try await balanceService.fetchBalance(
@@ -462,10 +498,7 @@ struct AssetRowView: View {
         
         isLoadingTransactions = true
         
-        let transactionService = TransactionService(
-            client: TatumClient.shared,
-            chainService: ChainService.shared
-        )
+        let transactionService = DIContainer.shared.transactionService
         
         do {
             let transactions = try await transactionService.fetchTransactionHistory(

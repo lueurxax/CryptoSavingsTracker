@@ -7,8 +7,8 @@ import SwiftUI
 
 struct AllocationPromptBanner: View {
     let asset: Asset
-    let onManageAllocations: () -> Void
     @Binding var isVisible: Bool
+    @State private var showingAllocationView = false
     
     var body: some View {
         if isVisible {
@@ -29,7 +29,9 @@ struct AllocationPromptBanner: View {
                     
                     Spacer()
                     
-                    Button(action: onManageAllocations) {
+                    Button(action: {
+                        showingAllocationView = true
+                    }) {
                         Text("Manage")
                             .font(.caption)
                             .fontWeight(.medium)
@@ -56,7 +58,13 @@ struct AllocationPromptBanner: View {
                 .padding(.horizontal)
                 .padding(.vertical, 8)
             }
-            .transition(.move(edge: .top).combined(with: .opacity))
+            .transition(
+                .asymmetric(
+                    insertion: .move(edge: .top).combined(with: .opacity),
+                    removal: .move(edge: .top).combined(with: .opacity)
+                )
+            )
+            .animation(.spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0), value: isVisible)
             .onAppear {
                 // Auto-dismiss after 10 seconds
                 DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
@@ -64,6 +72,9 @@ struct AllocationPromptBanner: View {
                         isVisible = false
                     }
                 }
+            }
+            .sheet(isPresented: $showingAllocationView) {
+                AssetSharingView(asset: asset)
             }
         }
     }

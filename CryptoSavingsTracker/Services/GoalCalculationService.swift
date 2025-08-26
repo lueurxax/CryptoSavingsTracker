@@ -11,6 +11,39 @@ import Foundation
 /// This avoids having model objects directly instantiate ViewModels
 @MainActor
 class GoalCalculationService: GoalCalculationServiceProtocol {
+    private let exchangeRateService: ExchangeRateServiceProtocol
+    private let tatumService: TatumServiceProtocol
+
+    init(exchangeRateService: ExchangeRateServiceProtocol = DIContainer.shared.exchangeRateService,
+         tatumService: TatumServiceProtocol = DIContainer.shared.tatumService) {
+        self.exchangeRateService = exchangeRateService
+        self.tatumService = tatumService
+    }
+
+    // Instance methods prefer injected services (better for testing)
+    func getCurrentTotal(for goal: Goal) async -> Double {
+        let viewModel = GoalViewModel(
+            goal: goal,
+            tatumService: tatumService,
+            exchangeRateService: exchangeRateService
+        )
+        await viewModel.refreshValues()
+        return viewModel.currentTotal
+    }
+
+    func getProgress(for goal: Goal) async -> Double {
+        let total = await getCurrentTotal(for: goal)
+        guard goal.targetAmount > 0 else { return 0 }
+        return min(total / goal.targetAmount, 1.0)
+    }
+
+    func getSuggestedDeposit(for goal: Goal) async -> Double {
+        let total = await getCurrentTotal(for: goal)
+        let remainingDates = Self.getRemainingReminderDates(for: goal)
+        guard remainingDates.count > 0, goal.targetAmount > 0 else { return 0 }
+        let remainingAmount = max(goal.targetAmount - total, 0)
+        return remainingAmount / Double(remainingDates.count)
+    }
     
     /// Calculate current total for a goal using proper ViewModel delegation
     static func getCurrentTotal(for goal: Goal) async -> Double {
@@ -122,7 +155,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
             guard let asset = allocation.asset else { continue }
             
             // Get the asset's total value (including on-chain balance if available)
-            let assetViewModel = AssetViewModel(asset: asset, tatumService: TatumService(client: TatumClient.shared, chainService: ChainService.shared))
+            let assetViewModel = AssetViewModel(asset: asset, tatumService: DIContainer.shared.tatumService)
             await assetViewModel.refreshBalances()
             
             // Get asset value in the goal's currency
@@ -154,7 +187,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
         
         // Convert from asset currency to goal currency
         do {
-            let exchangeRate = try await ExchangeRateService.shared.fetchRate(
+            let exchangeRate = try await DIContainer.shared.exchangeRateService.fetchRate(
                 from: asset.currency,
                 to: goalCurrency
             )
@@ -172,7 +205,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
             return 0.0
         }
         
-        let assetViewModel = AssetViewModel(asset: asset, tatumService: TatumService(client: TatumClient.shared, chainService: ChainService.shared))
+        let assetViewModel = AssetViewModel(asset: asset, tatumService: DIContainer.shared.tatumService)
         await assetViewModel.refreshBalances()
         
         let assetValueInGoalCurrency = await getAssetValueInGoalCurrency(

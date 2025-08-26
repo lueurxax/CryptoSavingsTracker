@@ -117,10 +117,7 @@ struct AssetListItemView: View {
         
         // Get on-chain balance if available
         if let chainId = asset.chainId, let address = asset.address {
-            let balanceService = BalanceService(
-                client: TatumClient.shared,
-                chainService: ChainService.shared
-            )
+            let balanceService = DIContainer.shared.balanceService
             
             do {
                 let onChainBalance = try await balanceService.fetchBalance(

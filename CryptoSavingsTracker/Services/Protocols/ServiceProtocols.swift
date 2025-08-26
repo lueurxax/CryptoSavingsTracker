@@ -64,6 +64,12 @@ protocol FlexAdjustmentServiceProtocol {
 }
 
 protocol GoalCalculationServiceProtocol {
+    // Instance methods (preferred for DI/mocking)
+    func getCurrentTotal(for goal: Goal) async -> Double
+    func getProgress(for goal: Goal) async -> Double
+    func getSuggestedDeposit(for goal: Goal) async -> Double
+
+    // Static helpers (backward compatibility)
     static func getCurrentTotal(for goal: Goal) async -> Double
     static func getProgress(for goal: Goal) async -> Double
     static func getSuggestedDeposit(for goal: Goal) async -> Double

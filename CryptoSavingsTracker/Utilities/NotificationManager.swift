@@ -404,8 +404,8 @@ class NotificationManager {
         
         let formattedAmount = formatAmount(reminder.totalAmount, currency: reminder.displayCurrency)
         
-        if reminder.goalRequirements.count == 1 {
-            let goalName = reminder.goalRequirements.first!.goalName
+        if reminder.goalRequirements.count == 1,
+           let goalName = reminder.goalRequirements.first?.goalName {
             content.body = "Time to save \(formattedAmount) for your \(goalName) goal this month (\(monthString))"
         } else {
             content.body = "Time to save \(formattedAmount) across \(reminder.goalRequirements.count) goals this month (\(monthString))"

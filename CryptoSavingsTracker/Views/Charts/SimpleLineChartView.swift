@@ -48,7 +48,12 @@ struct SimpleLineChartView: View {
     }
     
     private var accessibilityDescription: String {
-        let trend = dataPoints.count > 1 ? (dataPoints.last!.balance > dataPoints.first!.balance ? "increasing" : "decreasing") : "stable"
+        let trend: String
+        if let first = dataPoints.first, let last = dataPoints.last, dataPoints.count > 1 {
+            trend = last.balance > first.balance ? "increasing" : "decreasing"
+        } else {
+            trend = "stable"
+        }
         let latest = dataPoints.last?.balance ?? 0
         let currency = dataPoints.first?.currency ?? "USD"
         return "Chart showing \(trend) balance over time. Current value: \(String(format: "%.2f", latest)) \(currency). Range: \(String(format: "%.2f", minValue)) to \(String(format: "%.2f", maxValue))"

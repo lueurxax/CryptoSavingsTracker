@@ -93,9 +93,10 @@ struct GoalsListContainer: View {
     }
     
     private func refreshGoalData() async {
+        let calc = DIContainer.shared.goalCalculationService
         for goal in goals {
-            _ = await GoalCalculationService.getCurrentTotal(for: goal)
-            _ = await GoalCalculationService.getProgress(for: goal)
+            _ = await calc.getCurrentTotal(for: goal)
+            _ = await calc.getProgress(for: goal)
         }
     }
     

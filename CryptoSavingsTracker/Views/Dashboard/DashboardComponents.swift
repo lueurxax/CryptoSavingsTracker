@@ -12,7 +12,7 @@ import SwiftData
 
 struct GoalDashboardView: View {
     let goal: Goal
-    @StateObject private var viewModel = DashboardViewModel()
+    @StateObject private var viewModel = DIContainer.shared.makeDashboardViewModel()
     @State private var dashboardTotal: Double = 0.0
     @State private var dashboardProgress: Double = 0.0
     @Environment(\.platformCapabilities) private var platform
@@ -57,8 +57,9 @@ struct GoalDashboardView: View {
     
     @MainActor
     private func updateDashboard() async {
-        dashboardTotal = await GoalCalculationService.getCurrentTotal(for: goal)
-        dashboardProgress = await GoalCalculationService.getProgress(for: goal)
+        let calc = DIContainer.shared.goalCalculationService
+        dashboardTotal = await calc.getCurrentTotal(for: goal)
+        dashboardProgress = await calc.getProgress(for: goal)
     }
 }
 

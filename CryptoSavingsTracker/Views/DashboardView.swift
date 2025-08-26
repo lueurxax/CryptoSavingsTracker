@@ -129,7 +129,7 @@ struct DashboardView: View {
 
 struct TrendSparklineView: View {
     let goal: Goal
-    @StateObject private var viewModel = DashboardViewModel()
+    @StateObject private var viewModel = DIContainer.shared.makeDashboardViewModel()
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -177,7 +177,7 @@ struct TrendSparklineView: View {
         .background(.regularMaterial)
         .cornerRadius(12)
         .task {
-            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext!.container))
+            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
         }
     }
 }
@@ -723,7 +723,7 @@ struct MobileGoalSwitcher: View {
 
 struct ChartSection: View {
     let goal: Goal
-    @StateObject private var viewModel = DashboardViewModel()
+    @StateObject private var viewModel = DIContainer.shared.makeDashboardViewModel()
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -777,7 +777,7 @@ struct ChartSection: View {
                 .fill(.regularMaterial)
         )
         .task {
-            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext!.container))
+            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
         }
     }
 }
@@ -973,7 +973,7 @@ struct DashboardViewForGoal: View {
 // MARK: - Mobile Forecast Section
 struct MobileForecastSection: View {
     let goal: Goal
-    @StateObject private var viewModel = DashboardViewModel()
+    @StateObject private var viewModel = DIContainer.shared.makeDashboardViewModel()
     @State private var currentTotal: Double = 0
     @State private var progress: Double = 0
     
@@ -1039,19 +1039,20 @@ struct MobileForecastSection: View {
         )
         .task {
             await updateData()
-            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext!.container))
+            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
         }
         .onChange(of: goal.allocations) { _, _ in
             Task { 
                 await updateData()
-                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext!.container))
+                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
             }
         }
     }
     
     private func updateData() async {
-        let total = await GoalCalculationService.getCurrentTotal(for: goal)
-        let prog = await GoalCalculationService.getProgress(for: goal)
+        let calc = DIContainer.shared.goalCalculationService
+        let total = await calc.getCurrentTotal(for: goal)
+        let prog = await calc.getProgress(for: goal)
         
         await MainActor.run {
             currentTotal = total
@@ -1063,7 +1064,7 @@ struct MobileForecastSection: View {
 // MARK: - Desktop Forecast Section
 struct DesktopForecastSection: View {
     let goal: Goal
-    @StateObject private var viewModel = DashboardViewModel()
+    @StateObject private var viewModel = DIContainer.shared.makeDashboardViewModel()
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1124,11 +1125,11 @@ struct DesktopForecastSection: View {
         .background(.regularMaterial)
         .cornerRadius(12)
         .task {
-            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext!.container))
+            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
         }
         .onChange(of: goal.allocations) { _, _ in
             Task { 
-                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext!.container))
+                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
             }
         }
     }
@@ -1158,5 +1159,3 @@ struct ForecastStatusBadge: View {
         .cornerRadius(12)
     }
 }
-
-

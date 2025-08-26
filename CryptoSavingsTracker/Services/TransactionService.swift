@@ -453,7 +453,7 @@ final class TransactionService: TransactionServiceProtocol {
                 let subtype = finalSubtype
                 
                 // Get timestamp from rawData (already in milliseconds)
-                let timestamp = trxTx.rawData?.timestamp != nil ? Int(trxTx.rawData!.timestamp!) : nil
+                let timestamp = trxTx.rawData?.timestamp.flatMap { Int($0) }
                 
                 Self.log.debug("TRX transaction \(trxTx.hash): value=\(transactionValue), type=\(transactionType), subtype=\(subtype), from=\(fromAddress ?? "nil"), to=\(toAddress ?? "nil"), targetAddress=\(address)")
                 
@@ -749,7 +749,7 @@ final class TransactionService: TransactionServiceProtocol {
             to: balanceChange > 0 ? targetAddress : recipientAddress,   // If positive, we received; if negative, try to find recipient
             value: nil,
             gasUsed: nil,
-            gasPrice: solTx.meta?.fee != nil ? String(solTx.meta!.fee!) : nil,
+            gasPrice: solTx.meta?.fee.flatMap { String($0) },
             tokenTransfers: nil,
             chain: "SOL",
             address: targetAddress,

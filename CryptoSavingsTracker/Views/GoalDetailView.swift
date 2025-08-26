@@ -18,7 +18,7 @@ struct GoalDetailView: View {
     @State private var showingAddAsset = false
     @State private var expandedAssets: Set<UUID> = []
     @State private var goalViewModel: GoalViewModel
-    @StateObject private var dashboardViewModel = DashboardViewModel()
+    @StateObject private var dashboardViewModel = DIContainer.shared.makeDashboardViewModel()
     @State private var isRefreshing = false
     @State private var lastRefresh: Date?
     @State private var showingCharts = false

@@ -233,7 +233,7 @@ struct AssetDetailView: View {
             .tint(.purple)
         }
         .sheet(isPresented: $showingAllocationView) {
-            AssetAllocationView(asset: asset)
+            AssetSharingView(asset: asset)
         }
     }
     
