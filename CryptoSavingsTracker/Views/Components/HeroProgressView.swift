@@ -19,12 +19,24 @@ struct HeroProgressView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Hero Progress Ring - Enhanced Design
-            VStack(spacing: 20) {
+            VStack(spacing: 24) {
                 // Progress Ring with better visuals
                 ZStack {
+                    // Outer decorative ring
+                    Circle()
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.gray.opacity(0.05), Color.gray.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 20
+                        )
+                        .frame(width: 200, height: 200)
+                    
                     // Background ring
                     Circle()
-                        .stroke(Color.gray.opacity(0.15), lineWidth: 16)
+                        .stroke(Color.gray.opacity(0.2), lineWidth: 18)
                         .frame(width: 180, height: 180)
                     
                     // Progress ring with shadow
@@ -32,12 +44,12 @@ struct HeroProgressView: View {
                         .trim(from: 0, to: progress)
                         .stroke(
                             progressGradient,
-                            style: StrokeStyle(lineWidth: 16, lineCap: .round)
+                            style: StrokeStyle(lineWidth: 18, lineCap: .round)
                         )
                         .frame(width: 180, height: 180)
                         .rotationEffect(.degrees(-90))
-                        .shadow(color: progressColor.opacity(0.3), radius: 8, x: 0, y: 4)
-                        .animation(reduceMotion ? nil : .easeInOut(duration: 1.2), value: progress)
+                        .shadow(color: progressColor.opacity(0.4), radius: 10, x: 0, y: 5)
+                        .animation(reduceMotion ? nil : .spring(response: 0.8, dampingFraction: 0.8), value: progress)
                     
                     // Center content with better spacing
                     VStack(spacing: 6) {

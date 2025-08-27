@@ -103,13 +103,20 @@ struct EnhancedStatCard: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.gray.opacity(0.05))
+            RoundedRectangle(cornerRadius: 14)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.gray.opacity(0.04), Color.gray.opacity(0.06)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(color.opacity(0.2), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(color.opacity(0.15), lineWidth: 1)
         )
+        .shadow(color: color.opacity(0.08), radius: 6, x: 0, y: 2)
     }
 }
 
@@ -419,7 +426,7 @@ struct EnhancedStatsGrid: View {
     let goal = Goal(name: "Bitcoin Savings", currency: "USD", targetAmount: 50000, deadline: Date().addingTimeInterval(86400 * 90))
     container.mainContext.insert(goal)
     
-    let viewModel = DashboardViewModel()
+    let viewModel = DIContainer.shared.makeDashboardViewModel()
     
     return ScrollView {
         VStack(spacing: 16) {

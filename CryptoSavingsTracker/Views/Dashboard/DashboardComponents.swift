@@ -15,6 +15,7 @@ struct GoalDashboardView: View {
     @StateObject private var viewModel = DIContainer.shared.makeDashboardViewModel()
     @State private var dashboardTotal: Double = 0.0
     @State private var dashboardProgress: Double = 0.0
+    @StateObject private var whatIf = WhatIfSettings()
     @Environment(\.platformCapabilities) private var platform
     
     private var isCompact: Bool {
@@ -32,14 +33,16 @@ struct GoalDashboardView: View {
                     goal: goal,
                     viewModel: viewModel,
                     dashboardTotal: dashboardTotal,
-                    dashboardProgress: dashboardProgress
+                    dashboardProgress: dashboardProgress,
+                    whatIf: whatIf
                 )
             } else {
                 ExpandedDashboardLayout(
                     goal: goal,
                     viewModel: viewModel,
                     dashboardTotal: dashboardTotal,
-                    dashboardProgress: dashboardProgress
+                    dashboardProgress: dashboardProgress,
+                    whatIf: whatIf
                 )
             }
         }
@@ -47,6 +50,12 @@ struct GoalDashboardView: View {
         .task {
             await viewModel.loadData(for: goal, modelContext: goal.modelContext!)
             await updateDashboard()
+        }
+        .onChange(of: goal) { _, _ in
+            Task {
+                await viewModel.loadData(for: goal, modelContext: goal.modelContext!)
+                await updateDashboard()
+            }
         }
         .onChange(of: goal.allocations) { _, _ in
             Task {
@@ -70,6 +79,7 @@ struct CompactDashboardLayout: View {
     @ObservedObject var viewModel: DashboardViewModel
     let dashboardTotal: Double
     let dashboardProgress: Double
+    @ObservedObject var whatIf: WhatIfSettings
     
     var body: some View {
         VStack(spacing: 24) {
@@ -80,9 +90,14 @@ struct CompactDashboardLayout: View {
                 goal: goal,
                 viewModel: viewModel,
                 dashboardTotal: dashboardTotal,
-                dashboardProgress: dashboardProgress
+                dashboardProgress: dashboardProgress,
+                whatIf: whatIf
             )
             .padding(.horizontal, 20)
+            
+            // Simple What‑If controls on mobile as a separate card
+            WhatIfView(goal: goal, settings: whatIf)
+                .padding(.horizontal, 20)
         }
         .padding(.vertical, 20)
     }
@@ -95,25 +110,18 @@ struct ExpandedDashboardLayout: View {
     @ObservedObject var viewModel: DashboardViewModel
     let dashboardTotal: Double
     let dashboardProgress: Double
+    @ObservedObject var whatIf: WhatIfSettings
     
     var body: some View {
         GeometryReader { geometry in
-            if geometry.size.width > 1200 {
-                ThreeColumnDashboardLayout(
-                    goal: goal,
-                    viewModel: viewModel,
-                    dashboardTotal: dashboardTotal,
-                    dashboardProgress: dashboardProgress
-                )
-            } else {
-                TwoColumnDashboardLayout(
-                    goal: goal,
-                    viewModel: viewModel,
-                    dashboardTotal: dashboardTotal,
-                    dashboardProgress: dashboardProgress,
-                    geometry: geometry
-                )
-            }
+            // Always use ThreeColumnDashboardLayout for desktop to show enhanced components
+            ThreeColumnDashboardLayout(
+                goal: goal,
+                viewModel: viewModel,
+                dashboardTotal: dashboardTotal,
+                dashboardProgress: dashboardProgress,
+                whatIf: whatIf
+            )
         }
     }
 }
@@ -125,36 +133,50 @@ struct ThreeColumnDashboardLayout: View {
     @ObservedObject var viewModel: DashboardViewModel
     let dashboardTotal: Double
     let dashboardProgress: Double
+    @ObservedObject var whatIf: WhatIfSettings
     
     var body: some View {
-        HStack(alignment: .top, spacing: 24) {
+        HStack(alignment: .top, spacing: 20) {
             // Left Column: Key Metrics + Hero Progress
-            VStack(spacing: 20) {
+            VStack(spacing: 16) {
                 HeroProgressView(goal: goal)
-                DashboardMetricsGrid(goal: goal)
+                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 3)
+                
+                EnhancedStatsGrid(viewModel: viewModel, goal: goal)
             }
-            .frame(maxWidth: 400)
+            .frame(maxWidth: 380)
             
             // Middle Column: Charts
-            VStack(spacing: 20) {
+            VStack(spacing: 16) {
                 ForecastWidgetView(
                     goal: goal,
                     viewModel: viewModel,
                     dashboardTotal: dashboardTotal,
-                    dashboardProgress: dashboardProgress
+                    dashboardProgress: dashboardProgress,
+                    whatIf: whatIf
                 )
+                .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 3)
+                
+                WhatIfView(goal: goal, settings: whatIf)
+                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 3)
             }
             .frame(maxWidth: .infinity)
             
             // Right Column: Quick Actions, Insights & Activity
             VStack(spacing: 16) {
                 QuickActionsView(goal: goal)
+                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 3)
+                
                 InsightsView(viewModel: viewModel, goal: goal)
+                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 3)
+                
                 RecentActivityView(goal: goal, viewModel: viewModel)
+                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 3)
             }
-            .frame(maxWidth: 300)
+            .frame(maxWidth: 340)
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
     }
 }
 
@@ -166,13 +188,14 @@ struct TwoColumnDashboardLayout: View {
     let dashboardTotal: Double
     let dashboardProgress: Double
     let geometry: GeometryProxy
+    @ObservedObject var whatIf: WhatIfSettings
     
     var body: some View {
         HStack(alignment: .top, spacing: 20) {
             // Left Column
             VStack(spacing: 20) {
                 HeroProgressView(goal: goal)
-                DashboardMetricsGrid(goal: goal)
+                EnhancedStatsGrid(viewModel: viewModel, goal: goal)
             }
             .frame(maxWidth: geometry.size.width * 0.4)
             
@@ -182,7 +205,8 @@ struct TwoColumnDashboardLayout: View {
                     goal: goal,
                     viewModel: viewModel,
                     dashboardTotal: dashboardTotal,
-                    dashboardProgress: dashboardProgress
+                    dashboardProgress: dashboardProgress,
+                    whatIf: whatIf
                 )
                 // Optional: show utility panels below charts on medium screens
                 VStack(spacing: 16) {
@@ -206,6 +230,7 @@ struct ForecastWidgetView: View {
     @ObservedObject var viewModel: DashboardViewModel
     let dashboardTotal: Double
     let dashboardProgress: Double
+    @ObservedObject var whatIf: WhatIfSettings
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -220,7 +245,9 @@ struct ForecastWidgetView: View {
                     targetValue: goal.targetAmount,
                     targetDate: goal.deadline,
                     currency: goal.currency,
-                    animateOnAppear: false
+                    animateOnAppear: false,
+                    overlaySeries: whatIf.enabled ? generateWhatIfOverlay() : nil,
+                    overlayColor: .purple
                 )
                 .frame(height: 300)
             } else {
@@ -228,11 +255,58 @@ struct ForecastWidgetView: View {
             }
         }
         .padding()
-        .background(.regularMaterial)
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.regularMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                )
+        )
+        .cornerRadius(16)
     }
 }
+
+// MARK: - What‑If overlay generator
+extension ForecastWidgetView {
+    private func generateWhatIfOverlay() -> [BalanceHistoryPoint] {
+        guard !viewModel.forecastData.isEmpty else { return [] }
+        let startDate = Date()
+        let endDate = goal.deadline
+        let calendar = Calendar.current
+        var points: [BalanceHistoryPoint] = []
+        // Use forecast dates (weekly) as x-axis
+        let dates = viewModel.forecastData
+            .map { $0.date }
+            .filter { $0 >= startDate && $0 <= endDate }
+        // Helper calculators
+        func monthsBetween(_ date: Date) -> Double {
+            let days = calendar.dateComponents([.day], from: startDate, to: date).day ?? 0
+            return Double(days) / 30.0
+        }
+        func daysBetween(_ date: Date) -> Int {
+            calendar.dateComponents([.day], from: startDate, to: date).day ?? 0
+        }
+        // Estimate recent trend (currency/day) from last ~30 days of balance history
+        let history = viewModel.balanceHistory
+        var trendPerDay: Double = 0
+        if history.count >= 2 {
+            let recent = Array(history.suffix( min(history.count, 30) ))
+            if let first = recent.first?.balance, let last = recent.last?.balance {
+                let days = max(1, recent.count - 1)
+                trendPerDay = (last - first) / Double(days)
+            }
+        }
+
+        for date in dates {
+            let contribution = whatIf.oneTime + whatIf.monthly * monthsBetween(date)
+            let value = dashboardTotal + contribution + (Double(daysBetween(date)) * trendPerDay)
+            points.append(BalanceHistoryPoint(date: date, balance: value, currency: goal.currency))
+        }
+        return points
+    }
+}
+
 
 // MARK: - Forecast Widget Header
 
@@ -317,6 +391,7 @@ struct QuickActionsView: View {
     let goal: Goal
     @State private var showingAddAsset = false
     @State private var showingAddTransaction = false
+    @State private var showingAssetPicker = false
     @State private var showingEditGoal = false
     @State private var selectedAsset: Asset?
 
@@ -335,19 +410,23 @@ struct QuickActionsView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 40)
                         .background(AccessibleColors.primaryInteractive)
-                        .cornerRadius(8)
+                        .cornerRadius(10)
                 }
                 
-                Button(action: { 
-                    selectedAsset = goalAssets.first
-                    showingAddTransaction = selectedAsset != nil
+                Button(action: {
+                    if goalAssets.count <= 1 {
+                        selectedAsset = goalAssets.first
+                        showingAddTransaction = selectedAsset != nil
+                    } else {
+                        showingAssetPicker = true
+                    }
                 }) {
                     label(icon: "arrow.down.circle.fill", title: "Add Transaction")
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 40)
                         .background(goalAssets.isEmpty ? Color.gray.opacity(0.4) : AccessibleColors.success)
-                        .cornerRadius(8)
+                        .cornerRadius(10)
                 }
                 .disabled(goalAssets.isEmpty)
                 
@@ -357,16 +436,47 @@ struct QuickActionsView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 40)
                         .background(AccessibleColors.warning)
-                        .cornerRadius(8)
+                        .cornerRadius(10)
                 }
             }
         }
         .padding()
-        .background(.regularMaterial)
-        .cornerRadius(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.regularMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                )
+        )
+        .cornerRadius(16)
         .sheet(isPresented: $showingAddAsset) { AddAssetView(goal: goal) }
         .sheet(isPresented: $showingAddTransaction) {
             if let asset = selectedAsset { AddTransactionView(asset: asset) }
+        }
+        .sheet(isPresented: $showingAssetPicker) {
+            NavigationView {
+                List(goalAssets, id: \.id) { asset in
+                    Button(action: {
+                        selectedAsset = asset
+                        showingAssetPicker = false
+                        showingAddTransaction = true
+                    }) {
+                        HStack {
+                            Image(systemName: "bitcoinsign.circle")
+                            Text(asset.currency)
+                            Spacer()
+                            if let addr = asset.address { Text(addr).font(.caption2).foregroundColor(.secondary) }
+                        }
+                    }
+                }
+                .navigationTitle("Select Asset")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { showingAssetPicker = false }
+                    }
+                }
+            }
         }
         .sheet(isPresented: $showingEditGoal) { EditGoalView(goal: goal, modelContext: modelContext) }
     }
@@ -386,6 +496,8 @@ struct QuickActionsView: View {
 struct RecentActivityView: View {
     let goal: Goal
     @ObservedObject var viewModel: DashboardViewModel
+    @State private var showingAssetPicker = false
+    @State private var selectedAsset: Asset?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -425,11 +537,42 @@ struct RecentActivityView: View {
                     .padding(.vertical, 4)
                     Divider()
                 }
+                Button(action: { showingAssetPicker = true }) {
+                    HStack(spacing: 6) {
+                        Text("View All")
+                        Image(systemName: "chevron.right").font(.caption2)
+                    }
+                    .font(.caption)
+                    .foregroundColor(.accessiblePrimary)
+                }
             }
         }
         .padding()
-        .background(.regularMaterial)
-        .cornerRadius(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.regularMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                )
+        )
+        .cornerRadius(16)
+        .sheet(isPresented: $showingAssetPicker) {
+            NavigationView {
+                List(goal.allocatedAssets, id: \.id) { asset in
+                    NavigationLink(destination: TransactionHistoryView(asset: asset)) {
+                        HStack {
+                            Image(systemName: "bitcoinsign.circle")
+                            Text(asset.currency)
+                            Spacer()
+                            if let addr = asset.address { Text(addr).font(.caption2).foregroundColor(.secondary) }
+                        }
+                    }
+                }
+                .navigationTitle("Assets")
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { showingAssetPicker = false } } }
+            }
+        }
     }
 }
 

@@ -9,13 +9,12 @@ import Foundation
 import SwiftUI
 
 // MARK: - Balance History
-struct BalanceHistoryPoint: Identifiable, ChartPoint {
+struct BalanceHistoryPoint: Identifiable {
     let id = UUID()
     let date: Date
     let balance: Double
     let currency: String
     
-    // ChartPoint conformance
     var value: Double { balance }
     var displayValue: String { String(format: "%.2f", balance) }
     var accessibilityLabel: String {
@@ -67,14 +66,13 @@ struct ForecastPoint: Identifiable {
 }
 
 // MARK: - Heatmap Data
-struct HeatmapDay: Identifiable, ChartPoint {
+struct HeatmapDay: Identifiable {
     let id = UUID()
     let date: Date
     let value: Double
     let intensity: Double // 0.0 to 1.0
     let transactionCount: Int // Number of transactions on this day
     
-    // ChartPoint conformance
     var displayValue: String { "\(transactionCount) txns" }
     var accessibilityLabel: String {
         "\(date.formatted(.dateTime.month().day())): \(transactionCount) transactions, \(String(format: "%.1f", value)) volume"
@@ -82,24 +80,24 @@ struct HeatmapDay: Identifiable, ChartPoint {
     
     var color: Color {
         if transactionCount == 0 {
-            return AccessibleColors.lightBackground
+            return Color.gray.opacity(0.1)
         }
         
-        // Use accessible colors based on transaction count with intensity scaling
+        // Use color based on transaction count with intensity scaling
         let baseColor: Color
         switch transactionCount {
         case 1:
-            baseColor = AccessibleColors.chartColor(at: 0) // Blue
+            baseColor = .blue
         case 2:
-            baseColor = AccessibleColors.chartColor(at: 1) // Green  
+            baseColor = .green
         case 3:
-            baseColor = AccessibleColors.chartColor(at: 2) // Orange
+            baseColor = .orange
         case 4:
-            baseColor = AccessibleColors.chartColor(at: 3) // Purple
+            baseColor = .purple
         case 5...9:
-            baseColor = AccessibleColors.chartColor(at: 4) // Red
+            baseColor = .red
         default: // 10+
-            baseColor = AccessibleColors.achievement // High activity gold
+            baseColor = .yellow
         }
         
         // Scale opacity based on intensity (0.3 minimum for visibility, up to 1.0)
@@ -108,7 +106,7 @@ struct HeatmapDay: Identifiable, ChartPoint {
 }
 
 // MARK: - Dashboard Widget Types
-enum DashboardWidgetType: String, CaseIterable {
+enum DashboardWidgetType: String, CaseIterable, Codable {
     case progressRing = "Progress Ring"
     case lineChart = "Balance History"
     case stackedBar = "Asset Composition"
@@ -129,13 +127,13 @@ enum DashboardWidgetType: String, CaseIterable {
 }
 
 // MARK: - Dashboard Widget Configuration
-struct DashboardWidget: Identifiable {
-    let id = UUID()
+struct DashboardWidget: Identifiable, Codable, Equatable {
+    let id: UUID
     let type: DashboardWidgetType
     var size: WidgetSize = .medium
     var position: Int
     
-    enum WidgetSize {
+    enum WidgetSize: String, Codable {
         case small  // 1x1
         case medium // 2x1
         case large  // 2x2
@@ -159,6 +157,17 @@ struct DashboardWidget: Identifiable {
             }
         }
     }
+
+    enum CodingKeys: String, CodingKey { case id, type, size, position }
+
+    init(id: UUID = UUID(), type: DashboardWidgetType, size: WidgetSize = .medium, position: Int) {
+        self.id = id
+        self.type = type
+        self.size = size
+        self.position = position
+    }
+
+    // Manual Codable init provided above for stable encoding; synthesized decoding works.
 }
 
 // MARK: - Chart Time Range

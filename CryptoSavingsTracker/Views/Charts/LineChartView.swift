@@ -15,6 +15,7 @@ struct LineChartView: View {
     let showLegend: Bool
     let animateOnAppear: Bool
     let targetValue: Double
+    let onSelectedPoint: ((BalanceHistoryPoint?) -> Void)?
     
     init(
         dataPoints: [BalanceHistoryPoint],
@@ -22,7 +23,8 @@ struct LineChartView: View {
         showGrid: Bool = true,
         showLegend: Bool = true,
         animateOnAppear: Bool = true,
-        targetValue: Double = 0
+        targetValue: Double = 0,
+        onSelectedPoint: ((BalanceHistoryPoint?) -> Void)? = nil
     ) {
         self.dataPoints = dataPoints
         self._selectedTimeRange = State(initialValue: timeRange)
@@ -30,6 +32,7 @@ struct LineChartView: View {
         self.showLegend = showLegend
         self.animateOnAppear = animateOnAppear
         self.targetValue = targetValue
+        self.onSelectedPoint = onSelectedPoint
     }
     
     private var filteredData: [BalanceHistoryPoint] {
@@ -92,7 +95,8 @@ struct LineChartView: View {
                 dataPoints: filteredData,
                 targetValue: targetValue,
                 currency: currency,
-                height: 250
+                height: 250,
+                onSelectionChange: onSelectedPoint
             )
             
             // Legend

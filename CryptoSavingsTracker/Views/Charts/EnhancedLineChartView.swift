@@ -13,7 +13,10 @@ struct EnhancedLineChartView: View, InteractiveChart {
     let targetValue: Double
     let currency: String
     let height: CGFloat
-    
+    let overlaySeries: [BalanceHistoryPoint]?
+    let overlayColor: Color?
+    let onSelectionChange: ((BalanceHistoryPoint?) -> Void)?
+
     @State var selectedPoint: BalanceHistoryPoint?
     @State var hoveredPoint: BalanceHistoryPoint?
     @State private var hoverLocation: CGPoint = .zero
@@ -24,12 +27,18 @@ struct EnhancedLineChartView: View, InteractiveChart {
         dataPoints: [BalanceHistoryPoint],
         targetValue: Double,
         currency: String,
-        height: CGFloat = 200
+        height: CGFloat = 200,
+        onSelectionChange: ((BalanceHistoryPoint?) -> Void)? = nil,
+        overlaySeries: [BalanceHistoryPoint]? = nil,
+        overlayColor: Color? = nil
     ) {
         self.dataPoints = dataPoints
         self.targetValue = targetValue
         self.currency = currency
         self.height = height
+        self.onSelectionChange = onSelectionChange
+        self.overlaySeries = overlaySeries
+        self.overlayColor = overlayColor
     }
     
     private var sortedPoints: [BalanceHistoryPoint] {
@@ -68,11 +77,19 @@ struct EnhancedLineChartView: View, InteractiveChart {
                     // Target line
                     targetLine(chartWidth: chartWidth, chartHeight: chartHeight)
                     
-                    // Data line with gradient
-                    dataLine(chartWidth: chartWidth, chartHeight: chartHeight)
-                    
-                    // Data points with hover interaction
-                    dataPointsWithHover(chartWidth: chartWidth, chartHeight: chartHeight)
+                // Data line with gradient
+                dataLine(chartWidth: chartWidth, chartHeight: chartHeight)
+                
+                // Optional overlay series (e.g., What‑If)
+                if let overlay = overlaySeries, let color = overlayColor, !overlay.isEmpty {
+                    overlayLine(overlay,
+                                color: color,
+                                chartWidth: chartWidth,
+                                chartHeight: chartHeight)
+                }
+                
+                // Data points with hover interaction
+                dataPointsWithHover(chartWidth: chartWidth, chartHeight: chartHeight)
 
                     // Crosshair + tooltip for active point (hovered or selected)
                     if let active = hoveredPoint ?? selectedPoint {
@@ -96,6 +113,7 @@ struct EnhancedLineChartView: View, InteractiveChart {
                         let idx = max(0, min(sortedPoints.count - 1, Int(round(ratio * CGFloat(sortedPoints.count - 1)))))
                         let active = sortedPoints[idx]
                         selectedPoint = active
+                        onSelectionChange?(selectedPoint)
                         isDragging = true
                         // Update hover location for tooltip positioning
                         let pts = chartPoints(chartWidth: chartWidth, chartHeight: chartHeight)
@@ -103,10 +121,40 @@ struct EnhancedLineChartView: View, InteractiveChart {
                     }
                     .onEnded { _ in
                         isDragging = false
+                        onSelectionChange?(selectedPoint)
                     }
             )
         }
         .frame(height: height + 30) // Extra space for axis labels
+    }
+    
+    @ViewBuilder
+    private func overlayLine(_ series: [BalanceHistoryPoint],
+                             color: Color,
+                             chartWidth: CGFloat,
+                             chartHeight: CGFloat) -> some View {
+        let dates = (sortedPoints + series).map { $0.date }
+        if let minDate = dates.min(), let maxDate = dates.max(), minDate < maxDate {
+            let minV = min(minValue, series.map { $0.balance }.min() ?? minValue)
+            let maxV = max(maxValue, series.map { $0.balance }.max() ?? maxValue)
+            let valueRange = max(maxV - minV, 1)
+            let points = series.sorted { $0.date < $1.date }.map { p -> CGPoint in
+                let xRatio = p.date.timeIntervalSince(minDate) / max(1, maxDate.timeIntervalSince(minDate))
+                let x = chartPadding + chartWidth * CGFloat(xRatio)
+                let yRatio = (p.balance - minV) / valueRange
+                let y = chartPadding + chartHeight * (1.0 - CGFloat(yRatio))
+                return CGPoint(x: x, y: y)
+            }
+            Path { path in
+                if let first = points.first {
+                    path.move(to: first)
+                    for p in points.dropFirst() { path.addLine(to: p) }
+                }
+            }
+            .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [6,4]))
+        } else {
+            EmptyView()
+        }
     }
     
     @ViewBuilder
@@ -411,12 +459,14 @@ struct EnhancedLineChartView: View, InteractiveChart {
         case .tap(let point):
             if let balancePoint = point as? BalanceHistoryPoint {
                 selectedPoint = selectedPoint?.id == balancePoint.id ? nil : balancePoint
+                onSelectionChange?(selectedPoint)
                 interactionFeedback(for: event)
             }
         case .longPress(let point):
             if let balancePoint = point as? BalanceHistoryPoint {
                 selectedPoint = balancePoint
                 showingPointDetails = true
+                onSelectionChange?(selectedPoint)
                 interactionFeedback(for: event)
             }
         case .hover(let point):
@@ -427,10 +477,12 @@ struct EnhancedLineChartView: View, InteractiveChart {
             } else {
                 hoveredPoint = nil
             }
+            onSelectionChange?(selectedPoint)
         case .doubleTap(let point):
             if let balancePoint = point as? BalanceHistoryPoint {
                 selectedPoint = balancePoint
                 showingPointDetails = true
+                onSelectionChange?(selectedPoint)
                 interactionFeedback(for: event)
             }
         default:

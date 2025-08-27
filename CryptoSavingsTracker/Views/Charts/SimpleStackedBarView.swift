@@ -58,7 +58,7 @@ struct SimpleStackedBarView: View {
                 GeometryReader { geometry in
                     HStack(spacing: 0) {
                         ForEach(sortedAssets) { asset in
-                            Rectangle()
+                            let slice = Rectangle()
                                 .fill(asset.color)
                                 .frame(width: geometry.size.width * (asset.percentage / 100))
                                 .onTapGesture {
@@ -66,6 +66,15 @@ struct SimpleStackedBarView: View {
                                         selectedAsset = selectedAsset?.id == asset.id ? nil : asset
                                     }
                                 }
+                            #if os(macOS)
+                            HoverTooltipView(
+                                title: asset.currency,
+                                value: String(format: "%.2f %@", asset.value, currency),
+                                description: String(format: "%.1f%% of portfolio", asset.percentage)
+                            ) { slice }
+                            #else
+                            slice
+                            #endif
                         }
                     }
                     .frame(height: 40)
@@ -81,7 +90,7 @@ struct SimpleStackedBarView: View {
                 HStack(alignment: .bottom, spacing: 8) {
                     ForEach(sortedAssets.prefix(6)) { asset in
                         VStack(spacing: 4) {
-                            Rectangle()
+                            let bar = Rectangle()
                                 .fill(asset.color)
                                 .frame(width: 40, height: max(20, asset.percentage * 2))
                                 .cornerRadius(4)
@@ -90,6 +99,15 @@ struct SimpleStackedBarView: View {
                                         selectedAsset = selectedAsset?.id == asset.id ? nil : asset
                                     }
                                 }
+                            #if os(macOS)
+                            HoverTooltipView(
+                                title: asset.currency,
+                                value: String(format: "%.2f %@", asset.value, currency),
+                                description: String(format: "%.1f%% of portfolio", asset.percentage)
+                            ) { bar }
+                            #else
+                            bar
+                            #endif
                             
                             Text(asset.currency)
                                 .font(.caption2)

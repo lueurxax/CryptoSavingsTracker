@@ -15,7 +15,10 @@ struct DashboardView: View {
     @State private var selectedGoal: Goal?
     @State private var showingTrendChart = false
     @State private var showingActionSheet = false
-    
+    @State private var showingCustomize = false
+    @AppStorage("dashboard_widgets") private var widgetsJSON: String = ""
+    @State private var widgets: [DashboardWidget] = []
+    @StateObject private var widgetsViewModel = DIContainer.shared.makeDashboardViewModel()
     private var isCompact: Bool {
 #if os(iOS)
         return horizontalSizeClass == .compact
@@ -46,6 +49,8 @@ struct DashboardView: View {
                         VStack(spacing: 20) {
                                 // Hero Progress Section
                             HeroProgressView(goal: currentGoal)
+                            // Enhanced Stats
+                            MobileStatsSection(goal: currentGoal)
                             
                                 // Balance Trend Chart - Always Visible
                             ChartSection(goal: currentGoal)
@@ -53,26 +58,26 @@ struct DashboardView: View {
                                 // Insights Widget
                             MobileInsightsSection(goal: currentGoal)
                             
-                                // Forecast Widget
+                            // Forecast Widget
                             MobileForecastSection(goal: currentGoal)
+
+                            // Custom Widgets Grid (persisted)
+                            if !widgets.isEmpty {
+                                CustomWidgetsGrid(goal: currentGoal, viewModel: widgetsViewModel, widgets: widgets)
+                            }
                         }
                         .padding(.top, 8)
                         .padding(.horizontal, 16)
                     } else {
-                            // Desktop/iPad layout
+                            // Desktop/iPad layout - Use the enhanced dashboard
                         VStack(spacing: 20) {
-                                // Hero Progress Section
-                            HeroProgressView(goal: currentGoal)
-                                .padding(.horizontal, 16)
-                            
-                                // Balance Trend Chart - Always Visible
-                            TrendSparklineView(goal: currentGoal)
-                                .padding(.horizontal, 16)
-                            
-                                // Forecast Widget
-                            DesktopForecastSection(goal: currentGoal)
-                                .padding(.horizontal, 16)
+                            GoalDashboardView(goal: currentGoal)
+                            // Custom Widgets Grid (persisted)
+                            if !widgets.isEmpty {
+                                CustomWidgetsGrid(goal: currentGoal, viewModel: widgetsViewModel, widgets: widgets)
+                            }
                         }
+                        .padding(.horizontal, 16)
                         .padding(.vertical)
                     }
                 } else {
@@ -92,9 +97,22 @@ struct DashboardView: View {
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingCustomize = true
+                } label: {
+                    Label("Customize", systemImage: "slider.horizontal.3")
+                }
+            }
+        }
         .onAppear {
             if selectedGoal == nil && !goals.isEmpty {
                 selectedGoal = goals.first
+            }
+            // Load persisted widgets (if any)
+            if widgets.isEmpty {
+                loadWidgets()
             }
         }
 #if os(iOS)
@@ -110,6 +128,33 @@ struct DashboardView: View {
             MacGoalSwitcherSheet(goals: goals, selectedGoal: $selectedGoal)
         }
 #endif
+        .sheet(isPresented: $showingCustomize) {
+            DashboardCustomizationView(widgets: $widgets)
+        }
+        .onChange(of: widgets) { _, _ in
+            persistWidgets()
+        }
+    }
+
+    private func loadWidgets() {
+        if let data = widgetsJSON.data(using: .utf8),
+           let decoded = try? JSONDecoder().decode([DashboardWidget].self, from: data) {
+            widgets = decoded
+        } else {
+            // Default starter layout
+            widgets = [
+                DashboardWidget(type: .summary, position: 0),
+                DashboardWidget(type: .forecast, position: 1),
+                DashboardWidget(type: .lineChart, position: 2)
+            ]
+            persistWidgets()
+        }
+    }
+
+    private func persistWidgets() {
+        if let data = try? JSONEncoder().encode(widgets) {
+            widgetsJSON = String(data: data, encoding: .utf8) ?? ""
+        }
     }
     
 #if os(iOS)
@@ -540,6 +585,49 @@ struct SummaryStatsView: View {
     }
 }
 
+// MARK: - Custom Widgets Grid
+struct CustomWidgetsGrid: View {
+    let goal: Goal
+    @ObservedObject var viewModel: DashboardViewModel
+    let widgets: [DashboardWidget]
+    @State private var dashboardTotal: Double = 0
+    @State private var dashboardProgress: Double = 0
+
+    private var columns: [GridItem] { Array(repeating: GridItem(.flexible(minimum: 120, maximum: .infinity)), count: 4) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Custom Widgets")
+                .font(.headline)
+                .fontWeight(.semibold)
+            
+            LazyVGrid(columns: columns, spacing: 12) {
+                ForEach(widgets.sorted { $0.position < $1.position }) { widget in
+                    DashboardWidgetView(
+                        widget: widget,
+                        goal: goal,
+                        dashboardTotal: dashboardTotal,
+                        dashboardProgress: dashboardProgress,
+                        viewModel: viewModel,
+                        isEditMode: false
+                    )
+                    .gridCellColumns(widget.size.columns)
+                }
+            }
+        }
+        .task {
+            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
+            let calc = DIContainer.shared.goalCalculationService
+            let total = await calc.getCurrentTotal(for: goal)
+            let progress = await calc.getProgress(for: goal)
+            await MainActor.run {
+                dashboardTotal = total
+                dashboardProgress = progress
+            }
+        }
+    }
+}
+
 struct StatCard: View {
     let title: String
     let value: String
@@ -556,30 +644,33 @@ struct StatCard: View {
     }
     
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: icon)
-                    .foregroundColor(color)
-                    .font(.caption)
-                Spacer()
-                if let tooltip = tooltip {
-                    tooltip
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(0.1))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: icon)
+                        .foregroundColor(color)
+                        .font(.callout)
                 }
+                Spacer()
+                if let tooltip = tooltip { tooltip }
             }
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
-                    .font(.headline)
+                    .font(.title2)
                     .fontWeight(.bold)
                 Text(title)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundColor(.accessibleSecondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(8)
-        .background(Color.gray.opacity(0.03))
-        .cornerRadius(8)
+        .padding()
+        .background(.regularMaterial)
+        .cornerRadius(12)
     }
 }
 
@@ -612,19 +703,28 @@ struct DashboardCustomizationView: View {
                 }
                 
                 Section("Current Widgets") {
-                    ForEach(widgets) { widget in
-                        HStack {
-                            Image(systemName: widget.type.icon)
-                                .foregroundColor(.gray)
-                            Text(widget.type.rawValue)
-                            Spacer()
-                            Text(widget.size == .small ? "S" : widget.size == .medium ? "M" : widget.size == .large ? "L" : "Full")
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.gray.opacity(0.2))
-                                .cornerRadius(4)
+                    ForEach($widgets, id: \.id) { $widget in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: widget.type.icon)
+                                    .foregroundColor(.gray)
+                                Text(widget.type.rawValue)
+                                Spacer()
+                                // Size selector
+                                Picker("Size", selection: $widget.size) {
+                                    Text("S").tag(DashboardWidget.WidgetSize.small)
+                                    Text("M").tag(DashboardWidget.WidgetSize.medium)
+                                    Text("L").tag(DashboardWidget.WidgetSize.large)
+                                    Text("Full").tag(DashboardWidget.WidgetSize.full)
+                                }
+                                .pickerStyle(.segmented)
+                                .frame(maxWidth: 220)
+                            }
+                            Text("Span: \(widget.size.columns) columns, \(widget.size.rows) rows")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
                         }
+                        .padding(.vertical, 4)
                     }
                     .onDelete { indexSet in
                         widgets.remove(atOffsets: indexSet)
@@ -646,6 +746,15 @@ struct DashboardCustomizationView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Done") {
                         dismiss()
+                    }
+                }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Reset") {
+                        widgets = [
+                            DashboardWidget(type: .summary, size: .medium, position: 0),
+                            DashboardWidget(type: .forecast, size: .full, position: 1),
+                            DashboardWidget(type: .lineChart, size: .full, position: 2)
+                        ]
                     }
                 }
             }
@@ -905,65 +1014,10 @@ struct MacGoalSwitcherSheet: View {
 struct DashboardViewForGoal: View {
     let goal: Goal
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var showingTrendChart = false
-    
-    private var isCompact: Bool {
-#if os(iOS)
-        return horizontalSizeClass == .compact
-#else
-        return horizontalSizeClass == .compact
-#endif
-    }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                if isCompact {
-                    Spacer().frame(height: 16)
-                }
-                
-                // Mobile layout
-                if isCompact {
-                    VStack(spacing: 20) {
-                        // Hero Progress Section
-                        HeroProgressView(goal: goal)
-                        
-                        // Key Metrics Grid
-                        DashboardMetricsGrid(goal: goal)
-                        
-                        // Balance Trend Chart - Always Visible
-                        ChartSection(goal: goal)
-                        
-                        // Forecast Widget
-                        MobileForecastSection(goal: goal)
-                    }
-                    .padding(.top, 8)
-                    .padding(.horizontal, 16)
-                } else {
-                    // Desktop/iPad layout
-                    VStack(spacing: 20) {
-                        // Hero Progress Section
-                        HeroProgressView(goal: goal)
-                            .padding(.horizontal, 16)
-                        
-                        // Key Metrics Grid
-                        DashboardMetricsGrid(goal: goal)
-                            .padding(.horizontal, 16)
-                        
-                        // Balance Trend Chart - Always Visible
-                        TrendSparklineView(goal: goal)
-                            .padding(.horizontal, 16)
-                        
-                        // Forecast Widget
-                        DesktopForecastSection(goal: goal)
-                            .padding(.horizontal, 16)
-                    }
-                    .padding(.vertical)
-                }
-            }
-            .padding(.horizontal, isCompact ? 16 : 0)
-        }
+        // Use the enhanced GoalDashboardView which includes all the improved components
+        GoalDashboardView(goal: goal)
     }
 }
 
@@ -976,6 +1030,18 @@ struct MobileInsightsSection: View {
     
     var body: some View {
         InsightsView(viewModel: viewModel, goal: goal)
+            .task {
+                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
+            }
+    }
+}
+
+struct MobileStatsSection: View {
+    let goal: Goal
+    @StateObject private var viewModel = DIContainer.shared.makeDashboardViewModel()
+    
+    var body: some View {
+        EnhancedStatsGrid(viewModel: viewModel, goal: goal)
             .task {
                 await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
             }

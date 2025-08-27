@@ -15,6 +15,8 @@ struct ForecastChartView: View {
     let currency: String
     let showConfidenceInterval: Bool
     let animateOnAppear: Bool
+    let overlaySeries: [BalanceHistoryPoint]?
+    let overlayColor: Color
     
     @State private var selectedForecastType: ForecastType = .realistic
     
@@ -25,7 +27,9 @@ struct ForecastChartView: View {
         targetDate: Date,
         currency: String,
         showConfidenceInterval: Bool = true,
-        animateOnAppear: Bool = true
+        animateOnAppear: Bool = true,
+        overlaySeries: [BalanceHistoryPoint]? = nil,
+        overlayColor: Color = .purple
     ) {
         self.historicalData = historicalData
         self.forecastData = forecastData
@@ -34,6 +38,8 @@ struct ForecastChartView: View {
         self.currency = currency
         self.showConfidenceInterval = showConfidenceInterval
         self.animateOnAppear = animateOnAppear
+        self.overlaySeries = overlaySeries
+        self.overlayColor = overlayColor
     }
     
     enum ForecastType: String, CaseIterable {
@@ -83,6 +89,27 @@ struct ForecastChartView: View {
                     .pickerStyle(.segmented)
                     .frame(minWidth: 240, minHeight: 44)
                 }
+                
+                // Overlay legend if present
+                if let overlay = overlaySeries, !overlay.isEmpty {
+                    HStack(spacing: 12) {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .strokeBorder(overlayColor, lineWidth: 2)
+                                .frame(width: 10, height: 10)
+                                .overlay(
+                                    Rectangle()
+                                        .fill(overlayColor)
+                                        .frame(width: 10, height: 2)
+                                        .offset(y: 0)
+                                )
+                            Text("What‑If")
+                                .font(.caption2)
+                                .foregroundColor(.accessibleSecondary)
+                        }
+                        Spacer()
+                    }
+                }
             }
             
             // Simple forecast display using line chart for historical + selected forecast
@@ -106,7 +133,10 @@ struct ForecastChartView: View {
                 dataPoints: combinedData,
                 targetValue: targetValue,
                 currency: currency,
-                height: 300
+                height: 300,
+                onSelectionChange: nil,
+                overlaySeries: overlaySeries,
+                overlayColor: overlayColor
             )
             
             // Target line indicator (visual overlay)
