@@ -142,6 +142,37 @@ class DIContainer: ObservableObject {
             return svc
         }
     }
+
+    // Allocation service (v2.0)
+    private var _allocationService: AllocationService?
+    func makeAllocationService(modelContext: ModelContext) -> AllocationService {
+        if let service = _allocationService {
+            return service
+        }
+        let service = AllocationService(modelContext: modelContext)
+        _allocationService = service
+        return service
+    }
+
+    // Contribution service (v2.0)
+    private var _contributionService: ContributionService?
+    func makeContributionService(modelContext: ModelContext) -> ContributionService {
+        if let service = _contributionService {
+            return service
+        }
+        let service = ContributionService(modelContext: modelContext)
+        _contributionService = service
+        return service
+    }
+
+    // Migration services (v2.0)
+    func makeMigrationService(modelContext: ModelContext) -> MigrationService {
+        return MigrationService(modelContext: modelContext)
+    }
+
+    func makeAllocationMigrationService(modelContext: ModelContext) -> AllocationMigrationService {
+        return AllocationMigrationService(modelContext: modelContext)
+    }
     
     private var _monthlyPlanningService: MonthlyPlanningServiceProtocol?
     var monthlyPlanningService: MonthlyPlanningServiceProtocol {
@@ -149,7 +180,7 @@ class DIContainer: ObservableObject {
             if let service = _monthlyPlanningService {
                 return service
             }
-            
+
             do {
                 let service = try createMonthlyPlanningService()
                 _monthlyPlanningService = service
@@ -161,7 +192,18 @@ class DIContainer: ObservableObject {
             }
         }
     }
-    
+
+    private var _executionTrackingService: ExecutionTrackingService?
+    func executionTrackingService(modelContext: ModelContext) -> ExecutionTrackingService {
+        if let service = _executionTrackingService {
+            return service
+        }
+
+        let service = ExecutionTrackingService(modelContext: modelContext)
+        _executionTrackingService = service
+        return service
+    }
+
     // MARK: - Repository Pattern Implementation
     func makeGoalRepository(modelContext: ModelContext) -> GoalRepository {
         return GoalRepository(modelContext: modelContext)
