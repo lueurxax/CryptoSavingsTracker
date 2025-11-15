@@ -11,7 +11,7 @@ import Foundation
 
 /// Per-month execution tracking record that links to existing MonthlyPlans
 @Model
-final class MonthlyExecutionRecord: @unchecked Sendable {
+final class MonthlyExecutionRecord {
     @Attribute(.unique) var id: UUID
     var monthLabel: String              // "2025-09"
     var statusRawValue: String          // For SwiftData predicate support

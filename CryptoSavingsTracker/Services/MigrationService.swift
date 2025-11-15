@@ -10,11 +10,13 @@ import Foundation
 
 /// Simple schema versioning
 enum SchemaVersion: Int, Comparable {
-    case v1 = 1
-    case v2 = 2
-    
-    static var latest: SchemaVersion { .v2 }
-    
+    case v1 = 1  // Direct Asset->Goal relationship
+    case v2 = 2  // AssetAllocation join table (percentage-based)
+    case v3 = 3  // Fixed-amount allocations
+    case v4 = 4  // Execution tracking (executionRecordId in Contribution)
+
+    static var latest: SchemaVersion { .v4 }
+
     static func < (lhs: SchemaVersion, rhs: SchemaVersion) -> Bool {
         lhs.rawValue < rhs.rawValue
     }
@@ -34,10 +36,21 @@ class MigrationService {
     func performMigrationIfNeeded() async throws {
         let currentVersion = getCurrentSchemaVersion()
         let targetVersion = SchemaVersion.latest
-        
+
         if currentVersion < targetVersion {
             print("Migration needed from version \(currentVersion.rawValue) to \(targetVersion.rawValue)")
-            try await migrateToV2()
+
+            // Perform migrations in sequence
+            if currentVersion < .v2 {
+                try await migrateToV2()
+            }
+            if currentVersion < .v3 {
+                try await migrateToV3()
+            }
+            if currentVersion < .v4 {
+                try await migrateToV4()
+            }
+
             setSchemaVersion(targetVersion)
         }
     }
@@ -85,7 +98,40 @@ class MigrationService {
         // Set migration completed flag
         UserDefaults.standard.set(true, forKey: "V2MigrationCompleted")
     }
-    
+
+    /// Migrate from V2 (percentage-based allocations) to V3 (fixed-amount allocations)
+    private func migrateToV3() async throws {
+        print("Starting migration to V3 (fixed-amount allocations)")
+        let allocationMigration = AllocationMigrationService(modelContext: modelContext)
+        try await allocationMigration.migrateToFixedAllocations()
+
+        // Validate migration
+        let validation = try await allocationMigration.validateMigration()
+        print(validation.summary)
+
+        if !validation.isValid {
+            print("⚠️ Migration validation found issues, but continuing...")
+        }
+    }
+
+    /// Migrate from V3 to V4 (add executionRecordId to Contribution)
+    private func migrateToV4() async throws {
+        print("Starting migration to V4 (execution tracking)")
+
+        // The executionRecordId field is optional, so existing Contribution records
+        // don't need any data transformation - they'll just have nil values
+        // This migration is essentially a no-op for data, but we track it for versioning
+
+        let descriptor = FetchDescriptor<Contribution>()
+        let contributions = try modelContext.fetch(descriptor)
+
+        print("Migration to V4 completed. \(contributions.count) existing contributions will have nil executionRecordId.")
+        print("✓ Contribution model now supports execution tracking")
+
+        // Set migration completed flag
+        UserDefaults.standard.set(true, forKey: "V4MigrationCompleted")
+    }
+
     /// Get the current schema version from UserDefaults
     private func getCurrentSchemaVersion() -> SchemaVersion {
         let version = UserDefaults.standard.integer(forKey: "SchemaVersion")

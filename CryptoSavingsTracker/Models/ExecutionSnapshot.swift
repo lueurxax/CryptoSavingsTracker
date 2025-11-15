@@ -11,7 +11,7 @@ import Foundation
 
 /// Captures the state of all MonthlyPlans when execution starts
 @Model
-final class ExecutionSnapshot: @unchecked Sendable {
+final class ExecutionSnapshot {
     @Attribute(.unique) var id: UUID
     var capturedAt: Date
     var totalPlanned: Double            // Sum of all goals' planned amounts

@@ -150,6 +150,15 @@ class DIContainer: ObservableObject {
             return service
         }
         let service = AllocationService(modelContext: modelContext)
+
+        // Wire up execution tracking (v2.1)
+        let contributionService = makeContributionService(modelContext: modelContext)
+        let executionService = executionTrackingService(modelContext: modelContext)
+        service.setExecutionTracking(
+            contributionService: contributionService,
+            executionTrackingService: executionService
+        )
+
         _allocationService = service
         return service
     }
