@@ -646,39 +646,100 @@ func testAllStates() async throws {
 
 ## Data Models
 
-> **UX Note**: While internal code uses `planning/active/completed`, the enum values remain `draft/executing/closed` for backward compatibility. The UI layer translates these to user-friendly terms.
+> **Architecture Note**: We use an **additive approach** to preserve the existing `MonthlyPlan` model (per-goal planning preferences). The new `MonthlyExecutionRecord` model adds execution tracking **on top** of existing functionality without breaking changes.
 
-### 1. MonthlyPlan (Enhanced)
+> **UX Note**: While internal code uses `draft/executing/closed`, the UI layer translates these to "Planning/Active/Completed".
+
+### 1. MonthlyPlan (EXISTING - Keep Unchanged)
+
+**Current Architecture**: Per-goal planning with user preferences (flex state, custom amounts, skip/protect).
+
+```swift
+// EXISTING MODEL - NO CHANGES
+@Model
+final class MonthlyPlan {
+    @Attribute(.unique) var id: UUID
+    var goalId: UUID                    // One plan per goal
+    var requiredMonthly: Double
+    var remainingAmount: Double
+    var monthsRemaining: Int
+    var currency: String
+    var statusRawValue: String          // RequirementStatus (onTrack/attention/critical)
+
+    // User Preferences (PRESERVED)
+    var flexStateRawValue: String       // protected/flexible/skipped
+    var customAmount: Double?           // User override
+    var isProtected: Bool
+    var isSkipped: Bool
+
+    // Metadata
+    var createdDate: Date
+    var lastModifiedDate: Date
+    var lastCalculated: Date
+
+    // ... existing business logic preserved
+}
+```
+
+**Preservation**: All current functionality remains intact - FlexAdjustmentService, Quick Actions, user preferences.
+
+### 2. MonthlyExecutionRecord (NEW - Additive)
+
+**New Architecture**: Per-month execution tracking that links to existing plans.
 
 ```swift
 @Model
-final class MonthlyPlan: @unchecked Sendable {
+final class MonthlyExecutionRecord: @unchecked Sendable {
     @Attribute(.unique) var id: UUID
     var monthLabel: String              // "2025-09"
-    var status: PlanStatus
+    var statusRawValue: String          // For SwiftData predicate support
     var createdAt: Date
     var startedAt: Date?                // When user clicked "Start Tracking"
-    var completedAt: Date?              // When plan was completed
+    var completedAt: Date?              // When marked complete
 
     // UX: Undo grace period
     var canUndoUntil: Date?             // 24hr window to undo state change
 
-    // Relationships
-    @Relationship(deleteRule: .cascade)
-    var requirements: [MonthlyRequirement]
+    // Link to existing plans (NOT relationship - uses goalId lookup)
+    var trackedGoalIds: Data            // Codable [UUID] - SwiftData doesn't support UUID arrays
 
+    // Snapshot
     @Relationship(deleteRule: .cascade)
-    var snapshot: MonthlyPlanSnapshot?  // Created when plan starts tracking
+    var snapshot: ExecutionSnapshot?    // Created when tracking starts
 
-    init(monthLabel: String) {
+    init(monthLabel: String, goalIds: [UUID]) {
         self.id = UUID()
         self.monthLabel = monthLabel
-        self.status = .draft
+        self.statusRawValue = ExecutionStatus.draft.rawValue
         self.createdAt = Date()
-        self.requirements = []
+
+        // Encode UUID array to Data
+        if let encoded = try? JSONEncoder().encode(goalIds) {
+            self.trackedGoalIds = encoded
+        } else {
+            self.trackedGoalIds = Data()
+        }
     }
 
-    enum PlanStatus: String, Codable {
+    // Computed property for status enum
+    var status: ExecutionStatus {
+        get {
+            ExecutionStatus(rawValue: statusRawValue) ?? .draft
+        }
+        set {
+            statusRawValue = newValue.rawValue
+        }
+    }
+
+    // Decode goal IDs when needed
+    var goalIds: [UUID] {
+        guard let decoded = try? JSONDecoder().decode([UUID].self, from: trackedGoalIds) else {
+            return []
+        }
+        return decoded
+    }
+
+    enum ExecutionStatus: String, Codable {
         case draft      // Internal: planning phase
         case executing  // Internal: active tracking
         case closed     // Internal: completed/archived
@@ -709,86 +770,75 @@ final class MonthlyPlan: @unchecked Sendable {
 }
 ```
 
-### 2. MonthlyRequirement (Enhanced)
+**Why Additive**: No migration needed, existing plans work unchanged, execution tracking is optional layer.
+
+### 3. ExecutionSnapshot (NEW)
+
+**Architecture**: Captures the state of all MonthlyPlans when execution starts. Used for historical comparison.
 
 ```swift
 @Model
-final class MonthlyRequirement: @unchecked Sendable {
-    @Attribute(.unique) var id: UUID
-    var goalId: UUID
-    var goalName: String                // Cached for historical display
-    var requiredAmount: Double          // In goal's currency
-    var customAmount: Double?           // User override
-    var isFlexible: Bool
-    var calculatedAt: Date              // When this requirement was calculated
-
-    // Execution tracking
-    var isFulfilledThisMonth: Bool      // True when contributions >= required
-
-    // Relationships
-    var plan: MonthlyPlan?
-    var goal: Goal?
-
-    // Computed
-    var effectiveAmount: Double {
-        customAmount ?? requiredAmount
-    }
-
-    init(goal: Goal, requiredAmount: Double, isFlexible: Bool) {
-        self.id = UUID()
-        self.goalId = goal.id
-        self.goalName = goal.name
-        self.requiredAmount = requiredAmount
-        self.isFlexible = isFlexible
-        self.calculatedAt = Date()
-        self.isFulfilledThisMonth = false
-    }
-}
-```
-
-### 3. MonthlyPlanSnapshot (NEW)
-
-Captures the state when user starts executing the plan. Used for historical comparison.
-
-```swift
-@Model
-final class MonthlyPlanSnapshot: @unchecked Sendable {
+final class ExecutionSnapshot: @unchecked Sendable {
     @Attribute(.unique) var id: UUID
     var capturedAt: Date
-    var totalPlanned: Double            // Sum of all requirements
-    var requirementsSnapshot: [RequirementSnapshot]
+    var totalPlanned: Double            // Sum of all goals' planned amounts
+    var snapshotData: Data              // Codable array of GoalSnapshots
 
-    // Relationships
-    var plan: MonthlyPlan?
+    // Relationship
+    var executionRecord: MonthlyExecutionRecord?
 
-    init(from plan: MonthlyPlan) {
+    init(from plans: [MonthlyPlan]) {
         self.id = UUID()
         self.capturedAt = Date()
 
-        self.requirementsSnapshot = plan.requirements.map { req in
-            RequirementSnapshot(
-                goalId: req.goalId,
-                goalName: req.goalName,
-                plannedAmount: req.effectiveAmount
+        let snapshots = plans.map { plan in
+            GoalSnapshot(
+                goalId: plan.goalId,
+                goalName: "", // Will be filled from Goal lookup
+                plannedAmount: plan.effectiveAmount,
+                currency: plan.currency,
+                flexState: plan.flexStateRawValue
             )
         }
 
-        self.totalPlanned = requirementsSnapshot.reduce(0) { $0 + $1.plannedAmount }
+        self.totalPlanned = snapshots.reduce(0) { $0 + $1.plannedAmount }
+
+        // Encode to Data for SwiftData storage
+        if let encoded = try? JSONEncoder().encode(snapshots) {
+            self.snapshotData = encoded
+        } else {
+            self.snapshotData = Data()
+        }
+    }
+
+    // Decode snapshots when needed
+    var goalSnapshots: [GoalSnapshot] {
+        guard let decoded = try? JSONDecoder().decode([GoalSnapshot].self, from: snapshotData) else {
+            return []
+        }
+        return decoded
     }
 }
 
-struct RequirementSnapshot: Codable {
+struct GoalSnapshot: Codable {
     let goalId: UUID
-    let goalName: String
+    var goalName: String
     let plannedAmount: Double
+    let currency: String
+    let flexState: String
 }
 ```
 
-### 4. Contribution (Enhanced from original proposal)
+**Architecture Note**: Uses `Data` storage with Codable instead of SwiftData relationship to avoid complexity. SwiftData doesn't support arrays of structs in relationships.
+
+### 4. Contribution (EXISTING - Minor Enhancement)
+
+**Architecture**: Model already exists with month labeling. We only need to add `executionRecordId` field.
 
 ```swift
+// EXISTING MODEL - MINOR ADDITION
 @Model
-final class Contribution: @unchecked Sendable {
+final class Contribution {
     @Attribute(.unique) var id: UUID
     var amount: Double                  // Value in goal's currency
     var assetAmount: Double?            // Original crypto amount
@@ -800,36 +850,188 @@ final class Contribution: @unchecked Sendable {
     var goal: Goal?
     var asset: Asset?
 
-    // Tracking
-    var monthLabel: String              // "2025-09" for grouping
-    var planId: UUID?                   // Link to the plan this contributed to
-    var exchangeRateSnapshot: Double?   // Historical rate
+    // Tracking (EXISTING)
+    var monthLabel: String              // "2025-09" - already exists!
+    var isPlanned: Bool                 // Already exists
+    var exchangeRateSnapshot: Double?   // Already exists
 
-    init(amount: Double, goal: Goal, asset: Asset, source: ContributionSource, monthLabel: String) {
-        self.id = UUID()
-        self.amount = amount
-        self.date = Date()
-        self.sourceType = source
-        self.goal = goal
-        self.asset = asset
-        self.monthLabel = monthLabel
-    }
+    // NEW: Link to execution tracking
+    var executionRecordId: UUID?        // Link to MonthlyExecutionRecord
 
-    static func monthLabel(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        return formatter.string(from: date)
-    }
+    // ... existing init and methods
 }
 
-enum ContributionSource: String, Codable {
+enum ContributionSource: String, Codable, Sendable {
     case manualDeposit          // User added money to asset
     case assetReallocation      // Moved between goals
     case initialAllocation      // First-time asset allocation
-    case manualEdit             // Manual edit to allocation amounts
-    // NOTE: valueAppreciation NOT included - price changes affect target, not contributions
+    case valueAppreciation      // Crypto price increase (EXISTING - but not tracked for execution)
+
+    // NOTE: For execution tracking, only manualDeposit and assetReallocation count
+    // valueAppreciation affects goal totals but isn't a "contribution to plan"
 }
 ```
+
+**Migration**: Add `executionRecordId: UUID?` field with SwiftData migration. Default to `nil` for existing records.
+
+---
+
+## Architecture Integration
+
+### Additive vs. Replacement Strategy
+
+**Decision**: Use **additive architecture** to preserve existing functionality while adding execution tracking.
+
+#### Why Additive?
+
+1. **Zero Breaking Changes**: Existing `MonthlyPlan` model unchanged
+2. **No Data Migration Risk**: New models added, existing data preserved
+3. **Gradual Rollout**: Feature can be optional/experimental initially
+4. **Preserves FlexAdjustmentService**: Current planning features work unchanged
+
+#### How It Works
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  EXISTING LAYER                         │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐             │
+│  │ MonthlyPlan │ → FlexAdj → │ Planning │             │
+│  │ (per-goal)  │    Service  │   UI     │             │
+│  └──────────┘  └──────────┘  └──────────┘             │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+                   (links to)
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│                   NEW LAYER                             │
+│  ┌─────────────────┐  ┌──────────────┐                │
+│  │MonthlyExecution │→│ Execution    │                 │
+│  │     Record      │  │   Tracking   │                 │
+│  │  (per-month)    │  │      UI      │                 │
+│  └─────────────────┘  └──────────────┘                │
+│         ↓                                               │
+│  ┌──────────────┐                                      │
+│  │ Execution    │  (snapshot of MonthlyPlans)          │
+│  │  Snapshot    │                                      │
+│  └──────────────┘                                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Service Coordination
+
+#### ExecutionTrackingService (NEW)
+
+```swift
+@MainActor
+final class ExecutionTrackingService: ObservableObject {
+    private let modelContext: ModelContext
+    private let monthlyPlanningService: MonthlyPlanningService  // EXISTING
+    private let contributionService: ContributionService         // EXISTING
+
+    // Create execution record from current plans
+    func startTracking(for monthLabel: String) async throws -> MonthlyExecutionRecord {
+        // 1. Get all current MonthlyPlans
+        let plans = try await monthlyPlanningService.getPlansForAllGoals()
+
+        // 2. Create execution record
+        let record = MonthlyExecutionRecord(
+            monthLabel: monthLabel,
+            goalIds: plans.map { $0.goalId }
+        )
+
+        // 3. Create snapshot
+        let snapshot = ExecutionSnapshot(from: plans)
+        record.snapshot = snapshot
+
+        // 4. Update status and timestamps
+        record.status = .executing
+        record.startedAt = Date()
+        record.canUndoUntil = Date().addingTimeInterval(24 * 3600)
+
+        modelContext.insert(record)
+        try modelContext.save()
+
+        return record
+    }
+
+    // Link contributions to execution record
+    func recordContribution(_ contribution: Contribution, to record: MonthlyExecutionRecord) {
+        contribution.executionRecordId = record.id
+        contribution.isPlanned = true
+        try? modelContext.save()
+    }
+
+    // Check if goal fulfilled for the month
+    func checkGoalFulfillment(goalId: UUID, in record: MonthlyExecutionRecord) async -> Bool {
+        // Get plan for this goal
+        guard let plan = try? await monthlyPlanningService.getPlan(for: goalId) else {
+            return false
+        }
+
+        // Get contributions for this goal in this month
+        let contributions = try? await contributionService.getContributions(
+            for: goalId,
+            monthLabel: record.monthLabel,
+            executionRecordId: record.id
+        )
+
+        let totalContributed = contributions?.reduce(0) { $0 + $1.amount } ?? 0
+        return totalContributed >= plan.effectiveAmount
+    }
+}
+```
+
+#### Integration Points
+
+1. **MonthlyPlanningService** (EXISTING):
+   - Continues to calculate requirements
+   - Continues to manage user preferences
+   - No changes required
+
+2. **FlexAdjustmentService** (EXISTING):
+   - Continues to work with MonthlyPlan
+   - No changes required
+
+3. **ContributionService** (EXISTING):
+   - Add method to link contributions to execution records
+   - Add method to query by execution record ID
+
+4. **AllocationService** (EXISTING):
+   - When user allocates money, trigger ExecutionTrackingService
+   - Link new contributions to active execution record
+
+### Thread Safety
+
+**Critical**: All services accessing SwiftData must use `@MainActor`:
+
+```swift
+@MainActor
+final class ExecutionTrackingService: ObservableObject { }
+
+@MainActor
+final class MonthlyPlanningService: ObservableObject { } // Already correct
+
+@MainActor
+final class ContributionService: ObservableObject { } // Already correct
+```
+
+### Predicate Patterns
+
+**Architecture Note**: SwiftData predicates can't use enums directly. Use raw value comparison:
+
+```swift
+// ❌ WRONG - Won't compile
+#Predicate<MonthlyExecutionRecord> { record in
+    record.status == .executing
+}
+
+// ✅ CORRECT - Use statusRawValue
+#Predicate<MonthlyExecutionRecord> { record in
+    record.statusRawValue == "executing"
+}
+```
+
+This requires adding `statusRawValue: String` to `MonthlyExecutionRecord` and computed property for the enum.
 
 ---
 
@@ -1778,53 +1980,66 @@ class ContributionService: ObservableObject {
 
 ### Phase 1: Data Models & Migration (Week 1)
 
-#### Tasks:
-1. **Create new models**
-   - `MonthlyPlanSnapshot.swift`
-   - Update `MonthlyPlan.swift` (add status, snapshot relationship)
-   - Update `MonthlyRequirement.swift` (add isFulfilledThisMonth)
-   - `Contribution.swift` (already created, enhance with planId)
+**Architecture**: Additive approach - create new models, preserve existing ones.
 
-2. **Create migration**
-   - Add schema version v4
-   - Migrate existing plans to DRAFT status
-   - Ensure backward compatibility
+#### Tasks:
+1. **Create new models (ADDITIVE)**
+   - `MonthlyExecutionRecord.swift` (NEW per-month tracking)
+   - `ExecutionSnapshot.swift` (NEW snapshot system)
+   - **DO NOT modify** existing `MonthlyPlan.swift`
+   - **DO NOT modify** existing `MonthlyRequirement.swift`
+
+2. **Minor enhancement to existing models**
+   - `Contribution.swift`: Add single field `executionRecordId: UUID?`
+   - SwiftData migration for this single field (low risk)
 
 3. **Update DIContainer**
-   - Register `ContributionService`
-   - Register enhanced `MonthlyPlanningService`
+   - Register `ExecutionTrackingService` (NEW)
+   - ContributionService already registered
+   - MonthlyPlanningService already registered
 
 #### Files:
-- `Models/MonthlyPlanSnapshot.swift` (NEW)
-- `Models/MonthlyPlan.swift` (MODIFY)
-- `Models/MonthlyRequirement.swift` (MODIFY)
-- `Models/Contribution.swift` (MODIFY)
-- `Services/MigrationService.swift` (MODIFY)
-- `Utilities/DIContainer.swift` (MODIFY)
+- `Models/MonthlyExecutionRecord.swift` (NEW)
+- `Models/ExecutionSnapshot.swift` (NEW)
+- `Models/Contribution.swift` (MODIFY - add 1 field)
+- `Services/MigrationService.swift` (MODIFY - add executionRecordId field)
+- `Utilities/DIContainer.swift` (MODIFY - register ExecutionTrackingService)
+
+**Migration Strategy**: Only one field added to existing model. Existing MonthlyPlan unchanged = zero risk.
 
 ### Phase 2: Service Layer (Week 2)
 
+**Architecture**: Create new ExecutionTrackingService, enhance existing services minimally.
+
 #### Tasks:
-1. **Implement ContributionService**
-   - Recording contributions
-   - Querying by goal/month
-   - History retrieval with pagination
+1. **Create ExecutionTrackingService** (NEW)
+   - Lifecycle management (draft → executing → closed)
+   - Snapshot creation from existing MonthlyPlans
+   - Link contributions to execution records
+   - Fulfillment checking logic
 
-2. **Enhance MonthlyPlanningService**
-   - Plan lifecycle management (DRAFT → EXECUTING → CLOSED)
-   - Snapshot creation
-   - Requirement calculation and updates
-   - Fulfillment checking
+2. **Enhance existing ContributionService** (MINOR)
+   - Add method: `linkToExecutionRecord(_ contribution, _ record)`
+   - Add query: `getContributions(for goalId, monthLabel, executionRecordId)`
+   - **Preserve** all existing functionality
 
-3. **Integration with existing services**
-   - AllocationService triggers contribution recording
-   - GoalCalculationService uses contributions for totals
+3. **Enhance existing AllocationService** (MINOR)
+   - Hook into ExecutionTrackingService when allocating
+   - Link new contributions to active execution record
+   - **Preserve** all existing allocation logic
+
+4. **MonthlyPlanningService** (NO CHANGES)
+   - Continues to calculate requirements
+   - Continues to manage MonthlyPlan preferences
+   - Zero modifications required
 
 #### Files:
-- `Services/ContributionService.swift` (NEW)
-- `Services/MonthlyPlanningService.swift` (MODIFY)
-- `Services/AllocationService.swift` (MODIFY - add contribution hooks)
-- `Services/GoalCalculationService.swift` (MODIFY - use contributions)
+- `Services/ExecutionTrackingService.swift` (NEW)
+- `Services/ContributionService.swift` (ENHANCE - add 2 methods)
+- `Services/AllocationService.swift` (ENHANCE - add execution hooks)
+- `Services/MonthlyPlanningService.swift` (NO CHANGES)
+
+**Thread Safety**: All new/modified services use `@MainActor` for SwiftData access.
 
 ### Phase 3: UI - Planning & Execution (Week 3)
 
