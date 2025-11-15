@@ -18,13 +18,15 @@ This document provides a comprehensive solution for separating monthly planning 
 ## Table of Contents
 
 1. [Core Concepts](#core-concepts)
-2. [Data Models](#data-models)
-3. [User Flows](#user-flows)
-4. [Sequence Diagrams](#sequence-diagrams)
-5. [UI Specifications](#ui-specifications)
-6. [Service Architecture](#service-architecture)
-7. [Implementation Plan](#implementation-plan)
-8. [Edge Cases & Validation](#edge-cases--validation)
+2. [Integration with Existing Features](#integration-with-existing-features)
+3. [Data Models](#data-models)
+4. [User Flows](#user-flows)
+5. [Sequence Diagrams](#sequence-diagrams)
+6. [UI Specifications](#ui-specifications)
+7. [Service Architecture](#service-architecture)
+8. [Implementation Plan](#implementation-plan)
+9. [Edge Cases & Validation](#edge-cases--validation)
+10. [Risk Mitigation Strategy](#risk-mitigation-strategy)
 
 ---
 
@@ -32,52 +34,619 @@ This document provides a comprehensive solution for separating monthly planning 
 
 ### The Monthly Plan Lifecycle
 
+> **UX Note**: State names use user-friendly terminology. "Planning" instead of "DRAFT", "Active" instead of "EXECUTING", "Completed" instead of "CLOSED".
+
 ```
 ┌─────────────┐
-│   DRAFT     │  Plan exists, can be edited freely
-│             │  Recalculates when goals change
+│  PLANNING   │  Review and adjust your monthly plan
+│             │  Updates automatically when goals change
+│             │  Apply flex adjustments and set preferences
 └──────┬──────┘
-       │ User clicks "Start Executing This Plan"
+       │ User clicks "Start Tracking This Month" OR auto-starts on 1st of month
        ▼
 ┌─────────────┐
-│  EXECUTING  │  Plan locked, tracking contributions
-│             │  Updates when goals/deadlines change
-│             │  Goals disappear when funded
+│   ACTIVE    │  Tracking your monthly contributions
+│  (Tracking) │  Adapts when goals change (shown with notifications)
+│             │  Funded goals move to "Completed" section (stay visible)
 └──────┬──────┘
-       │ User clicks "Close This Month's Plan" OR all goals funded
+       │ User clicks "Finish This Month" OR auto-completes on month end
        ▼
 ┌─────────────┐
-│   CLOSED    │  Immutable historical record
-│             │  Cannot be edited
-│             │  Used for historical analysis
+│ COMPLETED   │  Historical record for this month
+│ (Archived)  │  View your progress and contributions
+│             │  Compare with other months
 └─────────────┘
 ```
 
 ### Key Behaviors
 
-#### 1. **DRAFT State**
-- Plan calculates required monthly contributions
-- Changes automatically when goals/deadlines change
-- No contribution tracking yet
-- User can review and adjust custom amounts
+#### 1. **PLANNING State** (User-Facing: "Planning")
+- Review calculated monthly requirements for all goals
+- Adjust amounts using flex slider (0-200%)
+- Mark goals as protected (won't be reduced) or skipped (exclude this month)
+- Apply Quick Actions (Skip Month, Pay Half, Pay Exact)
+- All changes update instantly with live preview
 
-#### 2. **EXECUTING State**
-- Plan is "locked" but still dynamic
-- **If goals change**: Required amounts update (e.g., $600 → $1,500)
-- **If user contributes**: Progress tracked against current requirement
-- **If goal is fully funded for this month**: Goal disappears from execution view
-- **If withdrawal occurs**: Goal reappears if now underfunded
-- User can manually close plan or wait for auto-close when all goals funded
+**User Goal**: Prepare a realistic monthly savings plan
 
-#### 3. **CLOSED State**
-- Immutable snapshot
-- Used for historical tracking
-- Shows: planned amounts, actual contributions, completion percentage
-- Next month's plan uses updated calculations based on current state
+---
+
+#### 2. **ACTIVE State** (User-Facing: "Tracking" or "Active This Month")
+
+**Dynamic Adaptation**:
+- When goals change (target, deadline), amounts recalculate automatically
+- System shows notification: "Goal amounts updated due to changes" with details
+- User can review changes and adjust if needed
+
+**Contribution Tracking**:
+- Add money to goals → progress bars update
+- When goal reaches monthly target → moves to "✓ Completed" section at bottom
+- Completed goals stay visible (collapsible) showing contribution history
+- Remaining goals prominently displayed with progress
+
+**Visual Feedback**:
+```
+Active Goals (2)
+━━━━━━━━━━━━━━━
+House Down Payment    $400 / $800    [+ Add]
+Vacation Fund         $100 / $300    [+ Add]
+
+✓ Completed This Month (1)          [Collapse ▼]
+━━━━━━━━━━━━━━━━━━━━━━
+Emergency Fund        $600 / $600    ✓
+```
+
+**User Goal**: Track progress toward monthly plan, see accomplishments
+
+---
+
+#### 3. **COMPLETED State** (User-Facing: "Completed" or "September 2025")
+- Immutable historical record
+- Shows planned vs actual contributions
+- Displays completion percentage and timeline
+- Used for comparison and insights
+- Cannot add contributions (with helpful message if attempted)
+
+**User Goal**: Review past performance, learn from history
+
+---
+
+### State Transition Safety
+
+#### Auto-Transitions (Recommended UX)
+- **PLANNING → ACTIVE**: Auto-starts on 1st of month (with 24hr undo option)
+- **ACTIVE → COMPLETED**: Auto-completes on last day of month (with option to extend)
+
+#### Manual Transitions (User Control)
+If user prefers manual control:
+
+**Starting Tracking**:
+```
+[Start Tracking This Month]
+
+Confirmation Dialog:
+┌────────────────────────────────────────┐
+│ Start Tracking September 2025?        │
+├────────────────────────────────────────┤
+│ This will:                             │
+│ ✓ Begin tracking your contributions   │
+│ ✓ Lock this plan for historical record│
+│ ℹ️  Your plan will still adapt to     │
+│    goal changes                        │
+│                                        │
+│ [Cancel]  [Start Tracking]            │
+└────────────────────────────────────────┘
+```
+
+**Finishing Month**:
+```
+[Finish This Month]
+
+Confirmation Dialog:
+┌────────────────────────────────────────┐
+│ Complete September 2025?              │
+├────────────────────────────────────────┤
+│ Progress: $1,425 of $1,500 (95%)      │
+│                                        │
+│ ⚠️  Not fully funded:                 │
+│    • House: $75 remaining             │
+│                                        │
+│ This amount will roll into October's  │
+│ calculations.                          │
+│                                        │
+│ [Keep Tracking]  [Finish Month]       │
+└────────────────────────────────────────┘
+```
+
+#### Undo Grace Period
+- 24-hour window to undo state transitions
+- Shows banner: "Started tracking. [Undo] (expires in 23h 45m)"
+- Prevents accidental irreversible changes
+
+---
+
+### Handling Dynamic Updates (UX Clarity)
+
+When goals change during ACTIVE state:
+
+```
+Notification:
+┌────────────────────────────────────────┐
+│ 📊 Plan Updated                        │
+├────────────────────────────────────────┤
+│ House Down Payment deadline moved:     │
+│ Your monthly requirement increased:    │
+│                                        │
+│ Was: $600/month → Now: $1,500/month    │
+│                                        │
+│ You've contributed: $600               │
+│ Still needed: $900                     │
+│                                        │
+│ [Got it]  [Adjust Plan]               │
+└────────────────────────────────────────┘
+```
+
+This makes dynamic updates transparent and gives user control.
+
+---
+
+## Integration with Existing Features
+
+### ⚠️ CRITICAL: Preserving Current Planning Features
+
+The current implementation already has **excellent planning features** that must be preserved 100% during this implementation. This section outlines how to integrate the new execution tracking system **without losing any existing functionality**.
+
+### Current Features to Preserve
+
+#### 1. **Flex Adjustment System** ⭐ CRITICAL
+
+**What Exists**:
+- Users can adjust payment amounts from 0% to 200%
+- Protected goals cannot be reduced by flex adjustment
+- Skipped goals are excluded from this month's plan
+- Real-time preview of adjusted amounts
+- Quick Actions: Skip Month, Pay Half, Pay Exact, Reset
+
+**Location**: `MonthlyPlanningViewModel`, `FlexAdjustmentService`
+
+**How to Preserve**:
+Use a **two-layer architecture**:
+
+```swift
+// Layer 1: Long-term preferences (per goal)
+@Model
+final class GoalPlanPreference {
+    var goalId: UUID
+    var customAmount: Double?
+    var flexState: FlexState  // flexible/protected/skipped
+    var isProtected: Bool
+    var isSkipped: Bool
+}
+
+// Layer 2: Monthly execution (per month)
+@Model
+final class MonthlyExecutionPlan {
+    var monthLabel: String
+    var status: PlanStatus
+    var requirements: [MonthlyRequirement]
+}
+
+// MonthlyRequirement pulls from GoalPlanPreference
+@Model
+final class MonthlyRequirement {
+    var calculatedAmount: Double     // Base calculation
+    var customAmountOverride: Double? // From GoalPlanPreference
+    var flexStateSnapshot: FlexState  // From GoalPlanPreference
+    var isProtectedSnapshot: Bool
+    var isSkippedSnapshot: Bool
+
+    var effectiveAmount: Double {
+        if isSkippedSnapshot { return 0 }
+        return customAmountOverride ?? calculatedAmount
+    }
+}
+```
+
+**Key Decision**: When user changes GoalPlanPreference during EXECUTING state:
+- ✅ **RECOMMENDED**: Dynamic - Requirements recalculate from preferences
+- ❌ **NOT RECOMMENDED**: Locked - Changes don't affect current month
+
+**Why Dynamic**: Your requirement specification says plan updates when goals change during execution.
+
+---
+
+#### 2. **User Preferences Persistence** ⭐ CRITICAL
+
+**What Exists**:
+- Custom amounts per goal persist across sessions
+- Protection/skip status persists
+- Flex adjustment percentage persists
+- Stored in: SwiftData + UserDefaults
+
+**How to Preserve**:
+```swift
+// Rename current MonthlyPlan → GoalPlanPreference
+// This is just a rename - ALL data preserved
+
+// Migration v3 → v4
+@Model
+final class GoalPlanPreference {
+    @Attribute(.originalName("MonthlyPlan.goalId"))
+    var goalId: UUID
+
+    // All existing fields preserved
+    var customAmount: Double?
+    var flexStateRawValue: String
+    var isProtected: Bool
+    var isSkipped: Bool
+    var lastModifiedDate: Date
+    // ... etc
+}
+```
+
+**Result**: Zero data loss, all preferences keep working.
+
+---
+
+#### 3. **Real-Time Calculation Updates** ⭐ IMPORTANT
+
+**What Exists**:
+- Auto-recalculates when goals change
+- Auto-recalculates when assets change
+- Auto-recalculates when settings change
+- Debounced for performance
+
+**How to Preserve**:
+Make recalculation **state-aware**:
+
+```swift
+// In MonthlyPlanningViewModel
+
+NotificationCenter.default.publisher(for: .goalUpdated)
+    .sink { [weak self] _ in
+        Task { [weak self] in
+            guard let plan = self?.currentExecutionPlan else { return }
+
+            switch plan.status {
+            case .draft:
+                // Full recalculation - plan is still editable
+                await self?.calculateRequirements()
+
+            case .executing:
+                // Update requirements based on user preference
+                // Per spec: plan updates when goals change
+                await self?.calculateRequirements()
+
+            case .closed:
+                // No recalculation - plan is immutable
+                break
+            }
+        }
+    }
+```
+
+**Result**: DRAFT and EXECUTING both recalculate (dynamic), CLOSED is immutable.
+
+---
+
+#### 4. **FlexAdjustmentService Integration** ⭐ IMPORTANT
+
+**What Exists**:
+- Intelligent redistribution of amounts
+- Multiple strategies (balanced, priority-based, etc.)
+- Impact analysis for adjustments
+
+**How to Preserve**:
+Keep the service unchanged, add adapter:
+
+```swift
+// In MonthlyPlanningViewModel
+
+func previewAdjustment(_ percentage: Double) async {
+    guard let flexService = flexService,
+          let plan = currentExecutionPlan else { return }
+
+    // Convert @Model requirements to struct for FlexService
+    let requirementStructs = plan.requirements.map { req in
+        MonthlyRequirement(
+            goalId: req.goalId,
+            goalName: req.goalName,
+            currency: req.currency,
+            targetAmount: 0,
+            currentTotal: 0,
+            remainingAmount: 0,
+            monthsRemaining: 0,
+            requiredMonthly: req.calculatedAmount,
+            progress: 0,
+            deadline: Date(),
+            status: .onTrack
+        )
+    }
+
+    // Use existing FlexAdjustmentService
+    let adjusted = await flexService.applyFlexAdjustment(
+        requirements: requirementStructs,
+        adjustment: percentage,
+        protectedGoalIds: protectedGoalIds,
+        skippedGoalIds: skippedGoalIds,
+        strategy: .balanced
+    )
+
+    // Apply results back to @Model requirements
+    for result in adjusted {
+        if let req = plan.requirements.first(where: { $0.goalId == result.requirement.goalId }) {
+            req.customAmountOverride = result.adjustedAmount
+        }
+    }
+
+    try? modelContext.save()
+}
+```
+
+**Result**: FlexAdjustmentService keeps working with zero changes.
+
+---
+
+#### 5. **Quick Actions** ⭐ USEFUL
+
+**What Exists**:
+- Skip Month: Skip all flexible goals
+- Pay Half: 50% of all amounts
+- Pay Exact: 100% calculated amounts
+- Reset: Clear all adjustments
+
+**How to Preserve**:
+Update to work with GoalPlanPreference:
+
+```swift
+func applyQuickAction(_ action: QuickAction) async {
+    switch action {
+    case .skipMonth:
+        for requirement in currentExecutionPlan?.requirements ?? [] {
+            if !protectedGoalIds.contains(requirement.goalId) {
+                skippedGoalIds.insert(requirement.goalId)
+
+                // Update long-term preference
+                let pref = getOrCreatePreference(for: requirement.goalId)
+                pref.isSkipped = true
+                pref.flexState = .skipped
+            }
+        }
+
+    case .payHalf:
+        skippedGoalIds.removeAll()
+        await previewAdjustment(0.5)
+
+    // ... rest unchanged
+    }
+
+    try? modelContext.save()
+}
+```
+
+**Result**: Quick Actions work in all states (DRAFT, EXECUTING).
+
+---
+
+### Architecture: Two-Layer System
+
+```
+┌─────────────────────────────────────────┐
+│  Layer 1: GoalPlanPreference            │
+│  (Long-term, per-goal settings)         │
+│                                         │
+│  - Custom amounts                       │
+│  - Flex states (protect/skip)           │
+│  - User preferences                     │
+│  - Persists across months               │
+│  - Source of truth for "what user wants"│
+└──────────────┬──────────────────────────┘
+               │ Applied to
+               ▼
+┌─────────────────────────────────────────┐
+│  Layer 2: MonthlyExecutionPlan          │
+│  (Month-specific execution tracking)    │
+│                                         │
+│  - Month label ("2025-09")              │
+│  - Status (DRAFT/EXECUTING/CLOSED)      │
+│  - Requirements (apply preferences)     │
+│  - Snapshot (when started)              │
+│  - Contribution tracking                │
+│  - Fulfillment status                   │
+└─────────────────────────────────────────┘
+```
+
+**How They Work Together**:
+
+1. **Planning (DRAFT)**:
+   - User opens planning view
+   - System loads/creates MonthlyExecutionPlan for current month
+   - System loads GoalPlanPreference for each goal
+   - Requirements calculated with preferences applied
+   - User adjusts flex → updates GoalPlanPreference
+   - Requirements recalculate automatically
+
+2. **Start Execution**:
+   - User clicks "Start Executing This Plan"
+   - System creates MonthlyPlanSnapshot
+   - System copies current preference values to requirements
+   - Status changes: DRAFT → EXECUTING
+
+3. **During Execution**:
+   - User adds money → Creates Contribution
+   - System checks if requirement fulfilled
+   - Fulfilled requirements disappear from view
+   - If user changes GoalPlanPreference → Requirements recalculate (dynamic)
+   - If goal target changes → Requirements recalculate (per spec)
+
+4. **Close Plan**:
+   - User clicks "Close" OR all goals funded
+   - Status changes: EXECUTING → CLOSED
+   - Plan becomes immutable historical record
+
+---
+
+### Migration Strategy: Zero Data Loss
+
+#### Step 1: Rename MonthlyPlan → GoalPlanPreference
+
+```swift
+// Old model (v3)
+@Model
+final class MonthlyPlan {
+    var goalId: UUID
+    var requiredMonthly: Double
+    var customAmount: Double?
+    var flexStateRawValue: String
+    // ...
+}
+
+// New model (v4) - SAME DATA, different name
+@Model
+final class GoalPlanPreference {
+    @Attribute(.originalName("MonthlyPlan.goalId"))
+    var goalId: UUID
+
+    @Attribute(.originalName("MonthlyPlan.customAmount"))
+    var customAmount: Double?
+
+    @Attribute(.originalName("MonthlyPlan.flexStateRawValue"))
+    var flexStateRawValue: String
+
+    // All fields preserved with @Attribute(.originalName(...))
+}
+```
+
+#### Step 2: Add New Models
+
+```swift
+// Add these new models to v4 schema
+@Model final class MonthlyExecutionPlan { /* ... */ }
+@Model final class MonthlyRequirement { /* ... */ }
+@Model final class MonthlyPlanSnapshot { /* ... */ }
+@Model final class Contribution { /* ... */ }
+```
+
+#### Step 3: Migration Logic
+
+```swift
+let v4 = Schema([
+    GoalPlanPreference.self,      // Renamed from MonthlyPlan
+    MonthlyExecutionPlan.self,    // New
+    MonthlyRequirement.self,      // New (@Model, was struct)
+    MonthlyPlanSnapshot.self,     // New
+    Contribution.self,            // New
+    // ... all other existing models
+])
+
+ModelContainer.migrate(from: v3Schema, to: v4Schema) { context in
+    // SwiftData automatically handles rename via @Attribute(.originalName(...))
+    // No manual migration code needed for GoalPlanPreference
+
+    // Create MonthlyExecutionPlan for current month
+    let monthLabel = MonthlyExecutionPlan.currentMonthLabel()
+    let currentPlan = MonthlyExecutionPlan(monthLabel: monthLabel)
+    context.insert(currentPlan)
+
+    // Done - all existing data preserved
+}
+```
+
+**Result**: 100% data preserved, all features keep working.
+
+---
+
+### Testing Strategy for Preservation
+
+#### Test 1: Flex Adjustment Preserved
+```swift
+@Test("Flex adjustment works after migration")
+func testFlexPreserved() async throws {
+    // 1. Create goal with preferences
+    let goal = createGoal()
+    let pref = GoalPlanPreference(goalId: goal.id)
+    pref.customAmount = 800
+    pref.isProtected = true
+
+    // 2. Load plan
+    let vm = MonthlyPlanningViewModel(context: context)
+    await vm.loadCurrentMonthPlan()
+
+    // 3. Apply flex adjustment
+    await vm.previewAdjustment(0.5)
+
+    // 4. Verify protected goal unchanged
+    let req = vm.currentExecutionPlan?.requirements.first { $0.goalId == goal.id }
+    #expect(req?.effectiveAmount == 800) // Protected = not reduced
+}
+```
+
+#### Test 2: Preferences Persist
+```swift
+@Test("User preferences persist across sessions")
+func testPersistence() async throws {
+    // 1. Set preferences
+    let vm1 = MonthlyPlanningViewModel(context: context)
+    vm1.toggleProtection(for: goalId)
+
+    // 2. New view model (simulate restart)
+    let vm2 = MonthlyPlanningViewModel(context: context)
+    await vm2.loadCurrentMonthPlan()
+
+    // 3. Verify loaded
+    #expect(vm2.protectedGoalIds.contains(goalId))
+}
+```
+
+#### Test 3: State Transitions Don't Break Features
+```swift
+@Test("Features work in all states")
+func testAllStates() async throws {
+    let vm = MonthlyPlanningViewModel(context: context)
+
+    // DRAFT: All features work
+    await vm.toggleProtection(for: goalId)
+    await vm.previewAdjustment(0.8)
+
+    // EXECUTING: Features still work (dynamic)
+    try await vm.startExecutingPlan()
+    await vm.toggleProtection(for: goalId)
+
+    // CLOSED: Immutable (toggles have no effect)
+    try await vm.closePlan()
+}
+```
+
+---
+
+### Summary: Preservation Checklist
+
+✅ **Fully Preserved (No Changes Required)**:
+- [x] Flex adjustment slider (0-200%)
+- [x] Protected goals
+- [x] Skipped goals
+- [x] Quick Actions
+- [x] Custom amounts per goal
+- [x] Multi-currency support
+- [x] Statistics dashboard
+- [x] Settings integration
+
+🔄 **Adapted (Minor Changes)**:
+- [x] MonthlyPlan → GoalPlanPreference (rename only)
+- [x] Real-time updates (state-aware)
+- [x] MonthlyRequirement (struct → @Model)
+
+➕ **New Additions**:
+- [x] MonthlyExecutionPlan
+- [x] Plan lifecycle states
+- [x] Contribution tracking
+- [x] Execution/History views
 
 ---
 
 ## Data Models
+
+> **UX Note**: While internal code uses `planning/active/completed`, the enum values remain `draft/executing/closed` for backward compatibility. The UI layer translates these to user-friendly terms.
 
 ### 1. MonthlyPlan (Enhanced)
 
@@ -88,15 +657,18 @@ final class MonthlyPlan: @unchecked Sendable {
     var monthLabel: String              // "2025-09"
     var status: PlanStatus
     var createdAt: Date
-    var startedAt: Date?                // When user clicked "Start Executing"
-    var closedAt: Date?                 // When plan was closed
+    var startedAt: Date?                // When user clicked "Start Tracking"
+    var completedAt: Date?              // When plan was completed
+
+    // UX: Undo grace period
+    var canUndoUntil: Date?             // 24hr window to undo state change
 
     // Relationships
     @Relationship(deleteRule: .cascade)
     var requirements: [MonthlyRequirement]
 
     @Relationship(deleteRule: .cascade)
-    var snapshot: MonthlyPlanSnapshot?  // Created when plan starts executing
+    var snapshot: MonthlyPlanSnapshot?  // Created when plan starts tracking
 
     init(monthLabel: String) {
         self.id = UUID()
@@ -107,9 +679,32 @@ final class MonthlyPlan: @unchecked Sendable {
     }
 
     enum PlanStatus: String, Codable {
-        case draft      // Not started, can edit freely
-        case executing  // Started, tracking contributions
-        case closed     // Completed, immutable
+        case draft      // Internal: planning phase
+        case executing  // Internal: active tracking
+        case closed     // Internal: completed/archived
+
+        // UI Display Names
+        var displayName: String {
+            switch self {
+            case .draft: return "Planning"
+            case .executing: return "Active This Month"
+            case .closed: return "Completed"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .draft: return "pencil.circle"
+            case .executing: return "chart.line.uptrend.xyaxis.circle"
+            case .closed: return "checkmark.circle.fill"
+            }
+        }
+    }
+
+    // UX: Check if undo is still available
+    var canUndo: Bool {
+        guard let undoDeadline = canUndoUntil else { return false }
+        return Date() < undoDeadline
     }
 }
 ```
@@ -242,89 +837,134 @@ enum ContributionSource: String, Codable {
 
 ### Flow 1: Creating and Starting a Monthly Plan
 
+**UX Note**: User sees "Planning" state (not "DRAFT"). Clear confirmation dialog explains what happens next.
+
 ```
 1. User navigates to Planning tab
-2. System shows current month's plan in DRAFT state
+2. System shows current month's plan in Planning state
+   - 📝 Planning This Month
    - Calculated requirements for each goal
-   - Total monthly requirement
-   - [Start Executing This Plan] button
+   - Total monthly target
+   - [Start Tracking Contributions] button ← UX: Action-oriented
 3. User reviews plan, optionally adjusts custom amounts
-4. User clicks "Start Executing This Plan"
-5. System:
+4. User clicks "Start Tracking Contributions"
+5. System shows confirmation dialog:
+   - "Ready to Start Tracking?"
+   - Explains: will save plan, track contributions, show progress
+   - Can still adjust targets if goals change
+6. User confirms
+7. System:
    - Creates MonthlyPlanSnapshot
-   - Changes plan status: DRAFT → EXECUTING
+   - Changes plan status: .draft → .executing (internal)
+   - Display changes to "Active This Month" ← UX: User-friendly
+   - Sets canUndoUntil = now + 24 hours ← UX: Grace period
    - Shows Monthly Execution View
 ```
 
 ### Flow 2: Making Contributions During Execution
 
+**UX Note**: Completed goals stay visible in collapsible section to prevent disorientation.
+
 ```
-1. User in Monthly Execution View
-2. Sees list of goals needing contributions
+1. User in Monthly Execution View (shows "Active This Month")
+2. Sees Active Goals (2) section with goals needing contributions
 3. User adds money to a goal (via asset allocation)
 4. System:
    - Creates Contribution record
    - Links contribution to current plan (planId)
    - Checks if goal's monthly requirement is now met
-   - If met: isFulfilledThisMonth = true → goal disappears from view
-   - Updates total progress bar
+   - If met: isFulfilledThisMonth = true
+   - Goal moves to "✓ Completed This Month" section ← UX: Stays visible
+   - Section is collapsible but expanded by default
+   - Updates total progress bar with accessibility labels
 5. If all goals fulfilled:
    - Shows "All goals funded for this month! 🎉"
-   - Offers to close plan
+   - Active Goals section shows (0)
+   - Completed section shows all goals with checkmarks
+   - Offers to mark month as complete
 ```
 
 ### Flow 3: Goals Changing During Execution
 
+**UX Note**: Dynamic updates shown with clear explanation. User has access to original plan via snapshot.
+
 ```
-Scenario: User contributed $600 to Goal A (target was $600)
+Scenario: User contributed $600 to Goal A (target was $600, marked complete)
 Then: Goal A's deadline changes, now needs $1,500/month
 
 System behavior:
 1. Recalculates MonthlyRequirement for Goal A
 2. Updates requiredAmount: $600 → $1,500
 3. Sets isFulfilledThisMonth = false (no longer met)
-4. Goal A reappears in Monthly Execution View
-5. Shows: "$600 of $1,500 (40%)" ← New target
+4. Goal A moves from "Completed" back to "Active Goals" section ← UX: Dynamic
+5. Shows notification: "⚠️ Targets Updated"
+   - Explains why target changed ("deadline moved closer")
+   - Shows: "$600 of $1,500 (40%)" with "(was $600)" ← UX: Context
 6. User needs to contribute $900 more
+7. [View Original Plan] button shows snapshot for reference ← UX: Transparency
 ```
 
 ### Flow 4: Closing a Monthly Plan
 
+**UX Note**: "Mark Complete" instead of "Close". 24-hour undo grace period for user confidence.
+
 ```
-User-initiated close:
-1. User clicks "Close This Month's Plan"
-2. System shows confirmation:
-   - "Are you sure? Some goals are not fully funded."
-   - Shows unfunded goals and amounts
+User-initiated completion:
+1. User clicks "Mark Complete"
+2. System shows confirmation dialog:
+   - "Mark Month as Complete?"
+   - Shows current progress: "$600 / $1,700 (35%)"
+   - Shows completed goals count: "1 of 3 goals"
+   - "⚠️ You can undo this within 24 hours" ← UX: Safety net
 3. User confirms
 4. System:
-   - Sets plan status: EXECUTING → CLOSED
+   - Sets plan status: .executing → .closed (internal)
+   - Display changes to "Completed" ← UX: Positive language
    - Sets closedAt timestamp
-   - Plan becomes immutable
+   - Sets canUndoUntil = now + 24 hours ← UX: Grace period
+   - Plan becomes read-only (but can undo)
 
-Auto-close (all goals funded):
+All goals funded scenario:
 1. User contributes to last unfunded goal
 2. System detects all requirements met
-3. Shows success message with option to close
-4. User confirms
-5. Same as user-initiated close
+3. Shows success message: "All goals funded for this month! 🎉"
+4. Offers [Mark Complete] button
+5. User confirms (same dialog as above)
+6. Same as user-initiated completion
+
+Undo within grace period:
+1. User realizes mistake within 24 hours
+2. Clicks [Undo] button in history view
+3. System:
+   - Reverts status: .closed → .executing
+   - Clears closedAt and canUndoUntil
+   - Returns to "Active This Month" view
 ```
 
 ### Flow 5: Viewing Historical Plans
 
+**UX Note**: "Completed" state (not "CLOSED"). Pagination prevents overwhelming long history.
+
 ```
 1. User navigates to Planning History
-2. Sees list of months:
-   - September 2025 - CLOSED (95% completed)
-   - August 2025 - CLOSED (100% completed)
-   - July 2025 - CLOSED (87% completed)
-3. User taps a month
-4. System shows:
-   - Original snapshot (planned amounts)
-   - Actual contributions
+2. Sees paginated list of months (3 at a time):
+   - ✓ September 2025 - Completed (95%)
+   - ✓ August 2025 - Completed (100%)
+   - ✓ July 2025 - Completed (87%)
+   - [Load More...] "Showing 3 of 12 months" ← UX: Pagination
+3. User taps a month (e.g., September)
+4. System shows comprehensive detail view:
+   - ✓ Completed (not "CLOSED") ← UX: Positive language
+   - Completed on: September 30, 2025
+   - Original snapshot (planned amounts per goal)
+   - Actual contributions per goal
    - Completion percentage per goal
-   - Timeline of contributions
-   - Total: $X of $Y (Z%)
+   - Timeline of all events with dates
+   - Total: $1,425 of $1,500 (95%)
+   - Accessibility labels for all progress bars
+5. If within 24-hour undo window:
+   - Shows [Undo] button
+   - User can revert to Active state
 ```
 
 ---
@@ -475,12 +1115,17 @@ sequenceDiagram
 
 ### 1. Planning View (DRAFT State)
 
+**UX Note**: State displayed as "Planning" (not "DRAFT"). Clean, focused interface for setting up the month's contribution targets.
+
 ```
 ┌─────────────────────────────────────────────┐
 │ ← Planning              September 2025      │
 ├─────────────────────────────────────────────┤
 │                                             │
-│ Monthly Plan (Draft)                        │
+│ 📝 Planning This Month                      │
+│                                             │
+│ Set your contribution targets for each      │
+│ goal. You can adjust these anytime.         │
 │                                             │
 │ ┌─────────────────────────────────────────┐ │
 │ │ Emergency Fund                          │ │
@@ -496,77 +1141,130 @@ sequenceDiagram
 │ │ ─────────────────────────      [Edit]  │ │
 │ └─────────────────────────────────────────┘ │
 │                                             │
-│ Total Monthly Requirement: $1,700           │
+│ Total Monthly Target: $1,700                │
 │                                             │
 │ ┌─────────────────────────────────────────┐ │
-│ │   [Start Executing This Plan]           │ │
+│ │      [Start Tracking Contributions]     │ │  ← UX: Clear action
 │ └─────────────────────────────────────────┘ │
 │                                             │
 │ [View Previous Months]                      │
+│                                             │
+└─────────────────────────────────────────────┘
+
+When user taps "Start Tracking Contributions":
+┌─────────────────────────────────────────────┐
+│ Ready to Start Tracking?                    │
+├─────────────────────────────────────────────┤
+│                                             │
+│ This will:                                  │
+│ • Save your current plan                    │
+│ • Track contributions against these targets │
+│ • Show progress throughout the month        │
+│                                             │
+│ You can still adjust targets if goals       │
+│ change during the month.                    │
+│                                             │
+│ Total Target: $1,700                        │
+│                                             │
+│        [Cancel]  [Start Tracking]           │
 │                                             │
 └─────────────────────────────────────────────┘
 ```
 
 ### 2. Monthly Execution View (EXECUTING State)
 
+**UX Note**: State displayed as "Active This Month" (not "EXECUTING"). Completed goals stay visible in collapsible section to prevent disorientation.
+
 ```
 ┌─────────────────────────────────────────────┐
-│ ← Execution             September 2025      │
+│ ← Active                September 2025      │
 ├─────────────────────────────────────────────┤
 │                                             │
-│ Executing Monthly Plan                      │
+│ 📊 Active This Month                        │
 │ Started: Sept 5, 2025                       │
 │                                             │
 │ Overall Progress                            │
 │ $600 of $1,700 (35%)                        │
 │ ███████░░░░░░░░░░░░░░░░░░░░░░░              │
+│ role="progressbar" aria-label="Overall      │
+│ progress: 35%" aria-valuenow="35"           │  ← UX: Accessibility
 │                                             │
+│ Active Goals (2)                            │
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
 │ ┌─────────────────────────────────────────┐ │
 │ │ House Down Payment                      │ │
 │ │ $400 of $800                            │ │
 │ │ ██████░░░░░░ 50%                        │ │
+│ │ aria-label="House: 50% complete"        │  ← UX: Accessibility
 │ │                          [+ Add]        │ │
 │ ├─────────────────────────────────────────┤ │
 │ │ Vacation Fund                           │ │
 │ │ $0 of $300                              │ │
 │ │ ░░░░░░░░░░░░ 0%                         │ │
+│ │ aria-label="Vacation: 0% complete"      │
 │ │                          [+ Add]        │ │
 │ └─────────────────────────────────────────┘ │
 │                                             │
-│ ✓ Emergency Fund - Fully funded ($600)      │
+│ ✓ Completed This Month (1)     [Collapse ▲]│  ← UX: Collapsible section
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│ ┌─────────────────────────────────────────┐ │
+│ │ ✓ Emergency Fund       $600 / $600      │ │
+│ │ Completed Sept 5                        │ │
+│ └─────────────────────────────────────────┘ │
 │                                             │
 │ ┌─────────────────────────────────────────┐ │
-│ │   [Update Plan]   [Close This Plan]     │ │
+│ │   [Update Plan]   [Mark Complete]       │ │  ← UX: Clearer than "Close"
 │ └─────────────────────────────────────────┘ │
 │                                             │
 │ [View Plan Details] [View History]          │
 │                                             │
 └─────────────────────────────────────────────┘
 
-Note: Goals with isFulfilledThisMonth = true
-      are moved to bottom with checkmark
+When user taps "Mark Complete":
+┌─────────────────────────────────────────────┐
+│ Mark Month as Complete?                     │
+├─────────────────────────────────────────────┤
+│                                             │
+│ This will close September's plan and save   │
+│ it to your history.                         │
+│                                             │
+│ Your Progress:                              │
+│ • Overall: $600 / $1,700 (35%)              │
+│ • Completed: 1 of 3 goals                   │
+│                                             │
+│ ⚠️ You can undo this within 24 hours        │  ← UX: Grace period
+│                                             │
+│        [Cancel]  [Mark Complete]            │
+│                                             │
+└─────────────────────────────────────────────┘
 ```
 
 ### 3. Execution View - Goal Changes Scenario
 
+**UX Note**: Dynamic updates shown with clear explanation of what changed and why. User maintains context of original plan via snapshot.
+
 ```
 ┌─────────────────────────────────────────────┐
-│ ← Execution             September 2025      │
+│ ← Active                September 2025      │
 ├─────────────────────────────────────────────┤
 │                                             │
-│ ⚠️ Plan Updated                             │
-│ Some goals have changed. Your targets       │
-│ have been recalculated.                     │
+│ ⚠️ Targets Updated                          │  ← UX: Less alarming
+│ You edited a goal. This month's targets     │
+│ have been recalculated to keep you on       │
+│ track for your new deadline.                │
+│                              [Dismiss]      │
 │                                             │
 │ Overall Progress                            │
 │ $600 of $2,000 (30%)  ← Updated total       │
 │ ██████░░░░░░░░░░░░░░░░░░░░░░                │
 │                                             │
+│ Active Goals (2)                            │
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
 │ ┌─────────────────────────────────────────┐ │
-│ │ House Down Payment         ⚠️ Changed   │ │
-│ │ $600 of $1,500             ↑ was $600   │ │
+│ │ 🔄 House Down Payment      Changed      │ │
+│ │ $600 of $1,500             (was $600)   │ │  ← UX: Show original
 │ │ ████░░░░░░░░ 40%                        │ │
-│ │ Deadline moved closer, need more now    │ │
+│ │ Target increased: deadline moved closer │ │  ← UX: Explain why
 │ │                          [+ Add]        │ │
 │ ├─────────────────────────────────────────┤ │
 │ │ Vacation Fund                           │ │
@@ -575,12 +1273,20 @@ Note: Goals with isFulfilledThisMonth = true
 │ │                          [+ Add]        │ │
 │ └─────────────────────────────────────────┘ │
 │                                             │
-│ [Dismiss Alert]  [View Changes]             │
+│ ✓ Completed This Month (1)     [Collapse ▲]│
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│ ┌─────────────────────────────────────────┐ │
+│ │ ✓ Emergency Fund       $600 / $600      │ │
+│ └─────────────────────────────────────────┘ │
+│                                             │
+│ [View Original Plan] [View Changes Detail]  │  ← UX: Access to snapshot
 │                                             │
 └─────────────────────────────────────────────┘
 ```
 
 ### 4. History List View
+
+**UX Note**: State displayed as "Completed" (not "CLOSED"). Pagination for all-time history prevents overwhelming the user.
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -588,44 +1294,47 @@ Note: Goals with isFulfilledThisMonth = true
 ├─────────────────────────────────────────────┤
 │                                             │
 │ ┌─────────────────────────────────────────┐ │
-│ │ September 2025              CLOSED      │ │
+│ │ ✓ September 2025        Completed       │ │  ← UX: Positive framing
 │ │ $1,425 of $1,500                        │ │
 │ │ ████████░░ 95%                          │ │
-│ │ Closed: Sept 30, 2025                   │ │
+│ │ Completed: Sept 30, 2025                │ │
 │ │                                    [>]  │ │
 │ ├─────────────────────────────────────────┤ │
-│ │ August 2025                 CLOSED      │ │
+│ │ ✓ August 2025           Completed       │ │
 │ │ $1,500 of $1,500                        │ │
 │ │ ██████████ 100% ✓                       │ │
-│ │ Closed: Aug 31, 2025                    │ │
+│ │ Completed: Aug 31, 2025                 │ │
 │ │                                    [>]  │ │
 │ ├─────────────────────────────────────────┤ │
-│ │ July 2025                   CLOSED      │ │
+│ │ ✓ July 2025             Completed       │ │
 │ │ $1,305 of $1,500                        │ │
 │ │ ████████░░ 87%                          │ │
-│ │ Closed: July 31, 2025                   │ │
+│ │ Completed: July 31, 2025                │ │
 │ │                                    [>]  │ │
 │ └─────────────────────────────────────────┘ │
 │                                             │
 │ [Load More...]                              │
-│ Showing 3 of 12 months                      │
+│ Showing 3 of 12 months                      │  ← UX: Pagination
 │                                             │
 └─────────────────────────────────────────────┘
 ```
 
 ### 5. History Detail View (Single Month)
 
+**UX Note**: Comprehensive historical view with planned vs. actual comparison. Shows the snapshot of original plan.
+
 ```
 ┌─────────────────────────────────────────────┐
 │ ← Back                 September 2025       │
 ├─────────────────────────────────────────────┤
 │                                             │
-│ Plan Status: CLOSED                         │
-│ Closed on: September 30, 2025               │
+│ ✓ Completed                                 │  ← UX: Positive language
+│ Completed on: September 30, 2025            │
 │                                             │
 │ Overall Performance                         │
 │ $1,425 of $1,500 (95%)                      │
 │ ████████░░                                  │
+│ aria-label="Overall 95%"                    │  ← UX: Accessibility
 │                                             │
 │ ┌─────────────────────────────────────────┐ │
 │ │ Goals Breakdown                         │ │
@@ -638,7 +1347,7 @@ Note: Goals with isFulfilledThisMonth = true
 │ │   Sept 5: $600 (manual deposit)         │ │
 │ ├─────────────────────────────────────────┤ │
 │ │ ⚠️ House Down Payment                    │ │
-│ │   Planned:  $600                        │ │
+│ │   Planned:  $600 (original target)      │ │  ← UX: Clarify snapshot
 │ │   Actual:   $525                        │ │
 │ │   Status:   87% ⚠️                       │ │
 │ │   ──────────                            │ │
@@ -656,16 +1365,69 @@ Note: Goals with isFulfilledThisMonth = true
 │                                             │
 │ Timeline                                    │
 │ ┌─────────────────────────────────────────┐ │
+│ │ Sept 5  • Plan started                  │ │  ← UX: Add start event
 │ │ Sept 5  • $600 → Emergency Fund         │ │
 │ │ Sept 12 • $400 → House                  │ │
 │ │ Sept 20 • $125 reallocated → House      │ │
 │ │ Sept 25 • $300 → Vacation               │ │
-│ │ Sept 30 • Plan closed                   │ │
+│ │ Sept 30 • Plan marked complete          │ │  ← UX: Clearer language
 │ └─────────────────────────────────────────┘ │
 │                                             │
 │ [Export Report]                             │
 │                                             │
 └─────────────────────────────────────────────┘
+```
+
+### 6. Settings View - Auto-Transitions (Optional Feature)
+
+**UX Note**: Optional automatic state transitions on month boundaries with clear explanations.
+
+```
+┌─────────────────────────────────────────────┐
+│ ← Settings           Monthly Planning       │
+├─────────────────────────────────────────────┤
+│                                             │
+│ Monthly Plan Automation                     │
+│                                             │
+│ ┌─────────────────────────────────────────┐ │
+│ │ Auto-start new month's plan        [ ] │ │  ← Toggle OFF by default
+│ │                                         │ │
+│ │ When enabled, automatically create a    │ │
+│ │ new plan on the 1st of each month.      │ │
+│ │                                         │ │
+│ │ You can still review and edit before    │ │
+│ │ starting to track contributions.        │ │
+│ └─────────────────────────────────────────┘ │
+│                                             │
+│ ┌─────────────────────────────────────────┐ │
+│ │ Auto-complete previous month       [ ] │ │  ← Toggle OFF by default
+│ │                                         │ │
+│ │ When enabled, automatically mark the    │ │
+│ │ previous month complete on the 1st.     │ │
+│ │                                         │ │
+│ │ ⚠️ Recommended: Keep OFF to review your │ │
+│ │ progress before closing each month.     │ │
+│ │                                         │ │
+│ │ If enabled, you can still undo within   │ │
+│ │ 24 hours.                               │ │
+│ └─────────────────────────────────────────┘ │
+│                                             │
+│ ┌─────────────────────────────────────────┐ │
+│ │ Grace period for undo                   │ │
+│ │                                         │ │
+│ │ ◉ 24 hours (recommended)                │ │
+│ │ ○ 48 hours                              │ │
+│ │ ○ 7 days                                │ │
+│ │ ○ No undo (actions are final)           │ │
+│ └─────────────────────────────────────────┘ │
+│                                             │
+└─────────────────────────────────────────────┘
+
+**Default Behavior (all toggles OFF):**
+- User manually starts tracking each month
+- User manually marks months complete
+- All state changes require explicit user action
+- 24-hour undo grace period for safety
 ```
 
 ---
@@ -1066,22 +1828,29 @@ class ContributionService: ObservableObject {
 
 ### Phase 3: UI - Planning & Execution (Week 3)
 
+**UX Note**: Implement user-friendly terminology throughout the UI. Internal state names (draft/executing/closed) are fine for code, but all user-facing text should use Planning/Active/Completed.
+
 #### Tasks:
 1. **Update PlanningView**
-   - Show plan status
-   - "Start Executing" button
+   - Show "Planning" header (not "DRAFT") ← UX
+   - "Start Tracking Contributions" button (not "Start Executing") ← UX
+   - Confirmation dialog with clear explanation ← UX
    - Edit custom amounts
+   - 24-hour undo grace period indicator ← UX
 
 2. **Create MonthlyExecutionView**
-   - Progress bars
-   - Unfunded goals list
-   - Funded goals (collapsed)
-   - "Close Plan" button
+   - Show "Active This Month" header (not "EXECUTING") ← UX
+   - Progress bars with ARIA labels for accessibility ← UX
+   - "Active Goals" section (unfunded)
+   - "Completed This Month" section (collapsible, funded goals) ← UX
+   - "Mark Complete" button (not "Close Plan") ← UX
+   - Confirmation dialog showing progress summary ← UX
    - "Update Plan" button
 
 3. **Create contribution recording UI**
    - Triggered from asset allocation
    - Link to current plan
+   - Visual feedback when goals move to completed section ← UX
 
 #### Files:
 - `Views/Planning/PlanningView.swift` (MODIFY)
@@ -1093,21 +1862,27 @@ class ContributionService: ObservableObject {
 
 ### Phase 4: UI - History (Week 4)
 
+**UX Note**: History shows "Completed" status with positive framing. Include undo functionality for recent completions.
+
 #### Tasks:
 1. **Create history list view**
-   - Show all closed plans
-   - Summary cards
-   - Pagination
+   - Show all completed plans (display "Completed" not "CLOSED") ← UX
+   - Summary cards with checkmarks for 100% completion ← UX
+   - Pagination (3 months at a time) ← UX
+   - "Load More..." with count indicator ← UX
 
 2. **Create history detail view**
-   - Plan overview
-   - Goals breakdown
-   - Timeline
+   - "✓ Completed" header (not "CLOSED") ← UX
+   - Plan overview with accessibility labels ← UX
+   - Goals breakdown showing planned vs actual ← UX
+   - Timeline with all events (start, contributions, completion) ← UX
+   - Undo button if within grace period ← UX
    - Export functionality
 
 3. **Integration**
    - Navigation from planning to history
    - Deep linking to specific months
+   - Undo flow returning to Active state ← UX
 
 #### Files:
 - `Views/Planning/PlanHistoryListView.swift` (NEW)
@@ -1118,29 +1893,41 @@ class ContributionService: ObservableObject {
 
 ### Phase 5: Testing & Polish (Week 5)
 
+**UX Note**: Include accessibility testing and UX polish items from review.
+
 #### Tasks:
 1. **Unit tests**
    - MonthlyPlanningService tests
    - ContributionService tests
-   - Plan lifecycle tests
+   - Plan lifecycle tests (including undo grace period) ← UX
    - Fulfillment logic tests
 
 2. **Integration tests**
    - End-to-end plan execution
    - Goal changes during execution
    - Contribution recording from allocations
+   - Undo flow within grace period ← UX
+   - Auto-transition features (if enabled) ← UX
 
 3. **UI tests**
-   - Planning flow
-   - Execution flow
-   - History viewing
+   - Planning flow with confirmation dialogs ← UX
+   - Execution flow with completed section ← UX
+   - History viewing with undo ← UX
    - Pagination
+   - Collapsible sections behavior ← UX
 
-4. **Edge cases**
+4. **Accessibility tests** ← UX
+   - Screen reader support for progress bars
+   - ARIA labels correct
+   - Keyboard navigation
+   - VoiceOver testing on iOS
+
+5. **Edge cases**
    - Multiple plans (shouldn't happen)
    - Plan without snapshot
    - Goals deleted mid-execution
    - Negative contributions (withdrawals)
+   - Undo after grace period expired ← UX
 
 #### Files:
 - `Tests/Services/MonthlyPlanningServiceTests.swift` (NEW)
@@ -1285,6 +2072,464 @@ func recordContribution(...) async throws {
 
 ---
 
+## Risk Mitigation Strategy
+
+### Overview
+
+This implementation carries **MEDIUM risk** due to the need to preserve existing features while adding new functionality. This section outlines specific risks and their mitigation strategies.
+
+### 🔴 HIGH RISK: Flex Adjustment System
+
+**Risk**: Losing the flex adjustment feature (adjust 0-200%, protected/skipped goals, quick actions)
+
+**Impact**: Major feature regression, user complaints, loss of unique functionality
+
+**Mitigation Strategy**:
+
+1. **Two-Layer Architecture** (see Integration section above)
+   - Keep `GoalPlanPreference` for long-term settings
+   - Add `MonthlyExecutionPlan` for month tracking
+   - Requirements pull from preferences
+
+2. **Preserve FlexAdjustmentService**
+   - Keep service unchanged
+   - Add adapter layer in ViewModel
+   - Convert between @Model and struct as needed
+
+3. **Testing Requirements**:
+   ```swift
+   ✅ Test flex adjustment after migration
+   ✅ Test protected goals not reduced
+   ✅ Test skipped goals excluded
+   ✅ Test quick actions work in all states
+   ✅ Test redistribution strategies preserved
+   ```
+
+4. **Rollback Plan**:
+   - Keep `GoalPlanPreference.legacyPercentage` field temporarily
+   - Can revert to old calculation if needed
+   - Migration metadata tracks version
+
+**Success Criteria**: All flex features work identically before and after implementation.
+
+---
+
+### 🔴 HIGH RISK: User Preferences Data Loss
+
+**Risk**: Custom amounts, protection status, skip status lost during migration
+
+**Impact**: Users lose all customizations, must reconfigure
+
+**Mitigation Strategy**:
+
+1. **Use SwiftData Migration**:
+   ```swift
+   @Model
+   final class GoalPlanPreference {
+       @Attribute(.originalName("MonthlyPlan.goalId"))
+       var goalId: UUID
+
+       @Attribute(.originalName("MonthlyPlan.customAmount"))
+       var customAmount: Double?
+
+       // All fields mapped with .originalName
+   }
+   ```
+
+2. **Migration Validation**:
+   ```swift
+   func validateMigration() throws {
+       // Before migration: count preferences
+       let oldCount = countMonthlyPlans()
+
+       // After migration: verify count matches
+       let newCount = countGoalPlanPreferences()
+
+       guard oldCount == newCount else {
+           throw MigrationError.dataLoss
+       }
+
+       // Verify each preference has data
+       for pref in preferences {
+           guard pref.validate().isEmpty else {
+               throw MigrationError.corruptedData
+           }
+       }
+   }
+   ```
+
+3. **Backup Strategy**:
+   - Create backup before migration
+   - Store in: `Documents/Backups/pre-v4-migration.sqlite`
+   - Provide restore function
+
+4. **Testing Requirements**:
+   ```swift
+   ✅ Test all preferences preserved
+   ✅ Test custom amounts intact
+   ✅ Test flex states intact
+   ✅ Test last modified dates preserved
+   ✅ Test data count matches pre/post
+   ```
+
+**Success Criteria**: Zero data loss, all preferences accessible after migration.
+
+---
+
+### 🟡 MEDIUM RISK: Real-Time Updates Conflicts
+
+**Risk**: Auto-recalculation conflicts with locked execution state
+
+**Impact**: Either stale data (doesn't update) or broken tracking (updates too much)
+
+**Mitigation Strategy**:
+
+1. **State-Aware Recalculation**:
+   ```swift
+   func handleGoalUpdate() async {
+       switch currentPlan.status {
+       case .draft:
+           // Full recalc - plan is editable
+           await calculateRequirements()
+
+       case .executing:
+           // Dynamic recalc per user spec
+           await calculateRequirements()
+
+       case .closed:
+           // No recalc - immutable
+           break
+       }
+   }
+   ```
+
+2. **Debouncing Strategy**:
+   ```swift
+   // DRAFT: 0.5s debounce (responsive)
+   // EXECUTING: 1.0s debounce (less frequent)
+   // CLOSED: No updates
+   ```
+
+3. **Cache Invalidation**:
+   ```swift
+   // Clear cache only when transitioning states
+   func startExecutingPlan() async throws {
+       planningService.clearCache()
+       // ... create snapshot ...
+   }
+   ```
+
+4. **Testing Requirements**:
+   ```swift
+   ✅ Test DRAFT updates immediately
+   ✅ Test EXECUTING updates when goals change
+   ✅ Test CLOSED doesn't update
+   ✅ Test debouncing works in each state
+   ✅ Test cache invalidation on transitions
+   ```
+
+**Success Criteria**: Updates work correctly in each state, no stale data, no broken tracking.
+
+---
+
+### 🟡 MEDIUM RISK: Quick Actions Break
+
+**Risk**: Quick actions (Skip Month, Pay Half, etc.) don't work with new architecture
+
+**Impact**: Users lose convenient shortcuts
+
+**Mitigation Strategy**:
+
+1. **Adapt to Two-Layer System**:
+   ```swift
+   func applyQuickAction(_ action: QuickAction) async {
+       switch action {
+       case .skipMonth:
+           // Update BOTH layers
+           for req in currentPlan.requirements {
+               // Update preference (long-term)
+               let pref = getOrCreatePreference(for: req.goalId)
+               pref.isSkipped = true
+
+               // Update requirement (this month)
+               req.isSkippedSnapshot = true
+           }
+       }
+   }
+   ```
+
+2. **State Awareness**:
+   - DRAFT: Can use all quick actions
+   - EXECUTING: Can use all quick actions (dynamic)
+   - CLOSED: Quick actions disabled
+
+3. **Testing Requirements**:
+   ```swift
+   ✅ Test Skip Month in DRAFT
+   ✅ Test Pay Half in EXECUTING
+   ✅ Test Pay Exact after adjustments
+   ✅ Test Reset clears everything
+   ✅ Test actions disabled in CLOSED
+   ```
+
+**Success Criteria**: All quick actions work in DRAFT and EXECUTING states.
+
+---
+
+### 🟡 MEDIUM RISK: Performance Degradation
+
+**Risk**: New models/relationships slow down the app
+
+**Impact**: Laggy UI, slow calculations, poor UX
+
+**Mitigation Strategy**:
+
+1. **Keep Existing Caching**:
+   ```swift
+   // Keep 5-minute cache in MonthlyPlanningService
+   // Add month-aware cache keys
+   private var planCache: [String: CachedPlan] = [:]
+
+   func getCacheKey(monthLabel: String, goalId: UUID) -> String {
+       "\(monthLabel)-\(goalId.uuidString)"
+   }
+   ```
+
+2. **Lazy Loading**:
+   ```swift
+   // Don't load all months at once
+   // Load on-demand in history view
+   func loadHistoryPage(offset: Int, limit: Int) async {
+       // Paginated query
+   }
+   ```
+
+3. **Relationship Optimization**:
+   ```swift
+   // Use @Relationship(deleteRule: .cascade)
+   // Use proper FetchDescriptors with predicates
+   // Avoid loading unnecessary data
+   ```
+
+4. **Monitoring**:
+   ```swift
+   // Add performance logging
+   let start = Date()
+   await calculateRequirements()
+   let duration = Date().timeIntervalSince(start)
+   if duration > 1.0 {
+       AppLog.warning("Slow calculation: \(duration)s")
+   }
+   ```
+
+5. **Testing Requirements**:
+   ```swift
+   ✅ Test plan loading <500ms
+   ✅ Test requirement calculation <1s
+   ✅ Test contribution recording <500ms
+   ✅ Test history loading (12 months) <1s
+   ✅ Test memory usage acceptable
+   ```
+
+**Success Criteria**: Performance matches or beats current implementation.
+
+---
+
+### 🟢 LOW RISK: UI Confusion During Transition
+
+**Risk**: Users don't understand new states/buttons
+
+**Impact**: Support questions, feature underutilization
+
+**Mitigation Strategy**:
+
+1. **Clear UI Indicators**:
+   ```swift
+   // Show status badge
+   HStack {
+       Text("Monthly Plan")
+       StatusBadge(status: plan.status) // DRAFT/EXECUTING/CLOSED
+   }
+
+   // Different buttons per state
+   if plan.status == .draft {
+       Button("Start Executing This Plan")
+   } else if plan.status == .executing {
+       Button("Close This Month's Plan")
+   }
+   ```
+
+2. **First-Time Tutorial**:
+   - Show on first open after update
+   - Explain new workflow
+   - Highlight "Start Executing" button
+
+3. **Contextual Help**:
+   ```swift
+   // Info button next to "Start Executing"
+   Button(action: { showHelp = true }) {
+       Image(systemName: "info.circle")
+   }
+   .popover {
+       Text("Starting execution locks your plan...")
+   }
+   ```
+
+4. **Testing Requirements**:
+   ```swift
+   ✅ Test UI shows correct state
+   ✅ Test buttons change per state
+   ✅ Test help text is clear
+   ✅ Test tutorial doesn't annoy users
+   ```
+
+**Success Criteria**: <5% support questions about new features.
+
+---
+
+### Rollback Strategy
+
+If critical issues arise:
+
+**Level 1: Disable New Features** (1 hour)
+```swift
+// Add feature flag
+struct FeatureFlags {
+    static var executionTrackingEnabled = false
+}
+
+// In UI
+if FeatureFlags.executionTrackingEnabled {
+    Button("Start Executing This Plan")
+}
+```
+
+**Level 2: Revert to Previous Version** (4 hours)
+```swift
+// Restore from backup
+func restorePreMigrationData() throws {
+    let backupPath = "Documents/Backups/pre-v4-migration.sqlite"
+    // Copy backup over current database
+    // Restart app
+}
+```
+
+**Level 3: Data Recovery** (8 hours)
+```swift
+// If backup fails, extract from GoalPlanPreference
+func recoverFromGoalPlanPreference() throws {
+    let preferences = try context.fetch(FetchDescriptor<GoalPlanPreference>())
+
+    // Recreate old MonthlyPlan records
+    for pref in preferences {
+        let oldPlan = MonthlyPlan(/* from pref data */)
+        context.insert(oldPlan)
+    }
+}
+```
+
+---
+
+### Validation Checklist
+
+Before deploying to production:
+
+#### Data Integrity
+- [ ] All GoalPlanPreferences created from MonthlyPlan
+- [ ] Custom amounts preserved exactly
+- [ ] Flex states preserved exactly
+- [ ] No orphaned records
+- [ ] Relationship integrity validated
+
+#### Feature Parity
+- [ ] Flex adjustment works identically
+- [ ] Protected goals work identically
+- [ ] Skipped goals work identically
+- [ ] Quick actions work identically
+- [ ] Real-time updates work correctly
+- [ ] Multi-currency works identically
+
+#### Performance
+- [ ] Plan loading <500ms
+- [ ] Calculation <1s
+- [ ] Contribution recording <500ms
+- [ ] History loading <1s
+- [ ] Memory usage acceptable
+
+#### New Features
+- [ ] DRAFT → EXECUTING transition works
+- [ ] EXECUTING → CLOSED transition works
+- [ ] Snapshot created correctly
+- [ ] Contributions tracked correctly
+- [ ] Fulfillment detection works
+- [ ] History view displays correctly
+
+#### Edge Cases
+- [ ] Multiple executing plans handled
+- [ ] Contribution without plan handled
+- [ ] Goal deleted during execution handled
+- [ ] Plan closed but contribution added rejected
+- [ ] Over-contribution handled
+- [ ] Withdrawal handled
+- [ ] Empty plan handled
+
+---
+
+### Monitoring After Deployment
+
+**Week 1: Intensive Monitoring**
+```swift
+// Log all state transitions
+AppLog.info("Plan transitioned: \(old) → \(new)")
+
+// Log all migrations
+AppLog.info("Migration completed: v3 → v4")
+
+// Track feature usage
+Analytics.track("MonthlyPlan.StartExecuting")
+Analytics.track("MonthlyPlan.Close")
+```
+
+**Week 2-4: Regular Monitoring**
+```swift
+// Monitor error rates
+if errorRate > normalRate * 1.5 {
+    alert("Error rate spike detected")
+}
+
+// Monitor performance
+if avgCalculationTime > 1.0 {
+    alert("Performance degradation")
+}
+
+// Monitor data integrity
+if orphanedCount > 0 {
+    alert("Data integrity issue")
+}
+```
+
+**Metrics to Track**:
+- Migration success rate (target: 100%)
+- Feature usage (Start Executing: target >50% of users)
+- Error rate (target: <0.1%)
+- Performance (target: <1s calculations)
+- Support tickets (target: <5% about new features)
+
+---
+
+### Success Criteria Summary
+
+✅ **Feature Preservation**: All current features work identically
+✅ **Data Integrity**: Zero data loss, all preferences intact
+✅ **Performance**: Matches or beats current implementation
+✅ **UX**: Users understand new features, <5% support questions
+✅ **Stability**: Error rate <0.1%, no critical bugs
+
+If all criteria met: **Implementation Success** ✅
+If any criteria fail: **Rollback and reassess** ⚠️
+
+---
+
 ## Conclusion
 
 This solution provides a complete separation between **planning** (what you should do) and **execution** (what you actually did). Key features:
@@ -1295,11 +2540,13 @@ This solution provides a complete separation between **planning** (what you shou
 4. **Comprehensive history** - all-time tracking with pagination
 5. **Rollover handled automatically** - over-contributions reduce future requirements
 6. **Manual edit tracking** - withdrawals and adjustments recorded
+7. **100% feature preservation** - all current features work identically via two-layer architecture
 
-The system is flexible, user-friendly, and provides clear accountability for monthly savings goals.
+The system is flexible, user-friendly, provides clear accountability for monthly savings goals, and **preserves all existing functionality** through careful integration design.
 
 ---
 
-*Document Version: 1.0*
+*Document Version: 2.0*
 *Created: 2025-11-15*
+*Updated: 2025-11-15 (Added Integration & Risk Mitigation sections)*
 *Status: Ready for Implementation*
