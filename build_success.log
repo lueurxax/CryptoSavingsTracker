@@ -1,0 +1,296 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -scheme CryptoSavingsTracker -configuration Debug -sdk macosx -destination platform=macOS build
+
+Build settings from command line:
+    SDKROOT = macosx26.1
+
+2025-11-22 13:52:31.466 xcodebuild[38269:9836563]  DVTDeviceOperation: Encountered a build number "" that is incompatible with DVTBuildVersion.
+2025-11-22 13:52:31.467 xcodebuild[38269:9836531] [MT] DVTDeviceOperation: Encountered a build number "" that is incompatible with DVTBuildVersion.
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:00006000-0014108A2E02401E, name:My Mac }
+{ platform:macOS, arch:x86_64, id:00006000-0014108A2E02401E, name:My Mac }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (1 target)
+    Target 'CryptoSavingsTracker' in project 'CryptoSavingsTracker' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: af6443e87ef5107866c44f1f5a00962b
+Build description path: /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/XCBuildData/af6443e87ef5107866c44f1f5a00962b.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk /Users/user/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.1-25B74-3ae1261907bdadc328169391a47051a6.sdkstatcache
+    cd /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -o /Users/user/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.1-25B74-3ae1261907bdadc328169391a47051a6.sdkstatcache
+
+warning: Skipping duplicate build file in Compile Sources build phase: /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Models/MonthlyExecutionRecord.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+warning: Skipping duplicate build file in Compile Sources build phase: /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Models/ExecutionSnapshot.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+warning: Skipping duplicate build file in Compile Sources build phase: /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Models/Contribution.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+warning: Skipping duplicate build file in Compile Sources build phase: /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Services/ExecutionTrackingService.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+warning: Skipping duplicate build file in Compile Sources build phase: /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Services/ContributionService.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+warning: Skipping duplicate build file in Compile Sources build phase: /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ViewModels/MonthlyExecutionViewModel.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+warning: Skipping duplicate build file in Compile Sources build phase: /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/MonthlyExecutionView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+warning: Skipping duplicate build file in Compile Sources build phase: /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/MonthlyPlanningContainer.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+warning: Skipping duplicate build file in Compile Sources build phase: /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/ContributionEntryView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+SwiftDriver CryptoSavingsTracker normal arm64 com.apple.xcode.tools.swift.compiler (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name CryptoSavingsTracker -Onone -enforce-exclusivity\=checked @/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/CryptoSavingsTracker.SwiftFileList -DDEBUG -default-isolation\=MainActor -enable-bare-slash-regex -enable-upcoming-feature MemberImportVisibility -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -target arm64-apple-macos15.5 -g -module-cache-path /Users/user/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Products/Debug -F /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Products/Debug -emit-localized-strings -emit-localized-strings-path /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/user/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.1-25B74-3ae1261907bdadc328169391a47051a6.sdkstatcache -output-file-map /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/CryptoSavingsTracker-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/user/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/user/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/CryptoSavingsTracker.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/user/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/CryptoSavingsTracker_const_extract_protocols.json -Xcc -iquote -Xcc /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/CryptoSavingsTracker-generated-files.hmap -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/CryptoSavingsTracker-own-target-headers.hmap -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/CryptoSavingsTracker-all-target-headers.hmap -Xcc -iquote -Xcc /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/CryptoSavingsTracker-project-headers.hmap -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Products/Debug/include -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/DerivedSources-normal/arm64 -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/DerivedSources/arm64 -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/CryptoSavingsTracker-Swift.h -working-directory /Users/user/Documents/CryptoSavingsTracker -experimental-emit-module-separately -disable-cmo
+
+SwiftCompile normal arm64 Compiling\ ExecutionTrackingService.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Services/ExecutionTrackingService.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Services/ExecutionTrackingService.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 Compiling\ ExecutionSnapshot.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Models/ExecutionSnapshot.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Models/ExecutionSnapshot.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 Compiling\ MonthlyExecutionRecord.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Models/MonthlyExecutionRecord.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Models/MonthlyExecutionRecord.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 Compiling\ ContributionService.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Services/ContributionService.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Services/ContributionService.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 Compiling\ Contribution.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Models/Contribution.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Models/Contribution.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 Compiling\ MonthlyPlanningWidget.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Components/MonthlyPlanningWidget.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Components/MonthlyPlanningWidget.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+/Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Components/MonthlyPlanningWidget.swift:162:81: error: argument passed to call that takes no arguments
+                NavigationLink(destination: MonthlyPlanningContainer(viewModel: viewModel)) {
+                                                                    ~~~~~~~~~~~~^~~~~~~~~~
+
+Failed frontend command:
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift-frontend -frontend -c -filelist /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/sources-1 -primary-file /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Components/MonthlyPlanningWidget.swift -emit-dependencies-path /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningWidget.d -emit-const-values-path /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningWidget.swiftconstvalues -emit-reference-dependencies-path /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningWidget.swiftdeps -serialize-diagnostics-path /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningWidget.dia -emit-localized-strings -emit-localized-strings-path /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64 -target arm64-apple-macos15.5 -module-can-import-version AppKit 2685.20.119 2685.20.119 -module-can-import-version DeveloperToolsSupport 23.0.4 23.0.4 -module-can-import-version SwiftUI 7.1.13.1 7.1.13 -disable-cross-import-overlay-search -swift-module-cross-import SwiftData /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk/System/Library/Frameworks/SwiftData.framework/Modules/SwiftData.swiftcrossimport/CoreData.swiftoverlay -swift-module-cross-import SwiftData /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk/System/Library/Frameworks/SwiftData.framework/Modules/SwiftData.swiftcrossimport/SwiftUI.swiftoverlay -load-resolved-plugin /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins/libFoundationMacros.dylib\#/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server\#FoundationMacros -load-resolved-plugin /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins/libObservationMacros.dylib\#/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server\#ObservationMacros -load-resolved-plugin /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins/libPreviewsMacros.dylib\#/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server\#PreviewsMacros -load-resolved-plugin /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins/libSwiftDataMacros.dylib\#/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server\#SwiftDataMacros -load-resolved-plugin /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins/libSwiftMacros.dylib\#/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server\#SwiftMacros -load-resolved-plugin /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins/libSwiftUIMacros.dylib\#/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server\#SwiftUIMacros -disable-implicit-swift-modules -Xcc -fno-implicit-modules -Xcc -fno-implicit-module-maps -explicit-swift-module-map-file /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/CryptoSavingsTracker-dependencies-1.json -Xllvm -aarch64-use-tbi -enable-objc-interop -stack-check -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -I /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Products/Debug -F /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Products/Debug -no-color-diagnostics -Xcc -fno-color-diagnostics -enable-testing -g -debug-info-format\=dwarf -dwarf-version\=5 -module-cache-path /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -swift-version 5 -enforce-exclusivity\=checked -Onone -D DEBUG -serialize-debugging-options -const-gather-protocols-file /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/CryptoSavingsTracker_const_extract_protocols.json -enable-upcoming-feature MemberImportVisibility -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -default-isolation\=MainActor -empty-abi-descriptor -validate-clang-modules-once -clang-build-session-file /Users/user/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -working-directory -Xcc /Users/user/Documents/CryptoSavingsTracker -enable-anonymous-context-mangled-names -file-compilation-dir /Users/user/Documents/CryptoSavingsTracker -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -Xcc -ivfsstatcache -Xcc /Users/user/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.1-25B74-3ae1261907bdadc328169391a47051a6.sdkstatcache -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/swift-overrides.hmap -Xcc -iquote -Xcc /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/CryptoSavingsTracker-generated-files.hmap -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/CryptoSavingsTracker-own-target-headers.hmap -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/CryptoSavingsTracker-all-target-headers.hmap -Xcc -iquote -Xcc /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/CryptoSavingsTracker-project-headers.hmap -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Products/Debug/include -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/DerivedSources-normal/arm64 -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/DerivedSources/arm64 -Xcc -I/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/DerivedSources -Xcc -DDEBUG\=1 -no-auto-bridging-header-chaining -module-name CryptoSavingsTracker -frontend-parseable-output -disable-clang-spi -target-sdk-version 26.1 -target-sdk-name macosx26.1 -clang-target arm64-apple-macos26.1 -in-process-plugin-server-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/libSwiftInProcPluginServer.dylib -o /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningWidget.o -index-unit-output-path /CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningWidget.o -index-store-path /Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Index.noindex/DataStore -index-system-modules
+SwiftCompile normal arm64 Compiling\ MonthlyExecutionViewModel.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ViewModels/MonthlyExecutionViewModel.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ViewModels/MonthlyExecutionViewModel.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ CryptoSavingsTracker (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+EmitSwiftModule normal arm64 (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 Compiling\ ContributionEntryView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/ContributionEntryView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/ContributionEntryView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 Compiling\ MonthlyExecutionView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/MonthlyExecutionView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/MonthlyExecutionView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 Compiling\ MonthlyPlanningContainer.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/MonthlyPlanningContainer.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/MonthlyPlanningContainer.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling MonthlyExecutionRecord.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 Compiling\ PlanHistoryListView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/PlanHistoryListView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/PlanHistoryListView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling ContributionEntryView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 Compiling\ AllocationService.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Services/AllocationService.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Services/AllocationService.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling Contribution.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 Compiling\ PlanHistoryDetailView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/PlanHistoryDetailView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/PlanHistoryDetailView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling MonthlyExecutionViewModel.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ExecutionTrackingService.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ExecutionSnapshot.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 Compiling\ AddTransactionView.swift,\ AssetSharingView.swift,\ ContentView.swift,\ DashboardView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/AddTransactionView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/AssetSharingView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/ContentView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/DashboardView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/AddTransactionView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/AssetSharingView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/ContentView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/DashboardView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 Compiling\ GoalEditViewModel.swift,\ GoalRowViewModel.swift,\ MonthlyPlanningViewModel.swift,\ DashboardMetricsGrid.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ViewModels/GoalEditViewModel.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ViewModels/GoalRowViewModel.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ViewModels/MonthlyPlanningViewModel.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Components/DashboardMetricsGrid.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ViewModels/GoalEditViewModel.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ViewModels/GoalRowViewModel.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ViewModels/MonthlyPlanningViewModel.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Components/DashboardMetricsGrid.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 Compiling\ AssetViewModel.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ViewModels/AssetViewModel.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ViewModels/AssetViewModel.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling ContributionService.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 Compiling\ WhatIfView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Dashboard/WhatIfView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Dashboard/WhatIfView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling PlanHistoryListView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 Compiling\ PlanningView.swift,\ UnifiedGoalRowView.swift,\ AddAssetView.swift,\ AddGoalView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/PlanningView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Shared/UnifiedGoalRowView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/AddAssetView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/AddGoalView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Planning/PlanningView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Shared/UnifiedGoalRowView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/AddAssetView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/AddGoalView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling AssetViewModel.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 Compiling\ AssetRowView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/AssetRowView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/AssetRowView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling MonthlyExecutionView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 Compiling\ MonthlyPlanningView.swift,\ OnboardingContentView.swift,\ CryptoSavingsTrackerApp.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/MonthlyPlanningView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/OnboardingContentView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/CryptoSavingsTrackerApp.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/MonthlyPlanningView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/OnboardingContentView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/CryptoSavingsTrackerApp.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling AllocationService.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 Compiling\ CurrencyViewModel.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ViewModels/CurrencyViewModel.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/ViewModels/CurrencyViewModel.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling MonthlyPlanningContainer.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 Compiling\ DIContainer.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Utilities/DIContainer.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Utilities/DIContainer.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling PlanHistoryDetailView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 Compiling\ GoalRepository.swift,\ MigrationService.swift,\ MonthlyPlanningService.swift,\ SwiftDataQueries.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Repositories/GoalRepository.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Services/MigrationService.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Services/MonthlyPlanningService.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Utilities/SwiftDataQueries.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Repositories/GoalRepository.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Services/MigrationService.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Services/MonthlyPlanningService.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Utilities/SwiftDataQueries.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+    cd /Users/user/Documents/CryptoSavingsTracker
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling CurrencyViewModel.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+SwiftCompile normal arm64 Compiling\ GoalComparisonView.swift,\ GoalsListContainer.swift,\ GoalsSidebarContainer.swift,\ OnboardingFlowView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Goals/GoalComparisonView.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Goals/GoalsListContainer.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Goals/GoalsSidebarContainer.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Onboarding/OnboardingFlowView.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+
+** BUILD FAILED **
+
+
+The following build commands failed:
+	SwiftCompile normal arm64 /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Components/MonthlyPlanningWidget.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+	SwiftCompile normal arm64 Compiling\ MonthlyPlanningWidget.swift /Users/user/Documents/CryptoSavingsTracker/CryptoSavingsTracker/Views/Components/MonthlyPlanningWidget.swift (in target 'CryptoSavingsTracker' from project 'CryptoSavingsTracker')
+	Building project CryptoSavingsTracker with scheme CryptoSavingsTracker and configuration Debug
+(3 failures)

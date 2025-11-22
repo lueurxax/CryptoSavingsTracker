@@ -29,7 +29,8 @@ struct AppLogger {
         case performance = "Performance"
         case monthlyPlanning = "MonthlyPlanning"
         case accessibility = "Accessibility"
-        
+        case executionTracking = "ExecutionTracking"
+
         var logger: OSLog {
             return OSLog(subsystem: "com.cryptosavingstracker.app", category: self.rawValue)
         }

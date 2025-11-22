@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftData
 
 /// Service for performing goal calculations with proper separation of concerns
 /// This avoids having model objects directly instantiate ViewModels
@@ -13,17 +14,22 @@ import Foundation
 class GoalCalculationService: GoalCalculationServiceProtocol {
     private let exchangeRateService: ExchangeRateServiceProtocol
     private let tatumService: TatumServiceProtocol
+    private let modelContext: ModelContext?
 
     init(exchangeRateService: ExchangeRateServiceProtocol,
-         tatumService: TatumServiceProtocol) {
+         tatumService: TatumServiceProtocol,
+         modelContext: ModelContext? = nil) {
         self.exchangeRateService = exchangeRateService
         self.tatumService = tatumService
+        self.modelContext = modelContext
     }
 
-    convenience init(container: DIContainer = DIContainer.shared) {
+    @MainActor
+    convenience init(container: DIContainer = DIContainer.shared, modelContext: ModelContext? = nil) {
         self.init(
             exchangeRateService: container.exchangeRateService,
-            tatumService: container.tatumService
+            tatumService: container.tatumService,
+            modelContext: modelContext
         )
     }
 
@@ -51,23 +57,39 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
         let remainingAmount = max(goal.targetAmount - total, 0)
         return remainingAmount / Double(remainingDates.count)
     }
-    
+
+    // MARK: - REMOVED: Contribution-Aware Calculations
+    // These methods were implementing DOUBLE-COUNTING by adding contributions to asset totals.
+    // Contributions are TRACKING RECORDS for monthly plan fulfillment, NOT part of goal totals.
+    //
+    // Correct calculation: Goal Total = Asset Values ONLY
+    // Monthly fulfillment = sum(contributions for current month)
+    //
+    // The following methods have been removed:
+    // - getCurrentTotalWithContributions() [DOUBLE-COUNTING BUG]
+    // - getProgressWithContributions() [DOUBLE-COUNTING BUG]
+    // - getSuggestedDepositWithContributions() [DOUBLE-COUNTING BUG]
+    //
+    // All callers should use:
+    // - getCurrentTotal(for:) for asset-only totals
+    // - Separate contribution queries for monthly plan tracking
+
     /// Calculate current total for a goal using proper ViewModel delegation
-    static func getCurrentTotal(for goal: Goal) async -> Double {
+    @MainActor static func getCurrentTotal(for goal: Goal) async -> Double {
         let viewModel = GoalViewModel(goal: goal)
         await viewModel.refreshValues()
         return viewModel.currentTotal
     }
     
     /// Calculate progress percentage for a goal
-    static func getProgress(for goal: Goal) async -> Double {
+    @MainActor static func getProgress(for goal: Goal) async -> Double {
         let total = await getCurrentTotal(for: goal)
         guard goal.targetAmount > 0 else { return 0 }
         return min(total / goal.targetAmount, 1.0)
     }
     
     /// Calculate suggested daily deposit based on remaining time and target
-    static func getSuggestedDeposit(for goal: Goal) async -> Double {
+    @MainActor static func getSuggestedDeposit(for goal: Goal) async -> Double {
         let total = await getCurrentTotal(for: goal)
         let remainingDates = getRemainingReminderDates(for: goal)
         guard remainingDates.count > 0, goal.targetAmount > 0 else { return 0 }
@@ -155,7 +177,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     
     /// Calculate total value for a goal including both manual balance and on-chain balance with currency conversion
     /// This method properly handles asset allocations and currency conversions
-    static func getTotalValue(for goal: Goal) async -> Double {
+    @MainActor static func getTotalValue(for goal: Goal) async -> Double {
         var totalValue = 0.0
         
         for allocation in goal.allocations {
@@ -180,6 +202,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     }
     
     /// Helper method to get asset value in the goal's currency
+    @MainActor
     private static func getAssetValueInGoalCurrency(
         asset: Asset,
         goalCurrency: String,
@@ -207,7 +230,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     }
     
     /// Get allocated value from a specific asset to a goal
-    static func getAllocatedValue(from asset: Asset, to goal: Goal) async -> Double {
+    @MainActor static func getAllocatedValue(from asset: Asset, to goal: Goal) async -> Double {
         guard let allocation = goal.allocations.first(where: { $0.asset?.id == asset.id }) else {
             return 0.0
         }
@@ -225,7 +248,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     }
     
     /// Get a breakdown of value contributions from each asset to a goal
-    static func getValueBreakdown(for goal: Goal) async -> [(asset: Asset, value: Double, percentage: Double)] {
+    @MainActor static func getValueBreakdown(for goal: Goal) async -> [(asset: Asset, value: Double, percentage: Double)] {
         var breakdown: [(asset: Asset, value: Double, percentage: Double)] = []
         
         for allocation in goal.allocations {

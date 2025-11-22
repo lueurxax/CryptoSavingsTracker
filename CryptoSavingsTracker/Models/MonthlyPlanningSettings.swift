@@ -47,6 +47,29 @@ final class MonthlyPlanningSettings: ObservableObject {
             UserDefaults.standard.set(notificationDays, forKey: Keys.notificationDays)
         }
     }
+
+    // MARK: - Automation Settings
+
+    /// Automatically start tracking on the 1st of each month
+    @Published var autoStartEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(autoStartEnabled, forKey: Keys.autoStartEnabled)
+        }
+    }
+
+    /// Automatically mark month complete on the last day of the month
+    @Published var autoCompleteEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(autoCompleteEnabled, forKey: Keys.autoCompleteEnabled)
+        }
+    }
+
+    /// Hours available for undo grace period (24, 48, 168 for 7 days, or 0 for no undo)
+    @Published var undoGracePeriodHours: Int {
+        didSet {
+            UserDefaults.standard.set(undoGracePeriodHours, forKey: Keys.undoGracePeriodHours)
+        }
+    }
     
     // MARK: - Computed Properties
     
@@ -99,6 +122,11 @@ final class MonthlyPlanningSettings: ObservableObject {
         self.paymentDay = UserDefaults.standard.integer(forKey: Keys.paymentDay).clamped(to: 1...28, default: 1)
         self.notificationsEnabled = UserDefaults.standard.bool(forKey: Keys.notificationsEnabled)
         self.notificationDays = UserDefaults.standard.integer(forKey: Keys.notificationDays).clamped(to: 1...7, default: 3)
+
+        // Automation defaults: all OFF by default (manual mode)
+        self.autoStartEnabled = UserDefaults.standard.bool(forKey: Keys.autoStartEnabled)
+        self.autoCompleteEnabled = UserDefaults.standard.bool(forKey: Keys.autoCompleteEnabled)
+        self.undoGracePeriodHours = UserDefaults.standard.integer(forKey: Keys.undoGracePeriodHours).clamped(to: 0...168, default: 24)
     }
     
     // MARK: - Public Methods
@@ -109,6 +137,9 @@ final class MonthlyPlanningSettings: ObservableObject {
         paymentDay = 1
         notificationsEnabled = true
         notificationDays = 3
+        autoStartEnabled = false
+        autoCompleteEnabled = false
+        undoGracePeriodHours = 24
     }
     
     /// Validate payment day for current month
@@ -145,6 +176,9 @@ private extension MonthlyPlanningSettings {
         static let paymentDay = "MonthlyPlanning.PaymentDay"
         static let notificationsEnabled = "MonthlyPlanning.NotificationsEnabled"
         static let notificationDays = "MonthlyPlanning.NotificationDays"
+        static let autoStartEnabled = "MonthlyPlanning.AutoStartEnabled"
+        static let autoCompleteEnabled = "MonthlyPlanning.AutoCompleteEnabled"
+        static let undoGracePeriodHours = "MonthlyPlanning.UndoGracePeriodHours"
     }
 }
 

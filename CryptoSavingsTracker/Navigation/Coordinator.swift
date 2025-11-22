@@ -325,7 +325,7 @@ struct NavigationCoordinatorModifier: ViewModifier {
         case .transactionHistory(let asset):
             TransactionHistoryView(asset: asset)
         case .monthlyPlanning:
-            MonthlyPlanningView()
+            MonthlyPlanningContainer()
         default:
             EmptyView()
         }

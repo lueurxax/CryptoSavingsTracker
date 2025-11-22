@@ -148,11 +148,22 @@ struct MonthlyPlanningSettingsView: View {
                 }
             }
             
+            // Automation Section
+            Section {
+                autoStartToggle
+                autoCompleteToggle
+                gracePeriodPicker
+            } header: {
+                Text("Automation")
+            } footer: {
+                Text("Automatically start tracking on the 1st of each month and mark complete on the last day. All automated actions include an undo grace period.")
+            }
+
             // Advanced Options
             DisclosureGroup("Advanced Options", isExpanded: $showAdvancedOptions) {
                 advancedOptionsContent
             }
-            
+
             // Reset Section
             Section {
                 resetButton
@@ -272,7 +283,7 @@ struct MonthlyPlanningSettingsView: View {
     }
     
     // MARK: - Notifications
-    
+
     private var notificationToggle: some View {
         Toggle(isOn: $settings.notificationsEnabled) {
             Label("Payment Reminders", systemImage: "bell")
@@ -281,6 +292,59 @@ struct MonthlyPlanningSettingsView: View {
         .tint(.blue)
         .accessibilityLabel("Enable payment reminder notifications")
         .accessibilityHint("Toggle to enable or disable payment deadline notifications")
+    }
+
+    // MARK: - Automation
+
+    private var autoStartToggle: some View {
+        Toggle(isOn: $settings.autoStartEnabled) {
+            Label("Auto-start new month", systemImage: "play.circle")
+                .foregroundColor(.primary)
+        }
+        .tint(.blue)
+        .accessibilityLabel("Automatically start tracking on the 1st of each month")
+        .accessibilityHint("When enabled, monthly tracking will start automatically with an undo grace period")
+    }
+
+    private var autoCompleteToggle: some View {
+        Toggle(isOn: $settings.autoCompleteEnabled) {
+            Label("Auto-complete previous month", systemImage: "checkmark.circle")
+                .foregroundColor(.primary)
+        }
+        .tint(.blue)
+        .accessibilityLabel("Automatically complete tracking on the last day of month")
+        .accessibilityHint("When enabled, monthly tracking will be marked complete automatically with an undo grace period")
+    }
+
+    private var gracePeriodPicker: some View {
+        HStack {
+            Label("Undo grace period", systemImage: "arrow.uturn.backward.circle")
+                .foregroundColor(.primary)
+
+            Spacer()
+
+            Picker("Grace Period", selection: $settings.undoGracePeriodHours) {
+                Text("24 hours").tag(24)
+                Text("48 hours").tag(48)
+                Text("7 days").tag(168)
+                Text("No undo").tag(0)
+            }
+            .pickerStyle(.menu)
+            .tint(.blue)
+        }
+        .accessibilityLabel("Undo grace period for automated actions")
+        .accessibilityHint("Select how long you have to undo automated state transitions")
+        .accessibilityValue(gracePeriodDescription)
+    }
+
+    private var gracePeriodDescription: String {
+        switch settings.undoGracePeriodHours {
+        case 24: return "24 hours"
+        case 48: return "48 hours"
+        case 168: return "7 days"
+        case 0: return "No undo - actions are final"
+        default: return "\(settings.undoGracePeriodHours) hours"
+        }
     }
     
     private var notificationDaysRow: some View {

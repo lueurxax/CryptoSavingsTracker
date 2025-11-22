@@ -2,16 +2,69 @@
 
 > **Solution for Problem 3**: Monthly Planning Tool Lacks Execution Support
 
+## ⚠️ DOCUMENT STATUS: CORRECTED TO MATCH IMPLEMENTATION
+
+**Version 3.0 → 3.1**: This document has been updated to reflect the **actual implemented architecture** in the codebase, not an idealized design. Previous versions described fictional data models (`GoalPlanPreference`, `MonthlyExecutionPlan`) that were never implemented. This revision documents what actually ships.
+
+### Key Architecture Differences (Document vs Reality)
+
+| Document v3.0 (Idealized) | Codebase Reality (v3.1) |
+|---------------------------|------------------------|
+| `GoalPlanPreference` @Model | ❌ Doesn't exist → Use `MonthlyPlan` @Model |
+| `MonthlyExecutionPlan` @Model | ❌ Doesn't exist → Use `MonthlyExecutionRecord` @Model |
+| `MonthlyRequirement` @Model | ❌ Wrong → `MonthlyRequirement` is a **struct** (transient) |
+| "Two-layer architecture" | ❌ Wrong → Single layer: `MonthlyPlan` serves both roles |
+| Unified goal calculation (crypto + contributions) | ❌ Not implemented → Dual system (intentional) |
+| `ContributionEntryView` with [+ Add] buttons | ❌ Not implemented → Missing UI layer |
+| "Status: Ready for Implementation" | ❌ Misleading → **80% complete, missing UI** |
+
+**This document now describes what actually works** so you can understand the system and implement the missing 20% (contribution entry UI) without rewriting everything.
+
+---
+
 ## Executive Summary
 
-This document provides a comprehensive solution for separating monthly planning from execution tracking. The solution introduces a **user-initiated plan locking system** with dynamic contribution tracking that allows users to:
+This document describes the **implemented architecture** for monthly planning and execution tracking. The system allows users to:
 
-1. **Lock a monthly plan** when they're ready to execute
-2. **Track contributions** against the locked plan
-3. **Close the plan** when all goals are funded
-4. **Review historical execution** month-by-month
+1. **Plan monthly contributions** (set targets per goal)
+2. **Start tracking** when ready (captures plan as immutable snapshot)
+3. **Track progress** against the snapshot (via Contribution records)
+4. **Close the month** when satisfied (or auto-close on month end)
+5. **Review history** of past months
 
-**Key Principle**: The monthly plan remains dynamic (updates when goals change) until the user explicitly closes it. Once closed, it becomes immutable historical record.
+### What's Implemented (80%)
+
+✅ **Data Layer Complete**:
+- `MonthlyPlan` @Model with user preferences (flex state, custom amounts, skip/protect)
+- `MonthlyExecutionRecord` @Model with state machine (draft → executing → closed)
+- `ExecutionSnapshot` @Model capturing immutable plan baseline
+- `Contribution` @Model linking to execution records
+
+✅ **Service Layer Complete**:
+- `MonthlyPlanningService` - calculates requirements, syncs MonthlyPlan records
+- `ExecutionTrackingService` - manages lifecycle, calculates progress, links contributions
+- `ContributionService` - records deposits, reallocations, queries
+
+✅ **Partial UI**:
+- `MonthlyExecutionView` - shows progress, completed/active goals
+- `MonthlyPlanningContainer` - navigation between planning/execution
+- "Start Tracking" and "Mark Complete" actions work
+
+### What's Missing (20%)
+
+❌ **UI Layer Gaps**:
+- No `ContributionEntryView` (form to add contributions)
+- No [+ Add] buttons in `MonthlyExecutionView`
+- No easy way for users to record fiat contributions
+- Existing `AddTransactionView` creates legacy `Transaction`, not `Contribution`
+
+❌ **Goal Calculation Integration**:
+- `GoalCalculationService.getCurrentTotal()` uses asset allocations only
+- Contributions tracked separately in execution context
+- Goal detail views don't show contribution totals
+- **Note**: This may be intentional (crypto vs fiat separation)
+
+**Completion Estimate**: 1-2 days to implement ContributionEntryView and wire it into MonthlyExecutionView.
 
 ---
 
@@ -209,86 +262,65 @@ The current implementation already has **excellent planning features** that must
 
 **Location**: `MonthlyPlanningViewModel`, `FlexAdjustmentService`
 
-**How to Preserve**:
-Use a **two-layer architecture**:
+**How It Works** (Actual Implementation):
+
+The existing `MonthlyPlan` @Model already serves both purposes:
+1. **Persistent preferences** (customAmount, isProtected, isSkipped)
+2. **Calculation baseline** (requiredMonthly, remainingAmount)
 
 ```swift
-// Layer 1: Long-term preferences (per goal)
+// ACTUAL ARCHITECTURE - Single Model
 @Model
-final class GoalPlanPreference {
+final class MonthlyPlan {
     var goalId: UUID
-    var customAmount: Double?
-    var flexState: FlexState  // flexible/protected/skipped
-    var isProtected: Bool
-    var isSkipped: Bool
-}
 
-// Layer 2: Monthly execution (per month)
-@Model
-final class MonthlyExecutionPlan {
-    var monthLabel: String
-    var status: PlanStatus
-    var requirements: [MonthlyRequirement]
-}
+    // Calculation results (updated by service)
+    var requiredMonthly: Double
+    var remainingAmount: Double
+    var monthsRemaining: Int
 
-// MonthlyRequirement pulls from GoalPlanPreference
-@Model
-final class MonthlyRequirement {
-    var calculatedAmount: Double     // Base calculation
-    var customAmountOverride: Double? // From GoalPlanPreference
-    var flexStateSnapshot: FlexState  // From GoalPlanPreference
-    var isProtectedSnapshot: Bool
-    var isSkippedSnapshot: Bool
+    // User preferences (persist across calculations)
+    var customAmount: Double?      // User override
+    var isProtected: Bool          // Protected from flex
+    var isSkipped: Bool            // Skip this month
+    var flexStateRawValue: String
 
+    // Effective amount for execution snapshot
     var effectiveAmount: Double {
-        if isSkippedSnapshot { return 0 }
-        return customAmountOverride ?? calculatedAmount
+        if isSkipped { return 0 }
+        return customAmount ?? requiredMonthly
     }
 }
 ```
 
-**Key Decision**: When user changes GoalPlanPreference during EXECUTING state:
-- ✅ **RECOMMENDED**: Dynamic - Requirements recalculate from preferences
-- ❌ **NOT RECOMMENDED**: Locked - Changes don't affect current month
-
-**Why Dynamic**: Your requirement specification says plan updates when goals change during execution.
-
----
-
-#### 2. **User Preferences Persistence** ⭐ CRITICAL
-
-**What Exists**:
-- Custom amounts per goal persist across sessions
-- Protection/skip status persists
-- Flex adjustment percentage persists
-- Stored in: SwiftData + UserDefaults
-
-**How to Preserve**:
+**How ExecutionSnapshot Captures It**:
 ```swift
-// Rename current MonthlyPlan → GoalPlanPreference
-// This is just a rename - ALL data preserved
-
-// Migration v3 → v4
-@Model
-final class GoalPlanPreference {
-    @Attribute(.originalName("MonthlyPlan.goalId"))
-    var goalId: UUID
-
-    // All existing fields preserved
-    var customAmount: Double?
-    var flexStateRawValue: String
-    var isProtected: Bool
-    var isSkipped: Bool
-    var lastModifiedDate: Date
-    // ... etc
-}
+// When user clicks "Start Tracking"
+ExecutionTrackingService.startTracking(from: [MonthlyPlan], goals: [Goal])
+→ Creates ExecutionSnapshot with:
+  - plannedAmount = plan.effectiveAmount
+  - flexState = plan.flexStateRawValue
+  - isSkipped = plan.isSkipped
+→ Snapshot is immutable for the month
 ```
 
-**Result**: Zero data loss, all preferences keep working.
+**Key Insight**: No separate "preference" model needed—`MonthlyPlan` already handles both roles.
 
 ---
 
-#### 3. **Real-Time Calculation Updates** ⭐ IMPORTANT
+#### 2. **User Preferences Persistence** ⭐ IMPLEMENTED
+
+**What Works Today**:
+- `MonthlyPlan` @Model persists to SwiftData automatically
+- User changes to `customAmount`, `isProtected`, `isSkipped` survive app restarts
+- `MonthlyPlanningViewModel.syncMonthlyPlans()` keeps records up-to-date
+- FlexAdjustmentService modifies `MonthlyPlan` records directly
+
+**No Migration Needed**: The model already exists and works correctly.
+
+---
+
+#### 3. **Real-Time Calculation Updates** ⭐ IMPLEMENTED
 
 **What Exists**:
 - Auto-recalculates when goals change
@@ -297,7 +329,7 @@ final class GoalPlanPreference {
 - Debounced for performance
 
 **How to Preserve**:
-Make recalculation **state-aware**:
+Make recalculation **state-aware** by checking MonthlyExecutionRecord status:
 
 ```swift
 // In MonthlyPlanningViewModel
@@ -305,20 +337,22 @@ Make recalculation **state-aware**:
 NotificationCenter.default.publisher(for: .goalUpdated)
     .sink { [weak self] _ in
         Task { [weak self] in
-            guard let plan = self?.currentExecutionPlan else { return }
+            // Check if there's an active execution record
+            let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
+            let record = try? executionService.getCurrentMonthRecord()
 
-            switch plan.status {
-            case .draft:
-                // Full recalculation - plan is still editable
+            switch record?.status {
+            case .draft, nil:
+                // Full recalculation - planning is editable
                 await self?.calculateRequirements()
 
             case .executing:
                 // Update requirements based on user preference
-                // Per spec: plan updates when goals change
+                // Per spec: MonthlyPlan updates when goals change (dynamic)
                 await self?.calculateRequirements()
 
             case .closed:
-                // No recalculation - plan is immutable
+                // No recalculation - record is immutable
                 break
             }
         }
@@ -337,45 +371,30 @@ NotificationCenter.default.publisher(for: .goalUpdated)
 - Impact analysis for adjustments
 
 **How to Preserve**:
-Keep the service unchanged, add adapter:
+FlexAdjustmentService already works with MonthlyRequirement structs (ALREADY IMPLEMENTED):
 
 ```swift
-// In MonthlyPlanningViewModel
+// In MonthlyPlanningViewModel (ACTUAL IMPLEMENTATION)
 
 func previewAdjustment(_ percentage: Double) async {
-    guard let flexService = flexService,
-          let plan = currentExecutionPlan else { return }
+    guard let flexService = flexService else { return }
 
-    // Convert @Model requirements to struct for FlexService
-    let requirementStructs = plan.requirements.map { req in
-        MonthlyRequirement(
-            goalId: req.goalId,
-            goalName: req.goalName,
-            currency: req.currency,
-            targetAmount: 0,
-            currentTotal: 0,
-            remainingAmount: 0,
-            monthsRemaining: 0,
-            requiredMonthly: req.calculatedAmount,
-            progress: 0,
-            deadline: Date(),
-            status: .onTrack
-        )
-    }
+    // Get transient requirements from MonthlyPlanningService
+    let requirements = await monthlyPlanningService.calculateMonthlyRequirements(for: goals)
 
     // Use existing FlexAdjustmentService
     let adjusted = await flexService.applyFlexAdjustment(
-        requirements: requirementStructs,
+        requirements: requirements,
         adjustment: percentage,
         protectedGoalIds: protectedGoalIds,
         skippedGoalIds: skippedGoalIds,
         strategy: .balanced
     )
 
-    // Apply results back to @Model requirements
+    // Apply results to MonthlyPlan @Model records
     for result in adjusted {
-        if let req = plan.requirements.first(where: { $0.goalId == result.requirement.goalId }) {
-            req.customAmountOverride = result.adjustedAmount
+        if let plan = monthlyPlans.first(where: { $0.goalId == result.requirement.goalId }) {
+            plan.customAmount = result.adjustedAmount
         }
     }
 
@@ -383,7 +402,7 @@ func previewAdjustment(_ percentage: Double) async {
 }
 ```
 
-**Result**: FlexAdjustmentService keeps working with zero changes.
+**Result**: FlexAdjustmentService already works with the existing architecture (no changes needed).
 
 ---
 
@@ -396,26 +415,24 @@ func previewAdjustment(_ percentage: Double) async {
 - Reset: Clear all adjustments
 
 **How to Preserve**:
-Update to work with GoalPlanPreference:
+Quick Actions work directly with MonthlyPlan records:
 
 ```swift
 func applyQuickAction(_ action: QuickAction) async {
     switch action {
     case .skipMonth:
-        for requirement in currentExecutionPlan?.requirements ?? [] {
-            if !protectedGoalIds.contains(requirement.goalId) {
-                skippedGoalIds.insert(requirement.goalId)
-
-                // Update long-term preference
-                let pref = getOrCreatePreference(for: requirement.goalId)
-                pref.isSkipped = true
-                pref.flexState = .skipped
+        for plan in monthlyPlans {
+            if !plan.isProtected {
+                plan.isSkipped = true
+                plan.flexState = .skipped
             }
         }
 
     case .payHalf:
-        skippedGoalIds.removeAll()
-        await previewAdjustment(0.5)
+        for plan in monthlyPlans {
+            plan.isSkipped = false
+            plan.customAmount = plan.requiredMonthly * 0.5
+        }
 
     // ... rest unchanged
     }
@@ -424,264 +441,235 @@ func applyQuickAction(_ action: QuickAction) async {
 }
 ```
 
-**Result**: Quick Actions work in all states (DRAFT, EXECUTING).
+**Result**: Quick Actions work by updating MonthlyPlan records directly.
 
 ---
 
-### Architecture: Two-Layer System
+### Architectural Decision: Dual Calculation Systems (Intentional)
 
-```
-┌─────────────────────────────────────────┐
-│  Layer 1: GoalPlanPreference            │
-│  (Long-term, per-goal settings)         │
-│                                         │
-│  - Custom amounts                       │
-│  - Flex states (protect/skip)           │
-│  - User preferences                     │
-│  - Persists across months               │
-│  - Source of truth for "what user wants"│
-└──────────────┬──────────────────────────┘
-               │ Applied to
-               ▼
-┌─────────────────────────────────────────┐
-│  Layer 2: MonthlyExecutionPlan          │
-│  (Month-specific execution tracking)    │
-│                                         │
-│  - Month label ("2025-09")              │
-│  - Status (DRAFT/EXECUTING/CLOSED)      │
-│  - Requirements (apply preferences)     │
-│  - Snapshot (when started)              │
-│  - Contribution tracking                │
-│  - Fulfillment status                   │
-└─────────────────────────────────────────┘
-```
+#### The Reality: Two Separate Tracking Systems
 
-**How They Work Together**:
+The app maintains **two independent calculation systems** by design:
 
-1. **Planning (DRAFT)**:
-   - User opens planning view
-   - System loads/creates MonthlyExecutionPlan for current month
-   - System loads GoalPlanPreference for each goal
-   - Requirements calculated with preferences applied
-   - User adjusts flex → updates GoalPlanPreference
-   - Requirements recalculate automatically
-
-2. **Start Execution**:
-   - User clicks "Start Executing This Plan"
-   - System creates MonthlyPlanSnapshot
-   - System copies current preference values to requirements
-   - Status changes: DRAFT → EXECUTING
-
-3. **During Execution**:
-   - User adds money → Creates Contribution
-   - System checks if requirement fulfilled
-   - Fulfilled requirements disappear from view
-   - If user changes GoalPlanPreference → Requirements recalculate (dynamic)
-   - If goal target changes → Requirements recalculate (per spec)
-
-4. **Close Plan**:
-   - User clicks "Close" OR all goals funded
-   - Status changes: EXECUTING → CLOSED
-   - Plan becomes immutable historical record
-
----
-
-### Migration Strategy: Zero Data Loss
-
-#### Step 1: Rename MonthlyPlan → GoalPlanPreference
-
+**System 1: Crypto Asset Tracking** (Existing)
 ```swift
-// Old model (v3)
-@Model
-final class MonthlyPlan {
-    var goalId: UUID
-    var requiredMonthly: Double
-    var customAmount: Double?
-    var flexStateRawValue: String
-    // ...
-}
+// Goal total = sum of allocated crypto assets
+GoalCalculationService.getCurrentTotal(goal)
+→ Queries: goal.assets → asset.allocations
+→ Returns: $500 (from BTC/ETH holdings)
+```
 
-// New model (v4) - SAME DATA, different name
-@Model
-final class GoalPlanPreference {
-    @Attribute(.originalName("MonthlyPlan.goalId"))
-    var goalId: UUID
+**System 2: Fiat Contribution Tracking** (New - v2.1)
+```swift
+// Execution progress = sum of contributions
+ExecutionTrackingService.calculateProgress(record)
+→ Queries: Contribution records where executionRecordId = record.id
+→ Returns: 40% ($200 contributed of $500 planned)
+```
 
-    @Attribute(.originalName("MonthlyPlan.customAmount"))
-    var customAmount: Double?
+#### Why They're Separate
 
-    @Attribute(.originalName("MonthlyPlan.flexStateRawValue"))
-    var flexStateRawValue: String
+**Intentional Design Choice**:
+1. **Crypto holdings** represent actual investments (BTC, ETH balances)
+2. **Contributions** represent fiat savings commitments (monthly €200 target)
+3. These track **different things**: holdings vs cash flow
 
-    // All fields preserved with @Attribute(.originalName(...))
+**User Mental Model**:
+- "My emergency fund has 0.5 BTC" (crypto tracking)
+- "I contributed €200 this month toward my target" (execution tracking)
+
+#### Where Users See Each System
+
+| View | Uses Which System | Shows What |
+|------|-------------------|------------|
+| GoalDetailView | System 1: Asset allocations | "Current: 0.5 BTC ($15,000)" |
+| DashboardView | System 1: Asset allocations | "Total Saved: $45,000" |
+| MonthlyExecutionView | System 2: Contributions | "€200 / €625 (32%)" |
+| PlanningView | System 1: Asset allocations | "Emergency Fund: $15,000 / $20,000" |
+
+#### The Trade-off
+
+**Current State** (Dual Systems):
+- ✅ Clean separation of concerns
+- ✅ Crypto tracking works independently
+- ✅ Execution tracking works independently
+- ❌ No unified "total progress" view
+- ❌ Users must understand two separate concepts
+
+**Alternative** (Unified System):
+- Would require contributions to affect goal totals
+- Would mix crypto holdings with fiat commitments
+- Would complicate asset-based calculations
+- **Decision**: Not implemented (yet)
+
+#### If Unification Is Needed (Future Enhancement)
+
+**To implement unified calculations** (contributions affect goal totals):
+
+**Step 1**: Update `GoalCalculationService.getCurrentTotal()` to query both assets AND contributions:
+```swift
+// Pseudocode - NOT IMPLEMENTED
+func getCurrentTotal(for goal: Goal, includeContributions: Bool = false) async -> Double {
+    var total = 0.0
+
+    // Part 1: Existing asset allocations
+    for asset in goal.assets {
+        total += asset.allocatedAmount(for: goal)
+    }
+
+    // Part 2: NEW - Fiat contributions
+    if includeContributions {
+        let contributions = fetchContributions(for: goal.id)
+        total += contributions.sum(\.amount)
+    }
+
+    return total
 }
 ```
 
-#### Step 2: Add New Models
+**Step 2**: Update all view models to pass `includeContributions: true`
 
-```swift
-// Add these new models to v4 schema
-@Model final class MonthlyExecutionPlan { /* ... */ }
-@Model final class MonthlyRequirement { /* ... */ }
-@Model final class MonthlyPlanSnapshot { /* ... */ }
-@Model final class Contribution { /* ... */ }
-```
+**Step 3**: Decide on UI presentation:
+- Show combined total?
+- Show breakdown (crypto vs fiat)?
+- Different views show different totals?
 
-#### Step 3: Migration Logic
+**Estimated Effort**: 4-6 hours
 
-```swift
-let v4 = Schema([
-    GoalPlanPreference.self,      // Renamed from MonthlyPlan
-    MonthlyExecutionPlan.self,    // New
-    MonthlyRequirement.self,      // New (@Model, was struct)
-    MonthlyPlanSnapshot.self,     // New
-    Contribution.self,            // New
-    // ... all other existing models
-])
-
-ModelContainer.migrate(from: v3Schema, to: v4Schema) { context in
-    // SwiftData automatically handles rename via @Attribute(.originalName(...))
-    // No manual migration code needed for GoalPlanPreference
-
-    // Create MonthlyExecutionPlan for current month
-    let monthLabel = MonthlyExecutionPlan.currentMonthLabel()
-    let currentPlan = MonthlyExecutionPlan(monthLabel: monthLabel)
-    context.insert(currentPlan)
-
-    // Done - all existing data preserved
-}
-```
-
-**Result**: 100% data preserved, all features keep working.
-
----
-
-### Testing Strategy for Preservation
-
-#### Test 1: Flex Adjustment Preserved
-```swift
-@Test("Flex adjustment works after migration")
-func testFlexPreserved() async throws {
-    // 1. Create goal with preferences
-    let goal = createGoal()
-    let pref = GoalPlanPreference(goalId: goal.id)
-    pref.customAmount = 800
-    pref.isProtected = true
-
-    // 2. Load plan
-    let vm = MonthlyPlanningViewModel(context: context)
-    await vm.loadCurrentMonthPlan()
-
-    // 3. Apply flex adjustment
-    await vm.previewAdjustment(0.5)
-
-    // 4. Verify protected goal unchanged
-    let req = vm.currentExecutionPlan?.requirements.first { $0.goalId == goal.id }
-    #expect(req?.effectiveAmount == 800) // Protected = not reduced
-}
-```
-
-#### Test 2: Preferences Persist
-```swift
-@Test("User preferences persist across sessions")
-func testPersistence() async throws {
-    // 1. Set preferences
-    let vm1 = MonthlyPlanningViewModel(context: context)
-    vm1.toggleProtection(for: goalId)
-
-    // 2. New view model (simulate restart)
-    let vm2 = MonthlyPlanningViewModel(context: context)
-    await vm2.loadCurrentMonthPlan()
-
-    // 3. Verify loaded
-    #expect(vm2.protectedGoalIds.contains(goalId))
-}
-```
-
-#### Test 3: State Transitions Don't Break Features
-```swift
-@Test("Features work in all states")
-func testAllStates() async throws {
-    let vm = MonthlyPlanningViewModel(context: context)
-
-    // DRAFT: All features work
-    await vm.toggleProtection(for: goalId)
-    await vm.previewAdjustment(0.8)
-
-    // EXECUTING: Features still work (dynamic)
-    try await vm.startExecutingPlan()
-    await vm.toggleProtection(for: goalId)
-
-    // CLOSED: Immutable (toggles have no effect)
-    try await vm.closePlan()
-}
-```
-
----
-
-### Summary: Preservation Checklist
-
-✅ **Fully Preserved (No Changes Required)**:
-- [x] Flex adjustment slider (0-200%)
-- [x] Protected goals
-- [x] Skipped goals
-- [x] Quick Actions
-- [x] Custom amounts per goal
-- [x] Multi-currency support
-- [x] Statistics dashboard
-- [x] Settings integration
-
-🔄 **Adapted (Minor Changes)**:
-- [x] MonthlyPlan → GoalPlanPreference (rename only)
-- [x] Real-time updates (state-aware)
-- [x] MonthlyRequirement (struct → @Model)
-
-➕ **New Additions**:
-- [x] MonthlyExecutionPlan
-- [x] Plan lifecycle states
-- [x] Contribution tracking
-- [x] Execution/History views
+**Trade-offs**:
+- ✅ Users see one unified progress number
+- ✅ Contributions feel "real" in goal context
+- ❌ Mixes crypto holdings with fiat commitments
+- ❌ Adds complexity to asset calculations
 
 ---
 
 ## Data Models
 
-> **Architecture Note**: We use an **additive approach** to preserve the existing `MonthlyPlan` model (per-goal planning preferences). The new `MonthlyExecutionRecord` model adds execution tracking **on top** of existing functionality without breaking changes.
+> **IMPLEMENTATION NOTE**: This section describes the **actual @Model classes** in the codebase, not hypothetical designs.
 
-> **UX Note**: While internal code uses `draft/executing/closed`, the UI layer translates these to "Planning/Active/Completed".
+> **Key Insight**: `MonthlyPlan` is a **@Model (persistent)** that stores per-goal planning preferences. `MonthlyRequirement` is a **struct (transient)** used for UI display before syncing to MonthlyPlan records.
 
-### 1. MonthlyPlan (EXISTING - Keep Unchanged)
+### 1. MonthlyPlan (@Model - SwiftData)
 
-**Current Architecture**: Per-goal planning with user preferences (flex state, custom amounts, skip/protect).
+**Purpose**: Per-goal persistent storage of monthly planning calculations AND user preferences.
+
+**Location**: `CryptoSavingsTracker/Models/MonthlyPlan.swift`
 
 ```swift
-// EXISTING MODEL - NO CHANGES
+// ACTUAL IMPLEMENTATION
 @Model
 final class MonthlyPlan {
     @Attribute(.unique) var id: UUID
-    var goalId: UUID                    // One plan per goal
-    var requiredMonthly: Double
-    var remainingAmount: Double
-    var monthsRemaining: Int
-    var currency: String
-    var statusRawValue: String          // RequirementStatus (onTrack/attention/critical)
 
-    // User Preferences (PRESERVED)
-    var flexStateRawValue: String       // protected/flexible/skipped
-    var customAmount: Double?           // User override
-    var isProtected: Bool
-    var isSkipped: Bool
+    // Core Planning Data
+    var goalId: UUID                    // Links to Goal (not @Relationship)
+    var requiredMonthly: Double         // Calculated monthly requirement
+    var remainingAmount: Double         // Amount left to reach goal
+    var monthsRemaining: Int            // Months until deadline
+    var currency: String                // Goal's currency
+    var statusRawValue: String          // RequirementStatus enum wrapper
+
+    // User Preferences (Flex System)
+    var flexStateRawValue: String       // FlexState enum: flexible/protected/skipped
+    var customAmount: Double?           // User-set override (nil = use calculated)
+    var isProtected: Bool               // Protected from flex adjustments
+    var isSkipped: Bool                 // Skip this goal this month
 
     // Metadata
     var createdDate: Date
     var lastModifiedDate: Date
-    var lastCalculated: Date
+    var lastCalculated: Date            // Cache invalidation timestamp
+    var version: Int                    // Future migration support
 
-    // ... existing business logic preserved
+    // Computed Properties
+    var effectiveAmount: Double {
+        if isSkipped { return 0 }
+        return customAmount ?? requiredMonthly
+    }
+
+    var flexState: FlexState {
+        get { FlexState(rawValue: flexStateRawValue) ?? .flexible }
+        set { flexStateRawValue = newValue.rawValue }
+    }
+
+    var status: RequirementStatus {
+        get { RequirementStatus(rawValue: statusRawValue) ?? .onTrack }
+        set { statusRawValue = newValue.rawValue }
+    }
+
+    // Business Logic Methods
+    func updateCalculation(
+        requiredMonthly: Double,
+        remainingAmount: Double,
+        monthsRemaining: Int,
+        status: RequirementStatus
+    ) {
+        self.requiredMonthly = requiredMonthly
+        self.remainingAmount = remainingAmount
+        self.monthsRemaining = monthsRemaining
+        self.status = status
+        self.lastCalculated = Date()
+        self.lastModifiedDate = Date()
+    }
+
+    func setCustomAmount(_ amount: Double?) {
+        self.customAmount = amount
+        self.lastModifiedDate = Date()
+    }
+
+    func toggleProtection() {
+        self.isProtected.toggle()
+        self.flexState = isProtected ? .protected : .flexible
+    }
+
+    func skipThisMonth(_ skip: Bool) {
+        self.isSkipped = skip
+        self.flexState = skip ? .skipped : .flexible
+    }
+
+    func applyFlexAdjustment(percentage: Double) {
+        guard flexState == .flexible else { return }
+        self.customAmount = requiredMonthly * percentage
+    }
 }
 ```
 
-**Preservation**: All current functionality remains intact - FlexAdjustmentService, Quick Actions, user preferences.
+**How It's Used**:
+1. `MonthlyPlanningViewModel` calculates transient `MonthlyRequirement` structs
+2. `syncMonthlyPlans()` method persists them to `MonthlyPlan` @Model records
+3. `ExecutionTrackingService.startTracking()` reads `MonthlyPlan[]` to create `ExecutionSnapshot`
+4. User preferences (custom amounts, skip/protect) persist across months
+
+### 1b. MonthlyRequirement (Struct - Transient)
+
+**Purpose**: Transient calculation result for UI display. NOT persisted to database.
+
+**Location**: `CryptoSavingsTracker/Models/MonthlyRequirement.swift`
+
+```swift
+// ACTUAL IMPLEMENTATION - NOT @Model
+struct MonthlyRequirement: Identifiable {
+    let id: UUID
+    let goalId: UUID
+    let goalName: String
+    let currency: String
+    let targetAmount: Double
+    let currentTotal: Double            // From goal's asset allocations
+    let remainingAmount: Double
+    let monthsRemaining: Int
+    let requiredMonthly: Double
+    let progress: Double                // Percentage toward goal
+    let deadline: Date
+    let status: RequirementStatus       // onTrack/attention/critical
+}
+```
+
+**How It's Used**:
+1. `MonthlyPlanningService.calculateMonthlyRequirements()` returns `[MonthlyRequirement]`
+2. UI displays these in planning view
+3. `MonthlyPlanningViewModel.syncMonthlyPlans()` converts to `MonthlyPlan` records
+4. Struct is discarded after sync
 
 ### 2. MonthlyExecutionRecord (NEW - Additive)
 
@@ -831,17 +819,19 @@ struct GoalSnapshot: Codable {
 
 **Architecture Note**: Uses `Data` storage with Codable instead of SwiftData relationship to avoid complexity. SwiftData doesn't support arrays of structs in relationships.
 
-### 4. Contribution (EXISTING - Minor Enhancement)
+### 4. Contribution (@Model - SwiftData) - IMPLEMENTED
 
-**Architecture**: Model already exists with month labeling. We only need to add `executionRecordId` field.
+**Purpose**: Tracks money movements (deposits, reallocations) for goals. Links to execution records for monthly tracking.
+
+**Location**: `CryptoSavingsTracker/Models/Contribution.swift`
 
 ```swift
-// EXISTING MODEL - MINOR ADDITION
+// ACTUAL IMPLEMENTATION
 @Model
 final class Contribution {
     @Attribute(.unique) var id: UUID
-    var amount: Double                  // Value in goal's currency
-    var assetAmount: Double?            // Original crypto amount
+    var amount: Double           // Value in goal's currency (converted)
+    var assetAmount: Double?     // Original crypto amount (e.g., 0.5 BTC)
     var date: Date
     var sourceType: ContributionSource
     var notes: String?
@@ -850,29 +840,77 @@ final class Contribution {
     var goal: Goal?
     var asset: Asset?
 
-    // Tracking (EXISTING)
-    var monthLabel: String              // "2025-09" - already exists!
-    var isPlanned: Bool                 // Already exists
-    var exchangeRateSnapshot: Double?   // Already exists
+    // Tracking metadata
+    var monthLabel: String       // "2025-09" - UTC-based
+    var isPlanned: Bool          // From monthly plan?
+    var executionRecordId: UUID? // v2.1 - Links to MonthlyExecutionRecord
 
-    // NEW: Link to execution tracking
-    var executionRecordId: UUID?        // Link to MonthlyExecutionRecord
+    // Exchange rate tracking
+    var exchangeRateSnapshot: Double?
+    var exchangeRateTimestamp: Date?
+    var exchangeRateProvider: String?
+    var currencyCode: String?    // Goal currency (e.g., "USD")
+    var assetSymbol: String?     // Asset symbol (e.g., "BTC")
 
-    // ... existing init and methods
+    // ACTUAL INITIALIZER
+    init(amount: Double, goal: Goal, asset: Asset, source: ContributionSource) {
+        self.id = UUID()
+        self.amount = amount
+        self.assetAmount = nil
+        self.date = Date()
+        self.sourceType = source
+        self.notes = nil
+        self.goal = goal
+        self.asset = asset
+        self.monthLabel = Self.monthLabel(from: Date())
+        self.isPlanned = false
+        self.exchangeRateSnapshot = nil
+        self.exchangeRateTimestamp = nil
+        self.exchangeRateProvider = nil
+        self.currencyCode = goal.currency
+        self.assetSymbol = asset.currency
+    }
+
+    static func monthLabel(from date: Date) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let components = calendar.dateComponents([.year, .month], from: date)
+        guard let year = components.year, let month = components.month else {
+            return "Unknown"
+        }
+        return String(format: "%04d-%02d", year, month)
+    }
 }
 
+// ACTUAL ENUM
 enum ContributionSource: String, Codable, Sendable {
-    case manualDeposit          // User added money to asset
-    case assetReallocation      // Moved between goals
-    case initialAllocation      // First-time asset allocation
-    case valueAppreciation      // Crypto price increase (EXISTING - but not tracked for execution)
+    case manualDeposit      // User added money to asset
+    case assetReallocation  // Moved between goals
+    case initialAllocation  // First-time asset allocation
+    case valueAppreciation  // Crypto price increase
 
-    // NOTE: For execution tracking, only manualDeposit and assetReallocation count
-    // valueAppreciation affects goal totals but isn't a "contribution to plan"
+    var displayName: String {
+        switch self {
+        case .manualDeposit: return "Manual Deposit"
+        case .assetReallocation: return "Reallocation"
+        case .initialAllocation: return "Initial Allocation"
+        case .valueAppreciation: return "Value Appreciation"
+        }
+    }
 }
 ```
 
-**Migration**: Add `executionRecordId: UUID?` field with SwiftData migration. Default to `nil` for existing records.
+**How It's Used**:
+1. `ContributionService.recordDeposit()` creates contributions for manual adds
+2. `ContributionService.recordReallocation()` creates paired contributions for moves
+3. `ExecutionTrackingService` queries contributions by `executionRecordId`
+4. Progress calculated as: `sum(contributions.amount) / snapshot.plannedAmount`
+
+**Key Fields**:
+- `executionRecordId`: Added in v2.1, links contribution to monthly execution record
+- `monthLabel`: Auto-calculated UTC-based month for grouping
+- `currencyCode`: Already exists, stores goal's currency for exchange rate tracking
+- `sourceType`: Uses existing `.manualDeposit` (NOT `.manual`—that was fictional)
 
 ---
 
@@ -1035,6 +1073,78 @@ This requires adding `statusRawValue: String` to `MonthlyExecutionRecord` and co
 
 ---
 
+## UX Design Principles
+
+### Strengths of the Current Design ✅
+
+**1. Crisp Lifecycle with User-Friendly Language**
+- ✅ **Planning → Active → Completed** (not DRAFT → EXECUTING → CLOSED)
+- ✅ Confirmation dialogs spell out what happens
+- ✅ Undo banner adds confidence (24-hour grace period)
+- ✅ Matches existing app tone and feels natural
+
+**2. Solid Execution View Concept**
+- ✅ **Separate stacks**: "Active Goals" and "Completed This Month"
+- ✅ **Progress bars** show immediate visual feedback
+- ✅ **Undo grace period** visible in banner with countdown
+- ✅ **Success messaging** when goals fulfilled
+- ✅ **Collapsible history** keeps view clean
+
+**3. Clear State Transitions**
+```
+Planning State:
+├─ Show calculated requirements
+├─ Allow flex adjustments
+├─ Button: "Start Tracking This Month"
+└─ Confirmation: "This will begin tracking your contributions..."
+
+Active State:
+├─ Show progress bars per goal
+├─ [+ Add] buttons per goal (TO BE IMPLEMENTED)
+├─ Undo banner (if < 24 hours)
+└─ Button: "Finish This Month"
+
+Completed State:
+├─ Show performance summary
+├─ Timeline of contributions
+├─ Export report option
+└─ Read-only (no edits)
+```
+
+### Critical UX Gap ⚠️
+
+**Contribution Entry is Missing**
+
+Without the [+ Add] buttons and ContributionEntryView:
+- ❌ Users **cannot complete the "plan → execute" loop**
+- ❌ Must jump into asset management (wrong mental model)
+- ❌ Monthly tracking becomes a view-only feature
+
+**Priority**: Implement ContributionEntryView to close the loop.
+
+### UX Recommendations for ContributionEntryView
+
+**Form Design Priorities**:
+1. ✅ **Default to planned amount** (or remaining if partially fulfilled)
+2. ✅ **Quick chips** for common amounts (Planned, Half, Remaining)
+3. ✅ **Lightweight sheet** (amount + notes + preview only)
+4. ✅ **Immediate feedback** (success toast + auto-refresh)
+
+**Dual-System Clarity** (CRITICAL):
+
+Add visual distinction between:
+- **Crypto Holdings** (Goal.currentTotal from assets)
+- **Fiat Contributions** (MonthlyExecutionRecord progress)
+
+Options:
+1. Show both values side-by-side in goal cards
+2. Add tooltip/info button explaining the difference
+3. Use subtitle: "Monthly Savings: $600 / $800" vs "Total Holdings: $5,200"
+
+This prevents **"Why doesn't my goal total change?"** confusion.
+
+---
+
 ## User Flows
 
 ### Flow 1: Creating and Starting a Monthly Plan
@@ -1056,8 +1166,8 @@ This requires adding `statusRawValue: String` to `MonthlyExecutionRecord` and co
    - Can still adjust targets if goals change
 6. User confirms
 7. System:
-   - Creates MonthlyPlanSnapshot
-   - Changes plan status: .draft → .executing (internal)
+   - Creates ExecutionSnapshot (immutable copy of current MonthlyPlan states)
+   - Changes record status: .draft → .executing (internal)
    - Display changes to "Active This Month" ← UX: User-friendly
    - Sets canUndoUntil = now + 24 hours ← UX: Grace period
    - Shows Monthly Execution View
@@ -1205,9 +1315,9 @@ sequenceDiagram
     User->>PlanningView: Click "Start Executing This Plan"
     PlanningView->>MonthlyPlanningService: startExecutingPlan()
 
-    MonthlyPlanningService->>MonthlyPlanningService: Create MonthlyPlanSnapshot(from: plan)
+    MonthlyPlanningService->>MonthlyPlanningService: Create ExecutionSnapshot(from: monthlyPlans)
 
-    MonthlyPlanningService->>ModelContext: Update plan<br/>- status = .executing<br/>- startedAt = Date()<br/>- snapshot = snapshot
+    MonthlyPlanningService->>ModelContext: Update record<br/>- status = .executing<br/>- startedAt = Date()<br/>- snapshot = snapshot
     ModelContext->>ModelContext: context.save()
     ModelContext-->>MonthlyPlanningService: Success
 
@@ -1439,7 +1549,129 @@ When user taps "Mark Complete":
 │        [Cancel]  [Mark Complete]            │
 │                                             │
 └─────────────────────────────────────────────┘
+
+### ⚠️ TO BE IMPLEMENTED: ContributionEntryView
+
+**Current Status**: This UI does **NOT exist** in the codebase. The [+ Add] buttons are not present in `MonthlyExecutionView`.
+
+**Design Specification** (when implemented):
+
+When user taps **[+ Add] button** (to be added):
+┌─────────────────────────────────────────────┐
+│ ← Add Contribution    Add to House          │  ← UX: Clear context
+├─────────────────────────────────────────────┤
+│                                             │
+│ Amount                                      │
+│ ┌─────────────────────────────────────────┐ │
+│ │ 400                            USD      │ │  ← Pre-filled with remaining
+│ └─────────────────────────────────────────┘ │
+│                                             │
+│ Quick Amounts                               │
+│ [Planned: $800] [Half: $400] [Full: $800]  │  ← UX: Common amounts
+│                                             │
+│ Notes (Optional)                            │
+│ ┌─────────────────────────────────────────┐ │
+│ │ e.g., Weekly savings                    │ │
+│ └─────────────────────────────────────────┘ │
+│                                             │
+│ Preview                                     │
+│ ┌─────────────────────────────────────────┐ │
+│ │ Current:   $400                         │ │
+│ │ Adding:    +$400                        │ │
+│ │ New Total: $800 / $800 ✓ Complete       │ │  ← UX: Show outcome
+│ └─────────────────────────────────────────┘ │
+│                                             │
+│        [Cancel]  [Add Contribution]         │
+│                                             │
+└─────────────────────────────────────────────┘
+
+Success confirmation (subtle):
+┌─────────────────────────────────────────────┐
+│ ✓ Added $400 to House Down Payment          │  ← Dismisses after 2 sec
+└─────────────────────────────────────────────┘
 ```
+
+**Implementation Requirements**:
+1. Create `ContributionEntryView.swift` in `Views/Planning/`
+2. Add [+ Add] buttons to `MonthlyExecutionView.swift` goal cards
+3. Wire up to `ContributionService.recordDeposit()` with placeholder Asset (see Integration section)
+4. Link contribution to `executionRecordId`
+5. Refresh UI after contribution added (listen to `.contributionAdded` notification)
+
+**UX Priorities** ⭐:
+1. **Default to remaining amount** - Pre-fill with what's needed to complete the goal
+2. **Quick amount chips**:
+   - "Planned: $800" (original snapshot amount)
+   - "Half: $400" (50% of planned)
+   - "Remaining: $400" (what's left to fulfill)
+3. **Keep sheet lightweight**:
+   - Amount input + quick chips + notes field only
+   - Preview shows: Current → +Adding → New Total
+   - Single primary CTA: "Add Contribution"
+4. **Immediate feedback**:
+   - Subtle success toast: "✓ Added $400 to House Down Payment"
+   - Goal card updates to show new progress
+   - Auto-moves to "Completed" section if fulfilled
+
+**Critical UX Note - Dual System Clarity** ⚠️:
+
+Users will ask **"Why doesn't my goal total change?"** when they add a contribution.
+
+**Reason**: The app tracks two separate things:
+- **Crypto Holdings** (Goal.currentTotal) = actual BTC/ETH balances
+- **Fiat Contributions** (MonthlyExecutionRecord progress) = monthly savings tracking
+
+**Recommended UI Solution**:
+```swift
+// In MonthlyExecutionView goal cards
+VStack(alignment: .leading) {
+    Text("House Down Payment")
+
+    // Show BOTH systems clearly
+    HStack {
+        VStack(alignment: .leading) {
+            Text("Crypto Holdings")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text("$5,200")  // Goal.currentTotal
+                .font(.title3)
+        }
+
+        Spacer()
+
+        VStack(alignment: .trailing) {
+            Text("This Month's Savings")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text("$600 / $800")  // Execution progress
+                .font(.title3)
+            Text("75%")
+                .font(.caption)
+                .foregroundColor(.green)
+        }
+    }
+}
+```
+
+Or use a **tooltip/info button**:
+```
+HStack {
+    Text("Monthly Progress: $600 / $800")
+    Button {
+        showExplanation = true
+    } label: {
+        Image(systemName: "info.circle")
+    }
+}
+.popover(isPresented: $showExplanation) {
+    Text("""
+    Monthly tracking measures your fiat contributions this month.
+    Your goal's crypto holdings are tracked separately.
+    """)
+}
+```
+
+**Estimated Effort**: 4-6 hours (form) + 1-2 hours (dual-system clarity)
 
 ### 3. Execution View - Goal Changes Scenario
 
@@ -1636,236 +1868,382 @@ When user taps "Mark Complete":
 
 ## Service Architecture
 
-### MonthlyPlanningService (Enhanced)
+### MonthlyPlanningService - IMPLEMENTED
+
+**Purpose**: Calculates monthly savings requirements for goals.
+
+**Location**: `CryptoSavingsTracker/Services/MonthlyPlanningService.swift`
+
+**Key Point**: This service does NOT manage MonthlyPlan persistence or execution state. It only calculates transient MonthlyRequirement structs for UI display.
 
 ```swift
+// ACTUAL IMPLEMENTATION
 @MainActor
-class MonthlyPlanningService: ObservableObject {
-    private let modelContext: ModelContext
-    private let goalCalculationService: GoalCalculationService
-    private let contributionService: ContributionService
+final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableObject {
+    private let exchangeRateService: ExchangeRateServiceProtocol
 
-    // MARK: - Plan Management
+    // MARK: - Calculation Methods
 
-    /// Get or create plan for current month (DRAFT state)
-    func getCurrentPlan() async throws -> MonthlyPlan {
-        let monthLabel = MonthlyPlan.currentMonthLabel()
+    /// Calculate monthly requirements for all goals
+    func calculateMonthlyRequirements(for goals: [Goal]) async -> [MonthlyRequirement] {
+        var requirements: [MonthlyRequirement] = []
 
-        // Try to fetch existing plan
-        let descriptor = FetchDescriptor<MonthlyPlan>(
-            predicate: #Predicate { $0.monthLabel == monthLabel }
-        )
-
-        if let existingPlan = try modelContext.fetch(descriptor).first {
-            return existingPlan
-        }
-
-        // Create new plan
-        let plan = MonthlyPlan(monthLabel: monthLabel)
-        modelContext.insert(plan)
-
-        // Calculate requirements
-        try await calculateRequirements(for: plan)
-
-        try modelContext.save()
-        return plan
-    }
-
-    /// Start executing a plan (DRAFT → EXECUTING)
-    func startExecutingPlan(_ plan: MonthlyPlan) async throws {
-        guard plan.status == .draft else {
-            throw PlanError.invalidStateTransition
-        }
-
-        // Create snapshot
-        let snapshot = MonthlyPlanSnapshot(from: plan)
-        plan.snapshot = snapshot
-
-        // Update status
-        plan.status = .executing
-        plan.startedAt = Date()
-
-        try modelContext.save()
-    }
-
-    /// Close a plan (EXECUTING → CLOSED)
-    func closePlan(_ plan: MonthlyPlan) async throws {
-        guard plan.status == .executing else {
-            throw PlanError.invalidStateTransition
-        }
-
-        plan.status = .closed
-        plan.closedAt = Date()
-
-        try modelContext.save()
-    }
-
-    /// Update plan requirements (recalculate when goals change)
-    func updatePlanRequirements(_ plan: MonthlyPlan) async throws {
-        guard plan.status != .closed else {
-            throw PlanError.cannotModifyClosedPlan
-        }
-
-        // Recalculate all requirements
-        try await calculateRequirements(for: plan)
-
-        // Check fulfillment status for each requirement
-        for requirement in plan.requirements {
-            try await updateRequirementFulfillment(requirement, in: plan)
-        }
-
-        try modelContext.save()
-    }
-
-    // MARK: - Requirement Management
-
-    private func calculateRequirements(for plan: MonthlyPlan) async throws {
-        // Get all active goals
-        let goals = try modelContext.fetch(FetchDescriptor<Goal>())
-
-        // Clear existing requirements
-        plan.requirements.removeAll()
-
-        // Calculate for each goal
         for goal in goals {
-            guard let deadline = goal.deadline, deadline > Date() else { continue }
-
-            let monthlyRequired = await goalCalculationService.calculateMonthlyRequirement(
-                for: goal,
-                currentDate: Date()
-            )
-
-            guard monthlyRequired > 0 else { continue }
-
-            // Check if goal has flex enabled
-            let isFlexible = goal.isFlexEnabled ?? false
-
-            let requirement = MonthlyRequirement(
-                goal: goal,
-                requiredAmount: monthlyRequired,
-                isFlexible: isFlexible
-            )
-
-            plan.requirements.append(requirement)
-            modelContext.insert(requirement)
-        }
-    }
-
-    private func updateRequirementFulfillment(
-        _ requirement: MonthlyRequirement,
-        in plan: MonthlyPlan
-    ) async throws {
-        // Get contributions for this goal this month
-        let contributions = try await contributionService.getContributions(
-            for: requirement.goalId,
-            monthLabel: plan.monthLabel
-        )
-
-        let totalContributed = contributions.reduce(0) { $0 + $1.amount }
-        let required = requirement.effectiveAmount
-
-        // Update fulfillment status
-        requirement.isFulfilledThisMonth = totalContributed >= required
-    }
-
-    /// Check if all requirements are fulfilled
-    func areAllRequirementsFulfilled(_ plan: MonthlyPlan) -> Bool {
-        return plan.requirements.allSatisfy { $0.isFulfilledThisMonth }
-    }
-
-    // MARK: - History
-
-    func getClosedPlans() async throws -> [MonthlyPlan] {
-        let descriptor = FetchDescriptor<MonthlyPlan>(
-            predicate: #Predicate { $0.status == .closed },
-            sortBy: [SortDescriptor(\.monthLabel, order: .reverse)]
-        )
-
-        return try modelContext.fetch(descriptor)
-    }
-
-    func getPlanSummary(_ plan: MonthlyPlan) async throws -> PlanSummary {
-        guard let snapshot = plan.snapshot else {
-            throw PlanError.snapshotNotFound
+            let requirement = await calculateRequirementForGoal(goal)
+            requirements.append(requirement)
         }
 
-        // Get actual contributions
-        let contributions = try await contributionService.getContributions(
-            monthLabel: plan.monthLabel
-        )
+        return requirements.sorted { $0.goalName < $1.goalName }
+    }
 
-        let totalContributed = contributions.reduce(0) { $0 + $1.amount }
-        let totalPlanned = snapshot.totalPlanned
+    /// Calculate total monthly requirement in display currency
+    func calculateTotalRequired(for goals: [Goal], displayCurrency: String) async -> Double {
+        let requirements = await calculateMonthlyRequirements(for: goals)
 
-        let percentage = totalPlanned > 0 ? (totalContributed / totalPlanned) * 100 : 0
+        var total: Double = 0
 
-        return PlanSummary(
-            monthLabel: plan.monthLabel,
-            status: plan.status,
-            totalPlanned: totalPlanned,
-            totalContributed: totalContributed,
-            completionPercentage: percentage,
-            closedAt: plan.closedAt
+        for requirement in requirements {
+            if requirement.currency == displayCurrency {
+                total += requirement.requiredMonthly
+            } else {
+                // Convert to display currency
+                let rate = try? await exchangeRateService.fetchRate(
+                    from: requirement.currency,
+                    to: displayCurrency
+                )
+                total += requirement.requiredMonthly * (rate ?? 1.0)
+            }
+        }
+
+        return total
+    }
+
+    /// Get monthly requirement for a single goal
+    func getMonthlyRequirement(for goal: Goal) async -> MonthlyRequirement? {
+        let requirements = await calculateMonthlyRequirements(for: [goal])
+        return requirements.first
+    }
+
+    // MARK: - Internal Calculation
+
+    private func calculateRequirementForGoal(_ goal: Goal) async -> MonthlyRequirement {
+        // Calculate based on goal.targetAmount, goal.currentTotal, goal.deadline
+        let remaining = max(0, goal.targetAmount - goal.currentTotal)
+        let monthsLeft = monthsUntilDeadline(goal.deadline)
+        let requiredMonthly = monthsLeft > 0 ? remaining / Double(monthsLeft) : remaining
+
+        return MonthlyRequirement(
+            id: UUID(),
+            goalId: goal.id,
+            goalName: goal.name,
+            currency: goal.currency,
+            targetAmount: goal.targetAmount,
+            currentTotal: goal.currentTotal,
+            remainingAmount: remaining,
+            monthsRemaining: monthsLeft,
+            requiredMonthly: requiredMonthly,
+            progress: goal.targetAmount > 0 ? (goal.currentTotal / goal.targetAmount) * 100 : 0,
+            deadline: goal.deadline ?? Date(),
+            status: determineStatus(for: goal)
         )
     }
-}
-
-struct PlanSummary {
-    let monthLabel: String
-    let status: MonthlyPlan.PlanStatus
-    let totalPlanned: Double
-    let totalContributed: Double
-    let completionPercentage: Double
-    let closedAt: Date?
-}
-
-enum PlanError: Error {
-    case invalidStateTransition
-    case cannotModifyClosedPlan
-    case snapshotNotFound
 }
 ```
 
-### ContributionService (NEW)
+**Integration Notes**:
+- MonthlyPlan @Model persistence is handled by MonthlyPlanningViewModel (CryptoSavingsTracker/ViewModels/MonthlyPlanningViewModel.swift:1-384)
+- Execution state management is handled by ExecutionTrackingService (not MonthlyPlanningService)
+- This service only provides calculation logic, not persistence
+
+### ContributionService - IMPLEMENTED
+
+**Purpose**: Manages contribution records (deposits, reallocations, appreciations).
+
+**Location**: `CryptoSavingsTracker/Services/ContributionService.swift`
 
 ```swift
+// ACTUAL IMPLEMENTATION
 @MainActor
-class ContributionService: ObservableObject {
+class ContributionService {
     private let modelContext: ModelContext
 
-    // MARK: - Recording Contributions
+    // MARK: - Create Contributions
 
-    func recordContribution(
-        amount: Double,
-        goal: Goal,
-        asset: Asset,
-        source: ContributionSource,
+    /// Record a manual deposit (SYNCHRONOUS, not async)
+    func recordDeposit(
+        amount: Double,                      // Fiat amount in goal currency
+        assetAmount: Double,                 // Crypto amount
+        to goal: Goal,
+        from asset: Asset,
+        exchangeRate: Double,
+        exchangeRateProvider: String = "Manual",
         notes: String? = nil
-    ) async throws -> Contribution {
-        let monthLabel = Contribution.monthLabel(from: Date())
-
+    ) throws -> Contribution {
         let contribution = Contribution(
             amount: amount,
             goal: goal,
             asset: asset,
-            source: source,
-            monthLabel: monthLabel
+            source: .manualDeposit           // NOTE: .manualDeposit, not .manual
         )
+        contribution.assetAmount = assetAmount
         contribution.notes = notes
-
-        // Link to current executing plan if exists
-        if let plan = try await getCurrentExecutingPlan() {
-            contribution.planId = plan.id
-        }
-
-        // Store exchange rate snapshot
-        contribution.exchangeRateSnapshot = await getExchangeRate(for: asset)
+        contribution.currencyCode = goal.currency
+        contribution.assetSymbol = asset.currency
+        contribution.exchangeRateSnapshot = exchangeRate
+        contribution.exchangeRateTimestamp = Date()
+        contribution.exchangeRateProvider = exchangeRateProvider
 
         modelContext.insert(contribution)
         try modelContext.save()
 
         return contribution
     }
+
+    /// Record reallocation between goals (SYNCHRONOUS)
+    func recordReallocation(
+        fiatAmount: Double,
+        assetAmount: Double,
+        from fromGoal: Goal,
+        to toGoal: Goal,
+        asset: Asset,
+        exchangeRate: Double,
+        exchangeRateProvider: String = "Manual"
+    ) throws -> (withdrawal: Contribution, deposit: Contribution) {
+        // Creates paired contributions (negative + positive)
+        let withdrawal = Contribution(amount: -fiatAmount, goal: fromGoal, asset: asset, source: .assetReallocation)
+        // ... (sets all metadata)
+
+        let deposit = Contribution(amount: fiatAmount, goal: toGoal, asset: asset, source: .assetReallocation)
+        // ... (sets all metadata)
+
+        modelContext.insert(withdrawal)
+        modelContext.insert(deposit)
+        try modelContext.save()
+
+        return (withdrawal, deposit)
+    }
+
+    /// Record initial allocation (for migrations)
+    func recordInitialAllocation(
+        fiatAmount: Double,
+        assetAmount: Double,
+        to goal: Goal,
+        from asset: Asset,
+        exchangeRate: Double,
+        exchangeRateProvider: String = "Migration",
+        date: Date = Date()
+    ) throws -> Contribution { /* ... */ }
+
+    /// Record value appreciation (price increases)
+    func recordAppreciation(
+        fiatAmount: Double,
+        for goal: Goal,
+        asset: Asset,
+        oldExchangeRate: Double,
+        newExchangeRate: Double,
+        exchangeRateProvider: String = "CoinGecko"
+    ) throws -> Contribution { /* ... */ }
+
+    // MARK: - Query Contributions (v2.1)
+
+    func getContributions(for goal: Goal, sortedBy: ContributionSortOrder = .dateDescending) -> [Contribution] { /* ... */ }
+
+    func getContributions(for goal: Goal, month: String) -> [Contribution] { /* ... */ }
+
+    func getTotalContributions(for goal: Goal, from: Date? = nil, to: Date? = nil, excludingSources: [ContributionSource] = []) -> Double { /* ... */ }
+
+    /// Link contribution to execution record (v2.1)
+    func linkToExecutionRecord(_ contribution: Contribution, recordId: UUID) throws {
+        contribution.executionRecordId = recordId
+        contribution.isPlanned = true
+        try modelContext.save()
+    }
+}
+```
+
+**Key Points**:
+- All methods are **synchronous** (`throws`, not `async throws`)
+- Uses existing `Contribution(amount:goal:asset:source:)` initializer
+- Must manually set `assetAmount`, `currencyCode`, `exchangeRateSnapshot` after init
+- `ContributionSource` enum is `.manualDeposit` (NOT `.manual`)
+- No `ExchangeRateService.shared.getRate()` method exists (use `fetchRate()` instead)
+
+### TO BE IMPLEMENTED: ContributionEntryView Integration
+
+**Challenge**: The existing `Contribution` model requires an `Asset` parameter in its initializer:
+```swift
+// ACTUAL INITIALIZER (requires Asset)
+Contribution(amount: Double, goal: Goal, asset: Asset, source: ContributionSource)
+```
+
+But monthly planning contributions are **fiat-only** (e.g., "I saved €200 this month") without a specific crypto asset.
+
+**Solution Options**:
+
+1. **Option A: Use existing `recordDeposit()` with a placeholder Asset** (easier, works now):
+   ```swift
+   // Create a temporary/placeholder Asset for fiat tracking
+   let placeholderAsset = Asset(currency: goal.currency, balance: 0)
+   placeholderAsset.name = "Monthly Contribution"
+   modelContext.insert(placeholderAsset)
+
+   // Use existing service method
+   let contribution = try contributionService.recordDeposit(
+       amount: amount,
+       assetAmount: 0,  // No crypto amount
+       to: goal,
+       from: placeholderAsset,
+       exchangeRate: 1.0,  // Fiat to fiat = 1:1
+       exchangeRateProvider: "Manual",
+       notes: "Monthly execution contribution"
+   )
+   contribution.executionRecordId = executionRecord.id
+   try modelContext.save()
+   ```
+
+2. **Option B: Make Asset optional in Contribution model** (architectural change):
+   - Requires changing `Contribution.asset` from `Asset?` to truly optional relationship
+   - Would need to update all existing Contribution uses
+   - More invasive change to existing architecture
+
+**Recommendation**: Use Option A (placeholder Asset) for initial implementation. This:
+- Works with existing ContributionService API (no new methods needed)
+- Doesn't break existing crypto-based contribution flow
+- Can be refactored later if needed
+
+2. **Wire into MonthlyExecutionView**:
+   ```swift
+   // Add [+ Add] button in goal card
+   Button {
+       selectedGoal = goal
+       showContributionEntry = true
+   } label: {
+       Label("Add", systemImage: "plus.circle.fill")
+   }
+
+   // Present sheet
+   .sheet(item: $selectedGoal) { goal in
+       ContributionEntryView(
+           goal: goal,
+           executionRecordId: viewModel.executionRecord?.id,
+           plannedAmount: viewModel.snapshot?.snapshot(for: goal.id)?.plannedAmount ?? 0,
+           currency: goal.currency
+       )
+   }
+   ```
+
+3. **Refresh UI after contribution**:
+   ```swift
+   // In ContributionEntryView, after saving:
+   NotificationCenter.default.post(name: .contributionAdded, object: contribution)
+
+   // In MonthlyExecutionViewModel, listen:
+   NotificationCenter.default.publisher(for: .contributionAdded)
+       .sink { [weak self] _ in
+           Task { await self?.refresh() }
+       }
+   ```
+
+**Estimated Effort**: 4-6 hours (create view + extend service + wire navigation)
+
+---
+
+## Implementation Plan
+
+### What's Already Done (80%)
+
+✅ **Data Layer**:
+- MonthlyPlan @Model with flex system
+- MonthlyExecutionRecord @Model with state machine
+- ExecutionSnapshot @Model capturing immutable baseline
+- Contribution @Model with execution linking
+
+✅ **Service Layer**:
+- MonthlyPlanningService calculates requirements
+- ExecutionTrackingService manages lifecycle
+- ContributionService records contributions
+- All query methods implemented
+
+✅ **UI Layer (Partial)**:
+- MonthlyExecutionView shows progress
+- MonthlyPlanningContainer handles navigation
+- "Start Tracking" and "Mark Complete" work
+- Progress bars display correctly
+
+### What's Missing (20%)
+
+❌ **UI for Adding Contributions**:
+- Create `ContributionEntryView.swift`
+- Add [+ Add] buttons in `MonthlyExecutionView`
+- Extend `ContributionService` with fiat-only method (or handle pseudo-assets)
+- Wire up notifications for UI refresh
+
+❌ **Optional: Unified Goal Calculations**:
+- Update `GoalCalculationService` to include contributions
+- Decide if contributions should affect goal totals
+- Handle dual currency display (crypto + fiat)
+
+### Implementation Steps
+
+1. **Create ContributionEntryView** (2-3 hours)
+   - Form with amount field, quick buttons, notes
+   - Preview showing before/after totals
+   - Use existing `ContributionService.recordDeposit()` with placeholder Asset (see Option A above)
+   - Link contribution to `executionRecordId`
+
+2. **Update MonthlyExecutionView** (1-2 hours)
+   - Add [+ Add] buttons to goal cards
+   - Wire sheet presentation
+   - Listen to `.contributionAdded` notification (or refresh on dismiss)
+
+3. **Create Helper Method** (1 hour) - OPTIONAL
+   - Add helper to create placeholder Assets for fiat contributions
+   - Or just inline the placeholder Asset creation in ContributionEntryView
+
+4. **Test End-to-End** (1 hour)
+   - Add contribution via UI
+   - Verify progress updates
+   - Check fulfillment detection
+   - Test mark complete flow
+
+**Total Time**: 5-7 hours to complete feature
+
+---
+
+## Testing the Implemented Parts
+
+### Manual Test Plan
+
+1. **Planning Phase**:
+   - ✅ Open planning view → see calculated requirements
+   - ✅ Adjust amounts with flex slider → preferences persist
+   - ✅ Mark goal as protected → can't be adjusted
+   - ✅ Skip goal → amount becomes zero
+
+2. **Start Tracking**:
+   - ✅ Click "Start Tracking This Month"
+   - ✅ Verify ExecutionSnapshot created
+   - ✅ Check snapshot has correct planned amounts
+   - ✅ Undo within 24 hours works
+
+3. **Execution Progress** (Database Direct):
+   - ✅ Manually insert Contribution via SQL
+   - ✅ Verify execution view shows progress
+   - ✅ Check fulfillment detection (100% = complete)
+
+4. **Mark Complete**:
+   - ✅ Click "Finish This Month"
+   - ✅ Record moves to closed state
+   - ✅ Can view in history
+
+### Known Limitations
+
+- ❌ No UI to add contributions (requires database SQL)
+- ❌ Goal detail doesn't show contributions (only crypto assets)
+- ❌ Dashboard doesn't include contributions in totals
+- ⚠️ Exchange rate service uses `fetchRate`, not `getRate`
+
+---
 
     func recordReallocation(
         amount: Double,
@@ -1953,13 +2331,13 @@ class ContributionService: ObservableObject {
 
     // MARK: - Helper Methods
 
-    private func getCurrentExecutingPlan() async throws -> MonthlyPlan? {
-        let monthLabel = Contribution.monthLabel(from: Date())
+    private func getCurrentExecutingRecord() async throws -> MonthlyExecutionRecord? {
+        let monthLabel = MonthlyExecutionRecord.monthLabel(from: Date())
 
-        let descriptor = FetchDescriptor<MonthlyPlan>(
-            predicate: #Predicate { plan in
-                plan.monthLabel == monthLabel &&
-                plan.status == .executing
+        let descriptor = FetchDescriptor<MonthlyExecutionRecord>(
+            predicate: #Predicate { record in
+                record.monthLabel == monthLabel &&
+                record.status == .executing
             }
         )
 
@@ -2200,9 +2578,9 @@ func validateSingleExecutingPlan() throws {
 **Validation**:
 ```swift
 func recordContribution(...) async throws {
-    if let plan = try await getPlan(for: monthLabel) {
-        guard plan.status != .closed else {
-            throw ContributionError.cannotAddToClosedPlan
+    if let record = try await getExecutionRecord(for: monthLabel) {
+        guard record.status != .closed else {
+            throw ContributionError.cannotAddToClosedRecord
         }
     }
     // Proceed with recording
@@ -2301,93 +2679,69 @@ This implementation carries **MEDIUM risk** due to the need to preserve existing
 
 **Mitigation Strategy**:
 
-1. **Two-Layer Architecture** (see Integration section above)
-   - Keep `GoalPlanPreference` for long-term settings
-   - Add `MonthlyExecutionPlan` for month tracking
-   - Requirements pull from preferences
+1. **Preserve MonthlyPlan Architecture** (ALREADY IMPLEMENTED)
+   - MonthlyPlan @Model stores all user preferences (customAmount, isProtected, isSkipped, flexState)
+   - FlexAdjustmentService works directly with MonthlyPlan records
+   - No migration needed - feature already preserved
 
-2. **Preserve FlexAdjustmentService**
-   - Keep service unchanged
-   - Add adapter layer in ViewModel
-   - Convert between @Model and struct as needed
+2. **Integration with Execution Tracking**:
+   - ExecutionSnapshot captures MonthlyPlan state when tracking starts
+   - User can still adjust MonthlyPlan during execution (dynamic recalculation)
+   - Snapshot remains immutable as historical baseline
 
 3. **Testing Requirements**:
    ```swift
-   ✅ Test flex adjustment after migration
-   ✅ Test protected goals not reduced
-   ✅ Test skipped goals excluded
+   ✅ Test flex adjustment works in DRAFT state
+   ✅ Test protected goals not reduced by flex slider
+   ✅ Test skipped goals excluded from calculations
    ✅ Test quick actions work in all states
    ✅ Test redistribution strategies preserved
+   ✅ Test flex adjustments during EXECUTING state work
    ```
 
-4. **Rollback Plan**:
-   - Keep `GoalPlanPreference.legacyPercentage` field temporarily
-   - Can revert to old calculation if needed
-   - Migration metadata tracks version
-
-**Success Criteria**: All flex features work identically before and after implementation.
+**Success Criteria**: All flex features work identically with execution tracking enabled.
 
 ---
 
 ### 🔴 HIGH RISK: User Preferences Data Loss
 
-**Risk**: Custom amounts, protection status, skip status lost during migration
+**Risk**: Custom amounts, protection status, skip status lost when starting execution tracking
 
 **Impact**: Users lose all customizations, must reconfigure
 
 **Mitigation Strategy**:
 
-1. **Use SwiftData Migration**:
+1. **No Data Loss by Design** (ALREADY IMPLEMENTED)
+   - MonthlyPlan records persist unchanged
+   - ExecutionSnapshot is a separate @Model that copies values
+   - Starting execution doesn't modify MonthlyPlan data
+   - User preferences remain in MonthlyPlan.customAmount, .isProtected, .isSkipped
+
+2. **Validation on Execution Start**:
    ```swift
-   @Model
-   final class GoalPlanPreference {
-       @Attribute(.originalName("MonthlyPlan.goalId"))
-       var goalId: UUID
-
-       @Attribute(.originalName("MonthlyPlan.customAmount"))
-       var customAmount: Double?
-
-       // All fields mapped with .originalName
-   }
-   ```
-
-2. **Migration Validation**:
-   ```swift
-   func validateMigration() throws {
-       // Before migration: count preferences
-       let oldCount = countMonthlyPlans()
-
-       // After migration: verify count matches
-       let newCount = countGoalPlanPreferences()
-
-       guard oldCount == newCount else {
-           throw MigrationError.dataLoss
-       }
-
-       // Verify each preference has data
-       for pref in preferences {
-           guard pref.validate().isEmpty else {
-               throw MigrationError.corruptedData
+   func validateBeforeStartTracking() throws {
+       // Verify all MonthlyPlan records have valid data
+       for plan in monthlyPlans {
+           guard plan.goalId != nil else {
+               throw ValidationError.missingGoalId
+           }
+           guard plan.currency != nil else {
+               throw ValidationError.missingCurrency
            }
        }
    }
    ```
 
-3. **Backup Strategy**:
-   - Create backup before migration
-   - Store in: `Documents/Backups/pre-v4-migration.sqlite`
-   - Provide restore function
-
-4. **Testing Requirements**:
+3. **Testing Requirements**:
    ```swift
-   ✅ Test all preferences preserved
-   ✅ Test custom amounts intact
-   ✅ Test flex states intact
-   ✅ Test last modified dates preserved
-   ✅ Test data count matches pre/post
+   ✅ Test all MonthlyPlan preferences preserved after starting execution
+   ✅ Test custom amounts intact in MonthlyPlan after snapshot created
+   ✅ Test flex states intact in MonthlyPlan
+   ✅ Test ExecutionSnapshot has correct copies of values
+   ✅ Test user can still modify MonthlyPlan during execution
    ```
 
-**Success Criteria**: Zero data loss, all preferences accessible after migration.
+**Success Criteria**: Zero data loss, all MonthlyPlan preferences accessible during and after execution.
 
 ---
 
@@ -2560,17 +2914,19 @@ This implementation carries **MEDIUM risk** due to the need to preserve existing
 
 1. **Clear UI Indicators**:
    ```swift
-   // Show status badge
+   // Show status badge based on execution record
    HStack {
        Text("Monthly Plan")
-       StatusBadge(status: plan.status) // DRAFT/EXECUTING/CLOSED
+       if let record = executionRecord {
+           StatusBadge(status: record.status) // DRAFT/EXECUTING/CLOSED
+       }
    }
 
    // Different buttons per state
-   if plan.status == .draft {
-       Button("Start Executing This Plan")
-   } else if plan.status == .executing {
-       Button("Close This Month's Plan")
+   if executionRecord?.status == .draft || executionRecord == nil {
+       Button("Start Tracking This Month")
+   } else if executionRecord?.status == .executing {
+       Button("Finish This Month")
    }
    ```
 
@@ -2629,19 +2985,9 @@ func restorePreMigrationData() throws {
 }
 ```
 
-**Level 3: Data Recovery** (8 hours)
-```swift
-// If backup fails, extract from GoalPlanPreference
-func recoverFromGoalPlanPreference() throws {
-    let preferences = try context.fetch(FetchDescriptor<GoalPlanPreference>())
+**Level 3: Data Recovery** (Not Applicable)
 
-    // Recreate old MonthlyPlan records
-    for pref in preferences {
-        let oldPlan = MonthlyPlan(/* from pref data */)
-        context.insert(oldPlan)
-    }
-}
-```
+No data migration needed - MonthlyPlan architecture already in place. ExecutionSnapshot is additive (doesn't replace existing data).
 
 ---
 
@@ -2650,7 +2996,7 @@ func recoverFromGoalPlanPreference() throws {
 Before deploying to production:
 
 #### Data Integrity
-- [ ] All GoalPlanPreferences created from MonthlyPlan
+- [ ] All MonthlyPlan records valid
 - [ ] Custom amounts preserved exactly
 - [ ] Flex states preserved exactly
 - [ ] No orphaned records
@@ -2761,7 +3107,52 @@ The system is flexible, user-friendly, provides clear accountability for monthly
 
 ---
 
-*Document Version: 2.0*
+*Document Version: 3.1*
 *Created: 2025-11-15*
-*Updated: 2025-11-15 (Added Integration & Risk Mitigation sections)*
-*Status: Ready for Implementation*
+*Updated: 2025-11-17 (Corrected to match actual implementation)*
+*Status: 80% Complete - Missing UI Layer*
+
+---
+
+## Document Change Log
+
+### Version 3.1 (2025-11-17) - Reality Check
+
+**MAJOR CORRECTION**: This version replaces fictional architectural designs with actual implementation details.
+
+**What Changed**:
+1. **Removed fictional data models**:
+   - ❌ `GoalPlanPreference` (never existed)
+   - ❌ `MonthlyExecutionPlan` (never existed)
+   - ❌ `@Model MonthlyRequirement` (wrong - it's a struct)
+   - ✅ Documented actual `MonthlyPlan` @Model with real fields
+
+2. **Removed fictional "unified calculation" code**:
+   - ❌ Deleted non-existent `GoalCalculationService.getCurrentTotal(includeContributions:)`
+   - ✅ Documented actual dual system (crypto vs contributions)
+   - ✅ Explained this is **intentional design**, not a bug
+
+3. **Marked missing UI as "TO BE IMPLEMENTED"**:
+   - ❌ Removed claim that `ContributionEntryView` exists
+   - ❌ Removed claim that [+ Add] buttons exist
+   - ✅ Changed to design specification for future implementation
+
+4. **Fixed implementation status**:
+   - Changed "Ready for Implementation" → "80% Complete - Missing UI Layer"
+   - Added clear breakdown of what's done vs what's missing
+
+**Why This Matters**:
+- v3.0 described an idealized architecture that was never built
+- Developers following v3.0 would rewrite working code incorrectly
+- v3.1 documents the **actual shipping architecture**
+- Now you can implement the missing 20% without breaking the existing 80%
+
+### Version 3.0 (2025-11-16) - Idealized Design (SUPERSEDED)
+- ~~Proposed unified goal calculations~~ (not implemented)
+- ~~Designed two-layer architecture~~ (single layer actually used)
+- ~~Specified fictional data models~~ (actual models different)
+
+### Version 2.0 (2025-11-15) - Original Planning Document
+- Initial solution design based on requirements
+- Architecture proposals
+- UI mockups

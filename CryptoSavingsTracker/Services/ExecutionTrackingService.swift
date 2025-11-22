@@ -11,7 +11,7 @@ import Foundation
 
 @MainActor
 final class ExecutionTrackingService {
-    private let modelContext: ModelContext
+    let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
@@ -71,6 +71,9 @@ final class ExecutionTrackingService {
         from plans: [MonthlyPlan],
         goals: [Goal]
     ) throws -> MonthlyExecutionRecord {
+        AppLog.info("Starting execution tracking for month: \(monthLabel)", category: .executionTracking)
+        AppLog.debug("Received \(plans.count) plans and \(goals.count) goals", category: .executionTracking)
+
         // Check if record already exists
         if let existing = try getRecord(for: monthLabel) {
             if existing.status == .draft {
@@ -85,10 +88,13 @@ final class ExecutionTrackingService {
 
         // Create new record
         let goalIds = plans.map { $0.goalId }
+        AppLog.debug("Creating new execution record with \(goalIds.count) goal IDs", category: .executionTracking)
         let record = MonthlyExecutionRecord(monthLabel: monthLabel, goalIds: goalIds)
 
         // Create snapshot
+        AppLog.debug("Creating snapshot from \(plans.count) plans, effectiveAmounts: \(plans.map { $0.effectiveAmount })", category: .executionTracking)
         let snapshot = ExecutionSnapshot(from: plans, goals: goals)
+        AppLog.debug("Snapshot created - totalPlanned: \(snapshot.totalPlanned), snapshotData: \(snapshot.snapshotData.count) bytes", category: .executionTracking)
         record.snapshot = snapshot
 
         // Start tracking
@@ -97,6 +103,7 @@ final class ExecutionTrackingService {
         modelContext.insert(record)
         try modelContext.save()
 
+        AppLog.info("Execution tracking started successfully for \(monthLabel)", category: .executionTracking)
         return record
     }
 

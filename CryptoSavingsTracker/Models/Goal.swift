@@ -47,7 +47,11 @@ final class Goal {
     var link: String?
     
     @Relationship(deleteRule: .cascade) var allocations: [AssetAllocation] = []
-    
+
+    // Contribution tracking (v2.0)
+    @Relationship(deleteRule: .cascade, inverse: \Contribution.goal)
+    var contributions: [Contribution] = []
+
     // MARK: - Computed Properties
     
     var manualTotal: Double {

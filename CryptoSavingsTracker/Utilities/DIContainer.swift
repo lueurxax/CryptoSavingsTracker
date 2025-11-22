@@ -178,10 +178,6 @@ class DIContainer: ObservableObject {
     func makeMigrationService(modelContext: ModelContext) -> MigrationService {
         return MigrationService(modelContext: modelContext)
     }
-
-    func makeAllocationMigrationService(modelContext: ModelContext) -> AllocationMigrationService {
-        return AllocationMigrationService(modelContext: modelContext)
-    }
     
     private var _monthlyPlanningService: MonthlyPlanningServiceProtocol?
     var monthlyPlanningService: MonthlyPlanningServiceProtocol {

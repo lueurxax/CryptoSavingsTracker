@@ -15,23 +15,36 @@ final class MonthlyPlan {
     // MARK: - Primary Properties
     @Attribute(.unique) var id: UUID
     var goalId: UUID
+    var monthLabel: String = "" // "yyyy-MM" format (e.g., "2025-11") - empty default for migration
     var requiredMonthly: Double
     var remainingAmount: Double
     var monthsRemaining: Int
     var currency: String
     var statusRawValue: String
     var lastCalculated: Date
-    
-    // MARK: - User Preferences  
+
+    // MARK: - Lifecycle State
+    var stateRawValue: String = "draft" // draft, executing, completed
+    var totalContributed: Double = 0.0 // Sum of all contributions for this month
+
+    // MARK: - Relationships
+    @Relationship(deleteRule: .nullify, inverse: \Contribution.monthlyPlan)
+    var contributions: [Contribution]? = []
+
+    @Relationship(deleteRule: .nullify)
+    var executionRecord: MonthlyExecutionRecord?
+
+    // MARK: - User Preferences
     var flexStateRawValue: String = "flexible"
     var customAmount: Double? // User override amount
     var isProtected: Bool = false // Protected from flex adjustments
     var isSkipped: Bool = false // Temporarily skip this month
-    
+
     // MARK: - Metadata
     var createdDate: Date
     var lastModifiedDate: Date
     var version: Int = 1 // For future model migrations
+    var needsReview: Bool = false // Flag for ambiguous monthLabel inference (e.g., missing firstReminderDate)
     
     // MARK: - Computed Properties
     
@@ -45,7 +58,18 @@ final class MonthlyPlan {
             lastModifiedDate = Date()
         }
     }
-    
+
+    /// Lifecycle state enum wrapper
+    var state: PlanState {
+        get {
+            PlanState(rawValue: stateRawValue) ?? .draft
+        }
+        set {
+            stateRawValue = newValue.rawValue
+            lastModifiedDate = Date()
+        }
+    }
+
     /// Flex state enum wrapper
     var flexState: FlexState {
         get {
@@ -84,18 +108,21 @@ final class MonthlyPlan {
     }
     
     // MARK: - Initialization
-    
+
     init(
         goalId: UUID,
+        monthLabel: String,
         requiredMonthly: Double,
         remainingAmount: Double,
         monthsRemaining: Int,
         currency: String,
         status: RequirementStatus = .onTrack,
-        flexState: FlexState = .flexible
+        flexState: FlexState = .flexible,
+        state: PlanState = .draft
     ) {
         self.id = UUID()
         self.goalId = goalId
+        self.monthLabel = monthLabel
         self.requiredMonthly = requiredMonthly
         self.remainingAmount = remainingAmount
         self.monthsRemaining = monthsRemaining
@@ -103,6 +130,7 @@ final class MonthlyPlan {
         self.statusRawValue = status.rawValue
         self.lastCalculated = Date()
         self.flexStateRawValue = flexState.rawValue
+        self.stateRawValue = state.rawValue
         self.createdDate = Date()
         self.lastModifiedDate = Date()
     }
@@ -177,6 +205,32 @@ final class MonthlyPlan {
     }
 }
 
+// MARK: - Plan State Enum
+
+extension MonthlyPlan {
+    enum PlanState: String, Codable, CaseIterable, Sendable {
+        case draft = "draft"           // Planning phase, editable
+        case executing = "executing"   // Tracking contributions
+        case completed = "completed"   // Month closed
+
+        var displayName: String {
+            switch self {
+            case .draft: return "Draft"
+            case .executing: return "In Progress"
+            case .completed: return "Completed"
+            }
+        }
+
+        var systemImageName: String {
+            switch self {
+            case .draft: return "doc.text"
+            case .executing: return "chart.line.uptrend.xyaxis"
+            case .completed: return "checkmark.circle.fill"
+            }
+        }
+    }
+}
+
 // MARK: - Flex State Enum
 
 extension MonthlyPlan {
@@ -184,7 +238,7 @@ extension MonthlyPlan {
         case protected = "protected"   // Cannot be reduced in flex adjustments
         case flexible = "flexible"     // Can be adjusted up or down
         case skipped = "skipped"      // Temporarily excluded from payments
-        
+
         var displayName: String {
             switch self {
             case .protected: return "Protected"
@@ -192,7 +246,7 @@ extension MonthlyPlan {
             case .skipped: return "Skipped"
             }
         }
-        
+
         var systemImageName: String {
             switch self {
             case .protected: return "lock.fill"
@@ -200,7 +254,7 @@ extension MonthlyPlan {
             case .skipped: return "forward.fill"
             }
         }
-        
+
         var color: String {
             switch self {
             case .protected: return "systemBlue"
@@ -208,7 +262,7 @@ extension MonthlyPlan {
             case .skipped: return "systemGray2"
             }
         }
-        
+
         /// Whether this state allows amount modifications
         var allowsModification: Bool {
             switch self {
@@ -313,12 +367,13 @@ extension MonthlyPlan {
         targetAmount: Double,
         currentTotal: Double,
         deadline: Date,
-        currency: String
+        currency: String,
+        monthLabel: String? = nil
     ) -> MonthlyPlan {
         let remaining = max(0, targetAmount - currentTotal)
         let monthsLeft = max(1, Calendar.current.dateComponents([.month], from: Date(), to: deadline).month ?? 1)
         let required = remaining / Double(monthsLeft)
-        
+
         let status: RequirementStatus
         if remaining <= 0 {
             status = .completed
@@ -329,9 +384,15 @@ extension MonthlyPlan {
         } else {
             status = .onTrack
         }
-        
+
+        // Use provided monthLabel or generate current month
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        let label = monthLabel ?? formatter.string(from: Date())
+
         return MonthlyPlan(
             goalId: goalId,
+            monthLabel: label,
             requiredMonthly: required,
             remainingAmount: remaining,
             monthsRemaining: monthsLeft,

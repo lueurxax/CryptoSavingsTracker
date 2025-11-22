@@ -173,11 +173,11 @@ struct GoalRequirementRow: View {
         Menu {
             Button(action: onToggleProtection) {
                 Label(
-                    flexState == .protected ? "Remove Protection" : "Protect from Changes",
+                    flexState == .protected ? "Unlock Amount" : "Lock This Amount",
                     systemImage: flexState == .protected ? "lock.open" : "lock"
                 )
             }
-            
+
             Button(action: onToggleSkip) {
                 Label(
                     flexState == .skipped ? "Include This Month" : "Skip This Month",

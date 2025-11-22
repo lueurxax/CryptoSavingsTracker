@@ -15,6 +15,8 @@ struct MonthlyExecutionView: View {
 
     @State private var showCompleteConfirmation = false
     @State private var showCompletedSection = true
+    @State private var showContributionEntry = false
+    @State private var selectedGoalSnapshot: ExecutionGoalSnapshot?
 
     init(modelContext: ModelContext) {
         _viewModel = StateObject(wrappedValue: MonthlyExecutionViewModel(modelContext: modelContext))
@@ -65,6 +67,18 @@ struct MonthlyExecutionView: View {
         .overlay {
             if viewModel.isLoading {
                 ProgressView()
+            }
+        }
+        .sheet(isPresented: $showContributionEntry) {
+            if let snapshot = selectedGoalSnapshot,
+               let record = viewModel.executionRecord,
+               let goal = try? modelContext.fetch(FetchDescriptor<Goal>(predicate: #Predicate { g in g.id == snapshot.goalId })).first {
+                ContributionEntryView(
+                    goal: goal,
+                    executionRecord: record,
+                    plannedAmount: snapshot.plannedAmount,
+                    alreadyContributed: viewModel.contributedTotals[snapshot.goalId] ?? 0
+                )
             }
         }
     }
@@ -176,18 +190,31 @@ struct MonthlyExecutionView: View {
                 .font(.headline)
 
             if viewModel.activeGoals.isEmpty {
-                Text("All goals funded! 🎉")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding()
+                // Show different messages based on whether there were any goals to begin with
+                if let snapshot = viewModel.snapshot, snapshot.goalCount > 0 {
+                    Text("All goals funded! 🎉")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding()
+                } else {
+                    Text("No goals in this month's plan")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding()
+                }
             } else {
                 ForEach(viewModel.activeGoals, id: \.goalId) { goalSnapshot in
                     GoalProgressCard(
                         goalSnapshot: goalSnapshot,
                         contributed: viewModel.contributedTotals[goalSnapshot.goalId] ?? 0,
                         isFulfilled: false,
-                        viewModel: viewModel
+                        viewModel: viewModel,
+                        onAddContribution: {
+                            selectedGoalSnapshot = goalSnapshot
+                            showContributionEntry = true
+                        }
                     )
                 }
             }
@@ -223,7 +250,8 @@ struct MonthlyExecutionView: View {
                                 goalSnapshot: goalSnapshot,
                                 contributed: viewModel.contributedTotals[goalSnapshot.goalId] ?? 0,
                                 isFulfilled: true,
-                                viewModel: viewModel
+                                viewModel: viewModel,
+                                onAddContribution: nil // No button for completed goals
                             )
                         }
                     }
@@ -313,6 +341,7 @@ struct GoalProgressCard: View {
     let contributed: Double
     let isFulfilled: Bool
     let viewModel: MonthlyExecutionViewModel
+    let onAddContribution: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -326,6 +355,13 @@ struct GoalProgressCard: View {
                 if isFulfilled {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.green)
+                } else if let onAddContribution = onAddContribution {
+                    Button(action: onAddContribution) {
+                        Label("Add", systemImage: "plus.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                    }
+                    .buttonStyle(.borderless)
                 }
             }
 

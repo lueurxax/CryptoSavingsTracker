@@ -100,18 +100,11 @@ class MigrationService {
     }
 
     /// Migrate from V2 (percentage-based allocations) to V3 (fixed-amount allocations)
+    /// NOTE: V3 migration removed - we're staying with percentage-based allocations
     private func migrateToV3() async throws {
-        print("Starting migration to V3 (fixed-amount allocations)")
-        let allocationMigration = AllocationMigrationService(modelContext: modelContext)
-        try await allocationMigration.migrateToFixedAllocations()
-
-        // Validate migration
-        let validation = try await allocationMigration.validateMigration()
-        print(validation.summary)
-
-        if !validation.isValid {
-            print("⚠️ Migration validation found issues, but continuing...")
-        }
+        print("Skipping V3 migration - percentage-based allocations are current architecture")
+        // V3 migration is no longer needed after architecture rollback
+        // AllocationMigrationService was removed
     }
 
     /// Migrate from V3 to V4 (add executionRecordId to Contribution)

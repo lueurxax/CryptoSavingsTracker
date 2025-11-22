@@ -452,7 +452,13 @@ struct QuickActionsView: View {
         .cornerRadius(16)
         .sheet(isPresented: $showingAddAsset) { AddAssetView(goal: goal) }
         .sheet(isPresented: $showingAddTransaction) {
-            if let asset = selectedAsset { AddTransactionView(asset: asset) }
+            Group {
+                if let asset = selectedAsset {
+                    AddTransactionView(asset: asset)
+                } else {
+                    EmptyView()
+                }
+            }
         }
         .sheet(isPresented: $showingAssetPicker) {
             NavigationView {

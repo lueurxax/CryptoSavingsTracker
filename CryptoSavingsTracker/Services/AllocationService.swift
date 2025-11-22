@@ -55,9 +55,11 @@ class AllocationService {
         }
 
         // 4. Create new AssetAllocation objects from the input dictionary
+        // Convert fixed amounts to percentages
         for (goal, amount) in newAllocations {
             if amount > 0 {
-                let newAllocation = AssetAllocation(asset: asset, goal: goal, fixedAmount: amount)
+                let percentage = asset.currentAmount > 0 ? amount / asset.currentAmount : 0
+                let newAllocation = AssetAllocation(asset: asset, goal: goal, percentage: percentage)
                 modelContext.insert(newAllocation)
             }
         }
@@ -124,20 +126,23 @@ class AllocationService {
             throw AllocationError.negativeAmount(amount)
         }
 
+        // Convert amount to percentage
+        let percentage = asset.currentAmount > 0 ? amount / asset.currentAmount : 0
+
         // Get current allocations excluding the one we're updating
         let currentAllocations = asset.allocations.filter { $0.goal?.id != goal.id }
-        let currentTotal = currentAllocations.reduce(0) { $0 + $1.fixedAmount }
+        let currentTotal = currentAllocations.reduce(0.0) { $0 + $1.percentage }
 
-        // Check if adding this allocation would exceed asset balance
-        guard currentTotal + amount <= asset.currentAmount else {
-            throw AllocationError.exceedsTotal(currentTotal + amount, asset.currentAmount)
+        // Check if adding this allocation would exceed 100%
+        guard currentTotal + percentage <= 1.0 else {
+            throw AllocationError.exceedsTotal(currentTotal + percentage, 1.0)
         }
 
         // Find existing allocation or create new one
         if let existingAllocation = asset.allocations.first(where: { $0.goal?.id == goal.id }) {
-            existingAllocation.updateAmount(amount)
-        } else if amount > 0 {
-            let newAllocation = AssetAllocation(asset: asset, goal: goal, fixedAmount: amount)
+            existingAllocation.updatePercentage(percentage)
+        } else if percentage > 0 {
+            let newAllocation = AssetAllocation(asset: asset, goal: goal, percentage: percentage)
             modelContext.insert(newAllocation)
         }
 
@@ -169,30 +174,30 @@ class AllocationService {
     
     // MARK: - Allocation Queries
 
-    /// Get all allocations for a specific asset, sorted by amount
+    /// Get all allocations for a specific asset, sorted by percentage
     func getAllocations(for asset: Asset) -> [AssetAllocation] {
-        return asset.allocations.sorted { $0.fixedAmount > $1.fixedAmount }
+        return asset.allocations.sorted { $0.percentage > $1.percentage }
     }
 
-    /// Get all allocations for a specific goal, sorted by amount
+    /// Get all allocations for a specific goal, sorted by percentage
     func getAllocations(for goal: Goal) -> [AssetAllocation] {
-        return goal.allocations.sorted { $0.fixedAmount > $1.fixedAmount }
+        return goal.allocations.sorted { $0.percentage > $1.percentage }
     }
 
-    /// Check if an asset can accommodate a new allocation amount
+    /// Check if an asset can accommodate a new allocation percentage
     /// - Parameters:
     ///   - asset: The asset to check
-    ///   - amount: The proposed amount to allocate
+    ///   - percentage: The proposed percentage to allocate (0.0 to 1.0)
     ///   - excludingGoal: Optional goal to exclude from current total calculation (for updates)
-    func canAllocate(asset: Asset, amount: Double, excludingGoal: Goal? = nil) -> Bool {
+    func canAllocate(asset: Asset, percentage: Double, excludingGoal: Goal? = nil) -> Bool {
         let currentAllocations = asset.allocations.filter { $0.goal?.id != excludingGoal?.id }
-        let currentTotal = currentAllocations.reduce(0) { $0 + $1.fixedAmount }
-        return currentTotal + amount <= asset.currentAmount
+        let currentTotal = currentAllocations.reduce(0.0) { $0 + $1.percentage }
+        return currentTotal + percentage <= 1.0
     }
 
-    /// Get the remaining unallocated balance for an asset
-    func getUnallocatedBalance(for asset: Asset) -> Double {
-        return asset.unallocatedBalance
+    /// Get the remaining unallocated percentage for an asset
+    func getUnallocatedPercentage(for asset: Asset) -> Double {
+        return asset.unallocatedPercentage
     }
 
     // MARK: - Execution Tracking Integration (v2.1)

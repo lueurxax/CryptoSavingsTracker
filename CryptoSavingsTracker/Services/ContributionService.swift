@@ -245,9 +245,9 @@ class ContributionService {
     func getStatistics(for goal: Goal) -> ContributionStatistics {
         let contributions = goal.contributions
 
-        let deposits = contributions.filter { $0.sourceType == .manualDeposit }
-        let reallocations = contributions.filter { $0.sourceType == .assetReallocation }
-        let appreciations = contributions.filter { $0.sourceType == .valueAppreciation }
+        let deposits = contributions.filter { $0.sourceType == ContributionSource.manualDeposit }
+        let reallocations = contributions.filter { $0.sourceType == ContributionSource.assetReallocation }
+        let appreciations = contributions.filter { $0.sourceType == ContributionSource.valueAppreciation }
 
         let totalDeposited = deposits.reduce(0) { $0 + $1.amount }
         let totalReallocated = reallocations.reduce(0) { $0 + $1.amount }

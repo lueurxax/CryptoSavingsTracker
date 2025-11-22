@@ -26,6 +26,7 @@ final class Asset {
     
     @Relationship(deleteRule: .cascade) var transactions: [Transaction] = []
     @Relationship(deleteRule: .cascade) var allocations: [AssetAllocation] = []
+    @Relationship(deleteRule: .cascade, inverse: \Contribution.asset) var contributions: [Contribution] = []
     
     var manualBalance: Double {
         transactions.reduce(0) { $0 + $1.amount }

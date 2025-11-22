@@ -72,13 +72,13 @@ final class MonthlyPlanningViewModel: ObservableObject {
         if flexAdjustment == 1.0 {
             return totalRequired
         }
-        
+
         var total: Double = 0
         for requirement in monthlyRequirements {
             if skippedGoalIds.contains(requirement.goalId) {
                 continue
             }
-            
+
             if protectedGoalIds.contains(requirement.goalId) {
                 total += requirement.requiredMonthly
             } else {
@@ -86,6 +86,14 @@ final class MonthlyPlanningViewModel: ObservableObject {
             }
         }
         return total
+    }
+
+    /// Number of goals affected by flex adjustment (flexible, non-skipped goals)
+    var affectedGoalsCount: Int {
+        monthlyRequirements.filter { requirement in
+            !protectedGoalIds.contains(requirement.goalId) &&
+            !skippedGoalIds.contains(requirement.goalId)
+        }.count
     }
     
     /// Summary statistics
@@ -278,7 +286,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
             // Pay exact calculated amounts
             skippedGoalIds.removeAll()
             await previewAdjustment(1.0)
-            
+
         case .reset:
             // Reset all adjustments
             protectedGoalIds.removeAll()

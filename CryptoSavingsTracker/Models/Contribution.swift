@@ -21,6 +21,7 @@ final class Contribution {
     // Relationships
     var goal: Goal?
     var asset: Asset?
+    var monthlyPlan: MonthlyPlan?
 
     // Tracking metadata
     var monthLabel: String       // "2025-09" for grouping by month (UTC-based)

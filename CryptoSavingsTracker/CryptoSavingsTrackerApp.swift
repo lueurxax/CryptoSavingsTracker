@@ -17,7 +17,17 @@ import UIKit
 @main
 struct CryptoSavingsTrackerApp: App {
     static let sharedModelContainer: ModelContainer = {
-        let schema = Schema([Goal.self, Asset.self, Transaction.self, MonthlyPlan.self, AssetAllocation.self])
+        let schema = Schema([
+            Goal.self,
+            Asset.self,
+            Transaction.self,
+            MonthlyPlan.self,
+            AssetAllocation.self,
+            Contribution.self,
+            MonthlyExecutionRecord.self,
+            ExecutionSnapshot.self,
+            MigrationMetadata.self
+        ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
@@ -48,16 +58,50 @@ struct CryptoSavingsTrackerApp: App {
         Task {
             await StartupThrottler.shared.waitForStartup()
             _ = await NotificationManager.shared.requestPermission()
-            
+
             // Perform data migration if needed
             do {
                 let migrationService = MigrationService(modelContext: CryptoSavingsTrackerApp.sharedModelContainer.mainContext)
                 try await migrationService.performMigrationIfNeeded()
+
+                // Perform MonthlyPlan Schema V2 migration
+                let planMigrationService = MonthlyPlanMigrationService(modelContext: CryptoSavingsTrackerApp.sharedModelContainer.mainContext)
+                try await planMigrationService.migrateToSchemaV2()
+
+                // Verify migration
+                let verification = try await planMigrationService.verifyMigration()
+                AppLog.info(verification.description, category: .monthlyPlanning)
+
+                if !verification.isSuccessful {
+                    AppLog.error("MonthlyPlan migration verification failed!", category: .monthlyPlanning)
+                }
             } catch {
-                print("Migration failed: \(error)")
+                AppLog.error("Migration failed: \(error)", category: .monthlyPlanning)
                 // In production, you might want to handle this more gracefully
                 // For now, we'll continue with the app startup
             }
+
+            // Check for automated monthly execution transitions
+            Task { @MainActor in
+                await CryptoSavingsTrackerApp.checkAutomation()
+            }
+        }
+    }
+
+    /// Check and execute any pending automation based on settings
+    @MainActor
+    private static func checkAutomation() async {
+        let scheduler = AutomationScheduler(modelContext: CryptoSavingsTrackerApp.sharedModelContainer.mainContext)
+
+        do {
+            // Check if automation should trigger
+            try await scheduler.checkAndExecuteAutomation()
+
+            // Schedule future automation notifications
+            try await scheduler.scheduleAutomationNotifications()
+        } catch {
+            print("Automation check failed: \(error)")
+            // Continue app startup even if automation fails
         }
     }
 

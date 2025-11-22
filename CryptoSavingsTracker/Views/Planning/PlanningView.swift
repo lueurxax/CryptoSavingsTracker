@@ -12,17 +12,32 @@ import SwiftData
 struct PlanningView: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    
+    @Environment(\.modelContext) private var modelContext
+    @Query private var allPlans: [MonthlyPlan]
+
+    // Get stale draft plans (past months that are still in draft state)
+    private var staleDrafts: [MonthlyPlan] {
+        let currentMonth = currentMonthLabel()
+        return allPlans.filter { $0.monthLabel < currentMonth && $0.state == .draft }
+            .sorted { $0.monthLabel > $1.monthLabel } // Most recent first
+    }
+
+    private func currentMonthLabel() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        return formatter.string(from: Date())
+    }
+
     var body: some View {
         Group {
             #if os(iOS)
             if horizontalSizeClass == .compact {
-                iOSCompactPlanningView(viewModel: viewModel)
+                iOSCompactPlanningView(viewModel: viewModel, staleDrafts: staleDrafts)
             } else {
-                iOSRegularPlanningView(viewModel: viewModel)
+                iOSRegularPlanningView(viewModel: viewModel, staleDrafts: staleDrafts)
             }
             #else
-            macOSPlanningView(viewModel: viewModel)
+            macOSPlanningView(viewModel: viewModel, staleDrafts: staleDrafts)
             #endif
         }
         .navigationTitle("Monthly Planning")
@@ -36,13 +51,41 @@ struct PlanningView: View {
 
 struct iOSCompactPlanningView: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
+    let staleDrafts: [MonthlyPlan]
+    @Environment(\.modelContext) private var modelContext
     @State private var selectedTab = 0
-    
+
     var body: some View {
         VStack(spacing: 0) {
+            // Context Header
+            contextHeader
+
+            // Stale Draft Banner
+            if !staleDrafts.isEmpty {
+                StaleDraftBanner(
+                    stalePlans: staleDrafts,
+                    onMarkCompleted: { plan in
+                        plan.state = .completed
+                        plan.isSkipped = false
+                        try? modelContext.save()
+                    },
+                    onMarkSkipped: { plan in
+                        plan.isSkipped = true
+                        plan.state = .completed
+                        try? modelContext.save()
+                    },
+                    onDelete: { plan in
+                        modelContext.delete(plan)
+                        try? modelContext.save()
+                    }
+                )
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+            }
+
             // Summary Header
             summaryHeader
-            
+
             // Tab Selector
             Picker("View", selection: $selectedTab) {
                 Text("Goals").tag(0)
@@ -71,6 +114,29 @@ struct iOSCompactPlanningView: View {
         .background(.regularMaterial)
     }
     
+    @ViewBuilder
+    private var contextHeader: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "calendar.badge.checkmark")
+                .font(.title2)
+                .foregroundColor(AccessibleColors.primaryInteractive)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Plan Your Month")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+
+                Text("Review and adjust your monthly savings amounts")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding()
+        .background(.ultraThinMaterial)
+    }
+
     @ViewBuilder
     private var summaryHeader: some View {
         VStack(spacing: 12) {
@@ -131,6 +197,9 @@ struct iOSCompactPlanningView: View {
     private var goalsListView: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
+                // Status legend
+                statusLegend
+
                 ForEach(viewModel.monthlyRequirements) { requirement in
                     GoalRequirementRow(
                         requirement: requirement,
@@ -187,11 +256,45 @@ struct iOSCompactPlanningView: View {
                             .foregroundColor(.secondary)
                     }
                     .accentColor(AccessibleColors.primaryInteractive)
-                    
+
                     Text("Drag to adjust payment amounts. Protected goals won't be reduced.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
+
+                    // Impact summary
+                    if viewModel.flexAdjustment != 1.0 {
+                        HStack(spacing: 16) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Total Impact")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+
+                                Text(formatAmount(viewModel.adjustedTotal, currency: viewModel.displayCurrency))
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(AccessibleColors.primaryInteractive)
+                            }
+
+                            Spacer()
+
+                            if viewModel.affectedGoalsCount > 0 {
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    Text("Goals Affected")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+
+                                    Text("\(viewModel.affectedGoalsCount)")
+                                        .font(.title3)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(viewModel.flexAdjustment < 1.0 ? AccessibleColors.warning : AccessibleColors.success)
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(AccessibleColors.primaryInteractive.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
                 }
                 .padding()
                 .background(.regularMaterial)
@@ -391,7 +494,39 @@ struct iOSCompactPlanningView: View {
     private var groupedGoals: [RequirementStatus: [MonthlyRequirement]] {
         Dictionary(grouping: viewModel.monthlyRequirements, by: \.status)
     }
-    
+
+    @ViewBuilder
+    private var statusLegend: some View {
+        HStack(spacing: 16) {
+            Text("Status:")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            legendItem(title: "On Track", color: AccessibleColors.success)
+            legendItem(title: "Attention", color: AccessibleColors.warning)
+            legendItem(title: "Critical", color: AccessibleColors.error)
+
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(.quaternary.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    @ViewBuilder
+    private func legendItem(title: String, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+    }
+
     private func formatAmount(_ amount: Double, currency: String) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
@@ -405,6 +540,8 @@ struct iOSCompactPlanningView: View {
 
 struct iOSRegularPlanningView: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
+    let staleDrafts: [MonthlyPlan]
+    @Environment(\.modelContext) private var modelContext
     
     var body: some View {
         #if os(macOS)
@@ -483,7 +620,9 @@ struct iOSRegularPlanningView: View {
 
 struct macOSPlanningView: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
-    
+    let staleDrafts: [MonthlyPlan]
+    @Environment(\.modelContext) private var modelContext
+
     var body: some View {
         #if os(macOS)
         macOSLayout
@@ -507,6 +646,28 @@ struct macOSPlanningView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 8) {
+                            // Stale Draft Banner (macOS)
+                            if !staleDrafts.isEmpty {
+                                StaleDraftBanner(
+                                    stalePlans: staleDrafts,
+                                    onMarkCompleted: { plan in
+                                        plan.state = .completed
+                                        plan.isSkipped = false
+                                        try? modelContext.save()
+                                    },
+                                    onMarkSkipped: { plan in
+                                        plan.isSkipped = true
+                                        plan.state = .completed
+                                        try? modelContext.save()
+                                    },
+                                    onDelete: { plan in
+                                        modelContext.delete(plan)
+                                        try? modelContext.save()
+                                    }
+                                )
+                                .padding(.bottom)
+                            }
+
                             ForEach(viewModel.monthlyRequirements) { requirement in
                                 GoalRequirementRow(
                                     requirement: requirement,
@@ -693,6 +854,37 @@ struct macOSControlsPanel: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+
+                // Impact summary
+                if viewModel.flexAdjustment != 1.0 {
+                    Divider().padding(.vertical, 4)
+
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text("Adjusted Total")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(formatAmount(viewModel.adjustedTotal, currency: viewModel.displayCurrency))
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(AccessibleColors.primaryInteractive)
+                        }
+
+                        if viewModel.affectedGoalsCount > 0 {
+                            HStack {
+                                Text("Goals Affected")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("\(viewModel.affectedGoalsCount)")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(viewModel.flexAdjustment < 1.0 ? AccessibleColors.warning : AccessibleColors.success)
+                            }
+                        }
+                    }
+                }
             }
         }
         .padding()
@@ -790,13 +982,13 @@ struct macOSControlsPanel: View {
 
 #Preview("iOS Compact") {
     NavigationView {
-        iOSCompactPlanningView(viewModel: MonthlyPlanningViewModel(modelContext: ModelContext(try! ModelContainer(for: Goal.self))))
+        iOSCompactPlanningView(viewModel: MonthlyPlanningViewModel(modelContext: ModelContext(try! ModelContainer(for: Goal.self))), staleDrafts: [])
     }
 }
 
 #Preview("macOS") {
     NavigationView {
-        macOSPlanningView(viewModel: MonthlyPlanningViewModel(modelContext: ModelContext(try! ModelContainer(for: Goal.self))))
+        macOSPlanningView(viewModel: MonthlyPlanningViewModel(modelContext: ModelContext(try! ModelContainer(for: Goal.self))), staleDrafts: [])
     }
     .frame(width: 800, height: 600)
 }

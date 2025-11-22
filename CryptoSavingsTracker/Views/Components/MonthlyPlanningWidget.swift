@@ -158,8 +158,8 @@ struct MonthlyPlanningWidget: View {
                     flexControlsView
                 }
                 
-                // Navigation to full planning view
-                NavigationLink(destination: PlanningView(viewModel: viewModel)) {
+                // Navigation to full planning view (smart router)
+                NavigationLink(destination: MonthlyPlanningContainer()) {
                     HStack {
                         Text("Open Full Planning")
                             .font(.subheadline)
