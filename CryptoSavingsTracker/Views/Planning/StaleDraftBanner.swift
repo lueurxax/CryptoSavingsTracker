@@ -344,7 +344,11 @@ struct StalePlanRow: View {
         Spacer()
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    #if os(macOS)
     .background(Color(NSColor.controlBackgroundColor))
+    #else
+    .background(Color(.systemBackground))
+    #endif
 }
 
 #Preview("Single Stale Plan Row") {

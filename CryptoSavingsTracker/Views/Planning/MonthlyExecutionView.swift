@@ -110,7 +110,11 @@ struct MonthlyExecutionView: View {
             }
         }
         .padding()
+        #if os(macOS)
         .background(Color(NSColor.windowBackgroundColor))
+        #else
+        .background(Color(.systemBackground))
+        #endif
         .cornerRadius(12)
         .shadow(radius: 2)
     }
@@ -177,7 +181,11 @@ struct MonthlyExecutionView: View {
             }
         }
         .padding()
+        #if os(macOS)
         .background(Color(NSColor.windowBackgroundColor))
+        #else
+        .background(Color(.systemBackground))
+        #endif
         .cornerRadius(12)
         .shadow(radius: 2)
     }
@@ -220,7 +228,11 @@ struct MonthlyExecutionView: View {
             }
         }
         .padding()
+        #if os(macOS)
         .background(Color(NSColor.windowBackgroundColor))
+        #else
+        .background(Color(.systemBackground))
+        #endif
         .cornerRadius(12)
         .shadow(radius: 2)
     }
@@ -257,7 +269,11 @@ struct MonthlyExecutionView: View {
                     }
                 }
                 .padding()
-                .background(Color(NSColor.windowBackgroundColor))
+                #if os(macOS)
+        .background(Color(NSColor.windowBackgroundColor))
+        #else
+        .background(Color(.systemBackground))
+        #endif
                 .cornerRadius(12)
                 .shadow(radius: 2)
             }
@@ -383,7 +399,11 @@ struct GoalProgressCard: View {
             }
         }
         .padding()
+        #if os(macOS)
         .background(isFulfilled ? Color.green.opacity(0.1) : Color(NSColor.controlBackgroundColor))
+        #else
+        .background(isFulfilled ? Color.green.opacity(0.1) : Color(.secondarySystemBackground))
+        #endif
         .cornerRadius(8)
     }
 

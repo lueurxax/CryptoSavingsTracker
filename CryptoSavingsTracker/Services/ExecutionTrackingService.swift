@@ -91,9 +91,9 @@ final class ExecutionTrackingService {
         AppLog.debug("Creating new execution record with \(goalIds.count) goal IDs", category: .executionTracking)
         let record = MonthlyExecutionRecord(monthLabel: monthLabel, goalIds: goalIds)
 
-        // Create snapshot
+        // Create snapshot using factory method (ensures proper SwiftData initialization)
         AppLog.debug("Creating snapshot from \(plans.count) plans, effectiveAmounts: \(plans.map { $0.effectiveAmount })", category: .executionTracking)
-        let snapshot = ExecutionSnapshot(from: plans, goals: goals)
+        let snapshot = ExecutionSnapshot.create(from: plans, goals: goals)
         AppLog.debug("Snapshot created - totalPlanned: \(snapshot.totalPlanned), snapshotData: \(snapshot.snapshotData.count) bytes", category: .executionTracking)
         record.snapshot = snapshot
 

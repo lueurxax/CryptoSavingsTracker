@@ -21,55 +21,12 @@ final class ExecutionSnapshot {
     @Relationship(inverse: \MonthlyExecutionRecord.snapshot)
     var executionRecord: MonthlyExecutionRecord?
 
-    // Memberwise init - if called, it means SwiftData bypassed custom init
+    // Memberwise init - required by SwiftData
     init(id: UUID, capturedAt: Date, totalPlanned: Double, snapshotData: Data) {
-        AppLog.fault("🚨 MEMBERWISE INIT CALLED - SwiftData bypassed custom init!", category: .executionTracking)
         self.id = id
         self.capturedAt = capturedAt
         self.totalPlanned = totalPlanned
         self.snapshotData = snapshotData
-    }
-
-    init(from plans: [MonthlyPlan], goals: [Goal]) {
-        AppLog.debug("✅ CUSTOM INIT CALLED - Received \(plans.count) plans and \(goals.count) goals", category: .executionTracking)
-
-        self.id = UUID()
-        self.capturedAt = Date()
-
-        // Create goal lookup dictionary
-        let goalDict = Dictionary(uniqueKeysWithValues: goals.map { ($0.id, $0) })
-        AppLog.debug("Created goal dictionary with \(goalDict.count) entries", category: .executionTracking)
-
-        // Create snapshots with goal names
-        let snapshots = plans.map { plan in
-            let goalName = goalDict[plan.goalId]?.name ?? "Unknown Goal"
-            let snapshot = ExecutionGoalSnapshot(
-                goalId: plan.goalId,
-                goalName: goalName,
-                plannedAmount: plan.effectiveAmount,
-                currency: plan.currency,
-                flexState: plan.flexStateRawValue,
-                isSkipped: plan.isSkipped,
-                isProtected: plan.isProtected
-            )
-            AppLog.debug("Created snapshot for '\(goalName)': amount=\(plan.effectiveAmount), currency=\(plan.currency)", category: .executionTracking)
-            return snapshot
-        }
-
-        AppLog.debug("Created \(snapshots.count) goal snapshots", category: .executionTracking)
-
-        let calculatedTotal = snapshots.reduce(0) { $0 + $1.plannedAmount }
-        self.totalPlanned = calculatedTotal
-        AppLog.debug("Total planned: \(calculatedTotal)", category: .executionTracking)
-
-        // Encode to Data for SwiftData storage
-        if let encoded = try? JSONEncoder().encode(snapshots) {
-            self.snapshotData = encoded
-            AppLog.debug("Successfully encoded snapshot data (\(encoded.count) bytes)", category: .executionTracking)
-        } else {
-            self.snapshotData = Data()
-            AppLog.error("Failed to encode snapshots!", category: .executionTracking)
-        }
     }
 
     // MARK: - Computed Properties
@@ -131,6 +88,67 @@ struct ExecutionGoalSnapshot: Codable, Sendable {
         formatter.maximumFractionDigits = 2
         return formatter.string(from: NSNumber(value: plannedAmount)) ??
                "\(currency) \(String(format: "%.2f", plannedAmount))"
+    }
+}
+
+// MARK: - Factory Method
+
+extension ExecutionSnapshot {
+
+    /// Factory method to create properly initialized snapshot for SwiftData
+    /// This ensures all properties are set before insertion into ModelContext
+    static func create(from plans: [MonthlyPlan], goals: [Goal]) -> ExecutionSnapshot {
+        AppLog.debug("Creating snapshot from \(plans.count) plans and \(goals.count) goals", category: .executionTracking)
+
+        let id = UUID()
+        let capturedAt = Date()
+
+        // Create goal lookup dictionary
+        let goalDict = Dictionary(uniqueKeysWithValues: goals.map { ($0.id, $0) })
+        AppLog.debug("Created goal dictionary with \(goalDict.count) entries", category: .executionTracking)
+
+        // Create snapshots with goal names
+        let snapshots = plans.map { plan in
+            let goalName = goalDict[plan.goalId]?.name ?? "Unknown Goal"
+            let snapshot = ExecutionGoalSnapshot(
+                goalId: plan.goalId,
+                goalName: goalName,
+                plannedAmount: plan.effectiveAmount,
+                currency: plan.currency,
+                flexState: plan.flexStateRawValue,
+                isSkipped: plan.isSkipped,
+                isProtected: plan.isProtected
+            )
+            AppLog.debug("Created snapshot for '\(goalName)': amount=\(plan.effectiveAmount), currency=\(plan.currency)", category: .executionTracking)
+            return snapshot
+        }
+
+        AppLog.debug("Created \(snapshots.count) goal snapshots", category: .executionTracking)
+
+        let calculatedTotal = snapshots.reduce(0) { $0 + $1.plannedAmount }
+        AppLog.debug("Total planned: \(calculatedTotal)", category: .executionTracking)
+
+        // Encode to Data for SwiftData storage
+        let encodedData: Data
+        if let encoded = try? JSONEncoder().encode(snapshots) {
+            encodedData = encoded
+            AppLog.debug("Successfully encoded snapshot data (\(encoded.count) bytes)", category: .executionTracking)
+        } else {
+            encodedData = Data()
+            AppLog.error("Failed to encode snapshots!", category: .executionTracking)
+        }
+
+        // Create using memberwise init with ALL properties set
+        let snapshot = ExecutionSnapshot(
+            id: id,
+            capturedAt: capturedAt,
+            totalPlanned: calculatedTotal,
+            snapshotData: encodedData
+        )
+
+        AppLog.debug("ExecutionSnapshot created - totalPlanned: \(calculatedTotal), snapshotData: \(encodedData.count) bytes", category: .executionTracking)
+
+        return snapshot
     }
 }
 
