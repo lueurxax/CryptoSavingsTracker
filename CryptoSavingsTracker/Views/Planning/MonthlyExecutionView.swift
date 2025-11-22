@@ -206,11 +206,27 @@ struct MonthlyExecutionView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding()
                 } else {
-                    Text("No goals in this month's plan")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding()
+                    VStack(spacing: 16) {
+                        Text("No goals in this month's plan")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        Text("This may happen if the execution was started before the plan was properly saved.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+
+                        if viewModel.showUndoBanner {
+                            Button("Reset to Planning Mode") {
+                                Task {
+                                    await viewModel.undoStateChange()
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding()
                 }
             } else {
                 ForEach(viewModel.activeGoals, id: \.goalId) { goalSnapshot in
