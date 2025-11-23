@@ -14,7 +14,7 @@ final class AssetAllocation {
     // Legacy percentage (0.0 - 1.0). Kept for migration compatibility.
     var percentage: Double
     // Fixed amount allocated in the asset's native currency.
-    var amount: Double
+    var amount: Double = 0.0
     var createdDate: Date
     var lastModifiedDate: Date
 
