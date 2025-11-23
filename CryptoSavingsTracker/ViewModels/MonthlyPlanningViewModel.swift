@@ -39,9 +39,6 @@ final class MonthlyPlanningViewModel: ObservableObject {
     /// Flex adjustment percentage (0.0 to 1.5, where 1.0 = 100%)
     @Published var flexAdjustment: Double = 1.0
     
-    /// Preview of adjusted amounts based on flex adjustment
-    @Published var adjustmentPreview: [UUID: Double] = [:]
-    
     /// Loading state
     @Published var isLoading = false
     
@@ -112,16 +109,19 @@ final class MonthlyPlanningViewModel: ObservableObject {
     
     // MARK: - Dependencies
     
-    private let planningService: MonthlyPlanningServiceProtocol
+    private let planService: MonthlyPlanService
+    private let exchangeRateService: ExchangeRateServiceProtocol
     private let modelContext: ModelContext
     private var flexService: FlexAdjustmentService?
     private var cancellables = Set<AnyCancellable>()
+    private var currentPlans: [MonthlyPlan] = []
     
     // MARK: - Initialization
     
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
-        self.planningService = DIContainer.shared.monthlyPlanningService
+        self.planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
+        self.exchangeRateService = DIContainer.shared.exchangeRateService
         self.flexService = DIContainer.shared.makeFlexAdjustmentService(modelContext: modelContext)
         
         // Initialize display currency from settings
@@ -149,15 +149,24 @@ final class MonthlyPlanningViewModel: ObservableObject {
             )
             
             let goals = try modelContext.fetch(descriptor)
-            
-            // Calculate monthly requirements
-            let requirements = await planningService.calculateMonthlyRequirements(for: goals)
-            
-            // Calculate total in display currency
-            let total = await planningService.calculateTotalRequired(
-                for: goals,
-                displayCurrency: displayCurrency
-            )
+            AppLog.debug("Found \(goals.count) active goals", category: .monthlyPlanning)
+            for goal in goals {
+                AppLog.debug("Goal '\(goal.name)' - target: \(goal.targetAmount), deadline: \(goal.deadline)", category: .monthlyPlanning)
+            }
+
+            // Get or create persisted plans for the current month
+            let plans = try await planService.getOrCreatePlansForCurrentMonth(goals: goals)
+            AppLog.debug("Loaded \(plans.count) persisted plans for current month", category: .monthlyPlanning)
+
+            self.currentPlans = plans
+
+            // Map plans to MonthlyRequirement adapters for UI compatibility
+            let requirements = goals.compactMap { goal -> MonthlyRequirement? in
+                guard let plan = plans.first(where: { $0.goalId == goal.id }) else { return nil }
+                return requirement(from: plan, goal: goal)
+            }
+
+            let total = await calculateTotalRequired(from: plans, displayCurrency: displayCurrency)
             
             // Update UI on main thread
             await MainActor.run {
@@ -165,10 +174,11 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 self.monthlyRequirements = requirements
                 self.totalRequired = total
                 self.isLoading = false
+                // Refresh flex state sets from plan data
+                self.protectedGoalIds = Set(plans.filter { $0.flexState == .protected || $0.isProtected }.map { $0.goalId })
+                self.skippedGoalIds = Set(plans.filter { $0.flexState == .skipped || $0.isSkipped }.map { $0.goalId })
+                AppLog.debug("Updated UI - requirements count: \(self.monthlyRequirements.count)", category: .monthlyPlanning)
             }
-            
-            // Load saved flex states
-            await loadFlexStates()
             
         } catch {
             await MainActor.run {
@@ -181,57 +191,43 @@ final class MonthlyPlanningViewModel: ObservableObject {
     
     /// Refresh calculations (force cache clear)
     func refreshCalculations() async {
-        planningService.clearCache()
         await loadMonthlyRequirements()
     }
-    
-    /// Preview adjustment with specific percentage using FlexAdjustmentService
-    func previewAdjustment(_ percentage: Double) async {
-        flexAdjustment = max(0.0, min(2.0, percentage)) // Clamp between 0-200%
-        
-        guard let flexService = flexService,
-              !monthlyRequirements.isEmpty else {
-            // Fallback to simple calculation if service unavailable
-            await previewAdjustmentSimple(percentage)
+
+    /// Apply flex adjustment to persisted plans and refresh UI
+    func applyFlexAdjustment(_ percentage: Double) async {
+        let clamped = max(0.0, min(1.5, percentage))
+        flexAdjustment = clamped
+
+        guard !currentPlans.isEmpty else {
+            await loadMonthlyRequirements()
             return
         }
-        
+
         do {
-            let adjustedRequirements = await flexService.applyFlexAdjustment(
-                requirements: monthlyRequirements,
-                adjustment: flexAdjustment,
+            try await planService.applyBulkFlexAdjustment(
+                plans: currentPlans,
+                adjustment: clamped,
                 protectedGoalIds: protectedGoalIds,
-                skippedGoalIds: skippedGoalIds,
-                strategy: .balanced
+                skippedGoalIds: skippedGoalIds
             )
-            
-            var preview: [UUID: Double] = [:]
-            for adjusted in adjustedRequirements {
-                preview[adjusted.requirement.goalId] = adjusted.adjustedAmount
+
+            // Refresh UI using mutated plans
+            let requirements = goals.compactMap { goal -> MonthlyRequirement? in
+                guard let plan = currentPlans.first(where: { $0.goalId == goal.id }) else { return nil }
+                return requirement(from: plan, goal: goal)
             }
-            
+            let total = await calculateTotalRequired(from: currentPlans, displayCurrency: displayCurrency)
+
             await MainActor.run {
-                self.adjustmentPreview = preview
+                self.monthlyRequirements = requirements
+                self.totalRequired = total
             }
-        }
-    }
-    
-    /// Fallback simple adjustment preview
-    private func previewAdjustmentSimple(_ percentage: Double) async {
-        var preview: [UUID: Double] = [:]
-        
-        for requirement in monthlyRequirements {
-            if skippedGoalIds.contains(requirement.goalId) {
-                preview[requirement.goalId] = 0
-            } else if protectedGoalIds.contains(requirement.goalId) {
-                preview[requirement.goalId] = requirement.requiredMonthly
-            } else {
-                preview[requirement.goalId] = requirement.requiredMonthly * flexAdjustment
+        } catch {
+            await MainActor.run {
+                self.error = error
             }
-        }
-        
-        await MainActor.run {
-            self.adjustmentPreview = preview
+            AppLog.error("Failed to apply flex adjustment: \(error)", category: .monthlyPlanning)
         }
     }
     
@@ -244,9 +240,8 @@ final class MonthlyPlanningViewModel: ObservableObject {
             skippedGoalIds.remove(goalId) // Can't be both protected and skipped
         }
         saveUserPreferences()
-        
         Task {
-            await previewAdjustment(flexAdjustment)
+            await applyFlexAdjustment(flexAdjustment)
         }
     }
     
@@ -259,9 +254,8 @@ final class MonthlyPlanningViewModel: ObservableObject {
             protectedGoalIds.remove(goalId) // Can't be both skipped and protected
         }
         saveUserPreferences()
-        
         Task {
-            await previewAdjustment(flexAdjustment)
+            await applyFlexAdjustment(flexAdjustment)
         }
     }
     
@@ -275,26 +269,23 @@ final class MonthlyPlanningViewModel: ObservableObject {
                     skippedGoalIds.insert(requirement.goalId)
                 }
             }
-            await previewAdjustment(0)
             
         case .payHalf:
             // Pay 50% of required amounts
             skippedGoalIds.removeAll()
-            await previewAdjustment(0.5)
             
         case .payExact:
             // Pay exact calculated amounts
             skippedGoalIds.removeAll()
-            await previewAdjustment(1.0)
 
         case .reset:
             // Reset all adjustments
             protectedGoalIds.removeAll()
             skippedGoalIds.removeAll()
-            await previewAdjustment(1.0)
         }
         
         saveUserPreferences()
+        await applyFlexAdjustment(flexAdjustment)
     }
     
     /// Get flex state for a specific goal
@@ -422,6 +413,48 @@ final class MonthlyPlanningViewModel: ObservableObject {
         if savedAdjustment > 0 {
             flexAdjustment = savedAdjustment
         }
+    }
+
+    /// Adapter: convert a persisted MonthlyPlan into a MonthlyRequirement for UI reuse
+    private func requirement(from plan: MonthlyPlan, goal: Goal) -> MonthlyRequirement {
+        let required = plan.effectiveAmount
+        let remaining = plan.remainingAmount
+        let currentTotal = max(goal.targetAmount - remaining, 0)
+        let progress = goal.targetAmount > 0 ? min(currentTotal / goal.targetAmount, 1.0) : 0.0
+
+        return MonthlyRequirement(
+            goalId: plan.goalId,
+            goalName: goal.name,
+            currency: plan.currency,
+            targetAmount: goal.targetAmount,
+            currentTotal: currentTotal,
+            remainingAmount: remaining,
+            monthsRemaining: plan.monthsRemaining,
+            requiredMonthly: required,
+            progress: progress,
+            deadline: goal.deadline,
+            status: plan.status
+        )
+    }
+
+    /// Calculate total required using plan effective amounts with currency conversion
+    private func calculateTotalRequired(from plans: [MonthlyPlan], displayCurrency: String) async -> Double {
+        var total = 0.0
+
+        for plan in plans {
+            if plan.currency == displayCurrency {
+                total += plan.effectiveAmount
+            } else {
+                do {
+                    let rate = try await exchangeRateService.fetchRate(from: plan.currency, to: displayCurrency)
+                    total += plan.effectiveAmount * rate
+                } catch {
+                    AppLog.warning("Failed to convert \(plan.currency) to \(displayCurrency): \(error)", category: .monthlyPlanning)
+                }
+            }
+        }
+
+        return total
     }
 }
 

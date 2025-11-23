@@ -236,6 +236,7 @@ struct TransactionHistoryView: View {
     
     private func deleteTransaction(_ transaction: Transaction) {
         withAnimation {
+            ContributionBridge.removeLinkedContributions(for: transaction, in: modelContext)
             modelContext.delete(transaction)
             try? modelContext.save()
         }

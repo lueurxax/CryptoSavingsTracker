@@ -11,7 +11,10 @@ import Foundation
 @Model
 final class AssetAllocation {
     @Attribute(.unique) var id: UUID
-    var percentage: Double // Stored as 0.0 to 1.0 (where 1.0 = 100%)
+    // Legacy percentage (0.0 - 1.0). Kept for migration compatibility.
+    var percentage: Double
+    // Fixed amount allocated in the asset's native currency.
+    var amount: Double
     var createdDate: Date
     var lastModifiedDate: Date
 
@@ -19,28 +22,49 @@ final class AssetAllocation {
     var asset: Asset?
     var goal: Goal?
 
-    init(asset: Asset, goal: Goal, percentage: Double) {
+    init(asset: Asset, goal: Goal, amount: Double) {
+        let normalizedAmount = max(0.0, amount)
+        let currentBalance = asset.currentAmount
+        let derivedPercentage = currentBalance > 0 ? normalizedAmount / currentBalance : 0
+
         self.id = UUID()
         self.asset = asset
         self.goal = goal
-        self.percentage = max(0.0, min(percentage, 1.0)) // Ensure percentage is between 0 and 1
+        self.amount = normalizedAmount
+        self.percentage = max(0.0, min(derivedPercentage, 1.0))
         self.createdDate = Date()
         self.lastModifiedDate = Date()
     }
     
-    /// Updates the percentage and modifies the lastModifiedDate
-    func updatePercentage(_ newPercentage: Double) {
-        self.percentage = max(0.0, min(newPercentage, 1.0))
+    /// Legacy initializer preserving percentage call sites. Converts to fixed amount using current balance.
+    convenience init(asset: Asset, goal: Goal, percentage: Double) {
+        let pct = max(0.0, min(percentage, 1.0))
+        let amount = asset.currentAmount * pct
+        self.init(asset: asset, goal: goal, amount: amount)
+        self.percentage = pct
+    }
+    
+    /// Updates the fixed amount and refreshes the derived percentage for legacy paths.
+    func updateAmount(_ newAmount: Double) {
+        self.amount = max(0.0, newAmount)
+        let currentBalance = asset?.currentAmount ?? 0
+        let derivedPercentage = currentBalance > 0 ? self.amount / currentBalance : 0
+        self.percentage = max(0.0, min(derivedPercentage, 1.0))
         self.lastModifiedDate = Date()
     }
     
-    /// Computed property to get the percentage as a display value (0-100)
+    /// Computed property to get the percentage as a display value (0-100) for legacy UI.
     var displayPercentage: Double {
-        return percentage * 100
+        let currentBalance = asset?.currentAmount ?? 0
+        let pct = currentBalance > 0 ? amount / currentBalance : percentage
+        return pct * 100
     }
     
-    /// Computed property to calculate the allocated value for this allocation
+    /// Allocated value from a given asset total, preferring fixed amount and falling back to legacy percentage.
     func getAllocatedValue(assetTotalValue: Double) -> Double {
+        if amount > 0 {
+            return min(amount, assetTotalValue)
+        }
         return assetTotalValue * percentage
     }
 }

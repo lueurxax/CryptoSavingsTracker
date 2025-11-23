@@ -40,19 +40,25 @@ final class Asset {
     
     // MARK: - Allocation Helper Methods
     
-    /// Get the total percentage allocated across all goals
-    var totalAllocatedPercentage: Double {
-        allocations.reduce(0) { $0 + $1.percentage }
+    /// Sum of allocated amounts in asset currency (using fixed amounts, falling back to percentage if needed)
+    var totalAllocatedAmount: Double {
+        let balance = currentAmount
+        return allocations.reduce(0) { partial, allocation in
+            let allocAmount = allocation.amount > 0
+            ? allocation.amount
+            : allocation.percentage * balance
+            return partial + allocAmount
+        }
     }
     
-    /// Get the remaining unallocated percentage
-    var unallocatedPercentage: Double {
-        max(0, 1.0 - totalAllocatedPercentage)
+    /// Remaining unallocated amount (never negative)
+    var unallocatedAmount: Double {
+        max(0, currentAmount - totalAllocatedAmount)
     }
     
     /// Check if the asset is fully allocated
     var isFullyAllocated: Bool {
-        totalAllocatedPercentage >= 1.0
+        unallocatedAmount <= 0.0000001
     }
     
     /// Get all goals this asset is allocated to
@@ -60,14 +66,16 @@ final class Asset {
         allocations.compactMap { $0.goal }
     }
     
-    /// Get the allocation percentage for a specific goal
-    func getAllocationPercentage(for goal: Goal) -> Double {
-        return allocations.first { $0.goal?.id == goal.id }?.percentage ?? 0.0
+    /// Get the allocation amount for a specific goal
+    func getAllocationAmount(for goal: Goal) -> Double {
+        guard let allocation = allocations.first(where: { $0.goal?.id == goal.id }) else { return 0.0 }
+        if allocation.amount > 0 { return allocation.amount }
+        return allocation.percentage * currentAmount
     }
     
-    /// Get the allocated value for a specific goal
+    /// Get the allocated value for a specific goal (capped by asset total)
     func getAllocatedValue(for goal: Goal, totalAssetValue: Double) -> Double {
-        let percentage = getAllocationPercentage(for: goal)
-        return totalAssetValue * percentage
+        let amount = getAllocationAmount(for: goal)
+        return min(amount, totalAssetValue)
     }
 }

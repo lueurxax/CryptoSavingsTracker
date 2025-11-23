@@ -86,8 +86,9 @@ struct HistoryRecordRow: View {
                 }
             }
 
-            ProgressView(value: progress, total: 100)
-                .tint(progress >= 100 ? .green : .orange)
+            let pct = min(max(progress, 0), 100)
+            ProgressView(value: pct, total: 100)
+                .tint(pct >= 100 ? .green : .orange)
 
             HStack {
                 Text("\(Int(progress))% complete")

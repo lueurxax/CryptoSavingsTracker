@@ -162,7 +162,9 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     nonisolated static func getManualTotal(for goal: Goal) -> Double {
         return goal.allocations.reduce(0) { result, allocation in
             guard let asset = allocation.asset else { return result }
-            return result + (asset.manualBalance * allocation.percentage)
+            let targetAmount = allocation.amount > 0 ? allocation.amount : allocation.percentage * asset.manualBalance
+            let allocatedPortion = min(targetAmount, asset.manualBalance)
+            return result + allocatedPortion
         }
     }
     
@@ -194,8 +196,15 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
                 assetViewModel: assetViewModel
             )
             
+            // Calculate allocated portion using fixed amount (fallback to percentage for legacy)
+            let assetBalance = assetViewModel.totalBalance
+            let targetAmount = allocation.amount > 0 ? allocation.amount : allocation.percentage * assetBalance
+            let allocatedPortion = min(targetAmount, assetBalance)
+            
             // Add the allocated portion to the total
-            totalValue += assetValueInGoalCurrency * allocation.percentage
+            let totalAssetValue = assetBalance > 0 ? assetValueInGoalCurrency : 0
+            let ratio = assetBalance > 0 ? allocatedPortion / assetBalance : 0
+            totalValue += totalAssetValue * ratio
         }
         
         return totalValue
@@ -244,7 +253,11 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
             assetViewModel: assetViewModel
         )
         
-        return assetValueInGoalCurrency * allocation.percentage
+        let assetBalance = assetViewModel.totalBalance
+        let targetAmount = allocation.amount > 0 ? allocation.amount : allocation.percentage * assetBalance
+        let allocatedPortion = min(targetAmount, assetBalance)
+        let ratio = assetBalance > 0 ? allocatedPortion / assetBalance : 0
+        return assetValueInGoalCurrency * ratio
     }
     
     /// Get a breakdown of value contributions from each asset to a goal
@@ -259,7 +272,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
             breakdown.append((
                 asset: asset,
                 value: allocatedValue,
-                percentage: allocation.percentage
+                percentage: 0 // percentage no longer relevant
             ))
         }
         

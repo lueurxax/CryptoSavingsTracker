@@ -449,12 +449,9 @@ struct AssetRowView: View {
     }
     
     private func deleteTransaction(_ transaction: Transaction) {
+        ContributionBridge.removeLinkedContributions(for: transaction, in: modelContext)
         modelContext.delete(transaction)
-        do {
-            try modelContext.save()
-        } catch {
-            // Silent failure - transaction remains visible
-        }
+        try? modelContext.save()
     }
     
     @MainActor

@@ -13,7 +13,8 @@ import Foundation
 final class MonthlyPlanService {
     let modelContext: ModelContext
     let goalCalculationService: GoalCalculationService
-    private let executor = AsyncSerialExecutor()
+    // Shared executor so multiple service instances (via DI) still serialize critical sections
+    private static let sharedExecutor = AsyncSerialExecutor()
 
     init(modelContext: ModelContext, goalCalculationService: GoalCalculationService) {
         self.modelContext = modelContext
@@ -26,7 +27,7 @@ final class MonthlyPlanService {
     /// This is the main entry point - ensures only one set of plans exists per month
     /// Uses AsyncSerialExecutor to prevent race conditions during concurrent access
     func getOrCreatePlansForCurrentMonth(goals: [Goal]) async throws -> [MonthlyPlan] {
-        return try await executor.enqueue {
+        return try await Self.sharedExecutor.enqueue {
             let monthLabel = self.currentMonthLabel()
 
             // GUARD 1: Check if ANY plans exist for this month (any state)
@@ -283,9 +284,115 @@ final class MonthlyPlanService {
             activeCount: plans.count - skippedCount
         )
     }
+
+    // MARK: - Bulk Flex Adjustment
+
+    /// Apply flex adjustment to multiple plans with proper state management
+    /// This is the single source of truth for flex application
+    func applyBulkFlexAdjustment(
+        plans: [MonthlyPlan],
+        adjustment: Double,
+        protectedGoalIds: Set<UUID>,
+        skippedGoalIds: Set<UUID>
+    ) async throws {
+
+        // Use serial executor to ensure atomicity
+        try await Self.sharedExecutor.enqueue { [weak self] in
+            guard let self = self else { return }
+
+            // Validate all plans are in draft state
+            let nonDraftPlans = plans.filter { $0.state != .draft }
+            guard nonDraftPlans.isEmpty else {
+                let goalIds = nonDraftPlans.map { $0.goalId.uuidString }.joined(separator: ", ")
+                throw PlanError.invalidState("Can only adjust draft plans. Non-draft plans: \(goalIds)")
+            }
+
+            // Categorize and update plans
+            for plan in plans {
+                if skippedGoalIds.contains(plan.goalId) {
+                    // Mark as skipped
+                    plan.skipThisMonth(true)
+                    AppLog.debug("Marked plan as skipped for goal \(plan.goalId)", category: .monthlyPlanning)
+                } else if protectedGoalIds.contains(plan.goalId) {
+                    // Mark as protected
+                    if plan.flexState != .protected {
+                        plan.toggleProtection()
+                    }
+                    // Protected plans keep their original requiredMonthly or user override
+                    // Do not clear customAmount to preserve user-entered overrides
+                    AppLog.debug("Marked plan as protected for goal \(plan.goalId)", category: .monthlyPlanning)
+                } else {
+                    // Flexible plan - apply adjustment
+                    plan.flexState = .flexible
+                    let adjustedAmount = plan.requiredMonthly * adjustment
+
+                    // Validation: no zero or negative amounts
+                    guard adjustedAmount > 0 else {
+                        throw PlanError.invalidAmount("Adjusted amount must be positive for goal \(plan.goalId)")
+                    }
+
+                    plan.setCustomAmount(adjustedAmount)
+                    AppLog.debug("Applied flex adjustment to goal \(plan.goalId): \(plan.requiredMonthly) -> \(adjustedAmount) (\(Int(adjustment * 100))%)",
+                                category: .monthlyPlanning)
+                }
+            }
+
+            // Save all changes
+            try self.modelContext.save()
+
+            let flexibleCount = plans.filter { !protectedGoalIds.contains($0.goalId) && !skippedGoalIds.contains($0.goalId) }.count
+            AppLog.info("Applied flex adjustment (\(Int(adjustment * 100))%) to \(flexibleCount) flexible plans",
+                        category: .monthlyPlanning)
+        }
+    }
+
+    /// Validate plans before state transition to execution
+    func validatePlansForExecution(_ plans: [MonthlyPlan]) throws {
+        var errors: [String] = []
+
+        for plan in plans {
+            // Check state
+            if plan.state != .draft {
+                errors.append("Plan for goal \(plan.goalId) is not in draft state (current: \(plan.state.displayName))")
+            }
+
+            // Check amounts for non-skipped plans
+            if !plan.isSkipped && plan.effectiveAmount <= 0 {
+                errors.append("Plan for goal \(plan.goalId) has zero or negative effective amount: \(plan.effectiveAmount)")
+            }
+
+            // Check month label
+            if plan.monthLabel.isEmpty {
+                errors.append("Plan for goal \(plan.goalId) has empty month label")
+            }
+        }
+
+        if !errors.isEmpty {
+            throw PlanError.validationFailed(errors.joined(separator: "; "))
+        }
+
+        AppLog.debug("Validated \(plans.count) plans for execution", category: .monthlyPlanning)
+    }
 }
 
 // MARK: - Supporting Types
+
+enum PlanError: LocalizedError {
+    case invalidState(String)
+    case invalidAmount(String)
+    case validationFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidState(let message):
+            return "Invalid plan state: \(message)"
+        case .invalidAmount(let message):
+            return "Invalid amount: \(message)"
+        case .validationFailed(let message):
+            return "Validation failed: \(message)"
+        }
+    }
+}
 
 struct PlanSummary {
     let monthLabel: String

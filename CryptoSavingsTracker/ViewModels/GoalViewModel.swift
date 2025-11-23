@@ -67,27 +67,35 @@ class GoalViewModel: ObservableObject {
     }
     
     private func calculateCurrentTotal() async -> Double {
-        AppLog.debug("Calculating current total for goal '\(goal.name)' (currency: \(goal.currency), assets: \(goal.allocatedAssets.count))", category: .goalList)
+        AppLog.debug("Calculating current total for goal '\(goal.name)' (currency: \(goal.currency), assets: \(goal.allocations.count))", category: .goalList)
         
         var total: Double = 0
-        for (index, asset) in goal.allocatedAssets.enumerated() {
-            AppLog.debug("Processing asset [\(index)]: \(asset.currency) (address: \(asset.address ?? "none"), chainId: \(asset.chainId ?? "none"))", category: .goalList)
+        for (index, allocation) in goal.allocations.enumerated() {
+            guard let asset = allocation.asset else { continue }
+            let assetBalance = await AssetViewModel.getCurrentAmount(for: asset)
+            let targetAmount = allocation.amount > 0 ? allocation.amount : allocation.percentage * assetBalance
+            guard targetAmount > 0 else { continue }
+            let allocatedPortion = min(targetAmount, assetBalance)
             
-            let assetValue = await AssetViewModel.getCurrentAmount(for: asset)
-            AppLog.debug("Asset value: \(assetValue) \(asset.currency)", category: .goalList)
+            AppLog.debug(
+                "Processing allocation [\(index)]: \(asset.currency) (address: \(asset.address ?? "none"), chainId: \(asset.chainId ?? "none")), amount: \(targetAmount)",
+                category: .goalList
+            )
+            
+            AppLog.debug("Asset value: \(assetBalance) \(asset.currency) -> allocated portion: \(allocatedPortion)", category: .goalList)
             
             if asset.currency == goal.currency {
-                total += assetValue
-                AppLog.debug("Same currency - added directly: \(assetValue) \(asset.currency)", category: .goalList)
+                total += allocatedPortion
+                AppLog.debug("Same currency - added directly: \(allocatedPortion) \(asset.currency)", category: .goalList)
             } else {
                 do {
                     let rate = try await exchangeRateService.fetchRate(from: asset.currency, to: goal.currency)
-                    let convertedValue = assetValue * rate
+                    let convertedValue = allocatedPortion * rate
                     total += convertedValue
-                    AppLog.debug("Converted \(assetValue) \(asset.currency) to \(convertedValue) \(goal.currency) (rate: \(rate))", category: .exchangeRate)
+                    AppLog.debug("Converted \(allocatedPortion) \(asset.currency) to \(convertedValue) \(goal.currency) (rate: \(rate))", category: .exchangeRate)
                 } catch {
-                    total += assetValue
-                    AppLog.warning("Exchange rate failed for \(asset.currency) → \(goal.currency), using raw value: \(assetValue) \(asset.currency). Error: \(error.localizedDescription)", category: .exchangeRate)
+                    AppLog.error("Exchange rate failed for \(asset.currency) → \(goal.currency). Skipping value to avoid wrong totals. Error: \(error.localizedDescription)", category: .exchangeRate)
+                    continue
                 }
             }
             AppLog.debug("Running total: \(total) \(goal.currency)", category: .goalList)

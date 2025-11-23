@@ -82,7 +82,8 @@ struct RequirementRow: View {
                     .fontWeight(.medium)
             }
             
-            ProgressView(value: requirement.progress)
+            let pct = min(max(requirement.progress, 0), 1)
+            ProgressView(value: pct)
                 .tint(requirement.status == .critical ? .red : 
                       requirement.status == .attention ? .orange : .blue)
         }

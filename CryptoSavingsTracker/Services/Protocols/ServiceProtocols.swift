@@ -24,10 +24,18 @@ protocol CoinGeckoServiceProtocol {
     var coins: [String] { get }
     var coinInfos: [CoinInfo] { get }
     var supportedCurrencies: [String] { get }
+    var coinCacheStale: Bool { get }
+    var currencyCacheStale: Bool { get }
     func fetchCoins() async
     func fetchSupportedCurrencies() async
     func hasValidConfiguration() -> Bool
     func setOfflineMode(_ offline: Bool)
+}
+
+// Default implementations so existing mocks don’t need to implement new flags
+extension CoinGeckoServiceProtocol {
+    var coinCacheStale: Bool { false }
+    var currencyCacheStale: Bool { false }
 }
 
 protocol ExchangeRateServiceProtocol {

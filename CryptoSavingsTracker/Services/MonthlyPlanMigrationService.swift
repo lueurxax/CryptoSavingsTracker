@@ -17,11 +17,31 @@ final class MonthlyPlanMigrationService {
         self.modelContext = modelContext
     }
 
+    // MARK: - Migration Helpers
+
+    /// Check if migration has been completed
+    private func hasCompletedMigration(version: String) throws -> Bool {
+        let descriptor = FetchDescriptor<MigrationMetadata>()
+        let allMetadata = try modelContext.fetch(descriptor)
+        return allMetadata.contains { $0.version == version && $0.status == .completed }
+    }
+
     // MARK: - Migration Entry Point
 
     /// Execute complete migration to Schema V2
     func migrateToSchemaV2() async throws {
         AppLog.info("Starting MonthlyPlan Schema V2 migration", category: .monthlyPlanning)
+
+        // Avoid rerunning if already migrated
+        if try hasCompletedMigration(version: "monthly_plan_v2") {
+            AppLog.info("MonthlyPlan Schema V2 migration already completed, skipping", category: .monthlyPlanning)
+            return
+        }
+
+        let metadata = MigrationMetadata(version: "monthly_plan_v2")
+        metadata.markInProgress()
+        modelContext.insert(metadata)
+        try modelContext.save()
 
         // Step 1: Add monthLabel to existing plans
         try await addMonthLabelToExistingPlans()
@@ -44,6 +64,8 @@ final class MonthlyPlanMigrationService {
         // Step 6: Validate unique constraint
         try await validateUniqueConstraint()
 
+        metadata.markCompleted()
+        try modelContext.save()
         AppLog.info("Schema V2 migration completed successfully", category: .monthlyPlanning)
     }
 
@@ -252,7 +274,6 @@ final class MonthlyPlanMigrationService {
         AppLog.debug("Step 4.5: Recalculating \(plans.count) auto-created plans", category: .monthlyPlanning)
 
         // Fetch goals
-        let goalIds = Set(plans.map { $0.goalId })
         let goalDescriptor = FetchDescriptor<Goal>()
         let allGoals = try modelContext.fetch(goalDescriptor)
         let goalDict = Dictionary(uniqueKeysWithValues: allGoals.map { ($0.id, $0) })
@@ -394,6 +415,39 @@ final class MonthlyPlanMigrationService {
         AppLog.info("Step 5 complete: Removed \(orphanedCount) orphaned plans", category: .monthlyPlanning)
     }
 
+    // MARK: - Step 6b: Cleanup invalid effective amounts
+
+    /// Normalize plans that have zero/negative effective amounts to prevent broken execution snapshots
+    func cleanupInvalidPlans() async throws {
+        AppLog.debug("Step 6b: Cleaning up invalid plans (zero/negative effective amounts)", category: .monthlyPlanning)
+
+        let descriptor = FetchDescriptor<MonthlyPlan>()
+        let allPlans = try modelContext.fetch(descriptor)
+
+        var fixedCount = 0
+        for plan in allPlans {
+            // Skip skipped plans (effective amount 0 is acceptable there)
+            if plan.isSkipped { continue }
+
+            if plan.effectiveAmount <= 0 {
+                // If customAmount is invalid, reset it to requiredMonthly
+                plan.setCustomAmount(nil)
+                plan.flexState = .flexible
+
+                // If requiredMonthly is also invalid, set a minimal placeholder (will be recalculated later)
+                if plan.requiredMonthly <= 0 {
+                    plan.requiredMonthly = max(1.0, plan.remainingAmount)
+                }
+
+                fixedCount += 1
+                AppLog.warning("Fixed invalid plan for goal \(plan.goalId) in \(plan.monthLabel): effectiveAmount<=0", category: .monthlyPlanning)
+            }
+        }
+
+        try modelContext.save()
+        AppLog.info("Step 6b complete: Fixed \(fixedCount) invalid plans", category: .monthlyPlanning)
+    }
+
     // MARK: - Step 6: Validate Unique Constraint
 
     private func validateUniqueConstraint() async throws {
@@ -455,6 +509,9 @@ final class MonthlyPlanMigrationService {
         } else {
             AppLog.info("Step 6 complete: No duplicate plans found", category: .monthlyPlanning)
         }
+
+        // Run invalid-plan cleanup after deduplication
+        try await cleanupInvalidPlans()
     }
 
     // MARK: - Verification Queries
@@ -481,7 +538,8 @@ final class MonthlyPlanMigrationService {
             plansWithoutMonthLabel: plansWithoutMonthLabel.count,
             totalContributions: allContributions.count,
             unlinkedContributions: unlinkedContributions.count,
-            duplicatePlanGroups: duplicates.count
+            duplicatePlanGroups: duplicates.count,
+            invalidEffectiveAmounts: allPlans.filter { !$0.isSkipped && $0.effectiveAmount <= 0 }.count
         )
     }
 }
@@ -494,11 +552,13 @@ struct MigrationVerification {
     let totalContributions: Int
     let unlinkedContributions: Int
     let duplicatePlanGroups: Int
+    let invalidEffectiveAmounts: Int
 
     var isSuccessful: Bool {
         return plansWithoutMonthLabel == 0 &&
                unlinkedContributions == 0 &&
-               duplicatePlanGroups == 0
+               duplicatePlanGroups == 0 &&
+               invalidEffectiveAmounts == 0
     }
 
     var description: String {

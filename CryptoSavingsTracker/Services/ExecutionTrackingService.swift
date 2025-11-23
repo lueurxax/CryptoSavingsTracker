@@ -76,9 +76,33 @@ final class ExecutionTrackingService {
 
         // Check if record already exists
         if let existing = try getRecord(for: monthLabel) {
-            if existing.status == .draft {
-                // Transition existing draft to executing
-                existing.startTracking()
+            if existing.status == .draft || existing.status == .executing {
+                AppLog.debug("Found existing record for \(monthLabel), status: \(existing.status)", category: .executionTracking)
+
+                // Always refresh snapshot from current plans to reflect latest adjustments
+                let validPlans = plans.filter { plan in
+                    let hasValidAmount = plan.effectiveAmount > 0 || plan.requiredMonthly > 0
+                    AppLog.debug("Plan validation - goalId: \(plan.goalId), effectiveAmount: \(plan.effectiveAmount), requiredMonthly: \(plan.requiredMonthly), valid: \(hasValidAmount)", category: .executionTracking)
+                    return hasValidAmount
+                }
+
+                AppLog.debug("Creating refreshed snapshot from \(validPlans.count) valid plans", category: .executionTracking)
+                let snapshot = ExecutionSnapshot.create(from: validPlans, goals: goals)
+                existing.snapshot = snapshot
+
+                // Verify the snapshot
+                if let decodedSnapshots = try? JSONDecoder().decode([ExecutionGoalSnapshot].self, from: snapshot.snapshotData) {
+                    AppLog.debug("Refreshed snapshot contains \(decodedSnapshots.count) goal snapshots", category: .executionTracking)
+                    for goalSnapshot in decodedSnapshots {
+                        AppLog.debug("Goal snapshot: \(goalSnapshot.goalName) - \(goalSnapshot.plannedAmount) \(goalSnapshot.currency)", category: .executionTracking)
+                    }
+                }
+
+                // Transition to executing if needed
+                if existing.status == .draft {
+                    existing.startTracking()
+                }
+
                 try modelContext.save()
                 return existing
             } else {
@@ -93,8 +117,29 @@ final class ExecutionTrackingService {
 
         // Create snapshot using factory method (ensures proper SwiftData initialization)
         AppLog.debug("Creating snapshot from \(plans.count) plans, effectiveAmounts: \(plans.map { $0.effectiveAmount })", category: .executionTracking)
-        let snapshot = ExecutionSnapshot.create(from: plans, goals: goals)
+
+        // Ensure we have valid plans with data
+        let validPlans = plans.filter { plan in
+            let hasValidAmount = plan.effectiveAmount > 0 || plan.requiredMonthly > 0
+            AppLog.debug("Plan validation - goalId: \(plan.goalId), effectiveAmount: \(plan.effectiveAmount), requiredMonthly: \(plan.requiredMonthly), valid: \(hasValidAmount)", category: .executionTracking)
+            return hasValidAmount
+        }
+
+        AppLog.debug("Filtered to \(validPlans.count) valid plans from \(plans.count) total", category: .executionTracking)
+
+        let snapshot = ExecutionSnapshot.create(from: validPlans, goals: goals)
         AppLog.debug("Snapshot created - totalPlanned: \(snapshot.totalPlanned), snapshotData: \(snapshot.snapshotData.count) bytes", category: .executionTracking)
+
+        // Verify snapshot data
+        if let decodedSnapshots = try? JSONDecoder().decode([ExecutionGoalSnapshot].self, from: snapshot.snapshotData) {
+            AppLog.debug("Verification: Snapshot contains \(decodedSnapshots.count) goal snapshots", category: .executionTracking)
+            for goalSnapshot in decodedSnapshots {
+                AppLog.debug("Goal snapshot: \(goalSnapshot.goalName) - \(goalSnapshot.plannedAmount) \(goalSnapshot.currency)", category: .executionTracking)
+            }
+        } else {
+            AppLog.error("Failed to decode snapshot data for verification!", category: .executionTracking)
+        }
+
         record.snapshot = snapshot
 
         // Start tracking

@@ -415,8 +415,8 @@ class DashboardViewModel: ObservableObject {
             )
             return assetBalance * rate
         } catch {
-            AppLog.error("Failed to get exchange rate for \(asset.currency) to \(goalCurrency): \(error)", category: .exchangeRate)
-            return assetBalance // Return original value if conversion fails
+            AppLog.error("Failed to get exchange rate for \(asset.currency) to \(goalCurrency): \(error). Skipping asset to avoid incorrect totals.", category: .exchangeRate)
+            return 0
         }
     }
     

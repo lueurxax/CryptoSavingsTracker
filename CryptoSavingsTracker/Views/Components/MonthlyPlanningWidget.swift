@@ -334,17 +334,9 @@ struct MonthlyPlanningWidget: View {
             
             // Required amount (with adjustment preview)
             VStack(alignment: .trailing, spacing: 2) {
-                if let adjustedAmount = viewModel.adjustmentPreview[requirement.goalId],
-                   adjustedAmount != requirement.requiredMonthly {
-                    Text(formatAmount(adjustedAmount, currency: requirement.currency))
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(AccessibleColors.primaryInteractive)
-                } else {
-                    Text(requirement.formattedRequiredMonthly())
-                        .font(.caption)
-                        .fontWeight(.medium)
-                }
+                Text(requirement.formattedRequiredMonthly())
+                    .font(.caption)
+                    .fontWeight(.medium)
                 
                 Text(requirement.timeRemainingDescription)
                     .font(.caption2)
@@ -374,7 +366,7 @@ struct MonthlyPlanningWidget: View {
                 get: { viewModel.flexAdjustment },
                 set: { newValue in
                     Task {
-                        await viewModel.previewAdjustment(newValue)
+                        await viewModel.applyFlexAdjustment(newValue)
                     }
                 }
             ), in: 0...1.5, step: 0.05)

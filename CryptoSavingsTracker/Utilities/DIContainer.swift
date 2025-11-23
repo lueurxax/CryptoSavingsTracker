@@ -209,6 +209,20 @@ class DIContainer: ObservableObject {
         return service
     }
 
+    // MARK: - MonthlyPlanService Factory
+    func makeMonthlyPlanService(modelContext: ModelContext) -> MonthlyPlanService {
+        // Don't cache - needs fresh modelContext and proper serialization
+        let goalCalculationService = GoalCalculationService(
+            container: self,
+            modelContext: modelContext
+        )
+        let service = MonthlyPlanService(
+            modelContext: modelContext,
+            goalCalculationService: goalCalculationService
+        )
+        return service
+    }
+
     // MARK: - Repository Pattern Implementation
     func makeGoalRepository(modelContext: ModelContext) -> GoalRepository {
         return GoalRepository(modelContext: modelContext)

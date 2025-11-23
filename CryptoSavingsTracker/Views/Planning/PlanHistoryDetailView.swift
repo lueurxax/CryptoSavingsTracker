@@ -142,8 +142,9 @@ struct PlanHistoryDetailView: View {
                                 .fontWeight(.medium)
                         }
 
-                        ProgressView(value: overallProgress, total: 100)
-                            .tint(overallProgress >= 100 ? .green : .orange)
+                        let pct = min(max(overallProgress, 0), 100)
+                        ProgressView(value: pct, total: 100)
+                            .tint(pct >= 100 ? .green : .orange)
                     }
 
                     // Stats grid
@@ -363,8 +364,10 @@ struct GoalHistoryCard: View {
                 }
             }
 
-            ProgressView(value: contributed, total: goalSnapshot.plannedAmount)
-                .tint(contributed >= goalSnapshot.plannedAmount ? .green : .orange)
+            let total = max(goalSnapshot.plannedAmount, 0.0001)
+            let safeContributed = min(max(contributed, 0), total)
+            ProgressView(value: safeContributed, total: total)
+                .tint(safeContributed >= total ? .green : .orange)
 
             HStack {
                 Text("\(formatCurrency(contributed, currency: goalSnapshot.currency)) / \(formatCurrency(goalSnapshot.plannedAmount, currency: goalSnapshot.currency))")

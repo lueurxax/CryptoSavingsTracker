@@ -16,8 +16,12 @@ struct SharedAssetIndicator: View {
         asset.allocations.count > 1
     }
     
-    private var allocationPercentage: Double {
-        asset.getAllocationPercentage(for: currentGoal)
+    private var allocationRatio: Double {
+        guard let allocation = asset.allocations.first(where: { $0.goal?.id == currentGoal.id }) else { return 0 }
+        let balance = asset.currentAmount
+        let amount = allocation.amount > 0 ? allocation.amount : allocation.percentage * balance
+        guard balance > 0 else { return 0 }
+        return min(amount / balance, 1.0)
     }
     
     private var otherGoalsCount: Int {
@@ -31,7 +35,7 @@ struct SharedAssetIndicator: View {
                     .font(.caption2)
                     .foregroundColor(.purple)
                 
-                Text("\(Int(allocationPercentage * 100))%")
+                Text("\(Int(allocationRatio * 100))%")
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundColor(.purple)
@@ -57,9 +61,10 @@ struct AssetListItemView: View {
     @State private var currentBalance: Double = 0
     
     private var effectiveBalance: Double {
+        guard let allocation = asset.allocations.first(where: { $0.goal?.id == goal.id }) else { return 0 }
         let totalBalance = currentBalance
-        let percentage = asset.getAllocationPercentage(for: goal)
-        return totalBalance * percentage
+        let amount = allocation.amount > 0 ? allocation.amount : allocation.percentage * totalBalance
+        return min(amount, totalBalance)
     }
     
     var body: some View {

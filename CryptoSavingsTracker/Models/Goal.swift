@@ -57,7 +57,9 @@ final class Goal {
     var manualTotal: Double {
         allocations.reduce(0) { result, allocation in
             guard let asset = allocation.asset else { return result }
-            return result + (asset.manualBalance * allocation.percentage)
+            let targetAmount = allocation.amount > 0 ? allocation.amount : allocation.percentage * asset.manualBalance
+            let allocatedPortion = min(targetAmount, asset.manualBalance)
+            return result + allocatedPortion
         }
     }
     
@@ -191,7 +193,9 @@ final class Goal {
     
     /// Get all assets allocated to this goal
     var allocatedAssets: [Asset] {
-        allocations.compactMap { $0.asset }
+        allocations
+            .filter { ($0.amount > 0.0001) || ($0.percentage > 0.0001) }
+            .compactMap { $0.asset }
     }
     
     /// Get unique assets (without duplicates) allocated to this goal
@@ -210,22 +214,25 @@ final class Goal {
         return uniqueAssets
     }
     
-    /// Get the total percentage allocated from a specific asset
-    func getAllocationPercentage(from asset: Asset) -> Double {
-        return allocations.first { $0.asset?.id == asset.id }?.percentage ?? 0.0
+    /// Get the total amount allocated from a specific asset
+    func getAllocationAmount(from asset: Asset) -> Double {
+        guard let allocation = allocations.first(where: { $0.asset?.id == asset.id }) else { return 0.0 }
+        if allocation.amount > 0 { return allocation.amount }
+        return allocation.percentage * asset.currentAmount
     }
     
-    /// Get the allocated value from a specific asset
+    /// Get the allocated value from a specific asset (capped by asset total)
     func getAllocatedValue(from asset: Asset, totalAssetValue: Double) -> Double {
-        let percentage = getAllocationPercentage(from: asset)
-        return totalAssetValue * percentage
+        let amount = getAllocationAmount(from: asset)
+        return min(amount, totalAssetValue)
     }
     
-    /// Get allocation breakdown showing asset and percentage pairs
-    var allocationBreakdown: [(asset: Asset, percentage: Double)] {
+    /// Get allocation breakdown showing asset and amount pairs
+    var allocationBreakdown: [(asset: Asset, amount: Double)] {
         return allocations.compactMap { allocation in
             guard let asset = allocation.asset else { return nil }
-            return (asset: asset, percentage: allocation.percentage)
+            let amount = allocation.amount > 0 ? allocation.amount : allocation.percentage * asset.currentAmount
+            return (asset: asset, amount: amount)
         }
     }
     

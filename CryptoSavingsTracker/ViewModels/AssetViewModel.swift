@@ -181,6 +181,9 @@ class AssetViewModel: ObservableObject {
         if let index = asset.transactions.firstIndex(where: { $0.id == transaction.id }) {
             asset.transactions.remove(at: index)
         }
+        if let modelContext = modelContext {
+            ContributionBridge.removeLinkedContributions(for: transaction, in: modelContext)
+        }
         modelContext?.delete(transaction)
         
         do {

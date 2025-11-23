@@ -15,23 +15,34 @@ struct AssetSharingView: View {
     @State private var allocations: [UUID: Double] = [:]
     @State private var hasLoadedInitial = false
     
-    var totalPercentage: Double {
+    var totalAmount: Double {
         allocations.values.reduce(0, +)
     }
     
-    var remainingPercentage: Double {
-        max(0, 1.0 - totalPercentage)
+    var remainingAmount: Double {
+        max(0, asset.currentAmount - totalAmount)
     }
     
     var isOverAllocated: Bool {
-        totalPercentage > 1.0
+        totalAmount > asset.currentAmount + 0.000001
     }
     
-    var allocationData: [(goal: Goal, percentage: Double)] {
+    var allocationData: [(goal: Goal, amount: Double)] {
         goals.compactMap { goal in
-            let percentage = allocations[goal.id] ?? 0
-            return percentage > 0 ? (goal, percentage) : nil
+            let amount = allocations[goal.id] ?? 0
+            return amount > 0 ? (goal, amount) : nil
         }
+    }
+    
+    var pieData: (allocations: [(goal: Goal, percentage: Double)], unallocated: Double) {
+        let totalForPie = max(asset.currentAmount, totalAmount)
+        guard totalForPie > 0 else {
+            return ([], 1.0)
+        }
+        let allocationsPercent = allocationData.map { (goal: $0.goal, percentage: max(0, $0.amount / totalForPie)) }
+        let used = allocationsPercent.map(\.percentage).reduce(0, +)
+        let unallocated = max(0, 1.0 - used)
+        return (allocationsPercent, unallocated)
     }
     
     var body: some View {
@@ -53,11 +64,10 @@ struct AssetSharingView: View {
                                 .monospaced()
                         }
                         
-                        // Allocation status
-                        // Pie chart visualization
+                        // Allocation status (amount-based pie)
                         SimplePieChart(
-                            allocations: allocationData,
-                            unallocatedPercentage: remainingPercentage
+                            allocations: pieData.allocations,
+                            unallocatedPercentage: pieData.unallocated
                         )
                     }
                     .padding()
@@ -70,7 +80,7 @@ struct AssetSharingView: View {
                             .font(.headline)
                             .foregroundColor(.blue)
                         
-                        Text("Adjust the sliders below to allocate percentages of this asset to different goals. The total cannot exceed 100%.")
+                        Text("Enter fixed amounts (in \(asset.currency)) to allocate to each goal. Total cannot exceed your asset balance.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -109,13 +119,6 @@ struct AssetSharingView: View {
                     
                     // Quick actions
                     VStack(spacing: 12) {
-                        Button(action: distributeEvenly) {
-                            Label("Distribute Evenly", systemImage: "equal.circle")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(goals.isEmpty)
-                        
                         Button(action: clearAll) {
                             Label("Clear All Allocations", systemImage: "xmark.circle")
                                 .frame(maxWidth: .infinity)
@@ -126,7 +129,7 @@ struct AssetSharingView: View {
                     .padding(.horizontal)
                     
                     if isOverAllocated {
-                        Label("Total exceeds 100%. Please reduce allocations.", systemImage: "exclamationmark.triangle.fill")
+                        Label("Allocated amount exceeds balance. Please reduce allocations.", systemImage: "exclamationmark.triangle.fill")
                             .font(.caption)
                             .foregroundColor(.red)
                             .padding()
@@ -169,16 +172,9 @@ struct AssetSharingView: View {
         // Load existing allocations for this asset
         for allocation in asset.allocations {
             if let goal = allocation.goal {
-                allocations[goal.id] = allocation.percentage
+                let amount = allocation.amount > 0 ? allocation.amount : allocation.percentage * asset.currentAmount
+                allocations[goal.id] = amount
             }
-        }
-    }
-    
-    private func distributeEvenly() {
-        guard !goals.isEmpty else { return }
-        let equalShare = 1.0 / Double(goals.count)
-        for goal in goals {
-            allocations[goal.id] = equalShare
         }
     }
     
@@ -194,11 +190,11 @@ struct AssetSharingView: View {
         
         // Create new allocations
         for goal in goals {
-            if let percentage = allocations[goal.id], percentage > 0 {
+            if let amount = allocations[goal.id], amount > 0 {
                 let allocation = AssetAllocation(
                     asset: asset,
                     goal: goal,
-                    percentage: percentage
+                    amount: amount
                 )
                 modelContext.insert(allocation)
             }

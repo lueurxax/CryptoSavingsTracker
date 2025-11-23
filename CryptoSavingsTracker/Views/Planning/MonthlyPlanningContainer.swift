@@ -15,6 +15,14 @@ struct MonthlyPlanningContainer: View {
     @State private var executionRecord: MonthlyExecutionRecord?
     @State private var isLoading = true
     @State private var showStartTrackingConfirmation = false
+    @StateObject private var planningViewModel: MonthlyPlanningViewModel
+
+    init() {
+        let context = CryptoSavingsTrackerApp.sharedModelContainer.mainContext
+        let viewModel = MonthlyPlanningViewModel(modelContext: context)
+        _planningViewModel = StateObject(wrappedValue: viewModel)
+        AppLog.debug("MonthlyPlanningContainer init, viewModel identity: \(ObjectIdentifier(viewModel))", category: .monthlyPlanning)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,20 +46,20 @@ struct MonthlyPlanningContainer: View {
         .navigationTitle("Monthly Planning")
         .task {
             await loadExecutionRecord()
+            // Also load monthly requirements after execution record is loaded
+            await planningViewModel.loadMonthlyRequirements()
         }
     }
 
     private var planningViewWithStartButton: some View {
         VStack(spacing: 0) {
-            // Planning view in a ScrollView
-            ScrollView {
-                PlanningView(viewModel: MonthlyPlanningViewModel(modelContext: modelContext))
-                    .frame(minHeight: 500, maxHeight: .infinity)
-            }
-            .frame(maxHeight: .infinity)
+            // Planning view in a ScrollView - takes available space
+            PlanningView(viewModel: planningViewModel)
+                .padding(.bottom, 20)
+                .frame(maxHeight: .infinity)
 
-            // Start Tracking button section - always visible at bottom
-            VStack(spacing: 12) {
+            // Start Tracking button section - compact and responsive
+            VStack(spacing: 8) {
                 Divider()
 
                 HStack(spacing: 8) {
@@ -61,27 +69,31 @@ struct MonthlyPlanningContainer: View {
 
                     Text("Ready to commit to this plan?")
                         .font(.headline)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
 
                     Spacer()
                 }
 
                 Text("This will lock in your monthly amounts and enable contribution tracking. You can undo this action within 24 hours.")
-                    .font(.subheadline)
+                    .font(.caption)
                     .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.9)
 
                 Button {
                     showStartTrackingConfirmation = true
                 } label: {
                     Label("Lock Plan & Start Tracking", systemImage: "lock.fill")
                         .frame(maxWidth: .infinity)
-                        .padding()
                 }
                 .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .controlSize(.regular)
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.vertical, 12)
             .background(.regularMaterial)
+            .frame(maxWidth: .infinity)
         }
         .alert("Start Tracking?", isPresented: $showStartTrackingConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -155,7 +167,7 @@ struct MonthlyPlanningContainer: View {
 
     private func startTracking() async {
         do {
-            // Fetch all active goals
+            // 1. Fetch active goals
             let descriptor = FetchDescriptor<Goal>(
                 predicate: #Predicate { goal in
                     goal.archivedDate == nil
@@ -164,49 +176,74 @@ struct MonthlyPlanningContainer: View {
             let goals = try modelContext.fetch(descriptor)
             AppLog.debug("Found \(goals.count) active goals", category: .executionTracking)
 
-            // Get or create plans using unified MonthlyPlanService
-            let goalCalculationService = GoalCalculationService(
-                container: DIContainer.shared,
-                modelContext: modelContext
-            )
-            let planService = MonthlyPlanService(
-                modelContext: modelContext,
-                goalCalculationService: goalCalculationService
-            )
+            // 2. Get MonthlyPlanService through DI
+            let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
 
-            // This will either return existing draft plans or create new ones (with duplicate prevention)
+            // 3. Get or create plans (serialized via AsyncSerialExecutor)
             let plans = try await planService.getOrCreatePlansForCurrentMonth(goals: goals)
             AppLog.info("Using \(plans.count) persisted plans for execution", category: .executionTracking)
 
-            // Verify plans before passing
-            for plan in plans {
-                AppLog.debug("Plan before tracking - goalId: \(plan.goalId), effectiveAmount: \(plan.effectiveAmount), currency: \(plan.currency), monthLabel: \(plan.monthLabel)", category: .executionTracking)
+            // 3.5. Check if plans are already in non-draft state and reset if needed
+            let nonDraftPlans = plans.filter { $0.state != .draft }
+            if !nonDraftPlans.isEmpty {
+                AppLog.warning("Found \(nonDraftPlans.count) non-draft plans, resetting to draft state", category: .executionTracking)
+                for plan in nonDraftPlans {
+                    plan.state = .draft
+                }
+                try modelContext.save()
             }
 
-            // Transition plans from draft to executing
+            // 4. Apply flex adjustments from ViewModel to plans
+            // This ensures the plans have the correct customAmount set based on user's flex settings
+            AppLog.debug("Applying flex adjustments: \(Int(planningViewModel.flexAdjustment * 100))%", category: .executionTracking)
+
+            try await planService.applyBulkFlexAdjustment(
+                plans: plans,
+                adjustment: planningViewModel.flexAdjustment,
+                protectedGoalIds: planningViewModel.protectedGoalIds,
+                skippedGoalIds: planningViewModel.skippedGoalIds
+            )
+
+            // 5. Validate plans before transition
+            try planService.validatePlansForExecution(plans)
+
+            // 6. Log the effective amounts for debugging
+            for plan in plans {
+                AppLog.debug("Plan validated - goalId: \(plan.goalId), effectiveAmount: \(plan.effectiveAmount), customAmount: \(plan.customAmount ?? -1), requiredMonthly: \(plan.requiredMonthly)",
+                            category: .executionTracking)
+            }
+
+            // 7. Transition plans from draft to executing
             try planService.startExecution(for: plans)
 
-            // Start tracking
+            // 8. Create execution record with snapshot
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
             let monthLabel = MonthlyExecutionRecord.monthLabel(from: Date())
-            AppLog.info("Starting tracking for month: \(monthLabel)", category: .executionTracking)
-            AppLog.debug("Passing \(plans.count) plans and \(goals.count) goals to startTracking()", category: .executionTracking)
-            let record = try executionService.startTracking(for: monthLabel, from: plans, goals: goals)
-            AppLog.debug("Created execution record with \(record.snapshot?.goalCount ?? 0) goals in snapshot", category: .executionTracking)
 
-            // Check what's in the snapshot
+            AppLog.info("Starting tracking for month: \(monthLabel)", category: .executionTracking)
+            let record = try executionService.startTracking(
+                for: monthLabel,
+                from: plans,
+                goals: goals
+            )
+
+            // 9. Verify snapshot
             if let snapshot = record.snapshot {
-                AppLog.debug("Snapshot details - totalPlanned: \(snapshot.totalPlanned), goalSnapshots.count: \(snapshot.goalSnapshots.count)", category: .executionTracking)
+                AppLog.info("Created execution record with \(snapshot.goalSnapshots.count) goals, total: \(snapshot.totalPlanned)",
+                           category: .executionTracking)
                 for goalSnapshot in snapshot.goalSnapshots {
-                    AppLog.debug("Goal snapshot - name: \(goalSnapshot.goalName), amount: \(goalSnapshot.plannedAmount), currency: \(goalSnapshot.currency)", category: .executionTracking)
+                    AppLog.debug("Snapshot: \(goalSnapshot.goalName) - \(goalSnapshot.plannedAmount) \(goalSnapshot.currency)",
+                                category: .executionTracking)
                 }
             } else {
                 AppLog.error("Snapshot is nil!", category: .executionTracking)
             }
 
             executionRecord = record
+
         } catch {
-            AppLog.error("Error starting tracking: \(error)", category: .executionTracking)
+            AppLog.error("Failed to start tracking: \(error)", category: .executionTracking)
+            // TODO: Show error to user
         }
     }
 }

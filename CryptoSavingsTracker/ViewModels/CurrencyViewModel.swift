@@ -21,6 +21,20 @@ class CurrencyViewModel: ObservableObject {
     
     private let coinGeckoService: CoinGeckoServiceProtocol
     
+    private var coinsStale: Bool {
+        if let concrete = coinGeckoService as? CoinGeckoService {
+            return concrete.coinCacheStale
+        }
+        return coinInfos.isEmpty
+    }
+
+    private var currenciesStale: Bool {
+        if let concrete = coinGeckoService as? CoinGeckoService {
+            return concrete.currencyCacheStale
+        }
+        return supportedCurrencies.isEmpty
+    }
+    
     init(coinGeckoService: CoinGeckoServiceProtocol) {
         self.coinGeckoService = coinGeckoService
         loadInitialData()
@@ -39,17 +53,23 @@ class CurrencyViewModel: ObservableObject {
         // Load cached fiat currency data immediately
         supportedCurrencies = coinGeckoService.supportedCurrencies
         
-        // Fetch fresh data if needed
-        if coinInfos.isEmpty {
+        // Fetch fresh data if needed or stale
+        if coinInfos.isEmpty || coinsStale {
+            AppLog.debug("Coin list empty or stale; requesting refresh from CoinGecko", category: .validation)
             Task {
                 await fetchCoins()
             }
+        } else {
+            AppLog.debug("Using cached coin list (\(coinInfos.count))", category: .validation)
         }
         
-        if supportedCurrencies.isEmpty {
+        if supportedCurrencies.isEmpty || currenciesStale {
+            AppLog.debug("Supported currency list empty or stale; requesting refresh from CoinGecko", category: .validation)
             Task {
                 await fetchSupportedCurrencies()
             }
+        } else {
+            AppLog.debug("Using cached supported currencies (\(supportedCurrencies.count))", category: .validation)
         }
     }
     

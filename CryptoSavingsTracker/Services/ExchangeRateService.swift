@@ -89,8 +89,8 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
     private func fetchRateFromAPI(from: String, to: String) async throws -> Double {
         // Check if we should throttle during startup
         if StartupThrottler.shared.shouldThrottleAPICall() {
-            // During startup, throw error to indicate rates unavailable
-            throw ExchangeRateError.rateNotAvailable
+            AppLog.info("Startup throttling in effect, delaying rate fetch for \(from)->\(to)", category: .exchangeRate)
+            await StartupThrottler.shared.waitForStartup()
         }
         
         // Common fiat currencies that might need cross-conversion
@@ -158,17 +158,68 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
             "x-cg-demo-api-key": apiKey
         ]
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
         
         // Parse response: { "bitcoin": { "usd": 45000 } }
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: [String: Double]],
-              let fromRates = json[fromId],
-              let rate = fromRates[to.lowercased()] else {
-            AppLog.warning("Rate not available in response for \(fromId) to \(to). Response: \(String(data: data, encoding: .utf8) ?? "nil")", category: .exchangeRate)
-            throw ExchangeRateError.rateNotAvailable
+        if let json = try JSONSerialization.jsonObject(with: data) as? [String: [String: Double]],
+           let fromRates = json[fromId],
+           let rate = fromRates[to.lowercased()] {
+            return rate
+        }
+
+        // Fallback: try coins/markets to handle cases where simple/price omits the pair
+        if let marketsRate = try await fetchRateFromMarkets(id: fromId, to: to) {
+            return marketsRate
         }
         
-        return rate
+        AppLog.warning("Rate not available in response for \(fromId) to \(to). HTTP \(status). Response: \(String(data: data, encoding: .utf8) ?? "nil")", category: .exchangeRate)
+        throw ExchangeRateError.rateNotAvailable
+    }
+
+    // Some assets (or temporarily missing pairs) are available via /coins/markets even when /simple/price omits them.
+    private func fetchRateFromMarkets(id: String, to: String) async throws -> Double? {
+        guard !id.isEmpty else { return nil }
+
+        let url = URL(string: "https://api.coingecko.com/api/v3/coins/markets")!
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: true)!
+        components.queryItems = [
+            URLQueryItem(name: "vs_currency", value: to.lowercased()),
+            URLQueryItem(name: "ids", value: id),
+            URLQueryItem(name: "order", value: "market_cap_desc"),
+            URLQueryItem(name: "per_page", value: "1"),
+            URLQueryItem(name: "page", value: "1"),
+            URLQueryItem(name: "sparkline", value: "false")
+        ]
+
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 10
+        request.allHTTPHeaderFields = [
+            "accept": "application/json",
+            "x-cg-demo-api-key": apiKey
+        ]
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+
+        struct MarketRate: Decodable {
+            let current_price: Double?
+        }
+
+        do {
+            let markets = try JSONDecoder().decode([MarketRate].self, from: data)
+            if let price = markets.first?.current_price, price > 0 {
+                AppLog.debug("Market rate fallback used for \(id)->\(to): \(price) (HTTP \(status))", category: .exchangeRate)
+                return price
+            } else {
+                AppLog.warning("Market rate missing/zero for \(id)->\(to). HTTP \(status). Response: \(String(data: data, encoding: .utf8) ?? "nil")", category: .exchangeRate)
+            }
+        } catch {
+            AppLog.warning("Failed to decode market rate for \(id)->\(to). HTTP \(status). Error: \(error.localizedDescription). Response: \(String(data: data, encoding: .utf8) ?? "nil")", category: .exchangeRate)
+        }
+
+        return nil
     }
     
     private func fetchCrossRate(from: String, to: String, through intermediary: String) async throws -> Double {
@@ -198,7 +249,8 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
             "x-cg-demo-api-key": apiKey
         ]
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
         
         // Parse response: { "tether": { "usd": 1.0, "eur": 0.85 } }
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: [String: Double]],
@@ -206,6 +258,7 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
               let fromRate = intermediaryRates[from.lowercased()],
               let toRate = intermediaryRates[to.lowercased()],
               fromRate > 0 else {
+            AppLog.warning("Cross rate not available for \(from)->\(to) via \(intermediary). HTTP \(status). Response: \(String(data: data, encoding: .utf8) ?? "nil")", category: .exchangeRate)
             throw ExchangeRateError.rateNotAvailable
         }
         

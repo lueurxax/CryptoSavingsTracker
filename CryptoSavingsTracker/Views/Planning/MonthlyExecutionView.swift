@@ -70,15 +70,31 @@ struct MonthlyExecutionView: View {
             }
         }
         .sheet(isPresented: $showContributionEntry) {
-            if let snapshot = selectedGoalSnapshot,
-               let record = viewModel.executionRecord,
-               let goal = try? modelContext.fetch(FetchDescriptor<Goal>(predicate: #Predicate { g in g.id == snapshot.goalId })).first {
-                ContributionEntryView(
-                    goal: goal,
-                    executionRecord: record,
-                    plannedAmount: snapshot.plannedAmount,
-                    alreadyContributed: viewModel.contributedTotals[snapshot.goalId] ?? 0
-                )
+            Group {
+                if let snapshot = selectedGoalSnapshot,
+                   let record = viewModel.executionRecord,
+                   let goal = try? modelContext.fetch(FetchDescriptor<Goal>(predicate: #Predicate { g in g.id == snapshot.goalId })).first {
+                    ContributionEntryView(
+                        goal: goal,
+                        executionRecord: record,
+                        plannedAmount: snapshot.plannedAmount,
+                        alreadyContributed: viewModel.contributedTotals[snapshot.goalId] ?? 0
+                    )
+                    #if os(macOS)
+                    .frame(minWidth: 420, minHeight: 520)
+                    #endif
+                } else {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("Loading contribution form…")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    #if os(macOS)
+                    .frame(minWidth: 300, minHeight: 200)
+                    #endif
+                }
             }
         }
     }
@@ -159,7 +175,8 @@ struct MonthlyExecutionView: View {
             Text("Overall Progress")
                 .font(.headline)
 
-            ProgressView(value: viewModel.overallProgress, total: 100)
+            let pct = min(max(viewModel.overallProgress, 0), 100)
+            ProgressView(value: pct, total: 100)
                 .tint(.green)
 
             HStack {
@@ -397,7 +414,9 @@ struct GoalProgressCard: View {
                 }
             }
 
-            ProgressView(value: contributed, total: goalSnapshot.plannedAmount)
+            let total = max(goalSnapshot.plannedAmount, 0.0001)
+            let safeContributed = min(max(contributed, 0), total)
+            ProgressView(value: safeContributed, total: total)
                 .tint(isFulfilled ? .green : .blue)
 
             HStack {

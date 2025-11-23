@@ -326,7 +326,7 @@ struct StalePlanRow: View {
         return plan
     }
 
-    VStack {
+    return VStack {
         StaleDraftBanner(
             stalePlans: plans,
             onMarkCompleted: { plan in

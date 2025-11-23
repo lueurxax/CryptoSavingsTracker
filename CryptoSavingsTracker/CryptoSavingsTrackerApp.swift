@@ -110,6 +110,10 @@ struct CryptoSavingsTrackerApp: App {
             OnboardingContentView()
         }
         .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
+        #if os(macOS)
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: 1100, height: 700)
+        #endif
 
         #if os(macOS)
         // Additional window for goal comparison

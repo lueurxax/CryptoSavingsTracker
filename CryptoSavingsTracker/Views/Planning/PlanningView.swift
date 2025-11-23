@@ -14,6 +14,7 @@ struct PlanningView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.modelContext) private var modelContext
     @Query private var allPlans: [MonthlyPlan]
+    @State private var viewId = UUID()  // Force view refresh
 
     // Get stale draft plans (past months that are still in draft state)
     private var staleDrafts: [MonthlyPlan] {
@@ -44,6 +45,14 @@ struct PlanningView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
         #endif
+        .onAppear {
+            AppLog.debug("PlanningView appeared, viewModel identity: \(ObjectIdentifier(viewModel)), requirements: \(viewModel.monthlyRequirements.count)", category: .monthlyPlanning)
+        }
+        .id(viewId)
+        .onReceive(viewModel.$monthlyRequirements) { _ in
+            AppLog.debug("PlanningView received requirements update, new count: \(viewModel.monthlyRequirements.count)", category: .monthlyPlanning)
+            viewId = UUID()  // Force view refresh
+        }
     }
 }
 
@@ -204,7 +213,7 @@ struct iOSCompactPlanningView: View {
                     GoalRequirementRow(
                         requirement: requirement,
                         flexState: viewModel.getFlexState(for: requirement.goalId),
-                        adjustedAmount: viewModel.adjustmentPreview[requirement.goalId],
+                        adjustedAmount: nil,
                         onToggleProtection: {
                             viewModel.toggleProtection(for: requirement.goalId)
                         },
@@ -241,7 +250,7 @@ struct iOSCompactPlanningView: View {
                         get: { viewModel.flexAdjustment },
                         set: { newValue in
                             Task {
-                                await viewModel.previewAdjustment(newValue)
+                                await viewModel.applyFlexAdjustment(newValue)
                             }
                         }
                     ), in: 0...1.5, step: 0.05) {
@@ -563,7 +572,7 @@ struct iOSRegularPlanningView: View {
                             GoalRequirementRow(
                                 requirement: requirement,
                                 flexState: viewModel.getFlexState(for: requirement.goalId),
-                                adjustedAmount: viewModel.adjustmentPreview[requirement.goalId],
+                                adjustedAmount: nil,
                                 onToggleProtection: {
                                     viewModel.toggleProtection(for: requirement.goalId)
                                 },
@@ -596,7 +605,7 @@ struct iOSRegularPlanningView: View {
                         GoalRequirementRow(
                             requirement: requirement,
                             flexState: viewModel.getFlexState(for: requirement.goalId),
-                            adjustedAmount: viewModel.adjustmentPreview[requirement.goalId],
+                            adjustedAmount: nil,
                             onToggleProtection: {
                                 viewModel.toggleProtection(for: requirement.goalId)
                             },
@@ -626,6 +635,12 @@ struct macOSPlanningView: View {
     var body: some View {
         #if os(macOS)
         macOSLayout
+            .onAppear {
+                AppLog.debug("macOSPlanningView appeared, viewModel identity: \(ObjectIdentifier(viewModel)), requirements: \(viewModel.monthlyRequirements.count), isLoading: \(viewModel.isLoading)", category: .monthlyPlanning)
+            }
+            .onChange(of: viewModel.monthlyRequirements.count) { oldValue, newValue in
+                AppLog.debug("Requirements count changed from \(oldValue) to \(newValue)", category: .monthlyPlanning)
+            }
         #else
         iosLayout
         #endif
@@ -638,10 +653,14 @@ struct macOSPlanningView: View {
             // Left sidebar - Summary and controls
             macOSControlsPanel(viewModel: viewModel)
                 .frame(minWidth: 320, maxWidth: 400)
-            
-            // Main content - Goals list
-            NavigationView {
-                if viewModel.monthlyRequirements.isEmpty {
+
+            // Main content - Goals list (removed NavigationView wrapper)
+            Group {
+                let _ = AppLog.debug("macOSLayout check: requirements.isEmpty=\(viewModel.monthlyRequirements.isEmpty), count=\(viewModel.monthlyRequirements.count), isLoading=\(viewModel.isLoading)", category: .monthlyPlanning)
+                if viewModel.isLoading {
+                    ProgressView("Loading monthly requirements...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if viewModel.monthlyRequirements.isEmpty {
                     emptyStateView
                 } else {
                     ScrollView {
@@ -669,10 +688,11 @@ struct macOSPlanningView: View {
                             }
 
                             ForEach(viewModel.monthlyRequirements) { requirement in
+                                let _ = AppLog.debug("Rendering requirement for goal: \(requirement.goalName), amount: \(requirement.requiredMonthly)", category: .monthlyPlanning)
                                 GoalRequirementRow(
                                     requirement: requirement,
                                     flexState: viewModel.getFlexState(for: requirement.goalId),
-                                    adjustedAmount: viewModel.adjustmentPreview[requirement.goalId],
+                                    adjustedAmount: nil,
                                     onToggleProtection: {
                                         viewModel.toggleProtection(for: requirement.goalId)
                                     },
@@ -684,16 +704,7 @@ struct macOSPlanningView: View {
                         }
                         .padding()
                     }
-                }
-            }
-            .frame(minWidth: 400)
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Refresh") {
-                    Task {
-                        await viewModel.refreshCalculations()
-                    }
+                    .frame(minWidth: 400)
                 }
             }
         }
@@ -713,7 +724,7 @@ struct macOSPlanningView: View {
                             GoalRequirementRow(
                                 requirement: requirement,
                                 flexState: viewModel.getFlexState(for: requirement.goalId),
-                                adjustedAmount: viewModel.adjustmentPreview[requirement.goalId],
+                                adjustedAmount: nil,
                                 onToggleProtection: {
                                     viewModel.toggleProtection(for: requirement.goalId)
                                 },
@@ -735,10 +746,18 @@ struct macOSPlanningView: View {
             Image(systemName: "calendar.badge.plus")
                 .font(.system(size: 64))
                 .foregroundColor(.secondary)
-            
+
             Text("No Monthly Requirements")
                 .font(.title2)
                 .fontWeight(.semibold)
+
+            Button("Refresh") {
+                Task {
+                    AppLog.debug("Manual refresh triggered", category: .monthlyPlanning)
+                    await viewModel.refreshCalculations()
+                }
+            }
+            .buttonStyle(.borderedProminent)
             
             Text("Create savings goals to see your monthly payment requirements")
                 .font(.subheadline)
@@ -838,9 +857,7 @@ struct macOSControlsPanel: View {
                 Slider(value: Binding(
                     get: { viewModel.flexAdjustment },
                     set: { newValue in
-                        Task {
-                            await viewModel.previewAdjustment(newValue)
-                        }
+                        viewModel.flexAdjustment = newValue
                     }
                 ), in: 0...1.5, step: 0.05)
                 .accentColor(AccessibleColors.primaryInteractive)

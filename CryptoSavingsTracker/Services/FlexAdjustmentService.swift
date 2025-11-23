@@ -726,9 +726,7 @@ final class FlexAdjustmentService: FlexAdjustmentServiceProtocol {
                     let rate = try await exchangeRateService.fetchRate(from: requirement.currency, to: displayCurrency)
                     total += requirement.requiredMonthly * rate
                 } catch {
-                    // Fallback to original amount if conversion fails
-                    AppLog.warning("Exchange rate failed for \(requirement.currency) → \(displayCurrency), using raw value: \(requirement.requiredMonthly) \(requirement.currency). Error: \(error.localizedDescription)", category: .exchangeRate)
-                    total += requirement.requiredMonthly
+                    AppLog.error("Exchange rate failed for \(requirement.currency) → \(displayCurrency). Excluding from total to avoid incorrect amount. Error: \(error.localizedDescription)", category: .exchangeRate)
                 }
             }
         }
@@ -751,8 +749,7 @@ final class FlexAdjustmentService: FlexAdjustmentServiceProtocol {
                     let rate = try await exchangeRateService.fetchRate(from: requirement.currency, to: displayCurrency)
                     total += requirement.requiredMonthly * rate
                 } catch {
-                    AppLog.warning("Exchange rate failed for \(requirement.currency) → \(displayCurrency), using raw value: \(requirement.requiredMonthly) \(requirement.currency). Error: \(error.localizedDescription)", category: .exchangeRate)
-                    total += requirement.requiredMonthly
+                    AppLog.error("Exchange rate failed for protected goal \(requirement.currency) → \(displayCurrency). Excluding from total to avoid incorrect amount. Error: \(error.localizedDescription)", category: .exchangeRate)
                 }
             }
         }
@@ -774,8 +771,7 @@ final class FlexAdjustmentService: FlexAdjustmentServiceProtocol {
                     let rate = try await exchangeRateService.fetchRate(from: adjusted.requirement.currency, to: displayCurrency)
                     total += adjusted.adjustedAmount * rate
                 } catch {
-                    AppLog.warning("Exchange rate failed for \(adjusted.requirement.currency) → \(displayCurrency), using raw value: \(adjusted.adjustedAmount) \(adjusted.requirement.currency). Error: \(error.localizedDescription)", category: .exchangeRate)
-                    total += adjusted.adjustedAmount
+                    AppLog.error("Exchange rate failed for adjusted requirement \(adjusted.requirement.currency) → \(displayCurrency). Excluding from total to avoid incorrect amount. Error: \(error.localizedDescription)", category: .exchangeRate)
                 }
             }
         }

@@ -36,42 +36,30 @@ class AllocationService {
     ///   - asset: The asset to update allocations for
     ///   - newAllocations: Dictionary mapping goals to their fixed amount allocations
     func updateAllocations(for asset: Asset, newAllocations: [Goal: Double]) throws {
-        // 1. Validate that the sum of amounts doesn't exceed asset balance
-        let totalAmount = newAllocations.values.reduce(0, +)
-        guard totalAmount <= asset.currentAmount else {
-            throw AllocationError.exceedsTotal(totalAmount, asset.currentAmount)
-        }
+        try validateAllocations(newAllocations, for: asset)
 
-        // 2. Validate that all amounts are non-negative
-        for (_, amount) in newAllocations {
-            guard amount >= 0 else {
-                throw AllocationError.negativeAmount(amount)
-            }
-        }
-
-        // 3. Delete all existing allocations for this asset
+        // Delete old allocations
         for oldAllocation in asset.allocations {
             modelContext.delete(oldAllocation)
         }
 
-        // 4. Create new AssetAllocation objects from the input dictionary
-        // Convert fixed amounts to percentages
-        for (goal, amount) in newAllocations {
-            if amount > 0 {
-                let percentage = asset.currentAmount > 0 ? amount / asset.currentAmount : 0
-                let newAllocation = AssetAllocation(asset: asset, goal: goal, percentage: percentage)
-                modelContext.insert(newAllocation)
-            }
+        // Insert new ones
+        for (goal, amount) in newAllocations where amount > 0 {
+            let newAllocation = AssetAllocation(asset: asset, goal: goal, amount: amount)
+            modelContext.insert(newAllocation)
         }
 
         try modelContext.save()
 
-        // 5. Post notification for any listeners
         NotificationCenter.default.post(
             name: .goalUpdated,
             object: nil,
             userInfo: ["assetId": asset.id]
         )
+
+        Task { [weak self] in
+            await self?.rebridgeCurrentMonthTransactions(for: asset)
+        }
     }
 
     /// Legacy method for backward compatibility
@@ -126,23 +114,20 @@ class AllocationService {
             throw AllocationError.negativeAmount(amount)
         }
 
-        // Convert amount to percentage
-        let percentage = asset.currentAmount > 0 ? amount / asset.currentAmount : 0
-
-        // Get current allocations excluding the one we're updating
+        // Calculate new total with updated allocation
         let currentAllocations = asset.allocations.filter { $0.goal?.id != goal.id }
-        let currentTotal = currentAllocations.reduce(0.0) { $0 + $1.percentage }
-
-        // Check if adding this allocation would exceed 100%
-        guard currentTotal + percentage <= 1.0 else {
-            throw AllocationError.exceedsTotal(currentTotal + percentage, 1.0)
+        let currentTotal = currentAllocations.reduce(0.0) { partial, allocation in
+            partial + (allocation.amount > 0 ? allocation.amount : allocation.percentage * asset.currentAmount)
         }
 
-        // Find existing allocation or create new one
+        guard currentTotal + amount <= asset.currentAmount else {
+            throw AllocationError.exceedsTotal(currentTotal + amount, asset.currentAmount)
+        }
+
         if let existingAllocation = asset.allocations.first(where: { $0.goal?.id == goal.id }) {
-            existingAllocation.updatePercentage(percentage)
-        } else if percentage > 0 {
-            let newAllocation = AssetAllocation(asset: asset, goal: goal, percentage: percentage)
+            existingAllocation.updateAmount(amount)
+        } else if amount > 0 {
+            let newAllocation = AssetAllocation(asset: asset, goal: goal, amount: amount)
             modelContext.insert(newAllocation)
         }
 
@@ -153,6 +138,10 @@ class AllocationService {
             object: nil,
             userInfo: ["assetId": asset.id, "goalId": goal.id]
         )
+
+        Task { [weak self] in
+            await self?.rebridgeCurrentMonthTransactions(for: asset)
+        }
     }
     
     /// Remove an allocation between an asset and a goal
@@ -176,28 +165,155 @@ class AllocationService {
 
     /// Get all allocations for a specific asset, sorted by percentage
     func getAllocations(for asset: Asset) -> [AssetAllocation] {
-        return asset.allocations.sorted { $0.percentage > $1.percentage }
+        return asset.allocations.sorted { $0.amount > $1.amount }
     }
 
     /// Get all allocations for a specific goal, sorted by percentage
     func getAllocations(for goal: Goal) -> [AssetAllocation] {
-        return goal.allocations.sorted { $0.percentage > $1.percentage }
+        return goal.allocations.sorted { $0.amount > $1.amount }
     }
 
-    /// Check if an asset can accommodate a new allocation percentage
-    /// - Parameters:
-    ///   - asset: The asset to check
-    ///   - percentage: The proposed percentage to allocate (0.0 to 1.0)
-    ///   - excludingGoal: Optional goal to exclude from current total calculation (for updates)
-    func canAllocate(asset: Asset, percentage: Double, excludingGoal: Goal? = nil) -> Bool {
+    /// Check if an asset can accommodate a new allocation amount
+    func canAllocate(asset: Asset, amount: Double, excludingGoal: Goal? = nil) -> Bool {
         let currentAllocations = asset.allocations.filter { $0.goal?.id != excludingGoal?.id }
-        let currentTotal = currentAllocations.reduce(0.0) { $0 + $1.percentage }
-        return currentTotal + percentage <= 1.0
+        let currentTotal = currentAllocations.reduce(0.0) { partial, allocation in
+            partial + (allocation.amount > 0 ? allocation.amount : allocation.percentage * asset.currentAmount)
+        }
+        return currentTotal + amount <= asset.currentAmount
     }
 
-    /// Get the remaining unallocated percentage for an asset
-    func getUnallocatedPercentage(for asset: Asset) -> Double {
-        return asset.unallocatedPercentage
+    /// Get the remaining unallocated amount for an asset
+    func getUnallocatedAmount(for asset: Asset) -> Double {
+        return asset.unallocatedAmount
+    }
+
+    // MARK: - Contribution Re-bridging
+
+    /// Rebuild contributions for the current month after allocation changes.
+    /// Best-effort; failures are logged but not thrown to keep UI responsive.
+    private func rebridgeCurrentMonthTransactions(for asset: Asset) async {
+        let monthLabel = MonthlyExecutionRecord.monthLabel(from: Date())
+        let allocations = asset.allocations.filter { ($0.amount > 0.0001) || ($0.percentage > 0.0001) }
+        guard !allocations.isEmpty else { return }
+
+        // Remove existing contributions for this asset/month
+        let descriptor = FetchDescriptor<Contribution>()
+        if let contributions = try? modelContext.fetch(descriptor) {
+            let matching = contributions.filter { contrib in
+                contrib.asset?.id == asset.id && contrib.monthLabel == monthLabel
+            }
+
+            for contrib in matching {
+                if let plan = contrib.monthlyPlan {
+                    plan.totalContributed = max(0, plan.totalContributed - contrib.amount)
+                }
+                modelContext.delete(contrib)
+            }
+        }
+
+        // Pre-compute remaining caps per allocation (asset currency)
+        var remainingByAllocation: [UUID: Double] = [:]
+        let assetBalance = asset.currentAmount
+        for allocation in allocations {
+            let base = allocation.amount > 0 ? allocation.amount : allocation.percentage * assetBalance
+            remainingByAllocation[allocation.id] = max(0, base)
+        }
+
+        // Subtract contributions already recorded this month
+        if let contributions = try? modelContext.fetch(descriptor) {
+            for contrib in contributions where contrib.asset?.id == asset.id && contrib.monthLabel == monthLabel {
+                guard let goalId = contrib.goal?.id else { continue }
+                if let allocation = allocations.first(where: { $0.goal?.id == goalId }) {
+                    let existingRemaining = remainingByAllocation[allocation.id] ?? 0
+                    let contributedAssetAmount = contrib.assetAmount ?? contrib.amount
+                    remainingByAllocation[allocation.id] = max(0, existingRemaining - contributedAssetAmount)
+                }
+            }
+        }
+
+        // Recreate contributions for each transaction in the current month using remaining caps
+        let transactions = asset.transactions.filter {
+            MonthlyExecutionRecord.monthLabel(from: $0.date) == monthLabel
+        }
+
+        guard !transactions.isEmpty else {
+            try? modelContext.save()
+            return
+        }
+
+        let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
+        let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
+        let exchangeRateService = DIContainer.shared.exchangeRateService
+
+        guard let plans = try? await planService.getOrCreatePlansForCurrentMonth(goals: allocations.compactMap { $0.goal }) else { return }
+
+        let record: MonthlyExecutionRecord
+        if let existing = try? executionService.getRecord(for: monthLabel) {
+            record = existing
+        } else if let newRecord = try? executionService.startTracking(
+            for: monthLabel,
+            from: plans,
+            goals: allocations.compactMap { $0.goal }
+        ) {
+            record = newRecord
+        } else {
+            return
+        }
+
+        for transaction in transactions {
+            var remainingTransactionAmount = transaction.amount
+            guard remainingTransactionAmount > 0 else { continue }
+
+            for allocation in allocations {
+                guard remainingTransactionAmount > 0 else { break }
+                guard let goal = allocation.goal else { continue }
+                guard let plan = plans.first(where: { $0.goalId == goal.id }) else { continue }
+
+                let remainingCap = remainingByAllocation[allocation.id] ?? 0
+                guard remainingCap > 0 else { continue }
+
+                let assetPortion = min(remainingCap, remainingTransactionAmount)
+                if assetPortion <= 0 { continue }
+
+                let amountInGoalCurrency: Double
+                if goal.currency.uppercased() == asset.currency.uppercased() {
+                    amountInGoalCurrency = assetPortion
+                } else if let rate = try? await exchangeRateService.fetchRate(from: asset.currency, to: goal.currency) {
+                    amountInGoalCurrency = assetPortion * rate
+                } else {
+                    AppLog.error("Exchange rate failed during re-bridge \(asset.currency) → \(goal.currency); skipping contribution to avoid incorrect amount.", category: .executionTracking)
+                    continue
+                }
+
+                let contribution = Contribution(
+                    amount: amountInGoalCurrency,
+                    goal: goal,
+                    asset: asset,
+                    source: .manualDeposit
+                )
+                contribution.assetAmount = assetPortion
+                contribution.currencyCode = goal.currency
+                contribution.assetSymbol = asset.currency
+                contribution.date = transaction.date
+                contribution.notes = transaction.comment
+                contribution.monthLabel = monthLabel
+                contribution.monthlyPlan = plan
+                contribution.executionRecordId = record.id
+
+                modelContext.insert(contribution)
+                if plan.contributions == nil {
+                    plan.contributions = []
+                }
+                plan.contributions?.append(contribution)
+                plan.totalContributed += contribution.amount
+
+                remainingByAllocation[allocation.id] = max(0, remainingCap - assetPortion)
+                remainingTransactionAmount -= assetPortion
+            }
+        }
+
+        try? modelContext.save()
+        NotificationCenter.default.post(name: .goalUpdated, object: nil)
     }
 
     // MARK: - Execution Tracking Integration (v2.1)
