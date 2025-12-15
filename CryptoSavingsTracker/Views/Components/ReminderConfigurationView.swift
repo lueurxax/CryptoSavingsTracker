@@ -15,8 +15,18 @@ struct ReminderConfigurationView: View {
     let startDate: Date
     let deadline: Date
     let showAdvancedOptions: Bool
-    
+
     @State private var showingAdvanced = false
+
+    /// Safe date range that handles cases where startDate > deadline
+    private var safeDateRange: ClosedRange<Date> {
+        if startDate <= deadline {
+            return startDate...deadline
+        } else {
+            // Fallback: use deadline as both bounds if dates are inverted
+            return deadline...deadline
+        }
+    }
     
     private var defaultReminderTime: Date {
         let calendar = Calendar.current
@@ -124,7 +134,7 @@ struct ReminderConfigurationView: View {
                                     firstReminderDate = newDate
                                 }
                             ),
-                            in: startDate...deadline,
+                            in: safeDateRange,
                             displayedComponents: .date
                         )
                         .datePickerStyle(.compact)

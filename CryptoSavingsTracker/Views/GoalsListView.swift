@@ -100,9 +100,7 @@ struct GoalsListView: View {
                 }
                 
                 // Debug log all loaded goals
-                AppLog.debug("📋 GoalsListView loaded \(goals.count) goals:", category: .goalList)
-                for goal in goals {
-                    AppLog.debug("  - '\(goal.name)': emoji='\(String(describing: goal.emoji))', progress=\(goal.progress), description='\(String(describing: goal.goalDescription))', link='\(String(describing: goal.link))'", category: .goalList)
+                for _ in goals {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .goalProgressRefreshed)) { _ in
@@ -112,7 +110,6 @@ struct GoalsListView: View {
             .onChange(of: editingGoal) { oldValue, newValue in
                 // When edit dialog closes, force refresh goal data
                 if oldValue != nil && newValue == nil {
-                    AppLog.debug("🔄 Edit dialog closed, refreshing goal data", category: .goalList)
                     
                     // Force SwiftData to refresh by calling processPendingChanges
                     modelContext.processPendingChanges()
@@ -121,8 +118,7 @@ struct GoalsListView: View {
                     refreshTrigger = UUID()
                     
                     // Log updated goal data
-                    for goal in goals {
-                        AppLog.debug("  - Post-edit '\(goal.name)': emoji='\(String(describing: goal.emoji))', description='\(String(describing: goal.goalDescription))', link='\(String(describing: goal.link))'", category: .goalList)
+                    for _ in goals {
                     }
                 }
             }

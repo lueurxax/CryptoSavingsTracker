@@ -113,6 +113,7 @@ struct GoalsList: View {
     @Binding var selectedView: DetailViewType
     let onDelete: (Goal) -> Void
     let onRefresh: () async -> Void
+    @State private var showingAddGoal = false
     @State private var editingGoal: Goal?
     @State private var monthlyPlanningViewModel: MonthlyPlanningViewModel?
     @State private var refreshTrigger = UUID()
@@ -135,13 +136,14 @@ struct GoalsList: View {
             Section("Your Goals") {
                 if goals.isEmpty {
                     EmptyGoalsView {
-                        // Handled by toolbar button
+                        showingAddGoal = true
                     }
                 } else {
                     ForEach(goals) { goal in
                         NavigationLink(destination: DetailContainerView(goal: goal, selectedView: $selectedView)) {
                             UnifiedGoalRowView.iOS(goal: goal, refreshTrigger: refreshTrigger)
                         }
+                        .accessibilityIdentifier("goalRow-\(goal.name)")
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button("Delete", role: .destructive) {
                                 onDelete(goal)
@@ -165,15 +167,21 @@ struct GoalsList: View {
             }
         }
         .navigationTitle("Goals")
+        .navigationDestination(isPresented: $showingAddGoal) {
+            AddGoalView()
+        }
         .refreshable {
             await onRefresh()
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                NavigationLink(destination: AddGoalView()) {
+                Button {
+                    showingAddGoal = true
+                } label: {
                     Image(systemName: "plus")
                 }
                 .accessibilityLabel("Add goal")
+                .accessibilityIdentifier("addGoalButton")
                 .platformTouchTarget()
             }
         }

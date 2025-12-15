@@ -110,7 +110,16 @@ struct AssetSharingView: View {
                                     allocation: Binding(
                                         get: { allocations[goal.id] ?? 0 },
                                         set: { allocations[goal.id] = $0 }
-                                    )
+                                    ),
+                                    assetCurrency: asset.currency,
+                                    assetBalance: asset.currentAmount,
+                                    remainingAmount: remainingAmount,
+                                    onAllocateRemaining: {
+                                        let epsilon = 0.0000001
+                                        let remaining = remainingAmount
+                                        guard remaining > epsilon else { return }
+                                        allocations[goal.id] = (allocations[goal.id] ?? 0) + remaining
+                                    }
                                 )
                             }
                         }
@@ -156,6 +165,7 @@ struct AssetSharingView: View {
                         saveAllocations()
                     }
                     .disabled(isOverAllocated)
+                    .accessibilityIdentifier("saveAllocationsButton")
                     .fontWeight(.semibold)
                 }
             }
@@ -172,8 +182,7 @@ struct AssetSharingView: View {
         // Load existing allocations for this asset
         for allocation in asset.allocations {
             if let goal = allocation.goal {
-                let amount = allocation.amount > 0 ? allocation.amount : allocation.percentage * asset.currentAmount
-                allocations[goal.id] = amount
+                allocations[goal.id] = allocation.amountValue
             }
         }
     }
@@ -183,6 +192,17 @@ struct AssetSharingView: View {
     }
     
     private func saveAllocations() {
+        let timestamp = Date()
+        let epsilon = 0.0000001
+
+        // Snapshot old amounts (goalId -> amount) before mutations.
+        var oldAmountsByGoalId: [UUID: Double] = [:]
+        for allocation in asset.allocations {
+            if let goal = allocation.goal {
+                oldAmountsByGoalId[goal.id] = allocation.amountValue
+            }
+        }
+
         // Remove all existing allocations for this asset
         for allocation in asset.allocations {
             modelContext.delete(allocation)
@@ -199,10 +219,20 @@ struct AssetSharingView: View {
                 modelContext.insert(allocation)
             }
         }
+
+        // Record AllocationHistory for changed goal allocations (amount-only).
+        for goal in goals {
+            let oldAmount = oldAmountsByGoalId[goal.id] ?? 0
+            let newAmount = max(0, allocations[goal.id] ?? 0)
+            guard abs(oldAmount - newAmount) > epsilon else { continue }
+            modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: newAmount, timestamp: timestamp))
+        }
         
         // Save changes
         do {
             try modelContext.save()
+            // Notify listeners that allocations changed
+            NotificationCenter.default.post(name: .goalUpdated, object: nil, userInfo: ["assetId": asset.id])
             dismiss()
         } catch {
             // Error handling would go here

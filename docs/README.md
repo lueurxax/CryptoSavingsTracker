@@ -1,0 +1,428 @@
+# CryptoSavingsTracker Documentation
+
+> **A comprehensive multi-platform SwiftUI application for tracking cryptocurrency savings goals across iOS, macOS, and visionOS.**
+
+## 🎯 Quick Start
+
+### For First-Time Contributors
+1. Read [ARCHITECTURE.md](ARCHITECTURE.md) → Understand system design
+2. Review [COMPONENT_REGISTRY.md](COMPONENT_REGISTRY.md) → Familiarize with UI components
+3. Check [DEVELOPMENT.md](DEVELOPMENT.md) → See active development plans
+4. Run tests → See "Testing" section below
+
+### For Feature Developers
+1. Check [ARCHITECTURE.md](ARCHITECTURE.md) for design patterns
+2. Browse [COMPONENT_REGISTRY.md](COMPONENT_REGISTRY.md) before creating new UI
+3. Reference [API_INTEGRATIONS.md](API_INTEGRATIONS.md) for external services
+4. Follow testing guidelines in [USER_GUIDES.md](USER_GUIDES.md)
+
+### For QA/Testers
+1. Use [sample-data.md](sample-data.md) for test data generation
+2. Follow [USER_GUIDES.md](USER_GUIDES.md) → Testing Guide
+3. Reference [USER_GUIDES.md](USER_GUIDES.md) → Troubleshooting Guide
+
+---
+
+## 📚 Documentation Index
+
+### Core Documentation
+
+| Document | Purpose | Audience |
+|----------|---------|----------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture, design patterns, component organization | Developers |
+| [DEVELOPMENT.md](DEVELOPMENT.md) | Development plans, feature roadmaps, refactoring strategies | Developers |
+| [MONTHLY_PLANNING.md](MONTHLY_PLANNING.md) | Monthly planning feature documentation and implementation | Developers, QA |
+| [USER_GUIDES.md](USER_GUIDES.md) | Testing guide, migration guide, troubleshooting | Developers, QA |
+
+### Reference Documentation
+
+| Document | Purpose | Audience |
+|----------|---------|----------|
+| [API_INTEGRATIONS.md](API_INTEGRATIONS.md) | External API integration details (CoinGecko, Tatum) | Developers |
+| [COMPONENT_REGISTRY.md](COMPONENT_REGISTRY.md) | Reusable UI component catalog | Developers, Designers |
+| [sample-data.md](sample-data.md) | Sample data for testing and development | Developers, QA |
+
+### Historical Documentation
+
+| Directory | Contents |
+|-----------|----------|
+| [archive/2025-11/](archive/2025-11/) | Archived proposals, fixes, and plans from August-November 2025 |
+
+## 🏗️ Architecture Quick Reference
+
+### Key Technologies
+- **UI Framework**: SwiftUI
+- **Data Persistence**: SwiftData
+- **Platforms**: iOS, macOS, visionOS
+- **Architecture Pattern**: MVVM with Service Layer
+- **Language**: Swift 5.9+
+- **Minimum Deployment**: iOS 17.0, macOS 15.0
+
+### High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Presentation Layer                        │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │  iOS Views   │  │ macOS Views  │  │ Shared Views │          │
+│  │  (iPhone)    │  │ (Split View) │  │ (Components) │          │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘          │
+└─────────┼──────────────────┼──────────────────┼─────────────────┘
+          │                  │                  │
+          └──────────────────┴──────────────────┘
+                             │
+┌────────────────────────────┼─────────────────────────────────────┐
+│                      ViewModel Layer                              │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  GoalViewModel • DashboardViewModel • PlanningViewModel  │   │
+│  │  @Published properties • Combine integration             │   │
+│  └──────────────────────────┬───────────────────────────────┘   │
+└─────────────────────────────┼─────────────────────────────────────┘
+                              │
+┌─────────────────────────────┼─────────────────────────────────────┐
+│                       Service Layer                               │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │ Calculation  │  │   External   │  │   Planning   │           │
+│  │  Services    │  │     APIs     │  │   Services   │           │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘           │
+└─────────┼──────────────────┼──────────────────┼───────────────────┘
+          │                  │                  │
+          └──────────────────┴──────────────────┘
+                             │
+┌────────────────────────────┼─────────────────────────────────────┐
+│                        Data Layer                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  SwiftData Models: Goal • Asset • Transaction • Plan    │   │
+│  │  Persistent storage with relationships                   │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+### Project Structure
+```
+CryptoSavingsTracker/
+├── Models/                    # SwiftData @Model classes
+│   ├── Goal.swift            # Core goal entity
+│   ├── Asset.swift           # Cryptocurrency assets
+│   ├── Transaction.swift     # Transaction records
+│   ├── MonthlyPlan.swift     # Planning entities
+│   └── AssetAllocation.swift # Shared asset allocations
+│
+├── ViewModels/               # MVVM coordinators
+│   ├── GoalViewModel.swift
+│   ├── DashboardViewModel.swift
+│   └── MonthlyPlanningViewModel.swift
+│
+├── Views/                    # SwiftUI views
+│   ├── Components/          # Reusable UI components
+│   │   ├── HeroProgressView.swift
+│   │   ├── FlexAdjustmentSlider.swift
+│   │   └── MonthlyPlanningWidget.swift
+│   ├── Planning/            # Monthly planning feature
+│   │   ├── PlanningView.swift
+│   │   └── MonthlyExecutionView.swift
+│   ├── Dashboard/           # Portfolio dashboard
+│   │   ├── DashboardView.swift
+│   │   └── WhatIfView.swift
+│   ├── Charts/              # Data visualization
+│   │   ├── EnhancedLineChartView.swift
+│   │   └── ForecastChartView.swift
+│   └── Goals/               # Goal management
+│       └── GoalDetailView.swift
+│
+├── Services/                # Business logic
+│   ├── GoalCalculationService.swift
+│   ├── MonthlyPlanService.swift
+│   ├── ExchangeRateService.swift
+│   ├── BalanceService.swift
+│   └── TransactionService.swift
+│
+├── Utilities/               # Helpers & extensions
+│   ├── DIContainer.swift   # Dependency injection
+│   ├── PerformanceOptimizer.swift
+│   ├── AccessibilityManager.swift
+│   └── PlatformCapabilities.swift
+│
+└── Repositories/            # Data access layer
+    └── GoalRepository.swift
+```
+
+## ✨ Key Features
+
+### Core Features
+- **🎯 Goal Management**: Create and track multiple cryptocurrency savings goals
+- **💰 Asset Tracking**: Monitor crypto holdings across multiple blockchains
+- **📊 Portfolio Dashboard**: Real-time portfolio value and performance metrics
+- **📈 Interactive Charts**: Balance history, asset composition, and forecast visualizations
+- **🔄 Transaction History**: Manual and on-chain transaction tracking
+- **📅 Monthly Planning**: Zero-input planning with flexible budget adjustments
+- **🔗 Asset Allocation**: Share assets across multiple goals
+
+### Advanced Features
+- **💱 Multi-Currency Support**: 100+ fiat and cryptocurrency pairs
+- **🌐 Multi-Platform**: Native iOS, macOS, and visionOS support
+- **⚡ Real-Time Prices**: Live cryptocurrency price tracking (CoinGecko API)
+- **🔍 On-Chain Data**: Blockchain balance and transaction fetching (Tatum API)
+- **📱 Platform-Adaptive UI**: Optimized layouts for each platform
+- **♿ Accessibility**: WCAG 2.1 AA compliant with VoiceOver support
+- **🔔 Notifications**: Smart reminders for monthly contributions
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Xcode 15.0 or later
+- macOS 15.0 or later (for development)
+- CoinGecko API key (for exchange rates)
+- Tatum API key (optional, for on-chain data)
+
+### Initial Setup
+1. Clone the repository
+2. Open `CryptoSavingsTracker.xcodeproj`
+3. Configure API keys in `Config.plist`
+4. Build and run
+
+### For New Developers
+
+1. **Start with**: [ARCHITECTURE.md](ARCHITECTURE.md) - Understand the system design
+2. **Then read**: [DEVELOPMENT.md](DEVELOPMENT.md) - Learn about development plans
+3. **Review**: [COMPONENT_REGISTRY.md](COMPONENT_REGISTRY.md) - Familiarize yourself with UI components
+4. **Reference**: [API_INTEGRATIONS.md](API_INTEGRATIONS.md) - Understand external integrations
+
+### For Feature Development
+
+1. **Architecture Review**: Check ARCHITECTURE.md for design patterns
+2. **Component Reuse**: Browse COMPONENT_REGISTRY.md before creating new UI
+3. **Testing**: Follow guidelines in USER_GUIDES.md
+4. **API Integration**: Reference API_INTEGRATIONS.md for external services
+
+### For Testing
+
+1. **Test Strategy**: See "Testing Guide" in USER_GUIDES.md
+2. **Sample Data**: Use sample-data.md for test data generation
+3. **Troubleshooting**: Reference "Troubleshooting Guide" in USER_GUIDES.md
+
+## 📖 Feature Documentation
+
+### Monthly Planning Feature
+
+The Monthly Planning feature is a comprehensive zero-input planning system. See [MONTHLY_PLANNING.md](MONTHLY_PLANNING.md) for:
+
+- **Architecture Overview**: System design and data flow
+- **Core Components**: Services, ViewModels, UI components
+- **Implementation Guide**: Step-by-step integration
+- **API Reference**: Complete API documentation
+- **Testing Strategy**: Unit, integration, UI, and accessibility tests
+- **Migration Guide**: Upgrading from previous versions
+
+**Quick Start**: See section 1 of MONTHLY_PLANNING.md
+
+### Asset Splitting & Allocations
+
+The Asset Splitting feature allows users to allocate a single asset across multiple goals. See DEVELOPMENT.md for:
+
+- **Problem Statement**: Why asset splitting is needed
+- **Technical Implementation**: Data model changes
+- **UI/UX Vision**: User interface design
+- **Migration Plan**: Data migration strategy
+
+**Quick Start**: See "Feature: Asset Splitting" in DEVELOPMENT.md
+
+### Architectural Refactoring
+
+Platform abstraction and component unification. See DEVELOPMENT.md for:
+
+- **Phase 1**: Unified goal components ✅ COMPLETED
+- **Phase 2**: Platform abstraction ✅ COMPLETED
+- **Phase 3**: File organization ✅ COMPLETED
+- **Phase 4**: Testing & validation (in progress)
+
+**Status**: See "Architectural Refactoring Plan" in DEVELOPMENT.md
+
+## 🧪 Testing
+
+### Test Coverage
+
+| Test Type | Location | Coverage |
+|-----------|----------|----------|
+| Unit Tests | `CryptoSavingsTrackerTests/` | >90% target |
+| UI Tests | `CryptoSavingsTrackerUITests/` | >70% target |
+| Accessibility Tests | `CryptoSavingsTrackerTests/AccessibilityTests.swift` | 100% WCAG AA |
+
+### Running Tests
+
+```bash
+# All tests
+xcodebuild test -scheme CryptoSavingsTracker -destination "platform=macOS"
+
+# Unit tests only
+xcodebuild test -scheme CryptoSavingsTracker -destination "platform=macOS" \
+  -only-testing:CryptoSavingsTrackerTests
+
+# UI tests only
+xcodebuild test -scheme CryptoSavingsTracker -destination "platform=macOS" \
+  -only-testing:CryptoSavingsTrackerUITests
+```
+
+**Detailed Guide**: See "Testing Guide" in USER_GUIDES.md
+
+## 🔧 Configuration
+
+### API Keys
+
+Configure external API keys in `Config.plist`:
+
+- **CoinGecko API**: Currency exchange rates
+- **Tatum API**: Blockchain data
+
+**Details**: See API_INTEGRATIONS.md
+
+### Build Targets
+
+- **Debug**: Full logging, debug symbols
+- **Release**: Optimized, minimal logging
+- **TestFlight**: Beta distribution
+
+## 📝 Contributing
+
+### Before Starting
+
+1. Review ARCHITECTURE.md for design patterns
+2. Check COMPONENT_REGISTRY.md for existing components
+3. Follow testing guidelines in USER_GUIDES.md
+
+### Code Style
+
+- Follow Swift API Design Guidelines
+- Use SwiftLint for style enforcement
+- Write comprehensive tests (>90% coverage)
+- Document public APIs with Swift DocC
+
+### Pull Request Checklist
+
+- [ ] Code follows architectural patterns
+- [ ] Unit tests added/updated (>90% coverage)
+- [ ] UI tests for user flows
+- [ ] Accessibility tests for WCAG compliance
+- [ ] Documentation updated
+- [ ] No regression in existing tests
+
+## 🗂️ Archive
+
+Historical documentation is preserved in `archive/` directories:
+
+- **archive/2025-11/**: Proposals and fixes from August-November 2025
+  - Dashboard improvement plans
+  - Execution tracking implementations
+  - Migration fixes
+  - UX reviews
+  - Technical fixes
+
+These are kept for historical reference but are superseded by current documentation.
+
+## 📚 External Resources
+
+- [Swift Documentation](https://swift.org/documentation/)
+- [SwiftUI Documentation](https://developer.apple.com/documentation/swiftui)
+- [SwiftData Documentation](https://developer.apple.com/documentation/swiftdata)
+- [WCAG 2.1 AA Guidelines](https://www.w3.org/WAI/WCAG21/quickref/)
+
+## 🆘 Getting Help
+
+### Quick Solutions
+
+| Issue | Solution |
+|-------|----------|
+| Build errors | See USER_GUIDES.md → Troubleshooting Guide |
+| Console warnings | See USER_GUIDES.md → Console warnings section |
+| Test failures | See USER_GUIDES.md → Testing Guide |
+| API integration | See API_INTEGRATIONS.md |
+| Migration issues | See USER_GUIDES.md → Migration Guide |
+
+### Common Issues
+
+<details>
+<summary><strong>Build Error: "Cannot find MonthlyPlan in scope"</strong></summary>
+
+**Solution**: Add `MonthlyPlan.swift` to your project and update ModelContainer:
+```swift
+let container = try ModelContainer(for:
+    Goal.self,
+    Asset.self,
+    Transaction.self,
+    MonthlyPlan.self  // Add this
+)
+```
+</details>
+
+<details>
+<summary><strong>SwiftData Migration Failure</strong></summary>
+
+**Solution**: Check that all new optional fields have default values or are properly marked as optional with `?`. See USER_GUIDES.md → Migration Guide for details.
+</details>
+
+<details>
+<summary><strong>Exchange Rates Not Updating</strong></summary>
+
+**Solution**:
+1. Verify CoinGecko API key in `Config.plist`
+2. Check network connectivity
+3. Monitor API rate limits (10 requests/minute)
+4. See API_INTEGRATIONS.md for details
+</details>
+
+<details>
+<summary><strong>Type-Checking Timeout Errors</strong></summary>
+
+**Solution**: Break complex SwiftUI views into smaller computed properties. See GoalDetailView.swift:288-439 for an example.
+</details>
+
+### For Documentation Issues
+
+1. Check this README for navigation
+2. Search relevant documentation file
+3. Check archive for historical context
+
+### For Technical Issues
+
+1. Review "Troubleshooting Guide" in USER_GUIDES.md
+2. Check console warnings reference in USER_GUIDES.md
+3. Search GitHub issues
+
+### For Testing Issues
+
+1. See "Testing Guide" in USER_GUIDES.md
+2. Check sample-data.md for test data
+3. Review test architecture in USER_GUIDES.md
+
+## 📊 Documentation Status
+
+| Document | Last Updated | Status | Coverage |
+|----------|--------------|--------|----------|
+| README.md | November 23, 2025 | ✅ Current | Complete |
+| ARCHITECTURE.md | November 23, 2025 | ✅ Current | Complete |
+| DEVELOPMENT.md | August 2025 | ✅ Current | Complete |
+| MONTHLY_PLANNING.md | August 9, 2025 | ✅ Current | Complete |
+| USER_GUIDES.md | August 9, 2025 | ✅ Current | Complete |
+| API_INTEGRATIONS.md | August 2025 | ✅ Current | Complete |
+| COMPONENT_REGISTRY.md | August 2025 | ✅ Current | Complete |
+| sample-data.md | August 2025 | ✅ Current | Complete |
+
+### Recent Updates
+- **Nov 23, 2025**: Enhanced README with architecture diagrams, quick start guide, and FAQ
+- **Nov 23, 2025**: Consolidated duplicate content from ARCHITECTURE.md
+- **Nov 23, 2025**: Archived 12 outdated proposal documents to archive/2025-11/
+- **Aug 2025**: Initial documentation structure and core guides
+
+## 🔖 Version Information
+
+- **App Version**: 2.1+
+- **Documentation Version**: 2.0
+- **Swift Version**: 5.9+
+- **Minimum iOS**: 17.0
+- **Minimum macOS**: 15.0
+
+---
+
+*Last Updated: November 23, 2025*
+*Maintained by: CryptoSavingsTracker Development Team*
+*Documentation Coverage: 100%*

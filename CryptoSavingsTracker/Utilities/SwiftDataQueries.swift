@@ -232,7 +232,6 @@ final class QueryPerformanceMonitor {
                 if elapsed > 0.5 {
                     AppLog.warning("Slow query '\(name)': \(String(format: "%.3f", elapsed))s", category: .performance)
                 } else {
-                    AppLog.debug("Query '\(name)': \(String(format: "%.3f", elapsed))s", category: .performance)
                 }
             }
             

@@ -7,7 +7,12 @@ import SwiftUI
 
 struct GoalAllocationCard: View {
     let goal: Goal
+    /// Fixed allocation amount in the asset's native currency
     @Binding var allocation: Double
+    let assetCurrency: String
+    let assetBalance: Double
+    let remainingAmount: Double
+    let onAllocateRemaining: (() -> Void)?
     
     var body: some View {
         VStack(spacing: 12) {
@@ -23,72 +28,50 @@ struct GoalAllocationCard: View {
                 
                 Spacer()
                 
-                // Current allocation
-                VStack(alignment: .trailing) {
-                    Text("\(Int(allocation * 100))%")
-                        .font(.title2)
+                // Current allocation amount
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(allocation, specifier: "%.4f") \(assetCurrency)")
+                        .font(.title3)
                         .fontWeight(.bold)
                         .foregroundColor(allocation > 0 ? .blue : .secondary)
-                    
-                    if allocation > 0 {
-                        Text("allocated")
-                            .font(.caption2)
-                            .foregroundColor(.blue)
-                    }
+                    Text("of \(assetBalance, specifier: "%.4f") \(assetCurrency)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
             }
             
-            // Slider
-            AllocationSlider(allocation: $allocation, goalName: goal.name)
-            
-            // Quick percentage buttons
-            QuickPercentageButtons(allocation: $allocation)
+            // Amount input
+            HStack(spacing: 12) {
+                Text("Amount")
+                    .font(.callout)
+                TextField("0", value: $allocation, format: .number)
+#if os(iOS)
+                    .keyboardType(.decimalPad)
+#endif
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .multilineTextAlignment(.trailing)
+                    .accessibilityIdentifier("allocation-\(goal.name)")
+                Text(assetCurrency)
+                    .foregroundColor(.secondary)
+                    .font(.callout)
+            }
+
+            let epsilon = 0.0000001
+            if remainingAmount > epsilon, let onAllocateRemaining {
+                Button(action: onAllocateRemaining) {
+                    Label(
+                        "Allocate Unallocated (\(remainingAmount, specifier: "%.4f") \(assetCurrency))",
+                        systemImage: "arrow.down.to.line.compact"
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .accessibilityIdentifier("allocateRemaining-\(goal.name)")
+            }
         }
         .padding()
         .background(Color.gray.opacity(0.05))
         .cornerRadius(10)
-    }
-}
-
-struct AllocationSlider: View {
-    @Binding var allocation: Double
-    let goalName: String
-    
-    var body: some View {
-        Slider(
-            value: $allocation,
-            in: 0...1,
-            step: 0.05
-        ) { _ in
-            #if os(iOS)
-            HapticManager.shared.selection()
-            #endif
-        }
-        .tint(.blue)
-        .accessibilityLabel("Allocation for \(goalName)")
-        .accessibilityValue("\(Int(allocation * 100)) percent")
-    }
-}
-
-struct QuickPercentageButtons: View {
-    @Binding var allocation: Double
-    
-    var body: some View {
-        HStack(spacing: 8) {
-            ForEach([0, 25, 50, 75, 100], id: \.self) { percent in
-                Button(action: {
-                    allocation = Double(percent) / 100.0
-                    #if os(iOS)
-                    HapticManager.shared.impact(.light)
-                    #endif
-                }) {
-                    Text("\(percent)%")
-                        .font(.caption)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .tint(allocation == Double(percent) / 100.0 ? .blue : .gray)
-            }
-        }
     }
 }

@@ -67,7 +67,6 @@ class GoalEditViewModel: ObservableObject {
     
     // Manual change detection trigger for SwiftData properties
     func triggerChangeDetection() {
-        AppLog.debug("🔄 Manual change detection triggered", category: .goalEdit)
         updateDirtyState()
         validateWithDelay()
     }
@@ -78,7 +77,6 @@ class GoalEditViewModel: ObservableObject {
         showingImpactPreview = isDirty && hasSignificantChanges
         
         if isDirty != wasDeep {
-            AppLog.debug("🔄 Dirty state changed: \(wasDeep) → \(isDirty). canSave: \(canSave)", category: .goalEdit)
         }
     }
     
@@ -122,19 +120,12 @@ class GoalEditViewModel: ObservableObject {
             goal.lastModifiedDate = Date()
             
             // Log goal save attempt with detailed field values
-            AppLog.debug("💾 About to save goal '\(goal.name)' with fields:", category: .goalEdit)
-            AppLog.debug("  - emoji: '\(String(describing: goal.emoji))'", category: .goalEdit)
-            AppLog.debug("  - goalDescription: '\(String(describing: goal.goalDescription))'", category: .goalEdit)
-            AppLog.debug("  - link: '\(String(describing: goal.link))'", category: .goalEdit)
-            AppLog.debug("  - targetAmount: \(goal.targetAmount)", category: .goalEdit)
-            AppLog.debug("  - deadline: \(goal.deadline)", category: .goalEdit)
             
             // Save to SwiftData
             try modelContext.save()
             
             // Verify data was saved by re-reading from context
             AppLog.info("✅ Goal '\(goal.name)' saved successfully", category: .goalEdit)
-            AppLog.debug("📋 After save verification - emoji: '\(String(describing: goal.emoji))', description: '\(String(describing: goal.goalDescription))', link: '\(String(describing: goal.link))'", category: .goalEdit)
             
         } catch {
             AppLog.error("Failed to save goal: \(error)", category: .goalEdit)
@@ -159,7 +150,6 @@ class GoalEditViewModel: ObservableObject {
         validationErrors.removeAll()
         showingImpactPreview = false
         
-        AppLog.debug("Goal changes cancelled", category: .goalEdit)
     }
     
     func resetToOriginal() {

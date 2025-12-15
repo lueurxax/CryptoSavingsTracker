@@ -25,10 +25,11 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     }
 
     @MainActor
-    convenience init(container: DIContainer = DIContainer.shared, modelContext: ModelContext? = nil) {
+    convenience init(container: DIContainer? = nil, modelContext: ModelContext? = nil) {
+        let resolvedContainer = container ?? DIContainer.shared
         self.init(
-            exchangeRateService: container.exchangeRateService,
-            tatumService: container.tatumService,
+            exchangeRateService: resolvedContainer.exchangeRateService,
+            tatumService: resolvedContainer.tatumService,
             modelContext: modelContext
         )
     }
@@ -162,8 +163,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     nonisolated static func getManualTotal(for goal: Goal) -> Double {
         return goal.allocations.reduce(0) { result, allocation in
             guard let asset = allocation.asset else { return result }
-            let targetAmount = allocation.amount > 0 ? allocation.amount : allocation.percentage * asset.manualBalance
-            let allocatedPortion = min(targetAmount, asset.manualBalance)
+            let allocatedPortion = min(max(0, allocation.amountValue), asset.manualBalance)
             return result + allocatedPortion
         }
     }
@@ -198,8 +198,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
             
             // Calculate allocated portion using fixed amount (fallback to percentage for legacy)
             let assetBalance = assetViewModel.totalBalance
-            let targetAmount = allocation.amount > 0 ? allocation.amount : allocation.percentage * assetBalance
-            let allocatedPortion = min(targetAmount, assetBalance)
+            let allocatedPortion = min(max(0, allocation.amountValue), assetBalance)
             
             // Add the allocated portion to the total
             let totalAssetValue = assetBalance > 0 ? assetValueInGoalCurrency : 0
@@ -254,8 +253,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
         )
         
         let assetBalance = assetViewModel.totalBalance
-        let targetAmount = allocation.amount > 0 ? allocation.amount : allocation.percentage * assetBalance
-        let allocatedPortion = min(targetAmount, assetBalance)
+        let allocatedPortion = min(max(0, allocation.amountValue), assetBalance)
         let ratio = assetBalance > 0 ? allocatedPortion / assetBalance : 0
         return assetValueInGoalCurrency * ratio
     }

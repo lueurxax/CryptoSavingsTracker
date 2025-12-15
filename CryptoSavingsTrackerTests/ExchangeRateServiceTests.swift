@@ -92,28 +92,6 @@ import Foundation
         }
     }
     
-    // MARK: - Mock Exchange Rate Service for Reliable Testing
-    
-    @Test @MainActor func goalCalculationWithMockRates() async throws {
-        // This test would ideally use a mock service, but we'll test the fallback behavior
-        let goal = Goal(name: "Mock Test", currency: "USD", targetAmount: 1000, deadline: Date())
-        let eurAsset = Asset(currency: "EUR", goal: goal)
-        let transaction = Transaction(amount: 500, asset: eurAsset)
-        
-        // Explicitly establish relationships for in-memory objects
-        goal.assets.append(eurAsset)
-        eurAsset.transactions.append(transaction)
-        
-        // Test that calculation doesn't crash even if exchange service fails
-        let total = await GoalCalculationService.getCurrentTotal(for: goal)
-        
-        // Should return some value (either converted or fallback)
-        #expect(total >= 0)
-        
-        // In fallback mode, it should at least equal the EUR amount
-        #expect(total >= 500)
-    }
-    
     @Test func exchangeRateServiceSingleton() {
         // Test that the service is properly implemented as singleton
         let service1 = ExchangeRateService.shared

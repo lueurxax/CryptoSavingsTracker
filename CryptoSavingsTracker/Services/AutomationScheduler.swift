@@ -165,7 +165,7 @@ final class AutomationScheduler {
         }
 
         // Mark month as complete
-        try executionTrackingService.markComplete(record)
+        try await executionTrackingService.markComplete(record)
 
         // Set grace period
         if settings.undoGracePeriodHours > 0 {

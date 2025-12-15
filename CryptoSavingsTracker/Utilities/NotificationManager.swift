@@ -13,8 +13,13 @@ class NotificationManager {
     static let shared = NotificationManager()
     
     private init() {}
+
+    private var isUITestRun: Bool {
+        ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("UITEST") })
+    }
     
     func requestPermission() async -> Bool {
+        guard !isUITestRun else { return false }
         do {
             let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
             return granted
@@ -25,6 +30,7 @@ class NotificationManager {
     }
     
     func scheduleReminders(for goal: Goal) async {
+        guard !isUITestRun else { return }
         let center = UNUserNotificationCenter.current()
         
         // Cancel existing notifications for this goal
@@ -114,6 +120,7 @@ class NotificationManager {
         modelContext: ModelContext,
         settings: MonthlyReminderSettings
     ) async {
+        guard !isUITestRun else { return }
         let center = UNUserNotificationCenter.current()
         
         // Cancel existing monthly reminders
@@ -164,6 +171,7 @@ class NotificationManager {
         adjustedRequirements: [AdjustedRequirement]? = nil,
         modelContext: ModelContext
     ) async {
+        guard !isUITestRun else { return }
         let center = UNUserNotificationCenter.current()
         
         // Cancel existing smart reminders
@@ -200,6 +208,7 @@ class NotificationManager {
     
     /// Schedule deadline approach warnings for critical goals
     func scheduleDeadlineWarnings(requirements: [MonthlyRequirement]) async {
+        guard !isUITestRun else { return }
         let center = UNUserNotificationCenter.current()
         
         // Cancel existing deadline warnings

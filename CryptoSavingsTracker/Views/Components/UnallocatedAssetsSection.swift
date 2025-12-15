@@ -13,17 +13,11 @@ struct UnallocatedAssetsSection: View {
     
     private var unallocatedAssets: [(asset: Asset, unallocatedPercentage: Double, unallocatedValue: Double)] {
         assets.compactMap { asset in
-            let totalAllocated = asset.allocations.reduce(0) { $0 + $1.percentage }
-            let unallocatedPercentage = max(0, 1.0 - totalAllocated)
-            
-            if unallocatedPercentage > 0 {
-                // Calculate total balance (manual + on-chain)
-                let manualBalance = asset.transactions.reduce(0) { $0 + $1.amount }
-                let unallocatedValue = manualBalance * unallocatedPercentage
-                
-                return (asset, unallocatedPercentage, unallocatedValue)
-            }
-            return nil
+            let unallocatedValue = asset.unallocatedAmount
+            let balance = asset.currentAmount
+            let unallocatedPercentage = balance > 0 ? min(1.0, max(0, unallocatedValue / balance)) : 0
+            guard unallocatedValue > 0.0000001 else { return nil }
+            return (asset, unallocatedPercentage, unallocatedValue)
         }
     }
     

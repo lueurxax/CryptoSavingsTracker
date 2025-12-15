@@ -19,6 +19,40 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
     
     private var isOffline = false
     
+    // Map common crypto symbols to CoinGecko IDs.
+    // Note: this is only used for the "base asset" side of CoinGecko queries (ids=...), not for vs_currencies.
+    private static let cryptoIdMap: [String: String] = [
+        "BTC": "bitcoin",
+        "ETH": "ethereum",
+        "USDT": "tether",
+        "BNB": "binancecoin",
+        "SOL": "solana",
+        "USDC": "usd-coin",
+        "XRP": "ripple",
+        "ADA": "cardano",
+        "DOGE": "dogecoin",
+        "TRX": "tron",
+        "AVAX": "avalanche-2",
+        "DOT": "polkadot",
+        "MATIC": "matic-network",
+        "LINK": "chainlink",
+        "SHIB": "shiba-inu",
+        "LTC": "litecoin",
+        "BCH": "bitcoin-cash",
+        "ALGO": "algorand",
+        "XLM": "stellar",
+        "UNI": "uniswap"
+    ]
+
+    private static func normalizedCurrencyCode(_ code: String) -> String {
+        code.uppercased()
+    }
+
+    private static func coinGeckoId(forCryptoSymbol symbol: String) -> String {
+        let upper = normalizedCurrencyCode(symbol)
+        return cryptoIdMap[upper] ?? upper.lowercased()
+    }
+    
     private static func loadAPIKey() -> String {
         // Try to get API key from Keychain first
         if let keychainKey = KeychainManager.coinGeckoAPIKey {
@@ -48,16 +82,19 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
     }
 
     func fetchRate(from: String, to: String) async throws -> Double {
-        if from == to {
+        let canonicalFrom = Self.normalizedCurrencyCode(from)
+        let canonicalTo = Self.normalizedCurrencyCode(to)
+
+        if canonicalFrom == canonicalTo {
             return 1.0
         }
         
-        if let cachedRate = getCachedRate(from: from, to: to) {
+        if let cachedRate = getCachedRate(from: canonicalFrom, to: canonicalTo) {
             return cachedRate
         }
         
-        let rate = try await fetchRateFromAPI(from: from, to: to)
-        cacheRate(from: from, to: to, rate: rate)
+        let rate = try await fetchRateFromAPI(from: canonicalFrom, to: canonicalTo)
+        cacheRate(from: canonicalFrom, to: canonicalTo, rate: rate)
         
         return rate
     }
@@ -97,50 +134,32 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
         let fiatCurrencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "CNY", "INR", "KRW"]
         let fromUppercase = from.uppercased()
         let toUppercase = to.uppercased()
+
+        let fromIsFiat = fiatCurrencies.contains(fromUppercase)
+        let toIsFiat = fiatCurrencies.contains(toUppercase)
         
         // Check if both are fiat currencies - if so, use cross-conversion through USDT
-        if fiatCurrencies.contains(fromUppercase) && fiatCurrencies.contains(toUppercase) {
-            AppLog.debug("Both \(from) and \(to) are fiat currencies, using USDT cross-conversion", category: .exchangeRate)
+        if fromIsFiat && toIsFiat {
             return try await fetchCrossRate(from: from, to: to, through: "USDT")
         }
-        
-        // Try direct conversion first
-        do {
+
+        // Crypto ↔ Fiat
+        if !fromIsFiat && toIsFiat {
             return try await fetchDirectRate(from: from, to: to)
-        } catch {
-            // If direct conversion fails, try cross-conversion through USDT
-            AppLog.debug("Direct conversion failed for \(from) to \(to), trying USDT cross-conversion", category: .exchangeRate)
-            return try await fetchCrossRate(from: from, to: to, through: "USDT")
         }
+        if fromIsFiat && !toIsFiat {
+            // Fiat -> Crypto = 1 / (Crypto -> Fiat)
+            let cryptoInFiat = try await fetchDirectRate(from: to, to: from)
+            guard cryptoInFiat > 0 else { throw ExchangeRateError.rateNotAvailable }
+            return 1.0 / cryptoInFiat
+        }
+
+        // Crypto ↔ Crypto (including stablecoins like USDT): compute via USD to avoid unsupported vs_currency codes.
+        return try await fetchCryptoToCryptoRateViaUSD(from: from, to: to)
     }
     
     private func fetchDirectRate(from: String, to: String) async throws -> Double {
-        // Map common crypto symbols to CoinGecko IDs
-        let cryptoIdMap: [String: String] = [
-            "BTC": "bitcoin",
-            "ETH": "ethereum",
-            "USDT": "tether",
-            "BNB": "binancecoin",
-            "SOL": "solana",
-            "USDC": "usd-coin",
-            "XRP": "ripple",
-            "ADA": "cardano",
-            "DOGE": "dogecoin",
-            "TRX": "tron",
-            "AVAX": "avalanche-2",
-            "DOT": "polkadot",
-            "MATIC": "matic-network",
-            "LINK": "chainlink",
-            "SHIB": "shiba-inu",
-            "LTC": "litecoin",
-            "BCH": "bitcoin-cash",
-            "ALGO": "algorand",
-            "XLM": "stellar",
-            "UNI": "uniswap"
-        ]
-        
-        // Determine if 'from' is a crypto that needs ID mapping
-        let fromId = cryptoIdMap[from.uppercased()] ?? from.lowercased()
+        let fromId = Self.coinGeckoId(forCryptoSymbol: from)
         
         let url = URL(string: "https://api.coingecko.com/api/v3/simple/price")!
         var components = URLComponents(url: url, resolvingAgainstBaseURL: true)!
@@ -177,6 +196,42 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
         throw ExchangeRateError.rateNotAvailable
     }
 
+    private func fetchCryptoToCryptoRateViaUSD(from: String, to: String) async throws -> Double {
+        let fromId = Self.coinGeckoId(forCryptoSymbol: from)
+        let toId = Self.coinGeckoId(forCryptoSymbol: to)
+
+        let url = URL(string: "https://api.coingecko.com/api/v3/simple/price")!
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: true)!
+        components.queryItems = [
+            URLQueryItem(name: "vs_currencies", value: "usd"),
+            URLQueryItem(name: "ids", value: "\(fromId),\(toId)")
+        ]
+
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 10
+        request.allHTTPHeaderFields = [
+            "accept": "application/json",
+            "x-cg-demo-api-key": apiKey
+        ]
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+
+        guard
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: [String: Double]],
+            let fromUsd = json[fromId]?["usd"],
+            let toUsd = json[toId]?["usd"],
+            fromUsd > 0,
+            toUsd > 0
+        else {
+            AppLog.warning("Crypto cross rate not available for \(from)->\(to) via USD. HTTP \(status). Response: \(String(data: data, encoding: .utf8) ?? "nil")", category: .exchangeRate)
+            throw ExchangeRateError.rateNotAvailable
+        }
+
+        return fromUsd / toUsd
+    }
+
     // Some assets (or temporarily missing pairs) are available via /coins/markets even when /simple/price omits them.
     private func fetchRateFromMarkets(id: String, to: String) async throws -> Double? {
         guard !id.isEmpty else { return nil }
@@ -210,7 +265,6 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
         do {
             let markets = try JSONDecoder().decode([MarketRate].self, from: data)
             if let price = markets.first?.current_price, price > 0 {
-                AppLog.debug("Market rate fallback used for \(id)->\(to): \(price) (HTTP \(status))", category: .exchangeRate)
                 return price
             } else {
                 AppLog.warning("Market rate missing/zero for \(id)->\(to). HTTP \(status). Response: \(String(data: data, encoding: .utf8) ?? "nil")", category: .exchangeRate)
@@ -267,7 +321,6 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
         // So: 1 FROM = 1/fromRate USDT = (toRate/fromRate) TO
         let crossRate = toRate / fromRate
         
-        AppLog.debug("Cross-conversion: 1 \(intermediary) = \(fromRate) \(from), 1 \(intermediary) = \(toRate) \(to), therefore 1 \(from) = \(crossRate) \(to)", category: .exchangeRate)
         
         return crossRate
     }

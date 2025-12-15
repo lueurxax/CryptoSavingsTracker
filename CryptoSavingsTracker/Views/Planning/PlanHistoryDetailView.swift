@@ -8,13 +8,21 @@
 
 import SwiftUI
 import SwiftData
+#if os(macOS)
+import AppKit
+private let windowBackground = Color(NSColor.windowBackgroundColor)
+private let controlBackground = Color(NSColor.controlBackgroundColor)
+#else
+import UIKit
+private let windowBackground = Color(.systemBackground)
+private let controlBackground = Color(.secondarySystemBackground)
+#endif
 
 struct PlanHistoryDetailView: View {
     let record: MonthlyExecutionRecord
     let modelContext: ModelContext
 
-    @State private var contributions: [Contribution] = []
-    @State private var contributionsByGoal: [UUID: [Contribution]] = [:]
+    @State private var contributionCountsByGoal: [UUID: Int] = [:]
     @State private var contributedTotals: [UUID: Double] = [:]
     @State private var overallProgress: Double = 0
     @State private var isLoading = false
@@ -85,7 +93,7 @@ struct PlanHistoryDetailView: View {
             }
         }
         .padding()
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(windowBackground)
         .cornerRadius(12)
         .shadow(radius: 2)
     }
@@ -177,7 +185,7 @@ struct PlanHistoryDetailView: View {
             }
         }
         .padding()
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(windowBackground)
         .cornerRadius(12)
         .shadow(radius: 2)
     }
@@ -194,13 +202,13 @@ struct PlanHistoryDetailView: View {
                     GoalHistoryCard(
                         goalSnapshot: goalSnapshot,
                         contributed: contributedTotals[goalSnapshot.goalId] ?? 0,
-                        contributions: contributionsByGoal[goalSnapshot.goalId] ?? []
+                        contributionCount: contributionCountsByGoal[goalSnapshot.goalId] ?? 0
                     )
                 }
             }
         }
         .padding()
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(windowBackground)
         .cornerRadius(12)
         .shadow(radius: 2)
     }
@@ -240,7 +248,7 @@ struct PlanHistoryDetailView: View {
             }
         }
         .padding()
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(windowBackground)
         .cornerRadius(12)
         .shadow(radius: 2)
     }
@@ -262,10 +270,19 @@ struct PlanHistoryDetailView: View {
 
         do {
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
-            contributions = try executionService.getContributions(for: record)
-            contributionsByGoal = try executionService.getContributionsByGoal(for: record)
             contributedTotals = try executionService.getContributionTotals(for: record)
             overallProgress = try executionService.calculateProgress(for: record)
+
+            if let completed = record.completedExecution {
+                contributionCountsByGoal = completed.contributionSnapshots.reduce(into: [:]) { partial, snapshot in
+                    partial[snapshot.goalId, default: 0] += 1
+                }
+            } else {
+                let byGoal = try executionService.getContributionsByGoal(for: record)
+                contributionCountsByGoal = byGoal.reduce(into: [:]) { partial, item in
+                    partial[item.key] = item.value.count
+                }
+            }
         } catch {
             print("Error loading data: \(error)")
         }
@@ -339,7 +356,7 @@ struct HistoryStatCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(controlBackground)
         .cornerRadius(8)
     }
 }
@@ -347,7 +364,7 @@ struct HistoryStatCard: View {
 struct GoalHistoryCard: View {
     let goalSnapshot: ExecutionGoalSnapshot
     let contributed: Double
-    let contributions: [Contribution]
+    let contributionCount: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -376,13 +393,13 @@ struct GoalHistoryCard: View {
 
                 Spacer()
 
-                Text("\(contributions.count) contributions")
+                Text("\(contributionCount) contributions")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .padding()
-        .background(contributed >= goalSnapshot.plannedAmount ? Color.green.opacity(0.1) : Color(NSColor.controlBackgroundColor))
+        .background(contributed >= goalSnapshot.plannedAmount ? Color.green.opacity(0.1) : controlBackground)
         .cornerRadius(8)
     }
 

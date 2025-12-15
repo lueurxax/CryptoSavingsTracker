@@ -146,6 +146,7 @@ struct AddGoalView: View {
                         // Form fields
                         VStack(alignment: .leading, spacing: 12) {
                         TextField("Goal Name", text: $name)
+                            .accessibilityIdentifier("goalNameField")
                             .padding(.vertical, 4)
                         
                         HStack {
@@ -157,6 +158,7 @@ struct AddGoalView: View {
                                 HStack {
                                     Text(currency.isEmpty ? "Select Currency" : currency)
                                         .foregroundColor(currency.isEmpty ? .secondary : .primary)
+                                        .accessibilityIdentifier("currencyValueLabel")
                                     Spacer()
                                     Image(systemName: "chevron.down")
                                         .foregroundColor(.secondary)
@@ -164,10 +166,13 @@ struct AddGoalView: View {
                                 }
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("currencyButton")
+                            .accessibilityValue(currency.isEmpty ? "unset" : currency.uppercased())
                         }
                         .padding(.vertical, 4)
                         
                         TextField("Target Amount", text: $targetAmount)
+                            .accessibilityIdentifier("targetAmountField")
                             .padding(.vertical, 4)
                         
                         // Goal guidance and validation
@@ -258,6 +263,7 @@ struct AddGoalView: View {
                     }
                     .disabled(!isValidInput)
                     .keyboardShortcut(.defaultAction)
+                    .accessibilityIdentifier("saveGoalButtonMac")
                 }
                 .padding()
             }
@@ -268,6 +274,7 @@ struct AddGoalView: View {
                     Section(header: Text("Goal Details")) {
                         TextField("Goal Name", text: $name)
                             .padding(.vertical, 4)
+                            .accessibilityIdentifier("goalNameField")
                         
                         HStack {
                             Text("Currency:")
@@ -278,6 +285,7 @@ struct AddGoalView: View {
                                 HStack {
                                     Text(currency.isEmpty ? "Select Currency" : currency)
                                         .foregroundColor(currency.isEmpty ? .secondary : .primary)
+                                        .accessibilityIdentifier("currencyValueLabel")
                                     Spacer()
                                     Image(systemName: "chevron.down")
                                         .foregroundColor(.secondary)
@@ -285,12 +293,15 @@ struct AddGoalView: View {
                                 }
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("currencyButton")
+                            .accessibilityValue(currency.isEmpty ? "unset" : currency.uppercased())
                         }
                         .padding(.vertical, 4)
                         
                         TextField("Target Amount", text: $targetAmount)
                             .keyboardType(.decimalPad)
                             .padding(.vertical, 4)
+                            .accessibilityIdentifier("targetAmountField")
                         
                         DatePicker("Deadline", selection: $deadline, in: Date()..., displayedComponents: .date)
                             .padding(.vertical, 4)
@@ -328,6 +339,7 @@ struct AddGoalView: View {
                             saveGoal()
                         }
                         .disabled(!isValidInput)
+                        .accessibilityIdentifier("saveGoalButton")
                     }
                 }
             }

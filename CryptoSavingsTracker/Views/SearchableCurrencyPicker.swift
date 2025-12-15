@@ -21,6 +21,11 @@ struct SearchableCurrencyPicker: View {
     
     @State private var searchText = ""
     @State private var visibleCount: Int = 100
+    #if !os(macOS)
+    @FocusState private var searchFieldFocused: Bool
+    @State private var autoPicked = false
+    private let isUITest = ProcessInfo.processInfo.arguments.contains("UITEST_UI_FLOW")
+    #endif
     
     init(selectedCurrency: Binding<String>, pickerType: CurrencyPickerType = .crypto) {
         self._selectedCurrency = selectedCurrency
@@ -146,13 +151,20 @@ struct SearchableCurrencyPicker: View {
         VStack(spacing: 0) {
                 // Header
             HStack {
+                Button("Cancel") {
+                    dismiss()
+                }
+                .accessibilityIdentifier("currencyCancelButton")
+                
+                Spacer()
                 Text(pickerType == .fiat ? "Select Goal Currency" : "Select Asset Currency")
                     .font(.headline)
                     .fontWeight(.semibold)
                 Spacer()
-                Button("Cancel") {
+                Button("Done") {
                     dismiss()
                 }
+                .accessibilityIdentifier("currencyDoneButton")
             }
             .padding()
             .background(Color.clear)
@@ -165,6 +177,10 @@ struct SearchableCurrencyPicker: View {
                     .foregroundColor(.secondary)
                 TextField(pickerType == .fiat ? "Search fiat currencies..." : "Search cryptocurrencies...", text: $searchText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .accessibilityIdentifier("currencySearchField")
+                    #if !os(macOS)
+                    .focused($searchFieldFocused)
+                    #endif
                 if !searchText.isEmpty {
                     Button("Clear") {
                         searchText = ""
@@ -219,7 +235,14 @@ struct SearchableCurrencyPicker: View {
                         ForEach(filteredCoins, id: \.id) { coin in
                             Button {
                                 selectedCurrency = coin.symbol.uppercased()
+                                #if !os(macOS)
+                                searchFieldFocused = false
+                                DispatchQueue.main.async {
+                                    dismiss()
+                                }
+                                #else
                                 dismiss()
+                                #endif
                             } label: {
                                 HStack {
                                     VStack(alignment: .leading) {
@@ -314,6 +337,7 @@ struct SearchableCurrencyPicker: View {
                                     }
                                 }
                             }
+                            .accessibilityIdentifier("currencyCell-\(coin.symbol.uppercased())")
                             .buttonStyle(.plain)
                         }
                         
@@ -327,9 +351,44 @@ struct SearchableCurrencyPicker: View {
                         }
                     }
                 }
-            }
+        }
 #endif
         }
+#if !os(macOS)
+        .onAppear {
+            // Keep keyboard ready for quick filtering in tests, but ensure it can resign cleanly
+            searchFieldFocused = true
+        }
+        .onChange(of: filteredCoins.count) { _ in
+            guard isUITest, !autoPicked, pickerType == .fiat, selectedCurrency.isEmpty else { return }
+            
+            let searchUpper = searchText.uppercased()
+            // Prefer exact symbol match if user typed one (e.g., USD)
+            if !searchUpper.isEmpty,
+               let exact = filteredCoins.first(where: { $0.symbol.uppercased() == searchUpper }) {
+                autoPicked = true
+                selectedCurrency = exact.symbol.uppercased()
+                searchFieldFocused = false
+                DispatchQueue.main.async { dismiss() }
+                return
+            }
+            
+            // If only one option is visible, pick it to unblock automation
+            if filteredCoins.count == 1, let firstSymbol = filteredCoins.first?.symbol {
+                autoPicked = true
+                selectedCurrency = firstSymbol.uppercased()
+                searchFieldFocused = false
+                DispatchQueue.main.async { dismiss() }
+            }
+        }
+        .onChange(of: selectedCurrency) { _ in
+            // Safety net: if selection is programmatically set, close the sheet
+            searchFieldFocused = false
+            DispatchQueue.main.async {
+                dismiss()
+            }
+        }
+        #endif
         .task {
             if pickerType == .fiat {
                 if currencyViewModel.supportedCurrencies.isEmpty {

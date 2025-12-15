@@ -10,6 +10,7 @@ import SwiftData
 import Foundation
 @testable import CryptoSavingsTracker
 
+@MainActor
 struct MonthlyPlanningServiceTests {
     
     var modelContainer: ModelContainer
@@ -17,14 +18,12 @@ struct MonthlyPlanningServiceTests {
     var monthlyPlanningService: MonthlyPlanningService
     
     init() async throws {
-        // Create in-memory model container for testing
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         self.modelContainer = try ModelContainer(
             for: Goal.self, Asset.self, Transaction.self, MonthlyPlan.self,
             configurations: config
         )
         
-        // Create mock services
         self.mockExchangeRateService = MockExchangeRateService()
         self.monthlyPlanningService = MonthlyPlanningService(exchangeRateService: mockExchangeRateService)
     }
@@ -398,62 +397,5 @@ struct MonthlyPlanningServiceTests {
         // Then
         #expect(requirement != nil)
         #expect(requirement?.timeRemainingDescription == "1 month remaining")
-    }
-}
-
-// MARK: - Mock Services
-
-class MockExchangeRateService: ExchangeRateService {
-    var shouldFail = false
-    private var rates: [String: Double] = [:]
-    
-    func setRate(from: String, to: String, rate: Double) {
-        rates["\(from)-\(to)"] = rate
-    }
-    
-    override func fetchRate(from: String, to: String) async throws -> Double {
-        if shouldFail {
-            throw ExchangeRateError.networkError("Mock failure")
-        }
-        
-        if from == to {
-            return 1.0
-        }
-        
-        return rates["\(from)-\(to)"] ?? 1.0
-    }
-}
-
-// MARK: - Test Helpers Extension
-
-extension TestHelpers {
-    static func createGoal(
-        name: String,
-        currency: String,
-        targetAmount: Double,
-        currentTotal: Double,
-        deadline: Date
-    ) -> Goal {
-        let goal = Goal(
-            name: name,
-            currency: currency,
-            targetAmount: targetAmount,
-            deadline: deadline
-        )
-        
-        // Mock the current total calculation
-        // In real implementation, this would be calculated from assets
-        // For testing, we'll create a mock asset if currentTotal > 0
-        if currentTotal > 0 {
-            let asset = Asset(
-                goal: goal,
-                currency: currency,
-                address: "mock_address",
-                balance: currentTotal
-            )
-            goal.assets.append(asset)
-        }
-        
-        return goal
     }
 }

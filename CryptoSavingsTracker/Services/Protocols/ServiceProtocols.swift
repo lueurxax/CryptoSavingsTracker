@@ -91,6 +91,7 @@ protocol GoalCalculationServiceProtocol {
     static func getManualProgress(for goal: Goal) -> Double
 }
 
+@MainActor
 protocol MonthlyPlanningServiceProtocol {
     var isCalculating: Bool { get }
     var lastCalculationError: Error? { get }

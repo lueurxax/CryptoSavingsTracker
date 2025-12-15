@@ -137,46 +137,24 @@ class DIContainer: ObservableObject {
     var goalCalculationService: GoalCalculationServiceProtocol {
         get {
             if let svc = _goalCalculationService { return svc }
-            let svc = GoalCalculationService(container: self)
+            let svc = GoalCalculationService(
+                exchangeRateService: exchangeRateService,
+                tatumService: tatumService,
+                modelContext: nil
+            )
             _goalCalculationService = svc
             return svc
         }
     }
 
     // Allocation service (v2.0)
-    private var _allocationService: AllocationService?
     func makeAllocationService(modelContext: ModelContext) -> AllocationService {
-        if let service = _allocationService {
-            return service
-        }
-        let service = AllocationService(modelContext: modelContext)
-
-        // Wire up execution tracking (v2.1)
-        let contributionService = makeContributionService(modelContext: modelContext)
-        let executionService = executionTrackingService(modelContext: modelContext)
-        service.setExecutionTracking(
-            contributionService: contributionService,
-            executionTrackingService: executionService
-        )
-
-        _allocationService = service
-        return service
+        AllocationService(modelContext: modelContext)
     }
 
     // Contribution service (v2.0)
-    private var _contributionService: ContributionService?
     func makeContributionService(modelContext: ModelContext) -> ContributionService {
-        if let service = _contributionService {
-            return service
-        }
-        let service = ContributionService(modelContext: modelContext)
-        _contributionService = service
-        return service
-    }
-
-    // Migration services (v2.0)
-    func makeMigrationService(modelContext: ModelContext) -> MigrationService {
-        return MigrationService(modelContext: modelContext)
+        ContributionService(modelContext: modelContext)
     }
     
     private var _monthlyPlanningService: MonthlyPlanningServiceProtocol?
@@ -198,22 +176,16 @@ class DIContainer: ObservableObject {
         }
     }
 
-    private var _executionTrackingService: ExecutionTrackingService?
     func executionTrackingService(modelContext: ModelContext) -> ExecutionTrackingService {
-        if let service = _executionTrackingService {
-            return service
-        }
-
-        let service = ExecutionTrackingService(modelContext: modelContext)
-        _executionTrackingService = service
-        return service
+        ExecutionTrackingService(modelContext: modelContext)
     }
 
     // MARK: - MonthlyPlanService Factory
     func makeMonthlyPlanService(modelContext: ModelContext) -> MonthlyPlanService {
         // Don't cache - needs fresh modelContext and proper serialization
         let goalCalculationService = GoalCalculationService(
-            container: self,
+            exchangeRateService: exchangeRateService,
+            tatumService: tatumService,
             modelContext: modelContext
         )
         let service = MonthlyPlanService(
@@ -404,7 +376,6 @@ class DIContainer: ObservableObject {
         if let validatable = service as? ValidatableDependency {
             do {
                 try await validatable.validate()
-                AppLog.debug("\(name) validation passed", category: .validation)
             } catch {
                 AppLog.error("\(name) validation failed: \(error)", category: .validation)
             }

@@ -84,10 +84,12 @@ struct AddTransactionView: View {
                     .padding(.vertical, 4)
                     
                     TextField("Deposit Amount", text: $amount)
+                        .accessibilityIdentifier("transactionAmountField")
                         .keyboardType(.decimalPad)
                         .padding(.vertical, 4)
                     
                     TextField("Comment (optional)", text: $comment)
+                        .accessibilityIdentifier("transactionCommentField")
                         .padding(.vertical, 4)
                 }
                 .padding(.horizontal, 4)
@@ -107,14 +109,15 @@ struct AddTransactionView: View {
                     }
                 }
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        Task { await saveTransaction() }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Save") {
+                            Task { await saveTransaction() }
+                        }
+                        .disabled(!isValidInput)
+                        .accessibilityIdentifier("saveTransactionButton")
                     }
-                    .disabled(!isValidInput)
                 }
             }
-        }
 #endif
     }
     
@@ -125,7 +128,13 @@ struct AddTransactionView: View {
     
     private func saveTransaction() async {
         guard let depositAmount = Double(amount) else { return }
-        
+
+        let epsilon = 0.0000001
+        let preBalance = asset.currentAmount
+        let preIsFullyAllocated = asset.isFullyAllocated
+        let preWasDedicatedToSingleGoal = asset.allocations.count == 1
+        let singleAllocation = asset.allocations.first
+
         print("💾 Saving new transaction:")
         print("   Amount: \(depositAmount)")
         print("   Asset: \(asset.currency)")
@@ -134,26 +143,44 @@ struct AddTransactionView: View {
         print("   Current transaction count for asset: \(asset.transactions.count)")
         
         let newTransaction = Transaction(amount: depositAmount, asset: asset, comment: comment.isEmpty ? nil : comment)
-        
+
         // Explicitly establish the relationship on both sides
         asset.transactions.append(newTransaction)
-        
+
         modelContext.insert(newTransaction)
-        
+
+        // Auto-allocation rule: if the asset was fully allocated to exactly one goal,
+        // keep it fully allocated after the deposit by increasing its allocation target.
+        if preIsFullyAllocated, preWasDedicatedToSingleGoal, let allocation = singleAllocation, let goal = allocation.goal {
+            let newTarget = max(0, preBalance + depositAmount)
+            if abs(newTarget - allocation.amountValue) > epsilon {
+                allocation.updateAmount(newTarget)
+                modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: newTarget, timestamp: newTransaction.date))
+            }
+        }
+
         do {
             // SwiftData will automatically trigger UI updates through @Query
             try modelContext.save()
             print("✅ Transaction saved successfully")
             print("   New transaction count for asset: \(asset.transactions.count)")
 
-            // If there's an active execution record for this goal/month, also create a Contribution
-            try await linkTransactionToCurrentExecution(transaction: newTransaction)
-            
         } catch {
             print("❌ Failed to save transaction: \(error)")
             // Show user-friendly error message
             // TODO: Add error state display to UI
         }
+
+        // Trigger refresh of goal totals/progress and monthly planning/execution views.
+        NotificationCenter.default.post(name: .goalProgressRefreshed, object: nil)
+        NotificationCenter.default.post(
+            name: .monthlyPlanningAssetUpdated,
+            object: asset,
+            userInfo: [
+                "assetId": asset.id,
+                "goalIds": asset.allocations.compactMap { $0.goal?.id }
+            ]
+        )
         
         Task {
             // Schedule reminders for all goals this asset is allocated to
@@ -164,88 +191,6 @@ struct AddTransactionView: View {
             }
         }
         dismiss()
-    }
-
-    /// Bridge manual transaction into a Contribution when a current execution record exists
-    @MainActor
-    private func linkTransactionToCurrentExecution(transaction: Transaction) async throws {
-        // Use only allocations that actually have a share to avoid creating zero-amount contributions
-        let activeAllocations = asset.allocations.filter { $0.percentage > 0.0001 }
-        guard !activeAllocations.isEmpty else {
-            AppLog.debug("Transaction has no active goal allocations; skipping contribution bridge", category: .executionTracking)
-            return
-        }
-
-        // Find the goal associated with this asset via allocations
-        guard let allocation = activeAllocations.first,
-              let goal = allocation.goal else {
-            AppLog.debug("Transaction not linked to a goal; skipping contribution bridge", category: .executionTracking)
-            return
-        }
-
-        let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
-        let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
-        let exchangeRateService = DIContainer.shared.exchangeRateService
-
-        let monthLabel = MonthlyExecutionRecord.monthLabel(from: Date())
-        let allocatedGoals = activeAllocations.compactMap { $0.goal }
-        let plans = try await planService.getOrCreatePlansForCurrentMonth(goals: allocatedGoals)
-
-        // Get existing record or create one if needed (cover all allocated goals)
-        let record: MonthlyExecutionRecord
-        if let existing = try executionService.getRecord(for: monthLabel) {
-            record = existing
-        } else {
-            record = try executionService.startTracking(for: monthLabel, from: plans, goals: allocatedGoals)
-        }
-
-        for allocation in activeAllocations {
-            guard let goal = allocation.goal else { continue }
-            guard let plan = plans.first(where: { $0.goalId == goal.id }) else { continue }
-
-            let assetPortion = transaction.amount * allocation.percentage
-            if assetPortion <= 0 {
-                continue
-            }
-
-            let amountInGoalCurrency: Double
-            if goal.currency == asset.currency {
-                amountInGoalCurrency = assetPortion
-            } else if let rate = try? await exchangeRateService.fetchRate(from: asset.currency, to: goal.currency) {
-                amountInGoalCurrency = assetPortion * rate
-            } else {
-                AppLog.error("Exchange rate failed for contribution \(asset.currency) → \(goal.currency); skipping contribution to avoid incorrect amount.", category: .executionTracking)
-                continue
-            }
-
-            let contribution = Contribution(
-                amount: amountInGoalCurrency,
-                goal: goal,
-                asset: asset,
-                source: .manualDeposit
-            )
-            contribution.assetAmount = assetPortion
-            contribution.currencyCode = goal.currency
-            contribution.assetSymbol = asset.currency
-            contribution.date = transaction.date
-            contribution.notes = transaction.comment
-            contribution.monthLabel = monthLabel
-            contribution.monthlyPlan = plan
-            contribution.executionRecordId = record.id
-
-            modelContext.insert(contribution)
-            if plan.contributions == nil {
-                plan.contributions = []
-            }
-            plan.contributions?.append(contribution)
-            plan.totalContributed += contribution.amount
-
-            // Notify listeners to refresh execution state
-            NotificationCenter.default.post(name: .goalUpdated, object: goal)
-        }
-
-        try modelContext.save()
-        AppLog.info("Bridged transaction into contributions for \(allocatedGoals.count) goal(s) in \(monthLabel)", category: .executionTracking)
     }
 }
 

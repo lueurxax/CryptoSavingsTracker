@@ -57,18 +57,50 @@ final class MonthlyExecutionViewModel: ObservableObject {
         executionRecord?.canUndo ?? false
     }
 
+    /// Goal snapshots shown in the UI (live for active months, frozen for closed months)
+    var displayGoalSnapshots: [ExecutionGoalSnapshot] {
+        guard let record = executionRecord else { return [] }
+
+        if isClosed {
+            return snapshot?.goalSnapshots ?? []
+        }
+
+        // Active months: build from live MonthlyPlans but preserve goal names/flex state from the baseline snapshot when available.
+        let goalIds = goalIds(for: record)
+        let baseline = Dictionary(uniqueKeysWithValues: (snapshot?.goalSnapshots ?? []).map { ($0.goalId, $0) })
+
+        return goalIds.compactMap { goalId in
+            if let plan = livePlansByGoal[goalId] {
+                let base = baseline[goalId]
+                return ExecutionGoalSnapshot(
+                    goalId: goalId,
+                    goalName: base?.goalName ?? "Goal",
+                    plannedAmount: plan.effectiveAmount,
+                    currency: plan.currency,
+                    flexState: plan.flexStateRawValue,
+                    isSkipped: plan.isSkipped,
+                    isProtected: plan.isProtected
+                )
+            } else if let base = baseline[goalId] {
+                // Fallback to baseline if plan not found (should not happen)
+                return base
+            }
+            return nil
+        }
+    }
+
     /// Active (unfulfilled) goals
     var activeGoals: [ExecutionGoalSnapshot] {
-        snapshot?.goalSnapshots.filter { snapshot in
+        displayGoalSnapshots.filter { snapshot in
             !(fulfillmentStatus[snapshot.goalId] ?? false) && !snapshot.isSkipped
-        } ?? []
+        }
     }
 
     /// Completed (fulfilled) goals
     var completedGoals: [ExecutionGoalSnapshot] {
-        snapshot?.goalSnapshots.filter { snapshot in
+        displayGoalSnapshots.filter { snapshot in
             fulfillmentStatus[snapshot.goalId] ?? false
-        } ?? []
+        }
     }
 
     /// User-friendly status display
@@ -105,6 +137,7 @@ final class MonthlyExecutionViewModel: ObservableObject {
     private let executionService: ExecutionTrackingService
     private let contributionService: ContributionService
     private let modelContext: ModelContext
+    @Published private(set) var livePlansByGoal: [UUID: MonthlyPlan] = [:]
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Initialization
@@ -127,20 +160,30 @@ final class MonthlyExecutionViewModel: ObservableObject {
         do {
             let record = try executionService.getCurrentMonthRecord()
             executionRecord = record
-
             if let record = record {
+                // Backfill missing metadata on older records so undo + goal tracking work
+                if record.status == .executing {
+                    if record.startedAt == nil {
+                        record.startedAt = Date()
+                        record.canUndoUntil = Date().addingTimeInterval(24 * 3600)
+                        try? modelContext.save()
+                    }
+                    if record.goalIds.isEmpty, let snap = record.snapshot {
+                        if let encoded = try? JSONEncoder().encode(snap.goalSnapshots.map { $0.goalId }) {
+                            record.trackedGoalIds = encoded
+                            try? modelContext.save()
+                        }
+                    }
+                }
+
                 snapshot = record.snapshot
                 await loadContributions(for: record)
                 await calculateProgress(for: record)
 
                 // Check undo state
-                if record.canUndo {
-                    showUndoBanner = true
-                    undoExpiresAt = record.canUndoUntil
-                } else {
-                    showUndoBanner = false
-                    undoExpiresAt = nil
-                }
+                let (shouldShowUndo, deadline) = undoState(for: record)
+                showUndoBanner = shouldShowUndo
+                undoExpiresAt = deadline
             }
 
             isLoading = false
@@ -187,7 +230,7 @@ final class MonthlyExecutionViewModel: ObservableObject {
         error = nil
 
         do {
-            try executionService.markComplete(record)
+            try await executionService.markComplete(record)
 
             // Refresh data
             await loadCurrentMonth()
@@ -238,8 +281,40 @@ final class MonthlyExecutionViewModel: ObservableObject {
         // Listen for goal updates
         NotificationCenter.default.publisher(for: .goalUpdated)
             .sink { [weak self] _ in
+                guard let self else { return }
                 Task { @MainActor in
-                    await self?.refresh()
+                    await self.refresh()
+                }
+            }
+            .store(in: &cancellables)
+
+        // Listen for plan recalculations triggered by planning pipeline (e.g., asset changes)
+        NotificationCenter.default.publisher(for: .monthlyPlanningGoalUpdated)
+            .sink { [weak self] notification in
+                guard let self else { return }
+                if let record = self.executionRecord,
+                   let ids = notification.userInfo?["goalIds"] as? [UUID] {
+                    let relevant = Set(ids).intersection(Set(record.goalIds))
+                    if relevant.isEmpty { return }
+                }
+                Task { @MainActor in
+                    await self.refresh()
+                }
+            }
+            .store(in: &cancellables)
+
+        // Listen for planning updates that should flow into execution for active months
+        NotificationCenter.default.publisher(for: .monthlyPlanningAssetUpdated)
+            .sink { [weak self] notification in
+                guard let self else { return }
+                // If payload includes goalIds and none intersect this execution, skip refresh
+                if let record = self.executionRecord,
+                   let ids = notification.userInfo?["goalIds"] as? [UUID] {
+                    let relevant = Set(ids).intersection(Set(record.goalIds))
+                    if relevant.isEmpty { return }
+                }
+                Task { @MainActor in
+                    await self.refresh()
                 }
             }
             .store(in: &cancellables)
@@ -247,11 +322,22 @@ final class MonthlyExecutionViewModel: ObservableObject {
 
     private func loadContributions(for record: MonthlyExecutionRecord) async {
         do {
+            if record.status == .executing {
+                contributions = []
+                contributionsByGoal = [:]
+                contributedTotals = try await executionService.getDerivedContributionTotals(for: record)
+                return
+            }
+
             let allContributions = try executionService.getContributions(for: record)
             contributions = allContributions
 
             contributionsByGoal = try executionService.getContributionsByGoal(for: record)
             contributedTotals = try executionService.getContributionTotals(for: record)
+
+            AppLog.info("Execution contributions loaded: \(allContributions.count) for month \(record.monthLabel)", category: .executionTracking)
+            for (_, _) in contributedTotals {
+            }
         } catch {
             self.error = error
         }
@@ -259,18 +345,50 @@ final class MonthlyExecutionViewModel: ObservableObject {
 
     private func calculateProgress(for record: MonthlyExecutionRecord) async {
         do {
-            overallProgress = try executionService.calculateProgress(for: record)
-
-            // Calculate fulfillment status
-            guard let snapshot = record.snapshot else { return }
             let totals = contributedTotals
 
-            var status: [UUID: Bool] = [:]
-            for goalSnapshot in snapshot.goalSnapshots {
-                let contributed = totals[goalSnapshot.goalId] ?? 0
-                status[goalSnapshot.goalId] = contributed >= goalSnapshot.plannedAmount
+            if record.status == .closed {
+                // Closed months: rely on the frozen baseline snapshot
+                guard let snapshot = record.snapshot else { return }
+                livePlansByGoal = [:]
+
+                var status: [UUID: Bool] = [:]
+                for goalSnapshot in snapshot.goalSnapshots {
+                    let contributed = totals[goalSnapshot.goalId] ?? 0
+                    status[goalSnapshot.goalId] = contributed >= goalSnapshot.plannedAmount
+                }
+                fulfillmentStatus = status
+
+                overallProgress = snapshot.totalPlanned > 0
+                    ? (totals.values.reduce(0, +) / snapshot.totalPlanned) * 100
+                    : 0
+            } else {
+                // Active months: compute live from persisted MonthlyPlans
+                let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
+                let plans = try planService.fetchPlans(for: record.monthLabel)
+                livePlansByGoal = Dictionary(uniqueKeysWithValues: plans.map { ($0.goalId, $0) })
+                let goalIds = goalIds(for: record, baseline: snapshot)
+
+                var status: [UUID: Bool] = [:]
+                var totalPlanned: Double = 0
+
+                for plan in plans where goalIds.contains(plan.goalId) {
+                    let plannedAmount = plan.effectiveAmount
+                    if plannedAmount <= 0 {
+                        status[plan.goalId] = false
+                        continue
+                    }
+
+                    totalPlanned += plannedAmount
+                    let contributed = totals[plan.goalId] ?? 0
+                    status[plan.goalId] = contributed >= plannedAmount
+                }
+
+                fulfillmentStatus = status
+                overallProgress = totalPlanned > 0
+                    ? (totals.values.reduce(0, +) / totalPlanned) * 100
+                    : 0
             }
-            fulfillmentStatus = status
         } catch {
             self.error = error
         }
@@ -287,11 +405,11 @@ struct MonthlyExecutionStatistics {
     let fulfilledCount: Int
     let remainingAmount: Double
 
-    init(snapshot: ExecutionSnapshot?, totals: [UUID: Double], fulfillment: [UUID: Bool]) {
-        self.totalPlanned = snapshot?.totalPlanned ?? 0
+    init(totalPlanned: Double, totals: [UUID: Double], fulfillment: [UUID: Bool], goalsCount: Int) {
+        self.totalPlanned = totalPlanned
         self.totalContributed = totals.values.reduce(0, +)
         self.percentageComplete = totalPlanned > 0 ? (totalContributed / totalPlanned) * 100 : 0
-        self.goalsCount = snapshot?.goalCount ?? 0
+        self.goalsCount = goalsCount
         self.fulfilledCount = fulfillment.values.filter { $0 }.count
         self.remainingAmount = max(0, totalPlanned - totalContributed)
     }
@@ -303,20 +421,96 @@ extension MonthlyExecutionViewModel {
 
     /// Get progress for a specific goal
     func progress(for goalId: UUID) -> Double {
-        guard let snapshot = snapshot?.snapshot(for: goalId) else { return 0 }
+        let planned = plannedAmount(for: goalId)
+        if planned == 0 { return 0 }
         let contributed = contributedTotals[goalId] ?? 0
-        return snapshot.plannedAmount > 0 ? (contributed / snapshot.plannedAmount) * 100 : 0
+        return (contributed / planned) * 100
     }
 
     /// Get remaining amount for a specific goal
     func remaining(for goalId: UUID) -> Double {
-        guard let snapshot = snapshot?.snapshot(for: goalId) else { return 0 }
+        let planned = plannedAmount(for: goalId)
         let contributed = contributedTotals[goalId] ?? 0
-        return max(0, snapshot.plannedAmount - contributed)
+        return max(0, planned - contributed)
     }
 
     /// Check if goal is fulfilled
     func isFulfilled(_ goalId: UUID) -> Bool {
         fulfillmentStatus[goalId] ?? false
+    }
+
+    /// Planned amount source based on execution state
+    private func plannedAmount(for goalId: UUID) -> Double {
+        if isClosed {
+            return snapshot?.snapshot(for: goalId)?.plannedAmount ?? 0
+        }
+        return livePlansByGoal[goalId]?.effectiveAmount ?? snapshot?.snapshot(for: goalId)?.plannedAmount ?? 0
+    }
+
+    /// Total planned for display (live for active, snapshot for closed)
+    var displayTotalPlanned: Double {
+        if isClosed {
+            return snapshot?.totalPlanned ?? 0
+        }
+        guard let record = executionRecord else { return snapshot?.totalPlanned ?? 0 }
+        let trackedGoalIds = Set(goalIds(for: record, baseline: snapshot))
+        let liveTotal = livePlansByGoal
+            .filter { trackedGoalIds.contains($0.key) && !$0.value.isSkipped }
+            .values
+            .reduce(0) { $0 + $1.effectiveAmount }
+        return liveTotal > 0 ? liveTotal : (snapshot?.totalPlanned ?? 0)
+    }
+
+    /// Count of goals for display (live for active, snapshot for closed)
+    var displayGoalCount: Int {
+        if isClosed {
+            return snapshot?.activeGoalCount ?? 0
+        }
+        guard let record = executionRecord else { return snapshot?.activeGoalCount ?? 0 }
+        let trackedGoalIds = Set(goalIds(for: record, baseline: snapshot))
+        let liveCount = livePlansByGoal.values.filter { plan in
+            trackedGoalIds.contains(plan.goalId) && !plan.isSkipped
+        }.count
+        return liveCount > 0 ? liveCount : (snapshot?.activeGoalCount ?? 0)
+    }
+
+    /// Total contributed across all goals
+    var totalContributed: Double {
+        contributedTotals.values.reduce(0, +)
+    }
+
+    /// Determine undo state (keeps banner alive even if older records lacked canUndoUntil)
+    private func undoState(for record: MonthlyExecutionRecord) -> (Bool, Date?) {
+        if record.canUndo {
+            return (true, record.canUndoUntil)
+        }
+
+        // Grace: if executing and started within 24h but canUndoUntil missing, infer deadline
+        if record.status == .executing,
+           let startedAt = record.startedAt {
+            let inferredDeadline = startedAt.addingTimeInterval(24 * 3600)
+            if Date() < inferredDeadline {
+                return (true, inferredDeadline)
+            }
+        }
+
+        // Grace: if closed and completedAt within 24h but canUndoUntil missing, infer deadline
+        if record.status == .closed,
+           let completedAt = record.completedAt {
+            let inferredDeadline = completedAt.addingTimeInterval(24 * 3600)
+            if Date() < inferredDeadline {
+                return (true, inferredDeadline)
+            }
+        }
+
+        return (false, nil)
+    }
+
+    /// Derive goal IDs for the record, falling back to the snapshot if trackedGoalIds was empty
+    private func goalIds(for record: MonthlyExecutionRecord, baseline: ExecutionSnapshot? = nil) -> [UUID] {
+        if !record.goalIds.isEmpty {
+            return record.goalIds
+        }
+        return baseline?.goalSnapshots.map { $0.goalId } ?? []
     }
 }

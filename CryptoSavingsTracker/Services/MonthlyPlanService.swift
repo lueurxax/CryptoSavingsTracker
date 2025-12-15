@@ -83,7 +83,6 @@ final class MonthlyPlanService {
             modelContext.insert(plan)
             plans.append(plan)
 
-            AppLog.debug("Created plan for \(goal.name): \(requirement.requiredMonthly) \(goal.currency)/month", category: .monthlyPlanning)
         }
 
         try modelContext.save()
@@ -193,7 +192,6 @@ final class MonthlyPlanService {
         )
 
         try modelContext.save()
-        AppLog.debug("Updated plan for \(goal.name): \(requirement.requiredMonthly) \(goal.currency)/month", category: .monthlyPlanning)
     }
 
     /// Update custom amount for a plan
@@ -247,7 +245,6 @@ final class MonthlyPlanService {
         let contributions = plan.contributions ?? []
         plan.totalContributed = contributions.reduce(0) { $0 + $1.amount }
         try modelContext.save()
-        AppLog.debug("Updated contribution total for plan: \(plan.totalContributed)", category: .monthlyPlanning)
     }
 
     // MARK: - Helper Methods
@@ -312,7 +309,6 @@ final class MonthlyPlanService {
                 if skippedGoalIds.contains(plan.goalId) {
                     // Mark as skipped
                     plan.skipThisMonth(true)
-                    AppLog.debug("Marked plan as skipped for goal \(plan.goalId)", category: .monthlyPlanning)
                 } else if protectedGoalIds.contains(plan.goalId) {
                     // Mark as protected
                     if plan.flexState != .protected {
@@ -320,7 +316,6 @@ final class MonthlyPlanService {
                     }
                     // Protected plans keep their original requiredMonthly or user override
                     // Do not clear customAmount to preserve user-entered overrides
-                    AppLog.debug("Marked plan as protected for goal \(plan.goalId)", category: .monthlyPlanning)
                 } else {
                     // Flexible plan - apply adjustment
                     plan.flexState = .flexible
@@ -332,8 +327,6 @@ final class MonthlyPlanService {
                     }
 
                     plan.setCustomAmount(adjustedAmount)
-                    AppLog.debug("Applied flex adjustment to goal \(plan.goalId): \(plan.requiredMonthly) -> \(adjustedAmount) (\(Int(adjustment * 100))%)",
-                                category: .monthlyPlanning)
                 }
             }
 
@@ -371,7 +364,6 @@ final class MonthlyPlanService {
             throw PlanError.validationFailed(errors.joined(separator: "; "))
         }
 
-        AppLog.debug("Validated \(plans.count) plans for execution", category: .monthlyPlanning)
     }
 }
 

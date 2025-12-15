@@ -63,21 +63,27 @@ struct AssetRowView: View {
     private var isSharedAsset: Bool {
         asset.allocations.count > 1
     }
-    
-    private var currentGoalAllocation: Double {
-        // If we have a goal context, find the allocation for this specific goal
-        if let goal = goal {
-            return asset.allocations.first(where: { $0.goal?.id == goal.id })?.percentage ?? 0
+
+    /// Allocation amount for this goal (in asset currency).
+    private var goalAllocationAmount: Double {
+        guard let goal = goal,
+              let allocation = asset.allocations.first(where: { $0.goal?.id == goal.id }) else {
+            // If no goal context, default to full balance
+            return totalBalance
         }
-        // Otherwise, if only one allocation exists, use it
-        if asset.allocations.count == 1 {
-            return asset.allocations.first?.percentage ?? 1.0
-        }
-        return 1.0
+        return allocation.amountValue
     }
-    
+
+    private var goalAllocationPercentage: Double {
+        guard totalBalance > 0 else { return 0 }
+        return goalAllocationAmount / totalBalance
+    }
+
     private var allocatedBalance: Double {
-        totalBalance * currentGoalAllocation
+        if goal != nil {
+            return min(goalAllocationAmount, totalBalance)
+        }
+        return totalBalance
     }
     
     init(asset: Asset, goal: Goal? = nil, isExpanded: Bool, onToggleExpanded: @escaping () -> Void, onDelete: (() -> Void)? = nil) {
@@ -118,12 +124,12 @@ struct AssetRowView: View {
                                 .monospaced()
                         }
                         
-                        if isSharedAsset && goal != nil {
+                        if goal != nil {
                             HStack(spacing: 4) {
                                 Image(systemName: "chart.pie.fill")
                                     .font(.caption2)
                                     .foregroundColor(.purple)
-                                Text("\(Int(currentGoalAllocation * 100))%")
+                                Text("\(Int(goalAllocationPercentage * 100))%")
                                     .font(.caption2)
                                     .fontWeight(.medium)
                                     .foregroundColor(.purple)
@@ -160,8 +166,8 @@ struct AssetRowView: View {
                                 ProgressView()
                                     .scaleEffect(0.6)
                             } else {
-                                // Show allocated amount if shared and in goal context
-                                if isSharedAsset && goal != nil {
+                                // Show allocated amount when in a goal context
+                                if goal != nil {
                                     Text("\(allocatedBalance, specifier: "%.6f") \(safeAssetCurrency)")
                                         .font(.system(.body, design: .monospaced))
                                         .fontWeight(.medium)
@@ -192,16 +198,22 @@ struct AssetRowView: View {
                             }
                         }
                         
-                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                            .foregroundColor(.secondary)
-                            .imageScale(.small)
-                    }
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .foregroundColor(.secondary)
+                        .imageScale(.small)
                 }
+                // Make the entire card hit-testable (background + padding), not just the visible text.
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
+            .accessibilityIdentifier("assetRow-\(safeAssetCurrency)")
+            // Prevent identifier duplication across child nodes in XCTest snapshots.
+            .accessibilityElement(children: .combine)
             .buttonStyle(PlainButtonStyle())
             .padding()
             .background(Color.gray.opacity(0.05))
             .cornerRadius(12)
+        }
             
             // Expanded Content
             if isExpanded {
@@ -225,6 +237,7 @@ struct AssetRowView: View {
                                 .background(Color.blue.opacity(0.1))
                                 .cornerRadius(10)
                             }
+                            .accessibilityIdentifier("addTransactionButton")
                             .buttonStyle(PlainButtonStyle())
                             
                             // Manage Allocations Button
@@ -243,6 +256,7 @@ struct AssetRowView: View {
                                 .background(Color.purple.opacity(0.1))
                                 .cornerRadius(10)
                             }
+                            .accessibilityIdentifier("shareAssetButton")
                             .buttonStyle(PlainButtonStyle())
                             
                             if hasOnChainAddress {

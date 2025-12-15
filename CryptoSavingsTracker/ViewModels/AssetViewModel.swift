@@ -106,7 +106,6 @@ class AssetViewModel: ObservableObject {
     
     private func fetchOnChainBalance(address: String, chainId: String, forceRefresh: Bool) async -> Double {
         do {
-            AppLog.debug("Fetching on-chain balance for \(asset.currency) on \(chainId)", category: .balanceService)
             let balance = try await tatumService.fetchBalance(
                 chainId: chainId,
                 address: address,
@@ -127,7 +126,6 @@ class AssetViewModel: ObservableObject {
         let lastUpdate = BalanceCacheManager.shared.getLastBalanceUpdate(for: cacheKey)
         
         do {
-            AppLog.debug("Fetching on-chain balance for \(asset.currency) on \(chainId)", category: .balanceService)
             let balance = try await tatumService.fetchBalance(
                 chainId: chainId,
                 address: address,
@@ -181,13 +179,19 @@ class AssetViewModel: ObservableObject {
         if let index = asset.transactions.firstIndex(where: { $0.id == transaction.id }) {
             asset.transactions.remove(at: index)
         }
-        if let modelContext = modelContext {
-            ContributionBridge.removeLinkedContributions(for: transaction, in: modelContext)
-        }
         modelContext?.delete(transaction)
         
         do {
             try modelContext?.save()
+            NotificationCenter.default.post(name: .goalProgressRefreshed, object: nil)
+            NotificationCenter.default.post(
+                name: .monthlyPlanningAssetUpdated,
+                object: asset,
+                userInfo: [
+                    "assetId": asset.id,
+                    "goalIds": asset.allocations.compactMap { $0.goal?.id }
+                ]
+            )
             // Update balances after deletion
             Task {
                 await refreshBalances()

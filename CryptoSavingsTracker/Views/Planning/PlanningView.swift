@@ -46,11 +46,9 @@ struct PlanningView: View {
         .navigationBarTitleDisplayMode(.large)
         #endif
         .onAppear {
-            AppLog.debug("PlanningView appeared, viewModel identity: \(ObjectIdentifier(viewModel)), requirements: \(viewModel.monthlyRequirements.count)", category: .monthlyPlanning)
         }
         .id(viewId)
         .onReceive(viewModel.$monthlyRequirements) { _ in
-            AppLog.debug("PlanningView received requirements update, new count: \(viewModel.monthlyRequirements.count)", category: .monthlyPlanning)
             viewId = UUID()  // Force view refresh
         }
     }
@@ -636,10 +634,8 @@ struct macOSPlanningView: View {
         #if os(macOS)
         macOSLayout
             .onAppear {
-                AppLog.debug("macOSPlanningView appeared, viewModel identity: \(ObjectIdentifier(viewModel)), requirements: \(viewModel.monthlyRequirements.count), isLoading: \(viewModel.isLoading)", category: .monthlyPlanning)
             }
             .onChange(of: viewModel.monthlyRequirements.count) { oldValue, newValue in
-                AppLog.debug("Requirements count changed from \(oldValue) to \(newValue)", category: .monthlyPlanning)
             }
         #else
         iosLayout
@@ -656,7 +652,6 @@ struct macOSPlanningView: View {
 
             // Main content - Goals list (removed NavigationView wrapper)
             Group {
-                let _ = AppLog.debug("macOSLayout check: requirements.isEmpty=\(viewModel.monthlyRequirements.isEmpty), count=\(viewModel.monthlyRequirements.count), isLoading=\(viewModel.isLoading)", category: .monthlyPlanning)
                 if viewModel.isLoading {
                     ProgressView("Loading monthly requirements...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -688,7 +683,6 @@ struct macOSPlanningView: View {
                             }
 
                             ForEach(viewModel.monthlyRequirements) { requirement in
-                                let _ = AppLog.debug("Rendering requirement for goal: \(requirement.goalName), amount: \(requirement.requiredMonthly)", category: .monthlyPlanning)
                                 GoalRequirementRow(
                                     requirement: requirement,
                                     flexState: viewModel.getFlexState(for: requirement.goalId),
@@ -753,7 +747,6 @@ struct macOSPlanningView: View {
 
             Button("Refresh") {
                 Task {
-                    AppLog.debug("Manual refresh triggered", category: .monthlyPlanning)
                     await viewModel.refreshCalculations()
                 }
             }

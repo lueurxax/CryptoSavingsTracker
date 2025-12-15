@@ -11,6 +11,7 @@ import SwiftData
 import Foundation
 @testable import CryptoSavingsTracker
 
+@MainActor
 struct ExecutionFlowIntegrationTests {
 
     var modelContainer: ModelContainer
@@ -25,7 +26,8 @@ struct ExecutionFlowIntegrationTests {
             Asset.self,
             MonthlyPlan.self,
             MonthlyExecutionRecord.self,
-            ExecutionSnapshot.swift,
+            CompletedExecution.self,
+            ExecutionSnapshot.self,
             Contribution.self,
             configurations: config
         )

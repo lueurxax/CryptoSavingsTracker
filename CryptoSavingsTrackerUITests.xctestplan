@@ -9,6 +9,11 @@
     }
   ],
   "defaultOptions" : {
+    "commandLineArgumentEntries" : [
+      {
+        "argument" : "UITEST_UI_FLOW"
+      }
+    ],
     "performanceAntipatternCheckerEnabled" : true
   },
   "testTargets" : [

@@ -65,11 +65,24 @@ struct AppLogger {
         }
     }
     
+    /// Optional filter for debug logs to reduce noise during development.
+    /// When set, only categories in this set emit debug-level messages.
+    static var debugFilter: Set<Category>? = [
+        .monthlyPlanning,
+        .executionTracking,
+        .swiftData,
+        .exchangeRate
+    ]
+
     /// Main logging function
     static func log(_ level: Level, category: Category, _ message: String, file: String = #file, function: String = #function, line: Int = #line) {
         let fileName = (file as NSString).lastPathComponent
         let logMessage = "\(level.emoji) [\(category.rawValue)] \(message) (\(fileName):\(function):\(line))"
-        
+
+        if level == .debug, let filter = debugFilter, !filter.contains(category) {
+            return
+        }
+
         #if DEBUG
         os_log("%@", log: category.logger, type: level.osLogType, logMessage)
         #endif

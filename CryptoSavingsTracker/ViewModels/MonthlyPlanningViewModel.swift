@@ -149,14 +149,11 @@ final class MonthlyPlanningViewModel: ObservableObject {
             )
             
             let goals = try modelContext.fetch(descriptor)
-            AppLog.debug("Found \(goals.count) active goals", category: .monthlyPlanning)
-            for goal in goals {
-                AppLog.debug("Goal '\(goal.name)' - target: \(goal.targetAmount), deadline: \(goal.deadline)", category: .monthlyPlanning)
+            for _ in goals {
             }
 
             // Get or create persisted plans for the current month
             let plans = try await planService.getOrCreatePlansForCurrentMonth(goals: goals)
-            AppLog.debug("Loaded \(plans.count) persisted plans for current month", category: .monthlyPlanning)
 
             self.currentPlans = plans
 
@@ -177,7 +174,6 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 // Refresh flex state sets from plan data
                 self.protectedGoalIds = Set(plans.filter { $0.flexState == .protected || $0.isProtected }.map { $0.goalId })
                 self.skippedGoalIds = Set(plans.filter { $0.flexState == .skipped || $0.isSkipped }.map { $0.goalId })
-                AppLog.debug("Updated UI - requirements count: \(self.monthlyRequirements.count)", category: .monthlyPlanning)
             }
             
         } catch {
@@ -338,6 +334,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
             .sink { [weak self] _ in
                 Task { [weak self] in
                     await self?.loadMonthlyRequirements()
+                    await self?.persistUpdatedPlans()
                 }
             }
             .store(in: &cancellables)
@@ -386,6 +383,23 @@ final class MonthlyPlanningViewModel: ObservableObject {
             }
         } catch {
             AppLog.warning("Failed to load flex states: \(error)", category: .monthlyPlanning)
+        }
+    }
+
+    /// Persist recalculated MonthlyPlans to SwiftData so execution can read live amounts
+    private func persistUpdatedPlans() async {
+        do {
+            // Use current month label and persisted plans as the source of truth
+            let monthLabel = planService.currentMonthLabel()
+            let plans = try planService.fetchPlans(for: monthLabel, state: nil)
+
+            // Recalculate and update each plan using the latest goal data
+            for plan in plans {
+                guard let goal = goals.first(where: { $0.id == plan.goalId }) else { continue }
+                try await planService.updatePlan(plan, withGoal: goal)
+            }
+        } catch {
+            AppLog.error("Failed to persist updated plans: \(error)", category: .monthlyPlanning)
         }
     }
     
@@ -449,6 +463,10 @@ final class MonthlyPlanningViewModel: ObservableObject {
                     let rate = try await exchangeRateService.fetchRate(from: plan.currency, to: displayCurrency)
                     total += plan.effectiveAmount * rate
                 } catch {
+                    // Ignore cancelled requests (e.g., superseded by newer refresh); only log real failures.
+                    if let urlError = error as? URLError, urlError.code == .cancelled {
+                        continue
+                    }
                     AppLog.warning("Failed to convert \(plan.currency) to \(displayCurrency): \(error)", category: .monthlyPlanning)
                 }
             }

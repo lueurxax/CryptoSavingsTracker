@@ -33,12 +33,10 @@ final class ExecutionSnapshot {
 
     /// Decode snapshots when needed
     var goalSnapshots: [ExecutionGoalSnapshot] {
-        AppLog.debug("Accessing goalSnapshots, snapshotData size: \(snapshotData.count) bytes", category: .executionTracking)
         guard let decoded = try? JSONDecoder().decode([ExecutionGoalSnapshot].self, from: snapshotData) else {
             AppLog.error("Failed to decode snapshots from \(snapshotData.count) bytes of data", category: .executionTracking)
             return []
         }
-        AppLog.debug("Successfully decoded \(decoded.count) goal snapshots", category: .executionTracking)
         return decoded
     }
 
@@ -98,14 +96,12 @@ extension ExecutionSnapshot {
     /// Factory method to create properly initialized snapshot for SwiftData
     /// This ensures all properties are set before insertion into ModelContext
     static func create(from plans: [MonthlyPlan], goals: [Goal]) -> ExecutionSnapshot {
-        AppLog.debug("Creating snapshot from \(plans.count) plans and \(goals.count) goals", category: .executionTracking)
 
         let id = UUID()
         let capturedAt = Date()
 
         // Create goal lookup dictionary
         let goalDict = Dictionary(uniqueKeysWithValues: goals.map { ($0.id, $0) })
-        AppLog.debug("Created goal dictionary with \(goalDict.count) entries", category: .executionTracking)
 
         // Create snapshots with goal names
         let snapshots = plans.map { plan in
@@ -119,20 +115,16 @@ extension ExecutionSnapshot {
                 isSkipped: plan.isSkipped,
                 isProtected: plan.isProtected
             )
-            AppLog.debug("Created snapshot for '\(goalName)': amount=\(plan.effectiveAmount), currency=\(plan.currency)", category: .executionTracking)
             return snapshot
         }
 
-        AppLog.debug("Created \(snapshots.count) goal snapshots", category: .executionTracking)
 
         let calculatedTotal = snapshots.reduce(0) { $0 + $1.plannedAmount }
-        AppLog.debug("Total planned: \(calculatedTotal)", category: .executionTracking)
 
         // Encode to Data for SwiftData storage
         let encodedData: Data
         if let encoded = try? JSONEncoder().encode(snapshots) {
             encodedData = encoded
-            AppLog.debug("Successfully encoded snapshot data (\(encoded.count) bytes)", category: .executionTracking)
         } else {
             encodedData = Data()
             AppLog.error("Failed to encode snapshots!", category: .executionTracking)
@@ -146,7 +138,6 @@ extension ExecutionSnapshot {
             snapshotData: encodedData
         )
 
-        AppLog.debug("ExecutionSnapshot created - totalPlanned: \(calculatedTotal), snapshotData: \(encodedData.count) bytes", category: .executionTracking)
 
         return snapshot
     }

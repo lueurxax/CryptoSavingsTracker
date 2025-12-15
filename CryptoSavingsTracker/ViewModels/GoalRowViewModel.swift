@@ -50,6 +50,18 @@ class GoalRowViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+
+        // Refresh when goal data changes (e.g., allocations updated)
+        NotificationCenter.default.publisher(for: .goalUpdated)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                if notification.object == nil || (notification.object as? Goal)?.id == self.goal.id {
+                    Task {
+                        await self.refreshData()
+                    }
+                }
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Computed Properties
@@ -132,7 +144,6 @@ class GoalRowViewModel: ObservableObject {
                     progressAnimation = newProgress
                 }
                 
-                AppLog.debug("📊 Progress updated to \(String(format: "%.1f", newProgress * 100))% for goal '\(goal.name)'", category: .goalList)
                 hasLoadedInitialData = true
             }
             

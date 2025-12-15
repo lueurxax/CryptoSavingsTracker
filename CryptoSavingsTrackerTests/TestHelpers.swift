@@ -43,9 +43,16 @@ struct TestDataFactory {
     
     static func createSampleAsset(
         currency: String = "BTC",
-        goal: Goal
+        goal: Goal? = nil,
+        amount: Double = 0
     ) -> Asset {
-        return Asset(currency: currency, goal: goal)
+        let asset = Asset(currency: currency)
+        if let goal {
+            let allocation = AssetAllocation(asset: asset, goal: goal, amount: amount)
+            goal.allocations.append(allocation)
+            asset.allocations.append(allocation)
+        }
+        return asset
     }
     
     static func createSampleTransaction(
@@ -105,6 +112,139 @@ struct TestContainer {
     }
 }
 
+// MARK: - Shared Mock Exchange Rate Service
+
+class MockExchangeRateService: ExchangeRateServiceProtocol {
+    private var rates: [String: Double] = [:]
+    var shouldFail = false
+
+    func setRate(from: String, to: String, rate: Double) {
+        rates["\(from)-\(to)"] = rate
+    }
+
+    func fetchRate(from: String, to: String) async throws -> Double {
+        if shouldFail { throw ExchangeRateError.networkError }
+        if from == to { return 1.0 }
+        return rates["\(from)-\(to)"] ?? 1.0
+    }
+
+    func hasValidConfiguration() -> Bool { true }
+    func setOfflineMode(_ offline: Bool) {}
+}
+
+// MARK: - Lightweight Goal/Asset helpers for tests
+
+struct TestHelpers {
+    static func createGoal(
+        name: String,
+        currency: String,
+        targetAmount: Double,
+        currentTotal: Double,
+        deadline: Date
+    ) -> Goal {
+        let goal = Goal(
+            name: name,
+            currency: currency,
+            targetAmount: targetAmount,
+            deadline: deadline
+        )
+        if currentTotal > 0 {
+            let asset = Asset(currency: currency)
+            let allocation = AssetAllocation(asset: asset, goal: goal, amount: currentTotal)
+            goal.allocations.append(allocation)
+            asset.allocations.append(allocation)
+        }
+        return goal
+    }
+
+    static func createGoalWithAsset(
+        name: String,
+        currency: String,
+        target: Double,
+        current: Double,
+        months: Int,
+        context: ModelContext
+    ) -> Goal {
+        let deadline = Calendar.current.date(byAdding: .month, value: months, to: Date())!
+        let goal = Goal(name: name, currency: currency, targetAmount: target, deadline: deadline)
+        let asset = Asset(currency: currency)
+        let allocation = AssetAllocation(asset: asset, goal: goal, amount: current)
+        goal.allocations.append(allocation)
+        asset.allocations.append(allocation)
+        context.insert(goal)
+        context.insert(asset)
+        context.insert(allocation)
+        return goal
+    }
+
+    static func createAsset(currency: String, currentAmount: Double) -> Asset {
+        let asset = Asset(currency: currency)
+        if currentAmount != 0 {
+            let tx = Transaction(amount: currentAmount, asset: asset)
+            asset.transactions.append(tx)
+        }
+        return asset
+    }
+}
+
+// MARK: - Test-only compatibility helpers for legacy tests
+
+extension Goal {
+    /// Computed helper to mimic legacy goal.assets access in tests.
+    var assets: [Asset] {
+        get { allocations.compactMap { $0.asset } }
+        set {
+            allocations.removeAll()
+            for asset in newValue {
+                let allocation = AssetAllocation(asset: asset, goal: self, amount: asset.currentAmount)
+                allocations.append(allocation)
+                asset.allocations.append(allocation)
+            }
+        }
+    }
+}
+
+extension Asset {
+    /// Convenience init for tests to attach an asset to a goal with an optional starting balance.
+    convenience init(currency: String, goal: Goal, address: String? = nil, chainId: String? = nil, balance: Double = 0) {
+        self.init(currency: currency, address: address, chainId: chainId)
+        let allocation = AssetAllocation(asset: self, goal: goal, amount: balance)
+        goal.allocations.append(allocation)
+        allocations.append(allocation)
+        if balance != 0 {
+            let tx = Transaction(amount: balance, asset: self)
+            transactions.append(tx)
+        }
+    }
+}
+
+extension MonthlyPlan {
+    /// Convenience init for tests defaulting monthLabel to current month.
+    convenience init(
+        goalId: UUID,
+        requiredMonthly: Double,
+        remainingAmount: Double,
+        monthsRemaining: Int,
+        currency: String,
+        status: RequirementStatus = .onTrack,
+        flexState: FlexState = .flexible,
+        state: PlanState = .draft
+    ) {
+        let monthLabel = MonthlyExecutionRecord.monthLabel(from: Date())
+        self.init(
+            goalId: goalId,
+            monthLabel: monthLabel,
+            requiredMonthly: requiredMonthly,
+            remainingAmount: remainingAmount,
+            monthsRemaining: monthsRemaining,
+            currency: currency,
+            status: status,
+            flexState: flexState,
+            state: state
+        )
+    }
+}
+
 // MARK: - Assertion Helpers
 
 struct TestAssertions {
@@ -129,35 +269,6 @@ struct TestAssertions {
     static func assertProgressIsValid(_ progress: Double) {
         assert(progress >= 0, "Progress should not be negative")
         assert(progress <= 1.0, "Progress should not exceed 100%")
-    }
-}
-
-// MARK: - Mock Services for Testing
-
-class MockExchangeRateService: ExchangeRateServiceProtocol {
-    
-    private let mockRates: [String: [String: Double]] = [
-        "USD": ["EUR": 0.85, "GBP": 0.75, "JPY": 110.0],
-        "EUR": ["USD": 1.18, "GBP": 0.88, "JPY": 129.0],
-        "BTC": ["USD": 30000.0, "EUR": 25500.0],
-        "ETH": ["USD": 2000.0, "EUR": 1700.0]
-    ]
-    
-    func fetchRate(from: String, to: String) async throws -> Double {
-        if from == to {
-            return 1.0
-        }
-        
-        let key = "\(from)-\(to)"
-        return mockRates[key] ?? 1.0
-    }
-    
-    func hasValidConfiguration() -> Bool {
-        return true // Mock service is always valid
-    }
-    
-    func setOfflineMode(_ offline: Bool) {
-        // Do nothing for mock service
     }
 }
 

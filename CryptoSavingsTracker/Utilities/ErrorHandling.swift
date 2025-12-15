@@ -238,6 +238,7 @@ extension Result where Failure == Error {
 /// Utility for handling async operations with proper error mapping
 struct AsyncErrorHandler {
     /// Execute async operation with error handling
+    @MainActor
     static func execute<T>(
         operation: () async throws -> T,
         errorHandler: ErrorHandler? = nil
@@ -276,6 +277,7 @@ struct AsyncErrorHandler {
     }
     
     /// Execute with retry logic
+    @MainActor
     static func executeWithRetry<T>(
         maxAttempts: Int = 3,
         delay: TimeInterval = 1.0,

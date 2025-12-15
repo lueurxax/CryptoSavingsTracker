@@ -15,8 +15,6 @@ struct MonthlyExecutionView: View {
 
     @State private var showCompleteConfirmation = false
     @State private var showCompletedSection = true
-    @State private var showContributionEntry = false
-    @State private var selectedGoalSnapshot: ExecutionGoalSnapshot?
 
     init(modelContext: ModelContext) {
         _viewModel = StateObject(wrappedValue: MonthlyExecutionViewModel(modelContext: modelContext))
@@ -69,34 +67,6 @@ struct MonthlyExecutionView: View {
                 ProgressView()
             }
         }
-        .sheet(isPresented: $showContributionEntry) {
-            Group {
-                if let snapshot = selectedGoalSnapshot,
-                   let record = viewModel.executionRecord,
-                   let goal = try? modelContext.fetch(FetchDescriptor<Goal>(predicate: #Predicate { g in g.id == snapshot.goalId })).first {
-                    ContributionEntryView(
-                        goal: goal,
-                        executionRecord: record,
-                        plannedAmount: snapshot.plannedAmount,
-                        alreadyContributed: viewModel.contributedTotals[snapshot.goalId] ?? 0
-                    )
-                    #if os(macOS)
-                    .frame(minWidth: 420, minHeight: 520)
-                    #endif
-                } else {
-                    VStack(spacing: 12) {
-                        ProgressView()
-                        Text("Loading contribution form…")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding()
-                    #if os(macOS)
-                    .frame(minWidth: 300, minHeight: 200)
-                    #endif
-                }
-            }
-        }
     }
 
     // MARK: - Header Section
@@ -119,11 +89,11 @@ struct MonthlyExecutionView: View {
                 }
             }
 
-            if let snapshot = viewModel.snapshot {
-                Text("\(snapshot.activeGoalCount) active goals • \(formatCurrency(snapshot.totalPlanned)) planned")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            let goalCount = viewModel.displayGoalCount
+            let planned = viewModel.displayTotalPlanned
+            Text("\(goalCount) active goals • \(formatCurrency(planned)) planned")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
         .padding()
         #if os(macOS)
@@ -185,16 +155,15 @@ struct MonthlyExecutionView: View {
 
                 Spacer()
 
-                if let snapshot = viewModel.snapshot {
-                    let stats = MonthlyExecutionStatistics(
-                        snapshot: snapshot,
-                        totals: viewModel.contributedTotals,
-                        fulfillment: viewModel.fulfillmentStatus
-                    )
-                    Text("\(stats.fulfilledCount) of \(stats.goalsCount) goals funded")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+                let stats = MonthlyExecutionStatistics(
+                    totalPlanned: viewModel.displayTotalPlanned,
+                    totals: viewModel.contributedTotals,
+                    fulfillment: viewModel.fulfillmentStatus,
+                    goalsCount: viewModel.displayGoalCount
+                )
+                Text("\(stats.fulfilledCount) of \(stats.goalsCount) goals funded")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding()
@@ -252,10 +221,7 @@ struct MonthlyExecutionView: View {
                         contributed: viewModel.contributedTotals[goalSnapshot.goalId] ?? 0,
                         isFulfilled: false,
                         viewModel: viewModel,
-                        onAddContribution: {
-                            selectedGoalSnapshot = goalSnapshot
-                            showContributionEntry = true
-                        }
+                        onAddContribution: nil
                     )
                 }
             }
@@ -326,6 +292,7 @@ struct MonthlyExecutionView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
+                .accessibilityIdentifier("finishMonthButton")
             }
 
             if viewModel.isClosed {
@@ -341,9 +308,10 @@ struct MonthlyExecutionView: View {
 
     private var completeConfirmationMessage: String {
         let stats = MonthlyExecutionStatistics(
-            snapshot: viewModel.snapshot,
+            totalPlanned: viewModel.displayTotalPlanned,
             totals: viewModel.contributedTotals,
-            fulfillment: viewModel.fulfillmentStatus
+            fulfillment: viewModel.fulfillmentStatus,
+            goalsCount: viewModel.displayGoalCount
         )
 
         if stats.percentageComplete < 100 {
@@ -398,19 +366,14 @@ struct GoalProgressCard: View {
                 Text(goalSnapshot.goalName)
                     .font(.subheadline)
                     .fontWeight(.medium)
+                    .accessibilityLabel(goalSnapshot.goalName)
+                    .accessibilityIdentifier("goalCard-\(goalSnapshot.goalName)")
 
                 Spacer()
 
                 if isFulfilled {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.green)
-                } else if let onAddContribution = onAddContribution {
-                    Button(action: onAddContribution) {
-                        Label("Add", systemImage: "plus.circle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.blue)
-                    }
-                    .buttonStyle(.borderless)
                 }
             }
 

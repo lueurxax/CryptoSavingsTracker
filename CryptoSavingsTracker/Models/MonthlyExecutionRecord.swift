@@ -30,6 +30,10 @@ final class MonthlyExecutionRecord {
     @Relationship(deleteRule: .cascade)
     var snapshot: ExecutionSnapshot?    // Created when tracking starts
 
+    // Completion metadata (exchange rates snapshot, etc.)
+    @Relationship(deleteRule: .cascade)
+    var completedExecution: CompletedExecution?
+
     init(monthLabel: String, goalIds: [UUID]) {
         self.id = UUID()
         self.monthLabel = monthLabel

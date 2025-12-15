@@ -242,7 +242,10 @@ struct GoalDetailView: View {
                     icon: "bitcoinsign.circle",
                     title: "No Assets Added",
                     description: "Add cryptocurrency assets to start tracking your progress toward this goal",
-                    primaryAction: EmptyStateAction(title: "Add First Asset") { showingAddAsset = true }
+                    primaryAction: EmptyStateAction(
+                        title: "Add First Asset",
+                        accessibilityIdentifier: "addAssetButton"
+                    ) { showingAddAsset = true }
                 )
                 .frame(height: 200)
                 .padding(.vertical, 8)
@@ -281,11 +284,12 @@ struct GoalDetailView: View {
                     HStack { Image(systemName: "plus.circle.fill"); Text("Add Asset") }
                         .foregroundColor(.accessiblePrimary)
                 }
+                .accessibilityIdentifier("addAssetButton")
             }
         }
     }
     
-    var body: some View {
+    private var scrollViewContent: some View {
         ScrollView {
             VStack(spacing: 16) {
                 // Header + Charts card
@@ -297,7 +301,7 @@ struct GoalDetailView: View {
                 .background(.regularMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
-                
+
                 // Assets Section
                 assetsSection
             }
@@ -307,6 +311,10 @@ struct GoalDetailView: View {
         }
         .safeAreaPadding(.top)
         .navigationTitle(goal.name)
+    }
+
+    var body: some View {
+        scrollViewContent
         .toolbar {
 #if os(iOS)
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -391,7 +399,6 @@ struct GoalDetailView: View {
             }
         }
         .onChange(of: goalAssets.count) { oldValue, newValue in
-            AppLog.debug("GoalDetailView onChange: goalAssets.count changed from \(oldValue) to \(newValue)", category: .ui)
             Task {
                     // Add a small delay to let SwiftData process the changes
                 try? await Task.sleep(for: .milliseconds(100))
@@ -399,13 +406,11 @@ struct GoalDetailView: View {
             }
         }
         .onChange(of: allAssets.count) { oldValue, newValue in
-            AppLog.debug("GoalDetailView onChange: allAssets.count changed from \(oldValue) to \(newValue)", category: .ui)
             Task {
                 await goalViewModel.refreshValues()
             }
         }
         .onChange(of: allTransactions.count) { oldValue, newValue in
-            AppLog.debug("GoalDetailView onChange: allTransactions.count changed from \(oldValue) to \(newValue)", category: .ui)
             Task {
                     // Add a small delay to let SwiftData process the changes
                 try? await Task.sleep(for: .milliseconds(100))
@@ -420,6 +425,7 @@ struct GoalDetailView: View {
 #else
         .sheet(isPresented: $showingAddAsset) {
             AddAssetView(goal: goal)
+                .presentationDetents([.large])
         }
 #endif
     } // End of body

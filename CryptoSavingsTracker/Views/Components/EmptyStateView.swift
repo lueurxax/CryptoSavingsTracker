@@ -88,6 +88,7 @@ struct EmptyStateView: View {
                             .background(primaryAction.color)
                             .cornerRadius(8)
                         }
+                        .accessibilityIdentifier(primaryAction.accessibilityIdentifier ?? "")
                         .accessibilityLabel(primaryAction.accessibilityLabel ?? primaryAction.title)
                     }
                     
@@ -128,13 +129,15 @@ struct EmptyStateAction {
     let color: Color
     let action: () -> Void
     let accessibilityLabel: String?
+    let accessibilityIdentifier: String?
     
-    init(title: String, icon: String? = nil, color: Color = .blue, accessibilityLabel: String? = nil, action: @escaping () -> Void) {
+    init(title: String, icon: String? = nil, color: Color = .blue, accessibilityLabel: String? = nil, accessibilityIdentifier: String? = nil, action: @escaping () -> Void) {
         self.title = title
         self.icon = icon
         self.color = color
         self.action = action
         self.accessibilityLabel = accessibilityLabel
+        self.accessibilityIdentifier = accessibilityIdentifier
     }
 }
 

@@ -114,6 +114,17 @@ struct TatumBalanceResponse: Codable {
     let tokenName: String?
     let tokenSymbol: String?
     let tokenDecimals: Int?
+
+    /// Convert raw balance string to human-readable using token decimals (defaults to 18 for native tokens)
+    var humanReadableBalance: Double {
+        guard let balanceValue = Double(balance) else { return 0 }
+        // If we see a very small number, assume it is already human-readable.
+        // If it looks like a large integer, scale by decimals.
+        if balanceValue > 1_000, let decimals = tokenDecimals {
+            return balanceValue / pow(10, Double(decimals))
+        }
+        return balanceValue
+    }
 }
 
 struct TatumTokenBalancesResponse: Codable {

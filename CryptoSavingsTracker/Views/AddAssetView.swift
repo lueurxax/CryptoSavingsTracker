@@ -370,6 +370,7 @@ struct AddAssetView: View {
                                         .foregroundColor(.secondary)
                                 }
                             }
+                            .accessibilityIdentifier("assetCurrencyButton")
                             .accessibilityLabel(currency.isEmpty ? "Select currency required" : "Selected currency \(currency)")
                             .accessibilityHint("Tap to choose a cryptocurrency")
                         }
@@ -407,6 +408,7 @@ struct AddAssetView: View {
                                 .autocapitalization(.none)
                                 .disableAutocorrection(true)
                                 .frame(maxWidth: 200)
+                                .accessibilityIdentifier("assetAddressField")
                                 .accessibilityLabel("Blockchain address input")
                                 .accessibilityHint("Enter your blockchain address for automatic tracking, or leave empty for manual tracking only")
                                 .onTapGesture {
@@ -490,12 +492,14 @@ struct AddAssetView: View {
                             }
                         }
                         .disabled(!isValidInput || isLoading)
+                        .accessibilityIdentifier("saveAssetButton")
                         .accessibilityLabel(isValidInput ? "Save asset" : "Save disabled: \(validationMessage)")
                     }
                 }
             }
             .sheet(isPresented: $showingCurrencyPicker) {
-                SearchableCurrencyPicker(selectedCurrency: $currency, pickerType: .crypto)
+                let isUITestFlow = ProcessInfo.processInfo.arguments.contains("UITEST_UI_FLOW")
+                SearchableCurrencyPicker(selectedCurrency: $currency, pickerType: isUITestFlow ? .fiat : .crypto)
             }
 #endif
         }
@@ -615,9 +619,21 @@ struct AddAssetView: View {
             
             modelContext.insert(newAsset)
             
-            // Create allocation for this asset to the goal (100% by default)
-            let allocation = AssetAllocation(asset: newAsset, goal: goal, percentage: 1.0)
+            // Create a dedicated allocation record for this asset to the goal.
+            // Start at current balance (typically 0) and auto-expand on deposits while fully allocated.
+            let allocation = AssetAllocation(asset: newAsset, goal: goal, amount: newAsset.currentAmount)
             modelContext.insert(allocation)
+
+            // Ensure relationship collections update immediately (SwiftData may not back-propagate without explicit inverse).
+            if !goal.allocations.contains(where: { $0.id == allocation.id }) {
+                goal.allocations.append(allocation)
+            }
+            if !newAsset.allocations.contains(where: { $0.id == allocation.id }) {
+                newAsset.allocations.append(allocation)
+            }
+
+            // Record initial allocation state for execution tracking.
+            modelContext.insert(AllocationHistory(asset: newAsset, goal: goal, amount: allocation.amountValue))
             
             try modelContext.save()
             

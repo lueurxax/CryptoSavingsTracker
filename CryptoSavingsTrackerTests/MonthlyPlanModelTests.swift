@@ -10,6 +10,7 @@ import SwiftData
 import Foundation
 @testable import CryptoSavingsTracker
 
+@MainActor
 struct MonthlyPlanModelTests {
     
     var modelContainer: ModelContainer

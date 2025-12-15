@@ -27,33 +27,51 @@ struct CryptoSavingsTrackerApp: App {
             Contribution.self,
             MonthlyExecutionRecord.self,
             CompletedExecution.self,
-            ExecutionSnapshot.self,
-            MigrationMetadata.self
+            ExecutionSnapshot.self
         ])
-        // Ensure the Application Support directory exists before SwiftData tries to create the SQLite store.
-        // This avoids sporadic CoreData errors about failing to stat/create `default.store` on some simulator/device setups.
-        do {
-            if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-                try FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
-            }
-        } catch {
-            // Best-effort: if this fails, SwiftData will attempt to create the store directory anyway.
+        let fileManager = FileManager.default
+        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        if let appSupport {
+            // Ensure the Application Support directory exists before SwiftData tries to create the SQLite store.
+            // This avoids sporadic CoreData errors about failing to stat/create `default.store`.
+            try? fileManager.createDirectory(at: appSupport, withIntermediateDirectories: true)
         }
 
         let modelConfiguration = ModelConfiguration(
             "default",
             schema: schema,
             isStoredInMemoryOnly: false,
-            // Enable automatic migration for optional property additions like firstReminderDate
             allowsSave: true,
             groupContainer: .none,
             cloudKitDatabase: .none  // CloudKit requires model changes (optional attrs, inverse relationships)
         )
 
+        func resetStoreFilesIfPresent() {
+            guard let appSupport else { return }
+            let storeURL = appSupport.appendingPathComponent("default.store")
+            let candidatePaths = [
+                storeURL.path,
+                storeURL.path + "-shm",
+                storeURL.path + "-wal",
+                storeURL.path + "-journal"
+            ]
+
+            for path in candidatePaths {
+                try? fileManager.removeItem(atPath: path)
+            }
+        }
+
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            // Initial-schema-only strategy: if the store can't be opened due to schema mismatch,
+            // wipe and recreate. This is acceptable while we have 0 clients.
+            resetStoreFilesIfPresent()
+            do {
+                return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            } catch {
+                fatalError("Could not create ModelContainer: \(error)")
+            }
         }
     }()
 
@@ -73,28 +91,6 @@ struct CryptoSavingsTrackerApp: App {
             let isUITestRun = ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("UITEST") })
             if !isUITestRun {
                 _ = await NotificationManager.shared.requestPermission()
-            }
-
-            // Perform data migration if needed
-            do {
-                let migrationService = MigrationService(modelContext: CryptoSavingsTrackerApp.sharedModelContainer.mainContext)
-                try await migrationService.performMigrationIfNeeded()
-
-                // Perform MonthlyPlan Schema V2 migration
-                let planMigrationService = MonthlyPlanMigrationService(modelContext: CryptoSavingsTrackerApp.sharedModelContainer.mainContext)
-                try await planMigrationService.migrateToSchemaV2()
-
-                // Verify migration
-                let verification = try await planMigrationService.verifyMigration()
-                AppLog.info(verification.description, category: .monthlyPlanning)
-
-                if !verification.isSuccessful {
-                    AppLog.error("MonthlyPlan migration verification failed!", category: .monthlyPlanning)
-                }
-            } catch {
-                AppLog.error("Migration failed: \(error)", category: .monthlyPlanning)
-                // In production, you might want to handle this more gracefully
-                // For now, we'll continue with the app startup
             }
 
             // Check for automated monthly execution transitions

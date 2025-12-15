@@ -40,25 +40,29 @@ final class Asset {
     
     // MARK: - Allocation Helper Methods
     
-    /// Sum of allocated amounts in asset currency (using fixed amounts, falling back to percentage if needed)
+    /// Sum of allocated amounts in asset currency.
     var totalAllocatedAmount: Double {
-        let balance = currentAmount
-        return allocations.reduce(0) { partial, allocation in
-            let allocAmount = allocation.amount > 0
-            ? allocation.amount
-            : allocation.percentage * balance
-            return partial + allocAmount
-        }
+        allocations.reduce(0) { $0 + max(0, $1.amountValue) }
     }
     
+    /// Balance minus allocated total (can be negative if over-allocated).
+    var allocationDelta: Double {
+        currentAmount - totalAllocatedAmount
+    }
+
     /// Remaining unallocated amount (never negative)
     var unallocatedAmount: Double {
-        max(0, currentAmount - totalAllocatedAmount)
+        max(0, allocationDelta)
     }
     
     /// Check if the asset is fully allocated
     var isFullyAllocated: Bool {
-        unallocatedAmount <= 0.0000001
+        abs(allocationDelta) <= 0.0000001
+    }
+
+    /// Check if allocations exceed balance.
+    var isOverAllocated: Bool {
+        allocationDelta < -0.0000001
     }
     
     /// Get all goals this asset is allocated to
@@ -69,8 +73,7 @@ final class Asset {
     /// Get the allocation amount for a specific goal
     func getAllocationAmount(for goal: Goal) -> Double {
         guard let allocation = allocations.first(where: { $0.goal?.id == goal.id }) else { return 0.0 }
-        if allocation.amount > 0 { return allocation.amount }
-        return allocation.percentage * currentAmount
+        return allocation.amountValue
     }
     
     /// Get the allocated value for a specific goal (capped by asset total)

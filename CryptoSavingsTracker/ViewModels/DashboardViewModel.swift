@@ -225,9 +225,7 @@ class DashboardViewModel: ObservableObject {
         }
         
         // Debug: Print balance history info
-        AppLog.debug("Generated \(history.count) balance history points for goal: \(goal.name)", category: .performance)
-        if let first = history.first, let last = history.last {
-            AppLog.debug("Balance history range: \(first.balance) to \(last.balance)", category: .performance)
+        if let _ = history.first, let _ = history.last {
         }
         
             balanceHistory = history

@@ -55,21 +55,17 @@ class CurrencyViewModel: ObservableObject {
         
         // Fetch fresh data if needed or stale
         if coinInfos.isEmpty || coinsStale {
-            AppLog.debug("Coin list empty or stale; requesting refresh from CoinGecko", category: .validation)
             Task {
                 await fetchCoins()
             }
         } else {
-            AppLog.debug("Using cached coin list (\(coinInfos.count))", category: .validation)
         }
         
         if supportedCurrencies.isEmpty || currenciesStale {
-            AppLog.debug("Supported currency list empty or stale; requesting refresh from CoinGecko", category: .validation)
             Task {
                 await fetchSupportedCurrencies()
             }
         } else {
-            AppLog.debug("Using cached supported currencies (\(supportedCurrencies.count))", category: .validation)
         }
     }
     

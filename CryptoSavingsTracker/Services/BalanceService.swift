@@ -142,7 +142,7 @@ final class BalanceService: BalanceServiceProtocol {
 
         // Find native balance
         if let nativeBalance = portfolioResponse.result.first(where: { $0.type == "native" }) {
-            let balance = Double(nativeBalance.balance) ?? 0.0
+            let balance = BalanceService.humanReadableBalance(from: nativeBalance)
             Self.log.debug("Native balance found: \(balance)")
             return balance
         } else {
@@ -162,7 +162,7 @@ final class BalanceService: BalanceServiceProtocol {
         }
 
         if let token = matchingToken {
-            let balance = Double(token.balance) ?? 0.0
+            let balance = BalanceService.humanReadableBalance(from: token)
             Self.log.debug("Found matching token: \(token.tokenSymbol ?? "unknown"), Balance: \(balance)")
             return balance
         } else {
@@ -186,7 +186,26 @@ final class BalanceService: BalanceServiceProtocol {
         let decoder = JSONDecoder()
         let balanceResponse = try decoder.decode(TatumBalanceResponse.self, from: data)
 
-        return Double(balanceResponse.balance) ?? 0.0
+        return balanceResponse.humanReadableBalance
+    }
+
+    // MARK: - Helpers
+
+    /// Convert Tatum v4 balance item to a human-readable Double using decimals (falls back to balance when already human-readable).
+    private static func humanReadableBalance(from item: TatumV4BalanceItem) -> Double {
+        if let raw = Double(item.denominatedBalance) {
+            // If the denominated balance looks like a raw integer (usually >> 1_000), scale by decimals
+            if raw > 1_000 {
+                return raw / pow(10, Double(item.decimals))
+            } else {
+                // Already human-readable
+                return raw
+            }
+        }
+        if let raw = Double(item.balance) {
+            return raw
+        }
+        return 0.0
     }
     
     private enum ChainID: String {

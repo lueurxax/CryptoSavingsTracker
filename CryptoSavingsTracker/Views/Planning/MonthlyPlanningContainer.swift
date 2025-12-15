@@ -12,16 +12,25 @@ import SwiftData
 /// Container view that shows either planning or execution view based on state
 struct MonthlyPlanningContainer: View {
     @Environment(\.modelContext) private var modelContext
+
+    var body: some View {
+        MonthlyPlanningContainerContent(modelContext: modelContext)
+    }
+}
+
+/// Implementation detail that binds the container to a single `ModelContext`.
+private struct MonthlyPlanningContainerContent: View {
+    let modelContext: ModelContext
     @State private var executionRecord: MonthlyExecutionRecord?
     @State private var isLoading = true
     @State private var showStartTrackingConfirmation = false
+    @State private var showReturnToPlanningConfirmation = false
+    @State private var showFullResetConfirmation = false
     @StateObject private var planningViewModel: MonthlyPlanningViewModel
 
-    init() {
-        let context = CryptoSavingsTrackerApp.sharedModelContainer.mainContext
-        let viewModel = MonthlyPlanningViewModel(modelContext: context)
-        _planningViewModel = StateObject(wrappedValue: viewModel)
-        AppLog.debug("MonthlyPlanningContainer init, viewModel identity: \(ObjectIdentifier(viewModel))", category: .monthlyPlanning)
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
+        _planningViewModel = StateObject(wrappedValue: MonthlyPlanningViewModel(modelContext: modelContext))
     }
 
     var body: some View {
@@ -45,9 +54,31 @@ struct MonthlyPlanningContainer: View {
         }
         .navigationTitle("Monthly Planning")
         .task {
+            // Ensure UI test seed (if requested) completes before loading execution/planning state
+            await CryptoSavingsTrackerApp.runUITestSeedIfNeeded(context: modelContext)
             await loadExecutionRecord()
             // Also load monthly requirements after execution record is loaded
             await planningViewModel.loadMonthlyRequirements()
+        }
+        .alert("Return to Planning Mode?", isPresented: $showReturnToPlanningConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Return to Planning") {
+                Task {
+                    await returnToPlanning()
+                }
+            }
+        } message: {
+            Text("This will move this month back to planning mode and stop execution tracking. You can start tracking again later.")
+        }
+        .alert("Reset Tracking & Planning?", isPresented: $showFullResetConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Reset", role: .destructive) {
+                Task {
+                    await resetTrackingAndPlanning()
+                }
+            }
+        } message: {
+            Text("Deletes the current execution record and resets monthly plans to draft. Contributions stay recorded but will be unlinked from tracking.")
         }
     }
 
@@ -89,6 +120,7 @@ struct MonthlyPlanningContainer: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)
+                .accessibilityIdentifier("startTrackingButton")
             }
             .padding(.horizontal)
             .padding(.vertical, 12)
@@ -135,7 +167,29 @@ struct MonthlyPlanningContainer: View {
                     .foregroundColor(.green)
                     .font(.title3)
             }
+
+            // Show controls for both executing and closed states so the user can always escape
+            if record.status == .executing || record.status == .closed {
+            Button {
+                showReturnToPlanningConfirmation = true
+            } label: {
+                Label("Return to Planning", systemImage: "arrow.uturn.backward")
+                    .labelStyle(.titleAndIcon)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("returnToPlanningButton")
+
+            Button {
+                showFullResetConfirmation = true
+            } label: {
+                Label("Reset Month", systemImage: "exclamationmark.triangle")
+                    .labelStyle(.titleAndIcon)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
+            .accessibilityIdentifier("resetMonthButton")
         }
+    }
         .padding()
         .background(isTracking ? Color.blue.opacity(0.1) : Color.gray.opacity(0.05))
     }
@@ -174,19 +228,14 @@ struct MonthlyPlanningContainer: View {
                 }
             )
             let goals = try modelContext.fetch(descriptor)
-            AppLog.debug("Found \(goals.count) active goals", category: .executionTracking)
-
             // 2. Get MonthlyPlanService through DI
             let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
 
             // 3. Get or create plans (serialized via AsyncSerialExecutor)
             let plans = try await planService.getOrCreatePlansForCurrentMonth(goals: goals)
-            AppLog.info("Using \(plans.count) persisted plans for execution", category: .executionTracking)
-
             // 3.5. Check if plans are already in non-draft state and reset if needed
             let nonDraftPlans = plans.filter { $0.state != .draft }
             if !nonDraftPlans.isEmpty {
-                AppLog.warning("Found \(nonDraftPlans.count) non-draft plans, resetting to draft state", category: .executionTracking)
                 for plan in nonDraftPlans {
                     plan.state = .draft
                 }
@@ -195,8 +244,6 @@ struct MonthlyPlanningContainer: View {
 
             // 4. Apply flex adjustments from ViewModel to plans
             // This ensures the plans have the correct customAmount set based on user's flex settings
-            AppLog.debug("Applying flex adjustments: \(Int(planningViewModel.flexAdjustment * 100))%", category: .executionTracking)
-
             try await planService.applyBulkFlexAdjustment(
                 plans: plans,
                 adjustment: planningViewModel.flexAdjustment,
@@ -207,43 +254,99 @@ struct MonthlyPlanningContainer: View {
             // 5. Validate plans before transition
             try planService.validatePlansForExecution(plans)
 
-            // 6. Log the effective amounts for debugging
-            for plan in plans {
-                AppLog.debug("Plan validated - goalId: \(plan.goalId), effectiveAmount: \(plan.effectiveAmount), customAmount: \(plan.customAmount ?? -1), requiredMonthly: \(plan.requiredMonthly)",
-                            category: .executionTracking)
-            }
-
-            // 7. Transition plans from draft to executing
+            // 6. Transition plans from draft to executing
             try planService.startExecution(for: plans)
 
-            // 8. Create execution record with snapshot
+            // 7. Create execution record with snapshot
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
             let monthLabel = MonthlyExecutionRecord.monthLabel(from: Date())
 
-            AppLog.info("Starting tracking for month: \(monthLabel)", category: .executionTracking)
             let record = try executionService.startTracking(
                 for: monthLabel,
                 from: plans,
                 goals: goals
             )
 
-            // 9. Verify snapshot
-            if let snapshot = record.snapshot {
-                AppLog.info("Created execution record with \(snapshot.goalSnapshots.count) goals, total: \(snapshot.totalPlanned)",
-                           category: .executionTracking)
-                for goalSnapshot in snapshot.goalSnapshots {
-                    AppLog.debug("Snapshot: \(goalSnapshot.goalName) - \(goalSnapshot.plannedAmount) \(goalSnapshot.currency)",
-                                category: .executionTracking)
-                }
-            } else {
-                AppLog.error("Snapshot is nil!", category: .executionTracking)
-            }
-
             executionRecord = record
 
         } catch {
-            AppLog.error("Failed to start tracking: \(error)", category: .executionTracking)
             // TODO: Show error to user
         }
+    }
+
+    /// Return from execution mode to planning by undoing tracking and resetting plan state.
+    private func returnToPlanning() async {
+        guard let record = executionRecord else { return }
+        isLoading = true
+
+        do {
+            // Reset plan states to draft for this month
+            let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
+            let plans = try planService.fetchPlans(for: record.monthLabel)
+            for plan in plans {
+                plan.state = .draft
+            }
+            try modelContext.save()
+
+            // Undo start tracking (respects undo window)
+            let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
+            try executionService.undoStartTracking(record)
+
+            // Refresh state and planning data
+            executionRecord = record
+            await planningViewModel.loadMonthlyRequirements()
+            // Refresh execution record to reflect removal
+            await loadExecutionRecord()
+        } catch {
+        }
+
+        isLoading = false
+    }
+
+    /// Hard reset: delete execution record, unlink contributions, and reset plans to draft.
+    private func resetTrackingAndPlanning() async {
+        guard let record = executionRecord else { return }
+        isLoading = true
+
+        do {
+            let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
+            let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
+
+            // Remove contributions for this month/goal set to fully reset
+            let monthLabel = record.monthLabel
+            let goalIds = Set(record.goalIds)
+            let contribPredicate = #Predicate<Contribution> { contribution in
+                contribution.monthLabel == monthLabel
+            }
+            let contribDescriptor = FetchDescriptor<Contribution>(predicate: contribPredicate)
+            if let contributions = try? modelContext.fetch(contribDescriptor) {
+                for contribution in contributions where contribution.goal != nil && goalIds.contains(contribution.goal!.id) {
+                    modelContext.delete(contribution)
+                }
+            }
+
+            // Reset plans for this month back to draft/default state
+            let plans = try planService.fetchPlans(for: record.monthLabel)
+            for plan in plans {
+                plan.state = .draft
+                plan.totalContributed = 0
+                plan.customAmount = nil
+                plan.isProtected = false
+                plan.isSkipped = false
+                plan.flexState = .flexible
+            }
+
+            // Remove execution record entirely (force reset)
+            try executionService.deleteRecord(record)
+
+            try modelContext.save()
+
+            // Refresh UI
+            executionRecord = nil
+            await planningViewModel.loadMonthlyRequirements()
+            await loadExecutionRecord()
+        } catch { }
+
+        isLoading = false
     }
 }

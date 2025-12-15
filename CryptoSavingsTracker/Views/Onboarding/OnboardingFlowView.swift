@@ -174,7 +174,7 @@ struct OnboardingFlowView: View {
                     modelContext.insert(asset)
                     
                     // Create 100% allocation to this goal
-                    let allocation = AssetAllocation(asset: asset, goal: goal, percentage: 1.0)
+                    let allocation = AssetAllocation(asset: asset, goal: goal, amount: asset.currentAmount)
                     modelContext.insert(allocation)
                 }
                 

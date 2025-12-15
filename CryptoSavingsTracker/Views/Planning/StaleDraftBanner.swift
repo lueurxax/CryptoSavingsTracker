@@ -352,21 +352,18 @@ struct StalePlanRow: View {
 }
 
 #Preview("Single Stale Plan Row") {
-    let plan: MonthlyPlan = {
-        let p = MonthlyPlan(
-            goalId: UUID(),
-            monthLabel: "2025-10",
-            requiredMonthly: 1500,
-            remainingAmount: 15000,
-            monthsRemaining: 10,
-            currency: "EUR",
-            status: .onTrack,
-            state: .draft
-        )
-        p.totalContributed = 800
-        p.needsReview = true
-        return p
-    }()
+    let plan = MonthlyPlan(
+        goalId: UUID(),
+        monthLabel: "2025-10",
+        requiredMonthly: 1500,
+        remainingAmount: 15000,
+        monthsRemaining: 10,
+        currency: "EUR",
+        status: .onTrack,
+        state: .draft
+    )
+    plan.totalContributed = 800
+    plan.needsReview = true
 
     return StalePlanRow(
         plan: plan,
@@ -376,4 +373,9 @@ struct StalePlanRow: View {
     )
     .padding()
     .frame(width: 500)
+    #if os(macOS)
+    .background(Color(NSColor.controlBackgroundColor))
+    #else
+    .background(Color(.systemBackground))
+    #endif
 }

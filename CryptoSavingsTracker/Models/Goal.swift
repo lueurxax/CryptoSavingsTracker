@@ -57,8 +57,7 @@ final class Goal {
     var manualTotal: Double {
         allocations.reduce(0) { result, allocation in
             guard let asset = allocation.asset else { return result }
-            let targetAmount = allocation.amount > 0 ? allocation.amount : allocation.percentage * asset.manualBalance
-            let allocatedPortion = min(targetAmount, asset.manualBalance)
+            let allocatedPortion = min(max(0, allocation.amountValue), asset.manualBalance)
             return result + allocatedPortion
         }
     }
@@ -193,9 +192,7 @@ final class Goal {
     
     /// Get all assets allocated to this goal
     var allocatedAssets: [Asset] {
-        allocations
-            .filter { ($0.amount > 0.0001) || ($0.percentage > 0.0001) }
-            .compactMap { $0.asset }
+        allocations.compactMap { $0.asset }
     }
     
     /// Get unique assets (without duplicates) allocated to this goal
@@ -217,8 +214,7 @@ final class Goal {
     /// Get the total amount allocated from a specific asset
     func getAllocationAmount(from asset: Asset) -> Double {
         guard let allocation = allocations.first(where: { $0.asset?.id == asset.id }) else { return 0.0 }
-        if allocation.amount > 0 { return allocation.amount }
-        return allocation.percentage * asset.currentAmount
+        return allocation.amountValue
     }
     
     /// Get the allocated value from a specific asset (capped by asset total)
@@ -231,8 +227,7 @@ final class Goal {
     var allocationBreakdown: [(asset: Asset, amount: Double)] {
         return allocations.compactMap { allocation in
             guard let asset = allocation.asset else { return nil }
-            let amount = allocation.amount > 0 ? allocation.amount : allocation.percentage * asset.currentAmount
-            return (asset: asset, amount: amount)
+            return (asset: asset, amount: allocation.amountValue)
         }
     }
     

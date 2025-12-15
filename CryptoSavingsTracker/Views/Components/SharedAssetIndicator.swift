@@ -19,7 +19,7 @@ struct SharedAssetIndicator: View {
     private var allocationRatio: Double {
         guard let allocation = asset.allocations.first(where: { $0.goal?.id == currentGoal.id }) else { return 0 }
         let balance = asset.currentAmount
-        let amount = allocation.amount > 0 ? allocation.amount : allocation.percentage * balance
+        let amount = allocation.amountValue
         guard balance > 0 else { return 0 }
         return min(amount / balance, 1.0)
     }
@@ -63,7 +63,7 @@ struct AssetListItemView: View {
     private var effectiveBalance: Double {
         guard let allocation = asset.allocations.first(where: { $0.goal?.id == goal.id }) else { return 0 }
         let totalBalance = currentBalance
-        let amount = allocation.amount > 0 ? allocation.amount : allocation.percentage * totalBalance
+        let amount = allocation.amountValue
         return min(amount, totalBalance)
     }
     
@@ -158,7 +158,7 @@ struct SharedAssetIndicator_Previews: PreviewProvider {
         container.mainContext.insert(goal)
         container.mainContext.insert(asset)
         
-        let allocation = AssetAllocation(asset: asset, goal: goal, percentage: 0.5)
+        let allocation = AssetAllocation(asset: asset, goal: goal, amount: 0.5)
         container.mainContext.insert(allocation)
         
         return VStack {
