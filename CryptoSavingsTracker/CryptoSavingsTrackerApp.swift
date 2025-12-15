@@ -47,7 +47,7 @@ struct CryptoSavingsTrackerApp: App {
             // Enable automatic migration for optional property additions like firstReminderDate
             allowsSave: true,
             groupContainer: .none,
-            cloudKitDatabase: .automatic  // Enable iCloud sync for data backup
+            cloudKitDatabase: .none  // CloudKit requires model changes (optional attrs, inverse relationships)
         )
 
         do {
