@@ -1,0 +1,25 @@
+{
+  "configurations" : [
+    {
+      "id" : "731759DA-19EB-42FD-8DF8-77EC89428F4D",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:CryptoSavingsTracker.xcodeproj",
+        "identifier" : "CEF7B1FA2E33FAB600FB26B3",
+        "name" : "CryptoSavingsTrackerUITests"
+      }
+    }
+  ],
+  "version" : 1
+}
