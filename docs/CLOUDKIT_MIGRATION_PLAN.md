@@ -11,7 +11,7 @@ This document outlines the changes required to make the SwiftData models compati
 1. **No unique constraints** - `@Attribute(.unique)` is not supported
 2. **All attributes must be optional or have defaults**
 3. **All relationships must have inverse relationships**
-4. **All relationships must be optional**
+4. **To-one relationships must be optional** - Due to sync ordering, a record may arrive before its related record. To-many arrays (`[Type] = []`) are fine as non-optional with empty default.
 5. **Data blobs** - `Data` properties sync fine but should be kept reasonably sized (CloudKit has per-record size limits ~1MB)
 
 ### Current Violations Summary
@@ -24,7 +24,12 @@ This document outlines the changes required to make the SwiftData models compati
 
 ### Tradeoff Decisions
 
-1. **UUID `id` properties**: We'll keep `var id: UUID = UUID()` as a normal attribute (not unique). CloudKit generates its own record IDs, so our UUIDs become just another property. Risk: duplicate records possible during sync conflicts—mitigate with application-level deduplication on fetch.
+1. **UUID `id` properties**: We'll keep `var id: UUID = UUID()` as a normal attribute (not unique). CloudKit generates its own record IDs, so our UUIDs become just another property. Risk: duplicate records possible during sync conflicts—mitigate with application-level deduplication on fetch using these composite keys:
+   - `MonthlyPlan`: dedupe by `(monthLabel, goalId)`
+   - `MonthlyExecutionRecord`: dedupe by `monthLabel` (one per month)
+   - `AllocationHistory`: dedupe by `(assetId, goalId, timestamp, createdAt)`
+   - `AssetAllocation`: dedupe by `(asset.id, goal.id)`
+   - `CompletedExecution`: dedupe by `monthLabel`
 
 2. **Orphaned relationships**: CloudKit's eventual consistency means relationships can temporarily point to non-existent records. All relationships must handle `nil` gracefully.
 
@@ -137,6 +142,12 @@ This document outlines the changes required to make the SwiftData models compati
 ## Implementation Plan
 
 ### Phase 1: Add Missing Inverse Relationships
+
+**Core models requiring inverse additions** (from violations table):
+- `CompletedExecution` ↔ `MonthlyExecutionRecord` — CompletedExecution has no inverse for `MonthlyExecutionRecord.completedExecution`
+- `MonthlyPlan` ↔ `MonthlyExecutionRecord` — MonthlyPlan.executionRecord has `@Relationship` but no inverse specified
+- `AllocationHistory` ↔ `Asset` — AllocationHistory.asset is a plain `var`, not a `@Relationship`
+- `AllocationHistory` ↔ `Goal` — AllocationHistory.goal is a plain `var`, not a `@Relationship`
 
 Create bidirectional relationships:
 
@@ -280,16 +291,20 @@ var id: UUID = UUID()
 CloudKit doesn't support custom enums directly. Store as raw String values. The codebase already follows this pattern:
 
 ```swift
-// MonthlyPlan.swift - Already implemented correctly
-var statusRawValue: String = MonthlyPlanStatus.onTrack.rawValue
+// MonthlyPlan.swift - Uses RequirementStatus (defined in MonthlyRequirement.swift)
+var statusRawValue: String = RequirementStatus.onTrack.rawValue
 
-var status: MonthlyPlanStatus {
-    get { MonthlyPlanStatus(rawValue: statusRawValue) ?? .onTrack }
+var status: RequirementStatus {
+    get { RequirementStatus(rawValue: statusRawValue) ?? .onTrack }
     set { statusRawValue = newValue.rawValue }
 }
 
-// MonthlyExecutionRecord.swift - Already implemented correctly
-var statusRawValue: String = ExecutionStatus.draft.rawValue
+// MonthlyPlan.swift - Also uses nested PlanState and FlexState enums
+var stateRawValue: String = PlanState.draft.rawValue
+var flexStateRawValue: String = FlexState.flexible.rawValue
+
+// MonthlyExecutionRecord.swift - Uses nested ExecutionStatus enum
+var statusRawValue: String = MonthlyExecutionRecord.ExecutionStatus.draft.rawValue
 
 var status: ExecutionStatus {
     get { ExecutionStatus(rawValue: statusRawValue) ?? .draft }
@@ -316,7 +331,12 @@ init(amount: Double = 0.0, asset: Asset? = nil, comment: String? = nil) {
 
 ### Phase 6: Enable CloudKit
 
-After all model changes:
+**Prerequisites before enabling CloudKit:**
+1. ⚠️ **Remove wipe-on-failure strategy** - The current `resetStoreFilesIfPresent()` call in `CryptoSavingsTrackerApp.swift:72-80` must be disabled or guarded when CloudKit is enabled. Otherwise, temporary sync failures will wipe local data and cause repeated deletion/reupload cycles. See "Risks and Considerations" section for details.
+2. All model changes from Phases 1-5 must be complete
+3. Test thoroughly in Development CloudKit container first
+
+After all prerequisites are met:
 
 ```swift
 // CryptoSavingsTrackerApp.swift
