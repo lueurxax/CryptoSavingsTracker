@@ -95,19 +95,41 @@ struct TestDataFactory {
 // MARK: - Test Container Helper
 
 struct TestContainer {
+    /// Creates an in-memory ModelContainer with the full app schema.
+    /// Use this for all SwiftData tests to ensure relationship consistency.
+    /// Each call creates a unique store to avoid conflicts in parallel test execution.
     static func create() throws -> ModelContainer {
-        let schema = Schema([Goal.self, Asset.self, Transaction.self])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let schema = Schema([
+            Goal.self,
+            Asset.self,
+            Transaction.self,
+            MonthlyPlan.self,
+            AssetAllocation.self,
+            AllocationHistory.self,
+            MonthlyExecutionRecord.self,
+            CompletedExecution.self,
+            ExecutionSnapshot.self
+        ])
+        // Use UUID to ensure unique store name for parallel test execution
+        let storeName = "testStore-\(UUID().uuidString)"
+        let configuration = ModelConfiguration(
+            storeName,
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            allowsSave: true,
+            groupContainer: .none,
+            cloudKitDatabase: .none
+        )
         return try ModelContainer(for: schema, configurations: [configuration])
     }
-    
+
     static func createWithSampleData() throws -> (ModelContainer, ModelContext) {
         let container = try create()
         let context = ModelContext(container)
-        
+
         // Create some sample data
         let _ = try TestDataFactory.createCompleteTestData(in: context)
-        
+
         return (container, context)
     }
 }
@@ -148,9 +170,13 @@ struct TestHelpers {
             targetAmount: targetAmount,
             deadline: deadline
         )
-        if currentTotal > 0 {
+        if currentTotal != 0 {
             let asset = Asset(currency: currency)
-            let allocation = AssetAllocation(asset: asset, goal: goal, amount: currentTotal)
+            // Add transaction to give the asset a balance
+            let tx = Transaction(amount: currentTotal, asset: asset)
+            asset.transactions.append(tx)
+            // Create allocation that references the asset balance
+            let allocation = AssetAllocation(asset: asset, goal: goal, amount: abs(currentTotal))
             goal.allocations.append(allocation)
             asset.allocations.append(allocation)
         }
@@ -168,7 +194,13 @@ struct TestHelpers {
         let deadline = Calendar.current.date(byAdding: .month, value: months, to: Date())!
         let goal = Goal(name: name, currency: currency, targetAmount: target, deadline: deadline)
         let asset = Asset(currency: currency)
-        let allocation = AssetAllocation(asset: asset, goal: goal, amount: current)
+        // Add transaction to give the asset a balance
+        if current != 0 {
+            let tx = Transaction(amount: current, asset: asset)
+            asset.transactions.append(tx)
+            context.insert(tx)
+        }
+        let allocation = AssetAllocation(asset: asset, goal: goal, amount: abs(current))
         goal.allocations.append(allocation)
         asset.allocations.append(allocation)
         context.insert(goal)

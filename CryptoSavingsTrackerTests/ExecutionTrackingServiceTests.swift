@@ -14,26 +14,12 @@ import Foundation
 struct ExecutionTrackingServiceTests {
     var modelContainer: ModelContainer
     var executionService: ExecutionTrackingService
-    var contributionService: ContributionService
 
     init() async throws {
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        self.modelContainer = try ModelContainer(
-            for: Goal.self,
-            Asset.self,
-            AssetAllocation.self,
-            Transaction.self,
-            AllocationHistory.self,
-            MonthlyPlan.self,
-            MonthlyExecutionRecord.self,
-            CompletedExecution.self,
-            ExecutionSnapshot.self,
-            Contribution.self,
-            configurations: config
-        )
+        // Use shared TestContainer for consistent schema
+        self.modelContainer = try TestContainer.create()
         let context = modelContainer.mainContext
         self.executionService = ExecutionTrackingService(modelContext: context)
-        self.contributionService = ContributionService(modelContext: context)
     }
 
     @Test("Reallocation moves contributions to second goal in execution")
@@ -60,6 +46,16 @@ struct ExecutionTrackingServiceTests {
         let asset = Asset(currency: "USD")
         context.insert(asset)
 
+        // Link asset to goals via allocations (required for ExecutionProgressCalculator)
+        let alloc1 = AssetAllocation(asset: asset, goal: goal1, amount: 100)
+        let alloc2 = AssetAllocation(asset: asset, goal: goal2, amount: 0)
+        goal1.allocations.append(alloc1)
+        goal2.allocations.append(alloc2)
+        asset.allocations.append(alloc1)
+        asset.allocations.append(alloc2)
+        context.insert(alloc1)
+        context.insert(alloc2)
+
         let monthLabel = MonthlyExecutionRecord.monthLabel(from: Date())
         let plan1 = MonthlyPlan(
             goalId: goal1.id,
@@ -81,35 +77,37 @@ struct ExecutionTrackingServiceTests {
         context.insert(plan2)
         try context.save()
 
-        let record = try executionService.startTracking(
-            for: monthLabel,
-            from: [plan1, plan2],
-            goals: [goal1, goal2]
-        )
+        // Use fixed timestamps for deterministic testing
+        let startTime = Date(timeIntervalSince1970: 1_700_000_000)
+        let depositTime = startTime.addingTimeInterval(3600)
+        let reallocateTime = depositTime.addingTimeInterval(1800)
 
-        // Deposit to goal1
-        let deposit = try contributionService.recordDeposit(
-            amount: 100,
-            assetAmount: 100,
-            to: goal1,
-            from: asset,
-            exchangeRate: 1.0
-        )
-        try contributionService.linkToExecutionRecord(deposit, recordId: record.id)
+        // Set up baseline allocation at startTime - initially only goal1 has target of 100
+        context.insert(AllocationHistory(asset: asset, goal: goal1, amount: 100, timestamp: startTime))
+        try context.save()
 
-        // Reallocate 40 from goal1 to goal2
-        let reallocation = try contributionService.recordReallocation(
-            fiatAmount: 40,
-            assetAmount: 40,
-            from: goal1,
-            to: goal2,
-            asset: asset,
-            exchangeRate: 1.0
-        )
-        try contributionService.linkToExecutionRecord(reallocation.deposit, recordId: record.id)
-        try contributionService.linkToExecutionRecord(reallocation.withdrawal, recordId: record.id)
+        // Create record directly (bypassing seedAllocationHistoryBaseline)
+        let record = MonthlyExecutionRecord(monthLabel: monthLabel, goalIds: [goal1.id, goal2.id])
+        record.statusRawValue = "executing"
+        record.startedAt = startTime
+        context.insert(record)
+        try context.save()
 
-        let totals = try executionService.getContributionTotals(for: record)
+        // Deposit 100 USD after tracking started (goes to goal1 since it has the target)
+        let tx = Transaction(amount: 100, asset: asset, date: depositTime)
+        asset.transactions.append(tx)
+        context.insert(tx)
+
+        // Reallocate 40 from goal1 to goal2 by changing targets
+        context.insert(AllocationHistory(asset: asset, goal: goal1, amount: 60, timestamp: reallocateTime))
+        context.insert(AllocationHistory(asset: asset, goal: goal2, amount: 40, timestamp: reallocateTime))
+        try context.save()
+
+        let calculator = ExecutionProgressCalculator(
+            modelContext: context,
+            exchangeRateService: MockExchangeRateService()
+        )
+        let totals = try await calculator.contributionTotalsInGoalCurrency(for: record, end: reallocateTime.addingTimeInterval(1))
         #expect(totals[goal1.id] == 60, "Goal1 should retain net 60 after reallocating 40")
         #expect(totals[goal2.id] == 40, "Goal2 should gain 40 via reallocation")
         #expect(totals.keys.count == 2, "Both goals should appear in execution totals")

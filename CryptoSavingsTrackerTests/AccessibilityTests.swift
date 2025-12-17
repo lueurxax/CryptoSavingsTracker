@@ -24,7 +24,8 @@ struct AccessibilityTests {
     @Test("AccessibilityManager voiceOver description basic")
     func testVoiceOverDescription() {
         let desc = AccessibilityManager.shared.voiceOverDescription(for: 100, currency: "USD")
-        #expect(desc.contains("USD"))
+        // May contain "USD" or full currency name "US Dollar"
+        #expect(desc.contains("100") && (desc.contains("USD") || desc.contains("Dollar")))
     }
 
     @Test("AccessibleButton stores values")

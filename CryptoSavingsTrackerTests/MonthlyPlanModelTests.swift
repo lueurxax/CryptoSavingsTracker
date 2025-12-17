@@ -12,15 +12,25 @@ import Foundation
 
 @MainActor
 struct MonthlyPlanModelTests {
-    
+
     var modelContainer: ModelContainer
-    
+
     init() async throws {
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        self.modelContainer = try ModelContainer(
-            for: MonthlyPlan.self,
-            configurations: config
-        )
+        // Use shared TestContainer for consistent schema
+        self.modelContainer = try TestContainer.create()
+    }
+
+    /// Creates a deadline that reliably gives the expected months remaining.
+    /// Use the start of the target month to ensure full month counting.
+    private func deadlineForMonths(_ months: Int) -> Date {
+        let calendar = Calendar.current
+        // Get first day of current month, then add months + go to last day
+        var components = calendar.dateComponents([.year, .month], from: Date())
+        components.day = 1
+        let startOfCurrentMonth = calendar.date(from: components)!
+        // Add months and set to end of that month to ensure we're past the boundary
+        let targetMonth = calendar.date(byAdding: .month, value: months, to: startOfCurrentMonth)!
+        return calendar.date(byAdding: .day, value: 28, to: targetMonth)!
     }
     
     // MARK: - Initialization Tests
@@ -62,9 +72,9 @@ struct MonthlyPlanModelTests {
         let goalId = UUID()
         let targetAmount = 10000.0
         let currentTotal = 2500.0
-        let deadline = Calendar.current.date(byAdding: .month, value: 5, to: Date())!
+        let deadline = deadlineForMonths(5)
         let currency = "EUR"
-        
+
         // When
         let plan = MonthlyPlan.fromCalculation(
             goalId: goalId,
@@ -73,7 +83,7 @@ struct MonthlyPlanModelTests {
             deadline: deadline,
             currency: currency
         )
-        
+
         // Then
         #expect(plan.goalId == goalId)
         #expect(plan.remainingAmount == 7500.0) // 10000 - 2500
@@ -109,15 +119,15 @@ struct MonthlyPlanModelTests {
             goalId: UUID(),
             targetAmount: 25000,
             currentTotal: 5000,
-            deadline: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
+            deadline: deadlineForMonths(1),
             currency: "USD"
         )
-        
+
         // Then
         #expect(plan.status == .critical)
         #expect(plan.requiredMonthly == 20000) // (25000-5000)/1
     }
-    
+
     @Test("Status determination attention")
     func testStatusDeterminationAttention() async throws {
         // Given - attention status (over 5k monthly)
@@ -125,10 +135,10 @@ struct MonthlyPlanModelTests {
             goalId: UUID(),
             targetAmount: 18000,
             currentTotal: 6000,
-            deadline: Calendar.current.date(byAdding: .month, value: 2, to: Date())!,
+            deadline: deadlineForMonths(2),
             currency: "USD"
         )
-        
+
         // Then
         #expect(plan.status == .attention)
         #expect(plan.requiredMonthly == 6000) // (18000-6000)/2
@@ -464,7 +474,7 @@ struct MonthlyPlanModelTests {
     @Test("SwiftData persistence")
     func testSwiftDataPersistence() async throws {
         let context = modelContainer.mainContext
-        
+
         // Given
         let plan = MonthlyPlan(
             goalId: UUID(),
@@ -473,28 +483,30 @@ struct MonthlyPlanModelTests {
             monthsRemaining: 4,
             currency: "GBP"
         )
-        
+
         plan.setCustomAmount(600)
         plan.toggleProtection()
-        
+
         // When - save to SwiftData
         context.insert(plan)
         try context.save()
-        
-        // Clear memory
+
+        // Store the id for fetching
         let planId = plan.id
-        context.delete(plan)
-        
+
+        // Create a new context to verify persistence (simulates app restart)
+        let freshContext = ModelContext(modelContainer)
+
         // Fetch from database
         let descriptor = FetchDescriptor<MonthlyPlan>(
             predicate: #Predicate { $0.id == planId }
         )
-        let fetchedPlans = try context.fetch(descriptor)
-        
+        let fetchedPlans = try freshContext.fetch(descriptor)
+
         // Then
         #expect(fetchedPlans.count == 1)
         let fetchedPlan = fetchedPlans.first!
-        
+
         #expect(fetchedPlan.requiredMonthly == 800)
         #expect(fetchedPlan.customAmount == 600)
         #expect(fetchedPlan.isProtected == true)
