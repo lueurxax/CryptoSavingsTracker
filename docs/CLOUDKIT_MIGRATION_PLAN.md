@@ -4,12 +4,31 @@
 
 This document outlines the changes required to make the SwiftData models compatible with CloudKit for iCloud sync.
 
+> **Architecture Note:** As of the contribution tracking redesign, the app no longer uses a persisted `Contribution` model. Contributions are now **timestamp-derived** from `Transaction.date` and `AllocationHistory.timestamp` during active execution, then frozen into `CompletedExecution` snapshots on completion. See `CONTRIBUTION_TRACKING_REDESIGN.md` for details.
+
 ## CloudKit Requirements
 
 1. **No unique constraints** - `@Attribute(.unique)` is not supported
 2. **All attributes must be optional or have defaults**
 3. **All relationships must have inverse relationships**
 4. **All relationships must be optional**
+5. **Data blobs** - `Data` properties sync fine but should be kept reasonably sized (CloudKit has per-record size limits ~1MB)
+
+### Current Violations Summary
+
+| Requirement | Violating Models | Count |
+|-------------|------------------|-------|
+| `@Attribute(.unique)` | Goal, Asset, AssetAllocation, Transaction, MonthlyPlan, MonthlyExecutionRecord, ExecutionSnapshot, CompletedExecution, AllocationHistory | **9/9 models** |
+| Missing inverse relationships | AllocationHistory (asset, goal), CompletedExecution (executionRecord), MonthlyPlan (executionRecord) | **4 relationships** |
+| Non-optional without defaults | Various `String`, `Date`, `Double` properties | ~25 properties |
+
+### Tradeoff Decisions
+
+1. **UUID `id` properties**: We'll keep `var id: UUID = UUID()` as a normal attribute (not unique). CloudKit generates its own record IDs, so our UUIDs become just another property. Risk: duplicate records possible during sync conflicts—mitigate with application-level deduplication on fetch.
+
+2. **Orphaned relationships**: CloudKit's eventual consistency means relationships can temporarily point to non-existent records. All relationships must handle `nil` gracefully.
+
+3. **Data blob serialization**: We accept that `CompletedExecution` and `ExecutionSnapshot` use JSON-encoded Data blobs. These aren't queryable in CloudKit but keep our model simpler than normalizing into separate records.
 
 ## Current Issues by Model
 
@@ -67,18 +86,7 @@ This document outlines the changes required to make the SwiftData models compati
 | `var lastModifiedDate: Date` | Non-optional | Add default `Date()` |
 | `var executionRecord` | No inverse | Add inverse to MonthlyExecutionRecord |
 
-### 6. Contribution
-
-| Property | Issue | Fix |
-|----------|-------|-----|
-| `@Attribute(.unique) var id: UUID` | Unique constraint | Remove `@Attribute(.unique)` |
-| `var amount: Double` | Non-optional | Add default `0.0` |
-| `var date: Date` | Non-optional | Add default `Date()` |
-| `var sourceType: ContributionSource` | Non-optional enum | Store as optional String |
-| `var monthLabel: String` | Non-optional | Add default `""` |
-| `var isPlanned: Bool` | Non-optional | Add default `false` |
-
-### 7. MonthlyExecutionRecord
+### 6. MonthlyExecutionRecord
 
 | Property | Issue | Fix |
 |----------|-------|-----|
@@ -86,29 +94,34 @@ This document outlines the changes required to make the SwiftData models compati
 | `var monthLabel: String` | Non-optional | Add default `""` |
 | `var statusRawValue: String` | Non-optional | Has default already |
 | `var createdAt: Date` | Non-optional | Add default `Date()` |
-| `var trackedGoalIds: Data` | Non-optional | Add default `Data()` |
+| `var trackedGoalIds: Data` | Non-optional Data blob | Add default `Data()` |
 | `var completedExecution` | No inverse | Add inverse to CompletedExecution |
 | Needs inverse for `MonthlyPlan.executionRecord` | | Add relationship |
 
-### 8. ExecutionSnapshot
+### 7. ExecutionSnapshot
 
 | Property | Issue | Fix |
 |----------|-------|-----|
 | `@Attribute(.unique) var id: UUID` | Unique constraint | Remove `@Attribute(.unique)` |
 | `var capturedAt: Date` | Non-optional | Add default `Date()` |
 | `var totalPlanned: Double` | Non-optional | Add default `0.0` |
-| `var snapshotData: Data` | Non-optional | Add default `Data()` |
+| `var snapshotData: Data` | Non-optional Data blob (~1KB per goal) | Add default `Data()` |
 
-### 9. CompletedExecution
+### 8. CompletedExecution
+
+> **Note:** This model stores frozen contribution snapshots. Data blobs contain serialized exchange rates and contribution details captured at completion time.
 
 | Property | Issue | Fix |
 |----------|-------|-----|
 | `@Attribute(.unique) var id: UUID` | Unique constraint | Remove `@Attribute(.unique)` |
 | `var monthLabel: String` | Non-optional | Add default `""` |
 | `var completedAt: Date` | Non-optional | Add default `Date()` |
+| `var exchangeRatesSnapshotData: Data?` | Optional Data blob | Already optional (OK) |
+| `var goalSnapshotsData: Data?` | Optional Data blob | Already optional (OK) |
+| `var contributionSnapshotsData: Data?` | Optional Data blob | Already optional (OK) |
 | Needs inverse for `MonthlyExecutionRecord.completedExecution` | | Add relationship |
 
-### 10. AllocationHistory
+### 9. AllocationHistory
 
 | Property | Issue | Fix |
 |----------|-------|-----|
@@ -165,13 +178,26 @@ var plans: [MonthlyPlan] = []
 var executionRecord: MonthlyExecutionRecord?
 
 // CompletedExecution.swift
+// CURRENTLY MISSING - must add inverse relationship
 @Relationship(inverse: \MonthlyExecutionRecord.completedExecution)
 var executionRecord: MonthlyExecutionRecord?
 
 // AllocationHistory.swift
+// CURRENTLY MISSING - both relationships have no @Relationship decorator at all
+// Must add inverse relationships and corresponding arrays on Asset/Goal
 @Relationship(inverse: \Asset.allocationHistory) var asset: Asset?
 @Relationship(inverse: \Goal.allocationHistory) var goal: Goal?
+
+// Asset.swift - must ADD this relationship (doesn't exist)
+@Relationship(deleteRule: .nullify, inverse: \AllocationHistory.asset)
+var allocationHistory: [AllocationHistory] = []
+
+// Goal.swift - must ADD this relationship (doesn't exist)
+@Relationship(deleteRule: .nullify, inverse: \AllocationHistory.goal)
+var allocationHistory: [AllocationHistory] = []
 ```
+
+> **Critical Note:** `AllocationHistory` relationships currently have NO `@Relationship` decorator—they're plain `var asset: Asset?` properties. This works locally but will fail CloudKit validation. The inverse arrays on `Asset` and `Goal` don't exist yet and must be added.
 
 ### Phase 2: Add Default Values to All Properties
 
@@ -210,14 +236,6 @@ var lastCalculated: Date = Date()
 var createdDate: Date = Date()
 var lastModifiedDate: Date = Date()
 
-// Contribution.swift
-var id: UUID = UUID()
-var amount: Double = 0.0
-var date: Date = Date()
-var sourceTypeRaw: String = "manualDeposit"  // Store enum as string
-var monthLabel: String = ""
-var isPlanned: Bool = false
-
 // MonthlyExecutionRecord.swift
 var id: UUID = UUID()
 var monthLabel: String = ""
@@ -234,6 +252,9 @@ var snapshotData: Data = Data()
 var id: UUID = UUID()
 var monthLabel: String = ""
 var completedAt: Date = Date()
+var exchangeRatesSnapshotData: Data? = nil  // Already optional
+var goalSnapshotsData: Data? = nil          // Already optional
+var contributionSnapshotsData: Data? = nil  // Already optional
 
 // AllocationHistory.swift
 var id: UUID = UUID()
@@ -256,20 +277,27 @@ var id: UUID = UUID()
 
 ### Phase 4: Handle Enum Properties
 
-CloudKit doesn't support custom enums directly. Store as raw String values:
+CloudKit doesn't support custom enums directly. Store as raw String values. The codebase already follows this pattern:
 
 ```swift
-// Contribution.swift - Before
-var sourceType: ContributionSource
+// MonthlyPlan.swift - Already implemented correctly
+var statusRawValue: String = MonthlyPlanStatus.onTrack.rawValue
 
-// Contribution.swift - After
-var sourceTypeRaw: String = ContributionSource.manualDeposit.rawValue
+var status: MonthlyPlanStatus {
+    get { MonthlyPlanStatus(rawValue: statusRawValue) ?? .onTrack }
+    set { statusRawValue = newValue.rawValue }
+}
 
-var sourceType: ContributionSource {
-    get { ContributionSource(rawValue: sourceTypeRaw) ?? .manualDeposit }
-    set { sourceTypeRaw = newValue.rawValue }
+// MonthlyExecutionRecord.swift - Already implemented correctly
+var statusRawValue: String = ExecutionStatus.draft.rawValue
+
+var status: ExecutionStatus {
+    get { ExecutionStatus(rawValue: statusRawValue) ?? .draft }
+    set { statusRawValue = newValue.rawValue }
 }
 ```
+
+> **Status:** All enum properties already use this pattern. No changes needed.
 
 ### Phase 5: Update Initializers
 
@@ -328,14 +356,46 @@ let modelConfiguration = ModelConfiguration(
 
 ## Testing Checklist
 
+### Model Compatibility
 - [ ] All models compile without errors
-- [ ] Relationships are bidirectional
-- [ ] No `@Attribute(.unique)` constraints
+- [ ] Relationships are bidirectional (all have inverses)
+- [ ] No `@Attribute(.unique)` constraints remain
 - [ ] All properties have defaults or are optional
-- [ ] CloudKit schema deploys successfully
-- [ ] Data syncs between devices
-- [ ] Conflict resolution works correctly
-- [ ] Offline mode works properly
+- [ ] AllocationHistory has proper `@Relationship` decorators (not plain vars)
+
+### Schema Deployment
+- [ ] CloudKit schema deploys successfully to Development container
+- [ ] Schema promotes to Production without errors
+- [ ] Schema changes propagate to existing installs within acceptable time
+- [ ] App handles "schema not yet available" gracefully (no wipe!)
+
+### Authentication & Account Handling
+- [ ] App works when user is signed out of iCloud
+- [ ] App handles iCloud sign-in during use
+- [ ] App handles iCloud sign-out during use (preserves local data)
+- [ ] App handles iCloud account switch (different Apple ID)
+- [ ] Restricted iCloud accounts work (parental controls, managed devices)
+
+### Sync & Conflict Resolution
+- [ ] Fresh install syncs existing CloudKit data correctly
+- [ ] Existing local data uploads to CloudKit on first sync
+- [ ] Concurrent edits on two devices resolve correctly
+- [ ] Offline edits sync when connectivity returns
+- [ ] Large batch imports don't timeout or corrupt
+- [ ] Deleted records propagate correctly (no orphans)
+
+### Data Integrity Scenarios
+- [ ] **Fresh install**: New device gets all CloudKit data
+- [ ] **Existing local store + CloudKit enabled**: Local data merges with cloud
+- [ ] **Existing local store + CloudKit has data**: Handles potential duplicates
+- [ ] **App update with schema changes**: Migration works, no data loss
+- [ ] **Downgrade scenario**: Older app version handles newer schema gracefully
+
+### Edge Cases
+- [ ] Very large ExecutionSnapshot/CompletedExecution Data blobs sync
+- [ ] Relationship cycles don't cause infinite sync loops
+- [ ] Rapid successive saves don't cause race conditions
+- [ ] App backgrounded during sync resumes correctly
 
 ---
 
@@ -346,6 +406,29 @@ let modelConfiguration = ModelConfiguration(
 3. **Performance**: CloudKit sync adds latency to saves
 4. **Storage Limits**: iCloud has storage quotas
 5. **Apple ID Required**: Users must be signed into iCloud
+6. **Data Blob Sizes**: `CompletedExecution` and `ExecutionSnapshot` store serialized JSON in Data blobs. CloudKit has ~1MB per-record limit. Current usage is well under this (~1-2KB per goal), but monitor if users track many goals
+
+### ⚠️ CRITICAL: Wipe-on-Failure Strategy Must Be Removed
+
+**Current behavior** (`CryptoSavingsTrackerApp.swift:72-80`):
+```swift
+// Initial-schema-only strategy: if the store can't be opened due to schema mismatch,
+// wipe and recreate. This is acceptable while we have 0 clients.
+resetStoreFilesIfPresent()
+```
+
+**Why this is dangerous with CloudKit:**
+- CloudKit sync can temporarily fail (network issues, iCloud account changes, schema propagation delays)
+- With the current strategy, any sync failure would **wipe all local data**
+- User could lose months of tracking data that hasn't synced yet
+- CloudKit schema changes propagate asynchronously—a new app version might wipe data before the schema arrives
+
+**Required changes before Phase 6:**
+1. Remove the automatic wipe-on-failure behavior entirely
+2. Implement graceful degradation: if CloudKit unavailable, operate in local-only mode
+3. Add explicit user confirmation before any data reset
+4. Implement data export before destructive operations
+5. Consider a "pending changes" queue for offline edits
 
 ---
 
