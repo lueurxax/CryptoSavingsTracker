@@ -15,7 +15,7 @@ final class MonthlyPlan {
     // MARK: - Primary Properties
     @Attribute(.unique) var id: UUID
     var goalId: UUID
-    var monthLabel: String = "" // "yyyy-MM" format (e.g., "2025-11") - empty default for migration
+    var monthLabel: String // "yyyy-MM" format (e.g., "2025-11")
     var requiredMonthly: Double
     var remainingAmount: Double
     var monthsRemaining: Int
@@ -25,11 +25,7 @@ final class MonthlyPlan {
 
     // MARK: - Lifecycle State
     var stateRawValue: String = "draft" // draft, executing, completed
-    var totalContributed: Double = 0.0 // Sum of all contributions for this month
-
     // MARK: - Relationships
-    @Relationship(deleteRule: .nullify, inverse: \Contribution.monthlyPlan)
-    var contributions: [Contribution]? = []
 
     @Relationship(deleteRule: .nullify)
     var executionRecord: MonthlyExecutionRecord?
@@ -43,8 +39,7 @@ final class MonthlyPlan {
     // MARK: - Metadata
     var createdDate: Date
     var lastModifiedDate: Date
-    var version: Int = 1 // For future model migrations
-    var needsReview: Bool = false // Flag for ambiguous monthLabel inference (e.g., missing firstReminderDate)
+    // Initial-schema-only strategy: no legacy migration flags needed.
     
     // MARK: - Computed Properties
     

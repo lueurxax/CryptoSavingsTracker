@@ -118,7 +118,7 @@ struct AssetListItemView: View {
     
     private func loadBalance() async {
         // Get manual balance
-        let manualBalance = asset.transactions.reduce(0) { $0 + $1.amount }
+        let manualBalance = asset.manualBalance
         
         // Get on-chain balance if available
         if let chainId = asset.chainId, let address = asset.address {

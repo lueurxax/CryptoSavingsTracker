@@ -15,6 +15,7 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
     private var cachedRates: [String: [String: Double]] = [:]
     private let cacheExpiration: TimeInterval = 300
     private var lastFetchTime: [String: Date] = [:]
+    private let cacheQueue = DispatchQueue(label: "com.cryptosavings.exchangerate.cache", attributes: .concurrent)
     private let apiKey: String
     
     private var isOffline = false
@@ -88,6 +89,13 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
         if canonicalFrom == canonicalTo {
             return 1.0
         }
+
+        // Fast-path stablecoin pegs to avoid unnecessary network calls and keep the app usable offline.
+        // This intentionally errs on "good UX" over minor peg deviations.
+        let usdPegged: Set<String> = ["USD", "USDT", "USDC"]
+        if usdPegged.contains(canonicalFrom), usdPegged.contains(canonicalTo) {
+            return 1.0
+        }
         
         if let cachedRate = getCachedRate(from: canonicalFrom, to: canonicalTo) {
             return cachedRate
@@ -101,25 +109,26 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
     
     private func getCachedRate(from: String, to: String) -> Double? {
         let cacheKey = "\(from)-\(to)"
-        
-        if let lastFetch = lastFetchTime[cacheKey],
-           Date().timeIntervalSince(lastFetch) < cacheExpiration,
-           let rate = cachedRates[from]?[to] {
-            return rate
+        return cacheQueue.sync {
+            if let lastFetch = lastFetchTime[cacheKey],
+               Date().timeIntervalSince(lastFetch) < cacheExpiration,
+               let rate = cachedRates[from]?[to] {
+                return rate
+            }
+            return nil
         }
-        
-        return nil
     }
     
     private func cacheRate(from: String, to: String, rate: Double) {
         let cacheKey = "\(from)-\(to)"
-        
-        if cachedRates[from] == nil {
-            cachedRates[from] = [:]
+
+        cacheQueue.sync(flags: .barrier) {
+            if cachedRates[from] == nil {
+                cachedRates[from] = [:]
+            }
+            cachedRates[from]?[to] = rate
+            lastFetchTime[cacheKey] = Date()
         }
-        cachedRates[from]?[to] = rate
-        lastFetchTime[cacheKey] = Date()
-        
         saveCachedData()
     }
     
@@ -326,24 +335,32 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
     }
     
     private func saveCachedData() {
-        if let ratesData = try? JSONEncoder().encode(cachedRates) {
+        let snapshot = cacheQueue.sync { (cachedRates, lastFetchTime) }
+        if let ratesData = try? JSONEncoder().encode(snapshot.0) {
             UserDefaults.standard.set(ratesData, forKey: "cached_exchange_rates")
         }
         
-        if let timesData = try? JSONEncoder().encode(lastFetchTime) {
+        if let timesData = try? JSONEncoder().encode(snapshot.1) {
             UserDefaults.standard.set(timesData, forKey: "cached_fetch_times")
         }
     }
     
     private func loadCachedData() {
+        var loadedRates: [String: [String: Double]] = [:]
+        var loadedTimes: [String: Date] = [:]
         if let ratesData = UserDefaults.standard.data(forKey: "cached_exchange_rates"),
            let rates = try? JSONDecoder().decode([String: [String: Double]].self, from: ratesData) {
-            cachedRates = rates
+            loadedRates = rates
         }
         
         if let timesData = UserDefaults.standard.data(forKey: "cached_fetch_times"),
            let times = try? JSONDecoder().decode([String: Date].self, from: timesData) {
-            lastFetchTime = times
+            loadedTimes = times
+        }
+
+        cacheQueue.sync(flags: .barrier) {
+            cachedRates = loadedRates
+            lastFetchTime = loadedTimes
         }
     }
     

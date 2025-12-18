@@ -145,8 +145,10 @@ final class ExecutionUserFlowUITests: XCTestCase {
         }
         XCTAssertTrue(shareButton.waitForExistence(timeout: 6))
         tapForce(shareButton)
-        let allocA = app.textFields["allocation-Goal A"]
-        let allocB = app.textFields["allocation-Goal B"]
+        var allocA = app.textFields["allocGoalAmountField-Goal A"]
+        if !allocA.exists { allocA = app.textFields["allocation-Goal A"] }
+        var allocB = app.textFields["allocGoalAmountField-Goal B"]
+        if !allocB.exists { allocB = app.textFields["allocation-Goal B"] }
         if !allocA.waitForExistence(timeout: 2) {
             // Sheet might have been slow to present; retry tap once.
             tapForce(shareButton)

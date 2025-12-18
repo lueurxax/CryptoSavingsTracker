@@ -101,10 +101,8 @@ final class MonthlyPlanService {
 
         let remaining = max(0, goal.targetAmount - currentTotal)
 
-        // Calculate months left
-        let calendar = Calendar.current
-        let now = Date()
-        let monthsLeft = max(1, calendar.dateComponents([.month], from: now, to: goal.deadline).month ?? 1)
+        // Calculate payment periods remaining (uses payment day from settings)
+        let monthsLeft = calculatePaymentPeriodsRemaining(until: goal.deadline)
 
         let monthlyAmount = remaining / Double(monthsLeft)
 
@@ -240,13 +238,6 @@ final class MonthlyPlanService {
         AppLog.info("Completed \(plans.count) plans", category: .monthlyPlanning)
     }
 
-    /// Update totalContributed for a plan (called when contributions are added)
-    func updateContributionTotal(for plan: MonthlyPlan) throws {
-        let contributions = plan.contributions ?? []
-        plan.totalContributed = contributions.reduce(0) { $0 + $1.amount }
-        try modelContext.save()
-    }
-
     // MARK: - Helper Methods
 
     /// Get current month label (yyyy-MM format)
@@ -256,31 +247,50 @@ final class MonthlyPlanService {
         return formatter.string(from: Date())
     }
 
+    /// Calculate how many payment periods remain until the deadline
+    /// Uses the payment day from MonthlyPlanningSettings
+    ///
+    /// Example: Today Dec 18, payment day 25th, deadline March 1
+    /// Payment dates: Dec 25, Jan 25, Feb 25 = 3 periods
+    private func calculatePaymentPeriodsRemaining(until deadline: Date) -> Int {
+        let settings = MonthlyPlanningSettings.shared
+        let paymentDay = settings.paymentDay
+        let calendar = Calendar.current
+        let now = Date()
+
+        // Start counting from today
+        var count = 0
+        var currentDate = now
+
+        // Find the next payment date from today
+        var components = calendar.dateComponents([.year, .month], from: currentDate)
+        components.day = paymentDay
+        guard var paymentDate = calendar.date(from: components) else {
+            // Fallback to simple month calculation
+            return max(1, calendar.dateComponents([.month], from: now, to: deadline).month ?? 1)
+        }
+
+        // If payment date this month has passed, start from next month
+        if paymentDate <= now {
+            paymentDate = calendar.date(byAdding: .month, value: 1, to: paymentDate) ?? paymentDate
+        }
+
+        // Count payment dates until we pass the deadline
+        while paymentDate < deadline {
+            count += 1
+            paymentDate = calendar.date(byAdding: .month, value: 1, to: paymentDate) ?? paymentDate
+        }
+
+        // Ensure at least 1 payment period
+        return max(1, count)
+    }
+
     /// Delete a plan (use with caution)
     func deletePlan(_ plan: MonthlyPlan) throws {
         modelContext.delete(plan)
         try modelContext.save()
     }
 
-    /// Get plan summary for display
-    func getPlanSummary(for monthLabel: String) throws -> PlanSummary {
-        let plans = try fetchPlans(for: monthLabel)
-
-        let totalRequired = plans.reduce(0) { $0 + $1.effectiveAmount }
-        let totalContributed = plans.reduce(0) { $0 + $1.totalContributed }
-        let fulfilledCount = plans.filter { $0.totalContributed >= $0.effectiveAmount }.count
-        let skippedCount = plans.filter { $0.isSkipped }.count
-
-        return PlanSummary(
-            monthLabel: monthLabel,
-            totalPlans: plans.count,
-            totalRequired: totalRequired,
-            totalContributed: totalContributed,
-            fulfilledCount: fulfilledCount,
-            skippedCount: skippedCount,
-            activeCount: plans.count - skippedCount
-        )
-    }
 
     // MARK: - Bulk Flex Adjustment
 
@@ -383,24 +393,5 @@ enum PlanError: LocalizedError {
         case .validationFailed(let message):
             return "Validation failed: \(message)"
         }
-    }
-}
-
-struct PlanSummary {
-    let monthLabel: String
-    let totalPlans: Int
-    let totalRequired: Double
-    let totalContributed: Double
-    let fulfilledCount: Int
-    let skippedCount: Int
-    let activeCount: Int
-
-    var progress: Double {
-        guard totalRequired > 0 else { return 1.0 }
-        return min(totalContributed / totalRequired, 1.0)
-    }
-
-    var isComplete: Bool {
-        return fulfilledCount == activeCount
     }
 }

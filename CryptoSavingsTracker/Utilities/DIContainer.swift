@@ -152,11 +152,6 @@ class DIContainer: ObservableObject {
         AllocationService(modelContext: modelContext)
     }
 
-    // Contribution service (v2.0)
-    func makeContributionService(modelContext: ModelContext) -> ContributionService {
-        ContributionService(modelContext: modelContext)
-    }
-    
     private var _monthlyPlanningService: MonthlyPlanningServiceProtocol?
     var monthlyPlanningService: MonthlyPlanningServiceProtocol {
         get {

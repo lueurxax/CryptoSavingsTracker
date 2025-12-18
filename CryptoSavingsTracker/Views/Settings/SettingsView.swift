@@ -6,18 +6,41 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct SettingsView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject private var monthlySettings = MonthlyPlanningSettings.shared
     @State private var showingMonthlyPlanningSettings = false
+    @State private var showingExportShare = false
+    @State private var exportFileURLs: [URL] = []
+    @State private var exportErrorMessage: String?
+    @State private var showingExportError = false
     
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Settings")
-                .font(.title)
-                .fontWeight(.bold)
-            
+        NavigationStack {
             Form {
+                Section("Data") {
+                    Button {
+                        do {
+                            exportFileURLs = try CSVExportService.exportCSVFiles(using: modelContext)
+                            showingExportShare = true
+                        } catch {
+                            exportErrorMessage = error.localizedDescription
+                            showingExportError = true
+                        }
+                    } label: {
+                        Text("Export Data (CSV)")
+                            .accessibilityIdentifier("exportCSVButton")
+                    }
+                    .accessibilityIdentifier("exportCSVButton")
+                    
+                    Button("Import Data") {
+                        // Import functionality
+                    }
+                }
+                
                 Section("General") {
                     Toggle("Show progress notifications", isOn: .constant(true))
                     Toggle("Auto-refresh exchange rates", isOn: .constant(true))
@@ -61,23 +84,35 @@ struct SettingsView: View {
                         Text("1.234,56").tag("European")
                     }
                 }
-                
-                Section("Data") {
-                    Button("Export Data") {
-                        // Export functionality
+            }
+            .accessibilityIdentifier("settingsForm")
+            .formStyle(.grouped)
+            .navigationTitle("Settings")
+            #if os(iOS)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        dismiss()
                     }
-                    
-                    Button("Import Data") {
-                        // Import functionality
-                    }
+                    .accessibilityIdentifier("dismissSettingsButton")
                 }
             }
-            .formStyle(.grouped)
+            #endif
         }
+        #if os(macOS)
         .platformPadding()
         .frame(width: 500, height: 400)
+        #endif
         .sheet(isPresented: $showingMonthlyPlanningSettings) {
             MonthlyPlanningSettingsView(goals: [])
+        }
+        .sheet(isPresented: $showingExportShare) {
+            CSVExportShareView(fileURLs: exportFileURLs)
+        }
+        .alert("Export Failed", isPresented: $showingExportError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(exportErrorMessage ?? "Unknown error")
         }
     }
 }

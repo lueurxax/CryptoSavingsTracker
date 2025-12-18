@@ -213,30 +213,12 @@ struct StalePlanRow: View {
                     Text(formatMonthLabel(plan.monthLabel))
                         .font(.subheadline)
                         .fontWeight(.medium)
-
-                    if plan.needsReview {
-                        Label("Needs Review", systemImage: "exclamationmark.circle.fill")
-                            .font(.caption2)
-                            .foregroundColor(.orange)
-                            .labelStyle(.iconOnly)
-                            .help("Date was inferred and may be incorrect")
-                    }
                 }
 
                 HStack(spacing: 8) {
                     Text("Planned: \(plan.formattedEffectiveAmount())")
                         .font(.caption)
                         .foregroundColor(.secondary)
-
-                    if plan.totalContributed > 0 {
-                        Text("•")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        Text("Contributed: \(formatAmount(plan.totalContributed, currency: plan.currency))")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
                 }
             }
 
@@ -319,10 +301,6 @@ struct StalePlanRow: View {
             status: .onTrack,
             state: .draft
         )
-        plan.totalContributed = Double.random(in: 0...plan.requiredMonthly)
-        if index % 3 == 0 {
-            plan.needsReview = true
-        }
         return plan
     }
 
@@ -362,8 +340,6 @@ struct StalePlanRow: View {
         status: .onTrack,
         state: .draft
     )
-    plan.totalContributed = 800
-    plan.needsReview = true
 
     return StalePlanRow(
         plan: plan,

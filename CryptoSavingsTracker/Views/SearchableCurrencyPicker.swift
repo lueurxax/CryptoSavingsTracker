@@ -359,7 +359,7 @@ struct SearchableCurrencyPicker: View {
             // Keep keyboard ready for quick filtering in tests, but ensure it can resign cleanly
             searchFieldFocused = true
         }
-        .onChange(of: filteredCoins.count) { _ in
+        .onChange(of: filteredCoins.count) { _, _ in
             guard isUITest, !autoPicked, pickerType == .fiat, selectedCurrency.isEmpty else { return }
             
             let searchUpper = searchText.uppercased()
@@ -381,7 +381,7 @@ struct SearchableCurrencyPicker: View {
                 DispatchQueue.main.async { dismiss() }
             }
         }
-        .onChange(of: selectedCurrency) { _ in
+        .onChange(of: selectedCurrency) { _, _ in
             // Safety net: if selection is programmatically set, close the sheet
             searchFieldFocused = false
             DispatchQueue.main.async {

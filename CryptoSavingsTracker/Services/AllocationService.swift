@@ -10,9 +10,17 @@ import Foundation
 
 /// Service responsible for managing asset allocations across goals
 /// v2.0 - Now uses fixed amounts instead of percentages
-@MainActor
-class AllocationService {
+struct AllocationService {
     private let modelContext: ModelContext
+    private static let isTestRun: Bool = {
+        let args = ProcessInfo.processInfo.arguments
+        // XCTest environment vars differ across platforms/runner versions; use multiple signals.
+        let env = ProcessInfo.processInfo.environment
+        let isXCTestRun = env["XCTestConfigurationFilePath"] != nil || env["XCTestSessionIdentifier"] != nil
+        let isXCTestLoaded = NSClassFromString("XCTestCase") != nil
+        let isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
+        return isXCTestRun || isXCTestLoaded || isUITestRun
+    }()
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
@@ -23,53 +31,75 @@ class AllocationService {
     /// Updates all allocations for a single asset using fixed amounts
     /// - Parameters:
     ///   - asset: The asset to update allocations for
-    ///   - newAllocations: Dictionary mapping goals to their fixed amount allocations
-    func updateAllocations(for asset: Asset, newAllocations: [Goal: Double]) throws {
+    ///   - newAllocations: List of goals and their fixed amount allocations
+    @MainActor
+    func updateAllocations(for asset: Asset, newAllocations: [(goal: Goal, amount: Double)]) throws {
         try validateAllocations(newAllocations, for: asset)
 
         let timestamp = Date()
         let epsilon = 0.0000001
 
         // Snapshot old amounts before mutations.
+        let existingAllocations = Array(asset.allocations)
+        var existingByGoalId: [UUID: AssetAllocation] = [:]
+        existingByGoalId.reserveCapacity(existingAllocations.count)
+
         var oldByGoalId: [UUID: (goal: Goal, amount: Double)] = [:]
-        for allocation in asset.allocations {
-            if let goal = allocation.goal {
-                oldByGoalId[goal.id] = (goal, allocation.amountValue)
+        oldByGoalId.reserveCapacity(existingAllocations.count)
+
+        for allocation in existingAllocations {
+            guard let goal = allocation.goal else { continue }
+            existingByGoalId[goal.id] = allocation
+            oldByGoalId[goal.id] = (goal, allocation.amountValue)
+        }
+
+        // Normalize incoming allocations by goal id.
+        var newByGoalId: [UUID: (goal: Goal, amount: Double)] = [:]
+        newByGoalId.reserveCapacity(newAllocations.count)
+        for entry in newAllocations {
+            newByGoalId[entry.goal.id] = (entry.goal, max(0, entry.amount))
+        }
+
+        // Apply updates/inserts.
+        for (goalId, entry) in newByGoalId {
+            let newAmount = entry.amount
+            if let existing = existingByGoalId[goalId] {
+                existing.updateAmount(newAmount)
+            } else if newAmount > epsilon {
+                let newAllocation = AssetAllocation(asset: asset, goal: entry.goal, amount: newAmount)
+                modelContext.insert(newAllocation)
             }
         }
 
-        // Delete old allocations
-        for oldAllocation in asset.allocations {
-            modelContext.delete(oldAllocation)
-        }
-
-        // Insert new ones
-        for (goal, amount) in newAllocations where amount > 0 {
-            let newAllocation = AssetAllocation(asset: asset, goal: goal, amount: amount)
-            modelContext.insert(newAllocation)
+        // Apply deletions for removed/zeroed goals.
+        for (goalId, existing) in existingByGoalId {
+            let newAmount = newByGoalId[goalId]?.amount ?? 0
+            if newAmount <= epsilon {
+                modelContext.delete(existing)
+            }
         }
 
         // Record AllocationHistory for changed goal allocations (amount-only).
-        let newGoalIds = Set(newAllocations.keys.map(\.id))
-        for goal in newAllocations.keys {
-            let oldAmount = oldByGoalId[goal.id]?.amount ?? 0
-            let newAmount = max(0, newAllocations[goal] ?? 0)
+        let unionGoalIds = Set(oldByGoalId.keys).union(newByGoalId.keys)
+        for goalId in unionGoalIds {
+            let oldAmount = oldByGoalId[goalId]?.amount ?? 0
+            let newEntry = newByGoalId[goalId]
+            let newAmount = newEntry?.amount ?? 0
             guard abs(oldAmount - newAmount) > epsilon else { continue }
-            modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: newAmount, timestamp: timestamp))
-        }
-        // Record removals (goals removed from allocations -> amount 0).
-        for (oldGoalId, old) in oldByGoalId where !newGoalIds.contains(oldGoalId) && old.amount > epsilon {
-            modelContext.insert(AllocationHistory(asset: asset, goal: old.goal, amount: 0, timestamp: timestamp))
+            if let goal = newEntry?.goal ?? oldByGoalId[goalId]?.goal {
+                modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: newAmount, timestamp: timestamp))
+            }
         }
 
         try modelContext.save()
 
+        let goalIds = Array(newByGoalId.keys)
         NotificationCenter.default.post(
             name: .goalUpdated,
             object: nil,
             userInfo: [
                 "assetId": asset.id,
-                "goalIds": Array(newAllocations.keys.map { $0.id })
+                "goalIds": goalIds
             ]
         )
         NotificationCenter.default.post(
@@ -77,12 +107,15 @@ class AllocationService {
             object: asset,
             userInfo: [
                 "assetId": asset.id,
-                "goalIds": Array(newAllocations.keys.map { $0.id })
+                "goalIds": goalIds
             ]
         )
 
-        Task { [weak self] in
-            await self?.syncMonthlyPlans(for: Array(newAllocations.keys))
+        if !Self.isTestRun {
+            let goals = newAllocations.map(\.goal)
+            Task { @MainActor in
+                await syncMonthlyPlans(for: goals)
+            }
         }
     }
 
@@ -91,6 +124,7 @@ class AllocationService {
     ///   - asset: The asset to allocate
     ///   - goal: The goal to allocate to
     ///   - amount: The fixed amount to allocate
+    @MainActor
     func setAllocation(for asset: Asset, to goal: Goal, amount: Double) throws {
         guard amount >= 0 else {
             throw AllocationError.negativeAmount(amount)
@@ -130,8 +164,10 @@ class AllocationService {
             ]
         )
 
-        Task { [weak self] in
-            await self?.syncMonthlyPlans(for: [goal])
+        if !Self.isTestRun {
+            Task { @MainActor in
+                await syncMonthlyPlans(for: [goal])
+            }
         }
     }
     
@@ -139,6 +175,7 @@ class AllocationService {
     /// - Parameters:
     ///   - asset: The asset to remove allocation from
     ///   - goal: The goal to remove allocation from
+    @MainActor
     func removeAllocation(for asset: Asset, from goal: Goal) throws {
         if let allocation = asset.allocations.first(where: { $0.goal?.id == goal.id }) {
             let oldAmount = allocation.amountValue
@@ -148,7 +185,6 @@ class AllocationService {
                 modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: 0, timestamp: timestamp))
             }
             try modelContext.save()
-            
             NotificationCenter.default.post(
                 name: .goalUpdated,
                 object: nil,
@@ -165,8 +201,10 @@ class AllocationService {
                 ]
             )
 
-            Task { [weak self] in
-                await self?.syncMonthlyPlans(for: [goal])
+            if !Self.isTestRun {
+                Task { @MainActor in
+                    await syncMonthlyPlans(for: [goal])
+                }
             }
         }
     }
@@ -174,16 +212,19 @@ class AllocationService {
     // MARK: - Allocation Queries
 
     /// Get all allocations for a specific asset, sorted by amount
+    @MainActor
     func getAllocations(for asset: Asset) -> [AssetAllocation] {
         return asset.allocations.sorted { $0.amountValue > $1.amountValue }
     }
 
     /// Get all allocations for a specific goal, sorted by amount
+    @MainActor
     func getAllocations(for goal: Goal) -> [AssetAllocation] {
         return goal.allocations.sorted { $0.amountValue > $1.amountValue }
     }
 
     /// Check if an asset can accommodate a new allocation amount
+    @MainActor
     func canAllocate(asset: Asset, amount: Double, excludingGoal: Goal? = nil) -> Bool {
         let currentAllocations = asset.allocations.filter { $0.goal?.id != excludingGoal?.id }
         let currentTotal = currentAllocations.reduce(0.0) { partial, allocation in
@@ -193,6 +234,7 @@ class AllocationService {
     }
 
     /// Get the remaining unallocated amount for an asset
+    @MainActor
     func getUnallocatedAmount(for asset: Asset) -> Double {
         return asset.unallocatedAmount
     }
@@ -223,16 +265,20 @@ class AllocationService {
     // MARK: - Bulk Operations
     
     /// Remove all allocations for an asset (useful when deleting an asset)
+    @MainActor
     func removeAllAllocations(for asset: Asset) throws {
-        for allocation in asset.allocations {
+        let existingAllocations = asset.allocations
+        for allocation in existingAllocations {
             modelContext.delete(allocation)
         }
         try modelContext.save()
     }
     
     /// Remove all allocations for a goal (useful when deleting a goal)
+    @MainActor
     func removeAllAllocations(for goal: Goal) throws {
-        for allocation in goal.allocations {
+        let existingAllocations = goal.allocations
+        for allocation in existingAllocations {
             modelContext.delete(allocation)
         }
         try modelContext.save()
@@ -241,15 +287,16 @@ class AllocationService {
     // MARK: - Validation Helpers
 
     /// Validate a complete set of allocations for an asset
-    func validateAllocations(_ allocations: [Goal: Double], for asset: Asset) throws {
-        let totalAmount = allocations.values.reduce(0, +)
+    @MainActor
+    func validateAllocations(_ allocations: [(goal: Goal, amount: Double)], for asset: Asset) throws {
+        let totalAmount = allocations.map(\.amount).reduce(0, +)
         guard totalAmount <= asset.currentAmount else {
             throw AllocationError.exceedsTotal(totalAmount, asset.currentAmount)
         }
 
-        for (_, amount) in allocations {
-            guard amount >= 0 else {
-                throw AllocationError.negativeAmount(amount)
+        for entry in allocations {
+            guard entry.amount >= 0 else {
+                throw AllocationError.negativeAmount(entry.amount)
             }
         }
     }

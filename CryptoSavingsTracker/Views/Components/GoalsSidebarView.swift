@@ -70,11 +70,9 @@ struct GoalsSidebarView: View {
     
     private func deleteGoal(_ goal: Goal) {
         withAnimation {
-            Task {
-                await NotificationManager.shared.cancelNotifications(for: goal)
+            Task { @MainActor in
+                await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
             }
-            modelContext.delete(goal)
-            try? modelContext.save()
             
             let notification = Notification(name: Notification.Name("goalDeleted"), object: goal)
             NotificationCenter.default.post(notification)

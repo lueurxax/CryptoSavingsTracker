@@ -29,9 +29,13 @@ struct TransactionHistoryView: View {
         case deposits = "Deposits"
         case withdrawals = "Withdrawals"
     }
-    
+
+    private var manualTransactions: [Transaction] {
+        asset.transactions.filter { $0.source == .manual }
+    }
+
     private var filteredTransactions: [Transaction] {
-        var transactions = asset.transactions
+        var transactions = manualTransactions
         
         // Apply filter
         switch filterType {
@@ -69,7 +73,7 @@ struct TransactionHistoryView: View {
     }
     
     private var totalBalance: Double {
-        asset.transactions.reduce(0) { $0 + $1.amount }
+        manualTransactions.reduce(0) { $0 + $1.amount }
     }
     
     var body: some View {
@@ -127,7 +131,7 @@ struct TransactionHistoryView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    Text(String(format: "%.4f", asset.transactions.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount }))
+                    Text(String(format: "%.4f", manualTransactions.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount }))
                         .font(.callout)
                         .fontWeight(.medium)
                         .foregroundColor(.green)
@@ -141,7 +145,7 @@ struct TransactionHistoryView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    Text(String(format: "%.4f", abs(asset.transactions.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount })))
+                    Text(String(format: "%.4f", abs(manualTransactions.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount })))
                         .font(.callout)
                         .fontWeight(.medium)
                         .foregroundColor(.red)
@@ -155,7 +159,7 @@ struct TransactionHistoryView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    Text("\(asset.transactions.count)")
+                    Text("\(manualTransactions.count)")
                         .font(.callout)
                         .fontWeight(.medium)
                 }
@@ -236,7 +240,6 @@ struct TransactionHistoryView: View {
     
     private func deleteTransaction(_ transaction: Transaction) {
         withAnimation {
-            ContributionBridge.removeLinkedContributions(for: transaction, in: modelContext)
             modelContext.delete(transaction)
             try? modelContext.save()
         }

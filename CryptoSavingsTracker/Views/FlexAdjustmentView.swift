@@ -12,7 +12,13 @@ import Combine
 struct FlexAdjustmentView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Goal.deadline) private var goals: [Goal]
+    @Query(
+        filter: #Predicate<Goal> { goal in
+            goal.lifecycleStatusRawValue == "active"
+        },
+        sort: \Goal.deadline
+    )
+    private var goals: [Goal]
     
     @StateObject private var viewModel = FlexAdjustmentViewModel()
     @State private var flexPercentage: Double = 100

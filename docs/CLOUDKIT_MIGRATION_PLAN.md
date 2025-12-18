@@ -14,13 +14,25 @@ This document outlines the changes required to make the SwiftData models compati
 4. **To-one relationships must be optional** - Due to sync ordering, a record may arrive before its related record. To-many arrays (`[Type] = []`) are fine as non-optional with empty default.
 5. **Data blobs** - `Data` properties sync fine but should be kept reasonably sized (CloudKit has per-record size limits ~1MB)
 
+> ⚠️ **CRITICAL: SwiftData loads don't run `init()`**
+>
+> When CloudKit materializes records, SwiftData **does not call your custom initializers**. It creates instances and directly populates stored properties from the database. This means:
+> - Defaults must be on the **stored property declarations** (e.g., `var status: String = "draft"`)
+> - Setting a value in `init()` is **not sufficient** for CloudKit compatibility
+> - If a property has no default on its declaration, CloudKit may fail to materialize the record
+>
+> Several current models violate this by relying on "set in init" patterns. These are called out in the tables below.
+
 ### Current Violations Summary
 
 | Requirement | Violating Models | Count |
 |-------------|------------------|-------|
 | `@Attribute(.unique)` | Goal, Asset, AssetAllocation, Transaction, MonthlyPlan, MonthlyExecutionRecord, ExecutionSnapshot, CompletedExecution, AllocationHistory | **9/9 models** |
-| Missing inverse relationships | AllocationHistory (asset, goal), CompletedExecution (executionRecord), MonthlyPlan (executionRecord) | **4 relationships** |
-| Non-optional without defaults | Various `String`, `Date`, `Double` properties | ~25 properties |
+| Missing `@Relationship` decorator | Transaction (asset), AssetAllocation (asset, goal), AllocationHistory (asset, goal) | **5 properties** |
+| Missing inverse relationships | CompletedExecution↔MonthlyExecutionRecord, MonthlyPlan↔MonthlyExecutionRecord, AllocationHistory↔Asset, AllocationHistory↔Goal | **4 pairs** |
+| Non-optional without defaults | Various `String`, `Date`, `Double` properties (includes `statusRawValue`, `monthLabel` on MonthlyPlan/MonthlyExecutionRecord) | ~27 properties |
+
+> **Note on "Missing `@Relationship`":** These properties are declared as plain `var asset: Asset?` without the `@Relationship` decorator. They work locally but CloudKit requires explicit relationship annotations with inverses. This is distinct from "Missing inverse" where a `@Relationship` exists but lacks an inverse specification.
 
 ### Tradeoff Decisions
 
@@ -30,6 +42,14 @@ This document outlines the changes required to make the SwiftData models compati
    - `AllocationHistory`: dedupe by `(assetId, goalId, timestamp, createdAt)`
    - `AssetAllocation`: dedupe by `(asset.id, goal.id)`
    - `CompletedExecution`: dedupe by `monthLabel`
+
+   > ⚠️ **Logical duplicates beyond month-based records:** Removing uniqueness constraints will also make **logical duplicates** more visible. For example:
+   > - Two devices could create the **same Asset** independently by `(chainId, address, currency)` tuple
+   > - Two devices could create the **same Goal** with identical names/targets
+   >
+   > The dedupe strategy should account for these cases, not just temporal records like MonthlyPlan. Consider:
+   > - `Asset`: dedupe by `(chainId, address, currency)` or `(walletAddress, currency)` depending on chain
+   > - `Goal`: dedupe by `(name, targetAmount, deadline, currency)` or accept duplicates with user-driven merge
 
 2. **Orphaned relationships**: CloudKit's eventual consistency means relationships can temporarily point to non-existent records. All relationships must handle `nil` gracefully.
 
@@ -60,35 +80,36 @@ This document outlines the changes required to make the SwiftData models compati
 | Property | Issue | Fix |
 |----------|-------|-----|
 | `@Attribute(.unique) var id: UUID` | Unique constraint | Remove `@Attribute(.unique)` |
-| `var amount: Double` | Non-optional | Add default `0.0` |
-| `var createdDate: Date` | Non-optional | Add default `Date()` |
-| `var lastModifiedDate: Date` | Non-optional | Add default `Date()` |
-| `var asset: Asset?` | No inverse | Add `@Relationship(inverse: \Asset.allocations)` |
-| `var goal: Goal?` | No inverse | Add `@Relationship(inverse: \Goal.allocations)` |
+| `var amount: Double` | Non-optional, set in init only | Add default `0.0` on declaration |
+| `var createdDate: Date` | Non-optional, set in init only | Add default `Date()` on declaration |
+| `var lastModifiedDate: Date` | Non-optional, set in init only | Add default `Date()` on declaration |
+| `var asset: Asset?` | ⚠️ **Missing `@Relationship`**, no inverse | Add `@Relationship(inverse: \Asset.allocations)` |
+| `var goal: Goal?` | ⚠️ **Missing `@Relationship`**, no inverse | Add `@Relationship(inverse: \Goal.allocations)` |
 
 ### 4. Transaction
 
 | Property | Issue | Fix |
 |----------|-------|-----|
 | `@Attribute(.unique) var id: UUID` | Unique constraint | Remove `@Attribute(.unique)` |
-| `var amount: Double` | Non-optional | Add default `0.0` |
-| `var date: Date` | Non-optional | Add default `Date()` |
-| `@Relationship var asset: Asset` | Non-optional, no inverse | Make optional, add inverse |
+| `var amount: Double` | Non-optional, set in init only | Add default `0.0` on declaration |
+| `var date: Date` | Non-optional, set in init only | Add default `Date()` on declaration |
+| `var asset: Asset` | ⚠️ **Missing `@Relationship`**, non-optional, no inverse | Add `@Relationship(inverse: \Asset.transactions)`, make optional |
 
 ### 5. MonthlyPlan
 
 | Property | Issue | Fix |
 |----------|-------|-----|
 | `@Attribute(.unique) var id: UUID` | Unique constraint | Remove `@Attribute(.unique)` |
-| `var goalId: UUID` | Non-optional | Add default `UUID()` |
-| `var requiredMonthly: Double` | Non-optional | Add default `0.0` |
-| `var remainingAmount: Double` | Non-optional | Add default `0.0` |
-| `var monthsRemaining: Int` | Non-optional | Add default `0` |
-| `var currency: String` | Non-optional | Add default `""` |
-| `var statusRawValue: String` | Non-optional | Has default already |
-| `var lastCalculated: Date` | Non-optional | Add default `Date()` |
-| `var createdDate: Date` | Non-optional | Add default `Date()` |
-| `var lastModifiedDate: Date` | Non-optional | Add default `Date()` |
+| `var goalId: UUID` | Non-optional, set in init only | Add default `UUID()` on declaration |
+| `var monthLabel: String` | Non-optional, set in init only | Add default `""` on declaration |
+| `var requiredMonthly: Double` | Non-optional, set in init only | Add default `0.0` on declaration |
+| `var remainingAmount: Double` | Non-optional, set in init only | Add default `0.0` on declaration |
+| `var monthsRemaining: Int` | Non-optional, set in init only | Add default `0` on declaration |
+| `var currency: String` | Non-optional, set in init only | Add default `""` on declaration |
+| `var statusRawValue: String` | ⚠️ Non-optional, **NO default on declaration** (set in init) | Add default `RequirementStatus.onTrack.rawValue` on declaration |
+| `var lastCalculated: Date` | Non-optional, set in init only | Add default `Date()` on declaration |
+| `var createdDate: Date` | Non-optional, set in init only | Add default `Date()` on declaration |
+| `var lastModifiedDate: Date` | Non-optional, set in init only | Add default `Date()` on declaration |
 | `var executionRecord` | No inverse | Add inverse to MonthlyExecutionRecord |
 
 ### 6. MonthlyExecutionRecord
@@ -96,21 +117,23 @@ This document outlines the changes required to make the SwiftData models compati
 | Property | Issue | Fix |
 |----------|-------|-----|
 | `@Attribute(.unique) var id: UUID` | Unique constraint | Remove `@Attribute(.unique)` |
-| `var monthLabel: String` | Non-optional | Add default `""` |
-| `var statusRawValue: String` | Non-optional | Has default already |
-| `var createdAt: Date` | Non-optional | Add default `Date()` |
-| `var trackedGoalIds: Data` | Non-optional Data blob | Add default `Data()` |
+| `var monthLabel: String` | Non-optional, set in init only | Add default `""` on declaration |
+| `var statusRawValue: String` | ⚠️ Non-optional, **NO default on declaration** (set in init) | Add default `ExecutionStatus.draft.rawValue` on declaration |
+| `var createdAt: Date` | Non-optional, set in init only | Add default `Date()` on declaration |
+| `var trackedGoalIds: Data` | Non-optional Data blob, set in init only | Add default `Data()` on declaration |
 | `var completedExecution` | No inverse | Add inverse to CompletedExecution |
 | Needs inverse for `MonthlyPlan.executionRecord` | | Add relationship |
 
 ### 7. ExecutionSnapshot
 
+> ⚠️ **Warning:** ExecutionSnapshot uses a memberwise initializer which may obscure that the stored properties still need defaults for CloudKit materialization.
+
 | Property | Issue | Fix |
 |----------|-------|-----|
-| `@Attribute(.unique) var id: UUID` | Unique constraint | Remove `@Attribute(.unique)` |
-| `var capturedAt: Date` | Non-optional | Add default `Date()` |
-| `var totalPlanned: Double` | Non-optional | Add default `0.0` |
-| `var snapshotData: Data` | Non-optional Data blob (~1KB per goal) | Add default `Data()` |
+| `@Attribute(.unique) var id: UUID` | Unique constraint, no default on declaration | Remove `@Attribute(.unique)`, add default `UUID()` |
+| `var capturedAt: Date` | ⚠️ Non-optional, **NO default on declaration** | Add default `Date()` on declaration |
+| `var totalPlanned: Double` | ⚠️ Non-optional, **NO default on declaration** | Add default `0.0` on declaration |
+| `var snapshotData: Data` | ⚠️ Non-optional Data blob, **NO default on declaration** | Add default `Data()` on declaration |
 
 ### 8. CompletedExecution
 
@@ -131,86 +154,83 @@ This document outlines the changes required to make the SwiftData models compati
 | Property | Issue | Fix |
 |----------|-------|-----|
 | `@Attribute(.unique) var id: UUID` | Unique constraint | Remove `@Attribute(.unique)` |
-| `var amount: Double` | Non-optional | Add default `0.0` |
-| `var timestamp: Date` | Non-optional | Add default `Date()` |
-| `var monthLabel: String` | Non-optional | Add default `""` |
-| `var asset: Asset?` | No inverse | Add inverse relationship |
-| `var goal: Goal?` | No inverse | Add inverse relationship |
+| `var amount: Double` | Non-optional, set in init only | Add default `0.0` on declaration |
+| `var timestamp: Date` | Non-optional, set in init only | Add default `Date()` on declaration |
+| `var createdAt: Date` | Non-optional, set in init only | Add default `Date()` on declaration |
+| `var monthLabel: String` | Non-optional, set in init only | Add default `""` on declaration |
+| `var asset: Asset?` | ⚠️ **Missing `@Relationship`**, no inverse | Add `@Relationship(inverse: \Asset.allocationHistory)` |
+| `var goal: Goal?` | ⚠️ **Missing `@Relationship`**, no inverse | Add `@Relationship(inverse: \Goal.allocationHistory)` |
 
 ---
 
 ## Implementation Plan
 
-### Phase 1: Add Missing Inverse Relationships
+### Phase 1: Add Missing `@Relationship` Decorators and Inverse Relationships
 
-**Core models requiring inverse additions** (from violations table):
+**This phase is more extensive than the "Missing inverse relationships" count suggests.** Several models have relationships declared as plain `var` properties without `@Relationship` decorators at all—not just missing inverses.
+
+**Models requiring `@Relationship` decorator additions:**
+- `Transaction.asset` — plain `var asset: Asset`, needs `@Relationship` + inverse + make optional
+- `AssetAllocation.asset` / `.goal` — plain `var`s, need `@Relationship` + inverse
+- `AllocationHistory.asset` / `.goal` — plain `var`s, need `@Relationship` + inverse + new arrays on Asset/Goal
+
+**Models requiring inverse specification on existing `@Relationship`:**
 - `CompletedExecution` ↔ `MonthlyExecutionRecord` — CompletedExecution has no inverse for `MonthlyExecutionRecord.completedExecution`
 - `MonthlyPlan` ↔ `MonthlyExecutionRecord` — MonthlyPlan.executionRecord has `@Relationship` but no inverse specified
-- `AllocationHistory` ↔ `Asset` — AllocationHistory.asset is a plain `var`, not a `@Relationship`
-- `AllocationHistory` ↔ `Goal` — AllocationHistory.goal is a plain `var`, not a `@Relationship`
 
 Create bidirectional relationships:
 
 ```swift
-// Asset.swift
+// Asset.swift - ADD inverse specifications and new allocationHistory array
 @Relationship(deleteRule: .cascade, inverse: \Transaction.asset)
 var transactions: [Transaction] = []
 
 @Relationship(deleteRule: .cascade, inverse: \AssetAllocation.asset)
 var allocations: [AssetAllocation] = []
 
-@Relationship(deleteRule: .nullify, inverse: \AllocationHistory.asset)
+@Relationship(deleteRule: .nullify, inverse: \AllocationHistory.asset)  // NEW - doesn't exist yet
 var allocationHistory: [AllocationHistory] = []
 
-// Goal.swift
+// Goal.swift - ADD inverse specifications and new allocationHistory array
 @Relationship(deleteRule: .cascade, inverse: \AssetAllocation.goal)
 var allocations: [AssetAllocation] = []
 
-@Relationship(deleteRule: .nullify, inverse: \AllocationHistory.goal)
+@Relationship(deleteRule: .nullify, inverse: \AllocationHistory.goal)  // NEW - doesn't exist yet
 var allocationHistory: [AllocationHistory] = []
 
-// Transaction.swift
+// Transaction.swift - CHANGE from plain var to @Relationship, make optional
 @Relationship(inverse: \Asset.transactions)
-var asset: Asset?  // Make optional
+var asset: Asset?  // Was: var asset: Asset (non-optional, no @Relationship)
 
-// AssetAllocation.swift
-@Relationship(inverse: \Asset.allocations) var asset: Asset?
-@Relationship(inverse: \Goal.allocations) var goal: Goal?
+// AssetAllocation.swift - ADD @Relationship decorators with inverses
+@Relationship(inverse: \Asset.allocations) var asset: Asset?   // Was: var asset: Asset? (no @Relationship)
+@Relationship(inverse: \Goal.allocations) var goal: Goal?      // Was: var goal: Goal? (no @Relationship)
 
-// MonthlyExecutionRecord.swift
+// AllocationHistory.swift - ADD @Relationship decorators with inverses
+@Relationship(inverse: \Asset.allocationHistory) var asset: Asset?  // Was: var asset: Asset? (no @Relationship)
+@Relationship(inverse: \Goal.allocationHistory) var goal: Goal?     // Was: var goal: Goal? (no @Relationship)
+
+// MonthlyExecutionRecord.swift - ADD inverse specification
 @Relationship(deleteRule: .cascade, inverse: \CompletedExecution.executionRecord)
 var completedExecution: CompletedExecution?
 
 @Relationship(inverse: \MonthlyPlan.executionRecord)
-var plans: [MonthlyPlan] = []
+var plans: [MonthlyPlan] = []  // NEW - doesn't exist yet
 
-// MonthlyPlan.swift
+// MonthlyPlan.swift - ADD inverse specification
 @Relationship(deleteRule: .nullify, inverse: \MonthlyExecutionRecord.plans)
 var executionRecord: MonthlyExecutionRecord?
 
-// CompletedExecution.swift
-// CURRENTLY MISSING - must add inverse relationship
+// CompletedExecution.swift - ADD inverse relationship (currently missing entirely)
 @Relationship(inverse: \MonthlyExecutionRecord.completedExecution)
 var executionRecord: MonthlyExecutionRecord?
-
-// AllocationHistory.swift
-// CURRENTLY MISSING - both relationships have no @Relationship decorator at all
-// Must add inverse relationships and corresponding arrays on Asset/Goal
-@Relationship(inverse: \Asset.allocationHistory) var asset: Asset?
-@Relationship(inverse: \Goal.allocationHistory) var goal: Goal?
-
-// Asset.swift - must ADD this relationship (doesn't exist)
-@Relationship(deleteRule: .nullify, inverse: \AllocationHistory.asset)
-var allocationHistory: [AllocationHistory] = []
-
-// Goal.swift - must ADD this relationship (doesn't exist)
-@Relationship(deleteRule: .nullify, inverse: \AllocationHistory.goal)
-var allocationHistory: [AllocationHistory] = []
 ```
 
-> **Critical Note:** `AllocationHistory` relationships currently have NO `@Relationship` decorator—they're plain `var asset: Asset?` properties. This works locally but will fail CloudKit validation. The inverse arrays on `Asset` and `Goal` don't exist yet and must be added.
+> **Critical Note:** This phase will feel more invasive than expected because several "relationships" aren't actually relationships yet—they're plain `var` properties that happen to reference model types. CloudKit requires explicit `@Relationship` decorators with inverses for all model-to-model references.
 
 ### Phase 2: Add Default Values to All Properties
+
+> ⚠️ **Reminder:** Defaults must be on the **stored property declarations**, not just set in `init()`. SwiftData/CloudKit doesn't call your initializers when materializing records.
 
 ```swift
 // Goal.swift
@@ -236,28 +256,31 @@ var amount: Double = 0.0
 var createdDate: Date = Date()
 var lastModifiedDate: Date = Date()
 
-// MonthlyPlan.swift
+// MonthlyPlan.swift - NOTE: statusRawValue and monthLabel currently have NO defaults!
 var id: UUID = UUID()
 var goalId: UUID = UUID()
+var monthLabel: String = ""                                    // ⚠️ MISSING - currently no default
 var requiredMonthly: Double = 0.0
 var remainingAmount: Double = 0.0
 var monthsRemaining: Int = 0
 var currency: String = ""
+var statusRawValue: String = RequirementStatus.onTrack.rawValue // ⚠️ MISSING - currently no default
 var lastCalculated: Date = Date()
 var createdDate: Date = Date()
 var lastModifiedDate: Date = Date()
 
-// MonthlyExecutionRecord.swift
+// MonthlyExecutionRecord.swift - NOTE: statusRawValue currently has NO default!
 var id: UUID = UUID()
 var monthLabel: String = ""
+var statusRawValue: String = ExecutionStatus.draft.rawValue    // ⚠️ MISSING - currently no default
 var createdAt: Date = Date()
 var trackedGoalIds: Data = Data()
 
-// ExecutionSnapshot.swift
-var id: UUID = UUID()
-var capturedAt: Date = Date()
-var totalPlanned: Double = 0.0
-var snapshotData: Data = Data()
+// ExecutionSnapshot.swift - NOTE: ALL stored properties lack defaults despite memberwise init!
+var id: UUID = UUID()                   // ⚠️ MISSING - currently no default
+var capturedAt: Date = Date()           // ⚠️ MISSING - currently no default
+var totalPlanned: Double = 0.0          // ⚠️ MISSING - currently no default
+var snapshotData: Data = Data()         // ⚠️ MISSING - currently no default
 
 // CompletedExecution.swift
 var id: UUID = UUID()
@@ -267,10 +290,11 @@ var exchangeRatesSnapshotData: Data? = nil  // Already optional
 var goalSnapshotsData: Data? = nil          // Already optional
 var contributionSnapshotsData: Data? = nil  // Already optional
 
-// AllocationHistory.swift
+// AllocationHistory.swift - NOTE: createdAt was missing from previous list!
 var id: UUID = UUID()
 var amount: Double = 0.0
 var timestamp: Date = Date()
+var createdAt: Date = Date()            // ⚠️ MISSING - currently no default (was omitted from previous list)
 var monthLabel: String = ""
 ```
 

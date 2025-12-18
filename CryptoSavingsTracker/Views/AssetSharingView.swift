@@ -9,22 +9,45 @@ import SwiftData
 struct AssetSharingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Goal.name) private var goals: [Goal]
+    @Query(
+        filter: #Predicate<Goal> { goal in
+            goal.lifecycleStatusRawValue == "active"
+        },
+        sort: \Goal.name
+    )
+    private var goals: [Goal]
     
     let asset: Asset
     @State private var allocations: [UUID: Double] = [:]
     @State private var hasLoadedInitial = false
+    @State private var fetchedOnChainBalance: Double? = nil
+    @State private var isLoadingBalance: Bool = false
+
+    private var hasOnChainAddress: Bool {
+        guard
+            let chainId = asset.chainId, !chainId.isEmpty,
+            let address = asset.address, !address.isEmpty
+        else { return false }
+        return true
+    }
+
+    private var bestKnownBalance: Double {
+        // Prefer a fresh fetch when available, otherwise fall back to cached on-chain + manual.
+        let cached = asset.currentAmount
+        guard let fetchedOnChainBalance else { return cached }
+        return max(cached, asset.manualBalance + fetchedOnChainBalance)
+    }
     
     var totalAmount: Double {
         allocations.values.reduce(0, +)
     }
     
     var remainingAmount: Double {
-        max(0, asset.currentAmount - totalAmount)
+        max(0, bestKnownBalance - totalAmount)
     }
     
     var isOverAllocated: Bool {
-        totalAmount > asset.currentAmount + 0.000001
+        totalAmount > bestKnownBalance + 0.000001
     }
     
     var allocationData: [(goal: Goal, amount: Double)] {
@@ -35,7 +58,7 @@ struct AssetSharingView: View {
     }
     
     var pieData: (allocations: [(goal: Goal, percentage: Double)], unallocated: Double) {
-        let totalForPie = max(asset.currentAmount, totalAmount)
+        let totalForPie = max(bestKnownBalance, totalAmount)
         guard totalForPie > 0 else {
             return ([], 1.0)
         }
@@ -112,7 +135,7 @@ struct AssetSharingView: View {
                                         set: { allocations[goal.id] = $0 }
                                     ),
                                     assetCurrency: asset.currency,
-                                    assetBalance: asset.currentAmount,
+                                    assetBalance: bestKnownBalance,
                                     remainingAmount: remainingAmount,
                                     onAllocateRemaining: {
                                         let epsilon = 0.0000001
@@ -173,6 +196,9 @@ struct AssetSharingView: View {
         .onAppear {
             if !hasLoadedInitial {
                 loadExistingAllocations()
+                Task {
+                    await refreshOnChainBalanceIfNeeded()
+                }
                 hasLoadedInitial = true
             }
         }
@@ -192,50 +218,49 @@ struct AssetSharingView: View {
     }
     
     private func saveAllocations() {
-        let timestamp = Date()
-        let epsilon = 0.0000001
+        // Ensure the backing cache is updated so validation reflects the displayed balance.
+        cacheFetchedBalanceIfNeeded()
 
-        // Snapshot old amounts (goalId -> amount) before mutations.
-        var oldAmountsByGoalId: [UUID: Double] = [:]
-        for allocation in asset.allocations {
-            if let goal = allocation.goal {
-                oldAmountsByGoalId[goal.id] = allocation.amountValue
-            }
-        }
-
-        // Remove all existing allocations for this asset
-        for allocation in asset.allocations {
-            modelContext.delete(allocation)
-        }
-        
-        // Create new allocations
-        for goal in goals {
-            if let amount = allocations[goal.id], amount > 0 {
-                let allocation = AssetAllocation(
-                    asset: asset,
-                    goal: goal,
-                    amount: amount
-                )
-                modelContext.insert(allocation)
-            }
-        }
-
-        // Record AllocationHistory for changed goal allocations (amount-only).
-        for goal in goals {
-            let oldAmount = oldAmountsByGoalId[goal.id] ?? 0
-            let newAmount = max(0, allocations[goal.id] ?? 0)
-            guard abs(oldAmount - newAmount) > epsilon else { continue }
-            modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: newAmount, timestamp: timestamp))
-        }
-        
-        // Save changes
         do {
-            try modelContext.save()
-            // Notify listeners that allocations changed
-            NotificationCenter.default.post(name: .goalUpdated, object: nil, userInfo: ["assetId": asset.id])
+            let service = AllocationService(modelContext: modelContext)
+            let newAllocations = goals.map { goal in
+                (goal: goal, amount: allocations[goal.id] ?? 0)
+            }
+            try service.updateAllocations(for: asset, newAllocations: newAllocations)
             dismiss()
         } catch {
             // Error handling would go here
+        }
+    }
+
+    private func cacheFetchedBalanceIfNeeded() {
+        guard hasOnChainAddress else { return }
+        guard let fetchedOnChainBalance else { return }
+        guard let chainId = asset.chainId, let address = asset.address else { return }
+        let key = BalanceCacheManager.balanceCacheKey(chainId: chainId, address: address, symbol: asset.currency)
+        BalanceCacheManager.shared.cacheBalance(fetchedOnChainBalance, for: key)
+    }
+
+    @MainActor
+    private func refreshOnChainBalanceIfNeeded() async {
+        guard hasOnChainAddress else { return }
+        guard let chainId = asset.chainId, let address = asset.address else { return }
+        guard !isLoadingBalance else { return }
+
+        isLoadingBalance = true
+        defer { isLoadingBalance = false }
+
+        do {
+            let balance = try await DIContainer.shared.balanceService.fetchBalance(
+                chainId: chainId,
+                address: address,
+                symbol: asset.currency,
+                forceRefresh: false
+            )
+            fetchedOnChainBalance = balance
+            cacheFetchedBalanceIfNeeded()
+        } catch {
+            // Keep best-effort behavior: allocations UI should still work off cached values.
         }
     }
 }

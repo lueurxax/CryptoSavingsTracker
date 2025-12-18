@@ -17,7 +17,7 @@ struct SwiftDataQueries {
     static func activeGoals() -> FetchDescriptor<Goal> {
         FetchDescriptor<Goal>(
             predicate: #Predicate { goal in
-                goal.archivedDate == nil
+                goal.lifecycleStatusRawValue == "active"
             },
             sortBy: [
                 SortDescriptor(\.deadline, order: .forward)
@@ -31,7 +31,7 @@ struct SwiftDataQueries {
         let now = Date()
         return FetchDescriptor<Goal>(
             predicate: #Predicate { goal in
-                goal.archivedDate == nil &&
+                goal.lifecycleStatusRawValue == "active" &&
                 goal.deadline <= sevenDaysFromNow &&
                 goal.deadline >= now
             },
@@ -45,7 +45,7 @@ struct SwiftDataQueries {
     static func achievedGoals() -> FetchDescriptor<Goal> {
         FetchDescriptor<Goal>(
             predicate: #Predicate { goal in
-                goal.archivedDate == nil &&
+                goal.lifecycleStatusRawValue == "active" &&
                 goal.manualTotal >= goal.targetAmount
             },
             sortBy: [
@@ -58,7 +58,7 @@ struct SwiftDataQueries {
     static func goalsByCurrency(_ currency: String) -> FetchDescriptor<Goal> {
         FetchDescriptor<Goal>(
             predicate: #Predicate { goal in
-                goal.archivedDate == nil &&
+                goal.lifecycleStatusRawValue == "active" &&
                 goal.currency == currency
             },
             sortBy: [
@@ -71,7 +71,7 @@ struct SwiftDataQueries {
     static func goalsWithReminders() -> FetchDescriptor<Goal> {
         FetchDescriptor<Goal>(
             predicate: #Predicate { goal in
-                goal.archivedDate == nil &&
+                goal.lifecycleStatusRawValue == "active" &&
                 goal.reminderFrequency != nil
             },
             sortBy: [

@@ -6,6 +6,11 @@
 //
 
 import SwiftUI
+#if canImport(AppKit)
+import AppKit
+#elseif canImport(UIKit)
+import UIKit
+#endif
 
 /// Accessible color system that ensures WCAG 2.1 AA contrast compliance (4.5:1 minimum)
 /// All colors have been tested for proper contrast ratios and colorblind accessibility
@@ -142,12 +147,33 @@ struct AccessibleColors {
         return (lighter + 0.05) / (darker + 0.05)
     }
     
-    /// Calculate relative luminance of a color
+    /// Calculate relative luminance of a color using WCAG formula
     private static func relativeLuminance(_ color: Color) -> Double {
-        // This is a simplified calculation - in a real implementation,
-        // you'd need to extract RGB values from the Color object
-        // For now, returning a placeholder value
+        #if canImport(AppKit)
+        guard let nsColor = NSColor(color).usingColorSpace(.sRGB) else {
+            return 0.5
+        }
+        let r = linearize(nsColor.redComponent)
+        let g = linearize(nsColor.greenComponent)
+        let b = linearize(nsColor.blueComponent)
+        #elseif canImport(UIKit)
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        UIColor(color).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        let r = linearize(Double(red))
+        let g = linearize(Double(green))
+        let b = linearize(Double(blue))
+        #else
         return 0.5
+        #endif
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+
+    /// Linearize sRGB component for luminance calculation
+    private static func linearize(_ component: Double) -> Double {
+        if component <= 0.03928 {
+            return component / 12.92
+        }
+        return pow((component + 0.055) / 1.055, 2.4)
     }
     
     /// Check if color combination meets WCAG AA standards (4.5:1 contrast)

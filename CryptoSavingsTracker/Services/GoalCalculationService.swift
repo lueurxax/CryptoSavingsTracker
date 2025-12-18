@@ -196,7 +196,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
                 assetViewModel: assetViewModel
             )
             
-            // Calculate allocated portion using fixed amount (fallback to percentage for legacy)
+            // Calculate allocated portion using the fixed-amount allocation target.
             let assetBalance = assetViewModel.totalBalance
             let allocatedPortion = min(max(0, allocation.amountValue), assetBalance)
             

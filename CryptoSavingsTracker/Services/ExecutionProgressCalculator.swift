@@ -68,24 +68,16 @@ final class ExecutionProgressCalculator {
 
             let histories = historiesByAssetId[asset.id] ?? []
 
-            // Legacy compatibility: some assets are represented as a single 100% percentage allocation with
-            // `amountValue == 0` until the first deposit occurs. In that case, deposits should still count toward
-            // that single goal even if no fixed-amount target snapshot exists yet.
-            let fallbackDedicatedGoalId: UUID? = {
-                let goalIds = asset.allocations.compactMap { allocation -> UUID? in
-                    guard let goalId = allocation.goal?.id, trackedGoalIds.contains(goalId) else { return nil }
-                    return goalId
-                }
-                let unique = Set(goalIds)
-                return unique.count == 1 ? unique.first : nil
-            }()
-
-            // Compute balance at start.
-            let startBalance = asset.transactions
-                .filter { $0.date < startedAt }
+            // Compute balance at start by reversing from the best-known balance at `end`.
+            // This keeps the calculator usable even when we don't have a full pre-start transaction ledger
+            // (e.g., on-chain assets where we only persist a rolling window of chain history).
+            let endBalance = max(0, asset.currentAmount)
+            let deltaDuringWindow = asset.transactions
+                .filter { $0.date >= startedAt && $0.date <= end }
                 .reduce(0.0) { $0 + $1.amount }
+            let startBalance = max(0, endBalance - deltaDuringWindow)
 
-            // Determine targets at start (latest history <= startedAt, fallback to current allocation).
+            // Determine targets at start (latest history <= startedAt).
             var targetsByGoalId: [UUID: Double] = [:]
             targetsByGoalId.reserveCapacity(trackedGoalIds.count)
 
@@ -93,21 +85,34 @@ final class ExecutionProgressCalculator {
                 // Latest history <= startedAt for this pair.
                 if let latest = histories
                     .filter({ $0.goalId == goalId && $0.timestamp <= startedAt })
-                    .max(by: { $0.timestamp < $1.timestamp }) {
+                    .max(by: { lhs, rhs in
+                        if lhs.timestamp != rhs.timestamp { return lhs.timestamp < rhs.timestamp }
+                        return lhs.effectiveCreatedAt < rhs.effectiveCreatedAt
+                    }) {
                     targetsByGoalId[goalId] = max(0, latest.amount)
-                    continue
                 }
+            }
 
-                if let allocation = asset.allocations.first(where: { $0.goal?.id == goalId }) {
-                    targetsByGoalId[goalId] = max(0, allocation.amountValue)
+            // Defensive fallback for dedicated assets:
+            // If an asset is allocated to exactly one tracked goal but lacks a baseline history at/Before `startedAt`,
+            // use the current allocation target as the starting target. This prevents "missing contributions"
+            // when AllocationHistory writes are absent (e.g., older data or edge UI flows), while still avoiding
+            // guessing for shared assets.
+            let trackedAllocations = asset.allocations.compactMap { allocation -> (goalId: UUID, amount: Double)? in
+                guard let goalId = allocation.goal?.id, trackedGoalIds.contains(goalId) else { return nil }
+                return (goalId, max(0, allocation.amountValue))
+            }
+            if trackedAllocations.count == 1 {
+                let only = trackedAllocations[0]
+                if targetsByGoalId[only.goalId] == nil {
+                    targetsByGoalId[only.goalId] = only.amount
                 }
             }
 
             var balance = startBalance
             var fundedByGoalId = fundedAmounts(
                 balance: balance,
-                targetsByGoalId: targetsByGoalId,
-                fallbackDedicatedGoalId: fallbackDedicatedGoalId
+                targetsByGoalId: targetsByGoalId
             )
 
             // Group transactions and allocation updates by timestamp within the window.
@@ -116,10 +121,17 @@ final class ExecutionProgressCalculator {
                 txAmountByTimestamp[tx.date, default: 0] += tx.amount
             }
 
-            var allocationUpdatesByTimestamp: [Date: [UUID: Double]] = [:]
+            var allocationUpdatesByTimestamp: [Date: [UUID: (amount: Double, createdAt: Date)]] = [:]
             for history in histories where history.timestamp > startedAt && history.timestamp <= end {
                 guard let goalId = history.goalId else { continue }
-                allocationUpdatesByTimestamp[history.timestamp, default: [:]][goalId] = max(0, history.amount)
+                let newEntry = (amount: max(0, history.amount), createdAt: history.effectiveCreatedAt)
+                if let existing = allocationUpdatesByTimestamp[history.timestamp]?[goalId] {
+                    if newEntry.createdAt > existing.createdAt {
+                        allocationUpdatesByTimestamp[history.timestamp]?[goalId] = newEntry
+                    }
+                } else {
+                    allocationUpdatesByTimestamp[history.timestamp, default: [:]][goalId] = newEntry
+                }
             }
 
             let allTimestamps = Set(txAmountByTimestamp.keys).union(allocationUpdatesByTimestamp.keys)
@@ -127,13 +139,12 @@ final class ExecutionProgressCalculator {
 
             for timestamp in timestamps {
                 if let updates = allocationUpdatesByTimestamp[timestamp], !updates.isEmpty {
-                    for (goalId, newTarget) in updates {
-                        targetsByGoalId[goalId] = max(0, newTarget)
+                    for (goalId, entry) in updates {
+                        targetsByGoalId[goalId] = max(0, entry.amount)
                     }
                     let newFunded = fundedAmounts(
                         balance: balance,
-                        targetsByGoalId: targetsByGoalId,
-                        fallbackDedicatedGoalId: fallbackDedicatedGoalId
+                        targetsByGoalId: targetsByGoalId
                     )
                     let deltas = deltasByGoalId(from: fundedByGoalId, to: newFunded, epsilon: epsilon)
                     appendEvents(
@@ -151,8 +162,7 @@ final class ExecutionProgressCalculator {
                     balance += txDelta
                     let newFunded = fundedAmounts(
                         balance: balance,
-                        targetsByGoalId: targetsByGoalId,
-                        fallbackDedicatedGoalId: fallbackDedicatedGoalId
+                        targetsByGoalId: targetsByGoalId
                     )
                     let deltas = deltasByGoalId(from: fundedByGoalId, to: newFunded, epsilon: epsilon)
                     appendEvents(
@@ -223,8 +233,7 @@ final class ExecutionProgressCalculator {
 
     private func fundedAmounts(
         balance: Double,
-        targetsByGoalId: [UUID: Double],
-        fallbackDedicatedGoalId: UUID?
+        targetsByGoalId: [UUID: Double]
     ) -> [UUID: Double] {
         guard balance > 0 else {
             return targetsByGoalId.reduce(into: [:]) { partial, item in
@@ -234,9 +243,6 @@ final class ExecutionProgressCalculator {
 
         let totalTargets = targetsByGoalId.values.reduce(0, +)
         guard totalTargets > 0 else {
-            if let goalId = fallbackDedicatedGoalId {
-                return [goalId: balance]
-            }
             return [:]
         }
 

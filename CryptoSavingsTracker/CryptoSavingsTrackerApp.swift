@@ -17,6 +17,11 @@ import UIKit
 @main
 struct CryptoSavingsTrackerApp: App {
     static let sharedModelContainer: ModelContainer = {
+        let args = ProcessInfo.processInfo.arguments
+        let isXCTestRun = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        let isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
+        let isTestRun = isXCTestRun || isUITestRun
+
         let schema = Schema([
             Goal.self,
             Asset.self,
@@ -24,13 +29,12 @@ struct CryptoSavingsTrackerApp: App {
             MonthlyPlan.self,
             AssetAllocation.self,
             AllocationHistory.self,
-            Contribution.self,
             MonthlyExecutionRecord.self,
             CompletedExecution.self,
             ExecutionSnapshot.self
         ])
         let fileManager = FileManager.default
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        let appSupport = isTestRun ? nil : fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
         if let appSupport {
             // Ensure the Application Support directory exists before SwiftData tries to create the SQLite store.
             // This avoids sporadic CoreData errors about failing to stat/create `default.store`.
@@ -40,14 +44,17 @@ struct CryptoSavingsTrackerApp: App {
         let modelConfiguration = ModelConfiguration(
             "default",
             schema: schema,
-            isStoredInMemoryOnly: false,
+            isStoredInMemoryOnly: isTestRun,
             allowsSave: true,
             groupContainer: .none,
             cloudKitDatabase: .none  // CloudKit requires model changes (optional attrs, inverse relationships)
         )
 
-        func resetStoreFilesIfPresent() {
-            guard let appSupport else { return }
+        @discardableResult
+        func backupStoreFilesIfPresent() -> Int {
+            guard !isTestRun else { return 0 }
+            guard let appSupport else { return 0 }
+
             let storeURL = appSupport.appendingPathComponent("default.store")
             let candidatePaths = [
                 storeURL.path,
@@ -56,22 +63,54 @@ struct CryptoSavingsTrackerApp: App {
                 storeURL.path + "-journal"
             ]
 
-            for path in candidatePaths {
-                try? fileManager.removeItem(atPath: path)
+            let existingPaths = candidatePaths.filter { fileManager.fileExists(atPath: $0) }
+            guard !existingPaths.isEmpty else { return 0 }
+
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let timestamp = formatter.string(from: Date())
+                .replacingOccurrences(of: ":", with: "-")
+                .replacingOccurrences(of: ".", with: "-")
+
+            let backupRoot = appSupport.appendingPathComponent("StoreBackups", isDirectory: true)
+            let backupFolder = backupRoot.appendingPathComponent("default.store.backup-\(timestamp)", isDirectory: true)
+            try? fileManager.createDirectory(at: backupFolder, withIntermediateDirectories: true)
+
+            var copiedCount = 0
+            for path in existingPaths {
+                let fileName = URL(fileURLWithPath: path).lastPathComponent
+                let destination = backupFolder.appendingPathComponent(fileName)
+                guard !fileManager.fileExists(atPath: destination.path) else { continue }
+                do {
+                    try fileManager.copyItem(atPath: path, toPath: destination.path)
+                    copiedCount += 1
+                } catch {
+                    // Best effort only; backup failures should not block app startup.
+                }
+            }
+            return copiedCount
+        }
+
+        // Safety net: take a best-effort backup once per app build before attempting migrations/open.
+        if !isTestRun {
+            let defaults = UserDefaults.standard
+            let currentBuild = (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "unknown"
+            let backupKey = "StoreBackups.lastBackedUpBuild"
+            if defaults.string(forKey: backupKey) != currentBuild {
+                let copied = backupStoreFilesIfPresent()
+                if copied > 0 {
+                    defaults.set(currentBuild, forKey: backupKey)
+                }
             }
         }
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            // Initial-schema-only strategy: if the store can't be opened due to schema mismatch,
-            // wipe and recreate. This is acceptable while we have 0 clients.
-            resetStoreFilesIfPresent()
-            do {
-                return try ModelContainer(for: schema, configurations: [modelConfiguration])
-            } catch {
-                fatalError("Could not create ModelContainer: \(error)")
-            }
+            // Never auto-delete user data on load/migration failures.
+            // If the store fails to load, keep the files intact so a future build can migrate/recover them.
+            _ = backupStoreFilesIfPresent()
+            fatalError("Could not create ModelContainer: \(error)")
         }
     }()
 
@@ -88,8 +127,12 @@ struct CryptoSavingsTrackerApp: App {
         // Mark startup complete after a delay to prevent API spam
         Task {
             await StartupThrottler.shared.waitForStartup()
-            let isUITestRun = ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("UITEST") })
-            if !isUITestRun {
+            let args = ProcessInfo.processInfo.arguments
+            let isXCTestRun = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            let isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
+            let isTestRun = isXCTestRun || isUITestRun
+
+            if !isTestRun {
                 _ = await NotificationManager.shared.requestPermission()
             }
 
@@ -103,9 +146,11 @@ struct CryptoSavingsTrackerApp: App {
     /// Check and execute any pending automation based on settings
     @MainActor
     private static func checkAutomation() async {
-        // UI tests should not trigger automation or notification scheduling (causes permission prompts and flakiness).
-        let isUITestRun = ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("UITEST") })
-        if isUITestRun { return }
+        // Tests should not trigger automation or notification scheduling (causes permission prompts and flakiness).
+        let args = ProcessInfo.processInfo.arguments
+        let isXCTestRun = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        let isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
+        if isXCTestRun || isUITestRun { return }
 
         let scheduler = AutomationScheduler(modelContext: CryptoSavingsTrackerApp.sharedModelContainer.mainContext)
 
@@ -152,7 +197,6 @@ struct CryptoSavingsTrackerApp: App {
         do {
             // Clear existing data to avoid cross-test contamination
             for completed in try context.fetch(FetchDescriptor<CompletedExecution>()) { context.delete(completed) }
-            for contrib in try context.fetch(FetchDescriptor<Contribution>()) { context.delete(contrib) }
             for plan in try context.fetch(FetchDescriptor<MonthlyPlan>()) { context.delete(plan) }
             for record in try context.fetch(FetchDescriptor<MonthlyExecutionRecord>()) { context.delete(record) }
             for history in try context.fetch(FetchDescriptor<AllocationHistory>()) { context.delete(history) }
@@ -188,34 +232,33 @@ struct CryptoSavingsTrackerApp: App {
             // Services
             let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: context)
             let executionService = DIContainer.shared.executionTrackingService(modelContext: context)
-            let contributionService = ContributionService(modelContext: context)
 
             // Create plans and start execution
             let plans = try await planService.getOrCreatePlansForCurrentMonth(goals: [goalA, goalB])
             let monthLabel = MonthlyExecutionRecord.monthLabel(from: Date())
             let record = try executionService.startTracking(for: monthLabel, from: plans, goals: [goalA, goalB])
 
-            // Deposit to Goal A
-            let deposit = try contributionService.recordDeposit(
-                amount: 120,
-                assetAmount: 120,
-                to: goalA,
-                from: sharedAsset,
-                exchangeRate: 1.0
-            )
-            try executionService.linkContribution(deposit, to: record)
+            // Allocate shared asset fully to Goal A, then expand targets on deposit to keep it dedicated.
+            let allocationA = AssetAllocation(asset: sharedAsset, goal: goalA, amount: sharedAsset.currentAmount)
+            context.insert(allocationA)
+            context.insert(AllocationHistory(asset: sharedAsset, goal: goalA, amount: allocationA.amountValue, timestamp: record.startedAt ?? Date()))
 
-            // Reallocate 40 from A to B
-            let reallocation = try contributionService.recordReallocation(
-                fiatAmount: 40,
-                assetAmount: 40,
-                from: goalA,
-                to: goalB,
-                asset: sharedAsset,
-                exchangeRate: 1.0
-            )
-            try executionService.linkContribution(reallocation.withdrawal, to: record)
-            try executionService.linkContribution(reallocation.deposit, to: record)
+            // Deposit to the shared asset after tracking start (counts for Goal A because it's dedicated+fully allocated).
+            let depositDate = (record.startedAt ?? Date()).addingTimeInterval(60)
+            let depositTx = Transaction(amount: 120, asset: sharedAsset, date: depositDate)
+            sharedAsset.transactions.append(depositTx)
+            context.insert(depositTx)
+            let newTargetA = allocationA.amountValue + 120
+            allocationA.updateAmount(newTargetA)
+            context.insert(AllocationHistory(asset: sharedAsset, goal: goalA, amount: newTargetA, timestamp: depositDate))
+
+            // Reallocate 40 from A to B after deposit (counts as asset reallocation).
+            let reallocDate = depositDate.addingTimeInterval(60)
+            allocationA.updateAmount(max(0, newTargetA - 40))
+            let allocationB = AssetAllocation(asset: sharedAsset, goal: goalB, amount: 40)
+            context.insert(allocationB)
+            context.insert(AllocationHistory(asset: sharedAsset, goal: goalA, amount: allocationA.amountValue, timestamp: reallocDate))
+            context.insert(AllocationHistory(asset: sharedAsset, goal: goalB, amount: allocationB.amountValue, timestamp: reallocDate))
 
             try context.save()
             AppLog.info("UITest seed complete", category: .executionTracking)
@@ -237,7 +280,7 @@ struct CryptoSavingsTrackerApp: App {
             }
 
             let executionService = DIContainer.shared.executionTrackingService(modelContext: context)
-            guard let record = try executionService.getCurrentMonthRecord() else {
+            guard (try executionService.getCurrentMonthRecord()) != nil else {
                 AppLog.warning("UITest reshare skipped: execution record not found", category: .executionTracking)
                 return
             }
@@ -251,18 +294,16 @@ struct CryptoSavingsTrackerApp: App {
                 context.insert(asset)
             }
 
-            let contributionService = ContributionService(modelContext: context)
-            // Reallocate an extra 20 from A to B to change totals (net A 60, B 60)
-            let reallocation = try contributionService.recordReallocation(
-                fiatAmount: 20,
-                assetAmount: 20,
-                from: goalA,
-                to: goalB,
-                asset: asset,
-                exchangeRate: 1.0
-            )
-            try executionService.linkContribution(reallocation.withdrawal, to: record)
-            try executionService.linkContribution(reallocation.deposit, to: record)
+            // Reallocate an extra 20 from A to B by adjusting allocation targets.
+            let allocations = asset.allocations
+            guard let allocA = allocations.first(where: { $0.goal?.id == goalA.id }) else { return }
+            let allocB = allocations.first(where: { $0.goal?.id == goalB.id }) ?? AssetAllocation(asset: asset, goal: goalB, amount: 0)
+            if allocB.goal == nil { context.insert(allocB) }
+            allocA.updateAmount(max(0, allocA.amountValue - 20))
+            allocB.updateAmount(allocB.amountValue + 20)
+            let ts = Date()
+            context.insert(AllocationHistory(asset: asset, goal: goalA, amount: allocA.amountValue, timestamp: ts))
+            context.insert(AllocationHistory(asset: asset, goal: goalB, amount: allocB.amountValue, timestamp: ts))
 
             try context.save()
             AppLog.info("UITest reshare applied", category: .executionTracking)
@@ -283,7 +324,6 @@ struct CryptoSavingsTrackerApp: App {
         await MainActor.run {
             do {
                 let completedExecutions = try context.fetch(FetchDescriptor<CompletedExecution>())
-                let contributions = try context.fetch(FetchDescriptor<Contribution>())
                 let execRecords = try context.fetch(FetchDescriptor<MonthlyExecutionRecord>())
                 let snapshots = try context.fetch(FetchDescriptor<ExecutionSnapshot>())
                 let plans = try context.fetch(FetchDescriptor<MonthlyPlan>())
@@ -294,7 +334,6 @@ struct CryptoSavingsTrackerApp: App {
                 let goals = try context.fetch(FetchDescriptor<Goal>())
 
                 (completedExecutions as [any PersistentModel]).forEach { context.delete($0) }
-                (contributions as [any PersistentModel]).forEach { context.delete($0) }
                 (execRecords as [any PersistentModel]).forEach { context.delete($0) }
                 (snapshots as [any PersistentModel]).forEach { context.delete($0) }
                 (plans as [any PersistentModel]).forEach { context.delete($0) }
@@ -316,8 +355,11 @@ struct CryptoSavingsTrackerApp: App {
     var body: some Scene {
         WindowGroup {
             let args = ProcessInfo.processInfo.arguments
+            let isXCTestRun = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
             UITestBootstrapView {
-                if args.contains("UITEST_SEED_SHARED_ASSET") {
+                if isXCTestRun {
+                    Color.clear
+                } else if args.contains("UITEST_SEED_SHARED_ASSET") {
                     MonthlyPlanningContainer()
                 } else if args.contains("UITEST_UI_FLOW") {
                     ContentView()

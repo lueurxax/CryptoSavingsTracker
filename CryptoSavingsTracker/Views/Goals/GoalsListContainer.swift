@@ -12,11 +12,16 @@ import SwiftData
 
 /// iOS-specific goals list container with navigation stack
 struct GoalsListContainer: View {
-    @Query private var goals: [Goal]
+    @Query(filter: #Predicate<Goal> { goal in
+        goal.lifecycleStatusRawValue == "active"
+    })
+    private var goals: [Goal]
     @Binding var selectedView: DetailViewType
     @Environment(\.modelContext) private var modelContext
     @State private var editingGoal: Goal?
     @State private var refreshTrigger = UUID()
+    @State private var selectedGoalForLifecycleAction: Goal?
+    @State private var showingLifecycleActions = false
     
     var body: some View {
         NavigationStack {
@@ -37,6 +42,12 @@ struct GoalsListContainer: View {
                                 }
                                 .tint(.red)
                                 
+                                Button("Status") {
+                                    selectedGoalForLifecycleAction = goal
+                                    showingLifecycleActions = true
+                                }
+                                .tint(.orange)
+
                                 Button("Edit") {
                                     editingGoal = goal
                                 }
@@ -72,6 +83,25 @@ struct GoalsListContainer: View {
                 }
             }
         }
+        .confirmationDialog(
+            "Update Goal Status",
+            isPresented: $showingLifecycleActions,
+            titleVisibility: .visible
+        ) {
+            if let goal = selectedGoalForLifecycleAction {
+                Button("Cancel Goal (free allocations)", role: .destructive) {
+                    Task { @MainActor in
+                        await GoalLifecycleService(modelContext: modelContext).cancelGoal(goal)
+                    }
+                }
+                Button("Mark Finished (keep allocations)") {
+                    Task { @MainActor in
+                        await GoalLifecycleService(modelContext: modelContext).finishGoal(goal)
+                    }
+                }
+            }
+            Button("Close", role: .cancel) { }
+        }
         .sheet(item: $editingGoal) { goal in
             EditGoalView(goal: goal, modelContext: modelContext)
                 .presentationDetents([.large])
@@ -82,11 +112,9 @@ struct GoalsListContainer: View {
     
     private func deleteGoal(_ goal: Goal) {
         withAnimation {
-            Task {
-                await NotificationManager.shared.cancelNotifications(for: goal)
+            Task { @MainActor in
+                await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
             }
-            modelContext.delete(goal)
-            try? modelContext.save()
             
             NotificationCenter.default.post(name: .goalDeleted, object: goal)
         }

@@ -18,11 +18,8 @@ struct MonthlyPlanningIntegrationTests {
     var monthlyPlanningService: MonthlyPlanningService
 
     init() async throws {
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        self.modelContainer = try ModelContainer(
-            for: Goal.self, Asset.self, Transaction.self, MonthlyPlan.self,
-            configurations: config
-        )
+        // Use shared TestContainer for consistent schema
+        self.modelContainer = try TestContainer.create()
         self.mockExchangeRateService = MockExchangeRateService()
         self.monthlyPlanningService = MonthlyPlanningService(exchangeRateService: mockExchangeRateService)
     }

@@ -50,7 +50,7 @@ struct GoalAllocationCard: View {
 #endif
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .multilineTextAlignment(.trailing)
-                    .accessibilityIdentifier("allocation-\(goal.name)")
+                    .accessibilityIdentifier("allocGoalAmountField-\(goal.name)")
                 Text(assetCurrency)
                     .foregroundColor(.secondary)
                     .font(.callout)

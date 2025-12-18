@@ -32,8 +32,9 @@ final class Goal {
     var deadline: Date
     var startDate: Date = Date()
     
-    // Archive and modification tracking
-    var archivedDate: Date?
+    // Lifecycle and modification tracking
+    var lifecycleStatusRawValue: String = GoalLifecycleStatus.active.rawValue
+    var lifecycleStatusChangedAt: Date?
     var lastModifiedDate: Date = Date()
     
     // Reminder properties
@@ -46,13 +47,14 @@ final class Goal {
     var goalDescription: String?
     var link: String?
     
-    @Relationship(deleteRule: .cascade) var allocations: [AssetAllocation] = []
-
-    // Contribution tracking (v2.0)
-    @Relationship(deleteRule: .cascade, inverse: \Contribution.goal)
-    var contributions: [Contribution] = []
+    @Relationship(deleteRule: .cascade, inverse: \AssetAllocation.goal) var allocations: [AssetAllocation] = []
 
     // MARK: - Computed Properties
+
+    var lifecycleStatus: GoalLifecycleStatus {
+        get { GoalLifecycleStatus(rawValue: lifecycleStatusRawValue) ?? .active }
+        set { lifecycleStatusRawValue = newValue.rawValue }
+    }
     
     var manualTotal: Double {
         allocations.reduce(0) { result, allocation in

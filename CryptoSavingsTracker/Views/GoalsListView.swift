@@ -11,10 +11,18 @@ import Foundation
 
 struct GoalsListView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: [SortDescriptor(\Goal.deadline)]) private var goals: [Goal]
+    @Query(
+        filter: #Predicate<Goal> { goal in
+            goal.lifecycleStatusRawValue == "active"
+        },
+        sort: [SortDescriptor(\Goal.deadline)]
+    )
+    private var goals: [Goal]
     @State private var refreshTrigger = UUID()
     @State private var showingAddGoal = false
     @State private var editingGoal: Goal?
+    @State private var selectedGoalForLifecycleAction: Goal?
+    @State private var showingLifecycleActions = false
     @State private var showingOnboarding = false
     @State private var monthlyPlanningViewModel: MonthlyPlanningViewModel?
     
@@ -71,13 +79,21 @@ struct GoalsListView: View {
                                             Image(systemName: "pencil")
                                         }
                                     }
+
+                                    Button {
+                                        selectedGoalForLifecycleAction = goal
+                                        showingLifecycleActions = true
+                                    } label: {
+                                        HStack {
+                                            Text("Goal Status…")
+                                            Image(systemName: "flag")
+                                        }
+                                    }
                                     
                                     Button {
-                                        Task {
-                                            await NotificationManager.shared.cancelNotifications(for: goal)
+                                        Task { @MainActor in
+                                            await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
                                         }
-                                        modelContext.delete(goal)
-                                        try? modelContext.save()
                                     } label: {
                                         HStack {
                                             Text("Delete Goal")
@@ -93,6 +109,25 @@ struct GoalsListView: View {
                 }
             }
             .navigationTitle("Crypto Goals")
+            .confirmationDialog(
+                "Update Goal Status",
+                isPresented: $showingLifecycleActions,
+                titleVisibility: .visible
+            ) {
+                if let goal = selectedGoalForLifecycleAction {
+                    Button("Cancel Goal (free allocations)", role: .destructive) {
+                        Task { @MainActor in
+                            await GoalLifecycleService(modelContext: modelContext).cancelGoal(goal)
+                        }
+                    }
+                    Button("Mark Finished (keep allocations)") {
+                        Task { @MainActor in
+                            await GoalLifecycleService(modelContext: modelContext).finishGoal(goal)
+                        }
+                    }
+                }
+                Button("Close", role: .cancel) { }
+            }
             .onAppear {
                 // Create the monthly planning view model with model context
                 if monthlyPlanningViewModel == nil {
@@ -148,12 +183,10 @@ struct GoalsListView: View {
         withAnimation(.default) {
             for index in offsets {
                 let goal = goals[index]
-                Task {
-                    await NotificationManager.shared.cancelNotifications(for: goal)
+                Task { @MainActor in
+                    await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
                 }
-                modelContext.delete(goal)
             }
-            try? modelContext.save()
         }
     }
 }

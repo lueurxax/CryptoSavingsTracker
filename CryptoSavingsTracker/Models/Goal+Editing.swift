@@ -10,26 +10,41 @@ import SwiftData
 
 // MARK: - Goal Editing Extensions
 extension Goal {
-    // Archive functionality
+    // Lifecycle helpers (soft-delete / cancel / finish)
     var isArchived: Bool {
-        get { archivedDate != nil }
-        set {
-            if newValue {
-                archivedDate = Date()
-            } else {
-                archivedDate = nil
-            }
-        }
+        lifecycleStatus == .deleted
     }
-    
+
     func archive() {
-        archivedDate = Date()
-        lastModifiedDate = Date()
+        softDelete()
     }
-    
+
     func restore() {
-        archivedDate = nil
-        lastModifiedDate = Date()
+        restoreToActive()
+    }
+
+    func softDelete(at timestamp: Date = Date()) {
+        lifecycleStatus = .deleted
+        lifecycleStatusChangedAt = timestamp
+        lastModifiedDate = timestamp
+    }
+
+    func markCancelled(at timestamp: Date = Date()) {
+        lifecycleStatus = .cancelled
+        lifecycleStatusChangedAt = timestamp
+        lastModifiedDate = timestamp
+    }
+
+    func markFinished(at timestamp: Date = Date()) {
+        lifecycleStatus = .finished
+        lifecycleStatusChangedAt = timestamp
+        lastModifiedDate = timestamp
+    }
+
+    func restoreToActive(at timestamp: Date = Date()) {
+        lifecycleStatus = .active
+        lifecycleStatusChangedAt = timestamp
+        lastModifiedDate = timestamp
     }
     
     // Change detection

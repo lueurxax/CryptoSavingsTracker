@@ -23,12 +23,6 @@ final class MonthlyExecutionViewModel: ObservableObject {
     /// Snapshot of the plan when tracking started
     @Published var snapshot: ExecutionSnapshot?
 
-    /// Contributions for this month
-    @Published var contributions: [Contribution] = []
-
-    /// Contributions grouped by goal
-    @Published var contributionsByGoal: [UUID: [Contribution]] = [:]
-
     /// Total contributed per goal
     @Published var contributedTotals: [UUID: Double] = [:]
 
@@ -135,8 +129,8 @@ final class MonthlyExecutionViewModel: ObservableObject {
     // MARK: - Dependencies
 
     private let executionService: ExecutionTrackingService
-    private let contributionService: ContributionService
     private let modelContext: ModelContext
+    private let progressCache = ExecutionProgressCache()
     @Published private(set) var livePlansByGoal: [UUID: MonthlyPlan] = [:]
     private var cancellables = Set<AnyCancellable>()
 
@@ -145,7 +139,6 @@ final class MonthlyExecutionViewModel: ObservableObject {
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
         self.executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
-        self.contributionService = DIContainer.shared.makeContributionService(modelContext: modelContext)
 
         setupObservers()
     }
@@ -177,7 +170,7 @@ final class MonthlyExecutionViewModel: ObservableObject {
                 }
 
                 snapshot = record.snapshot
-                await loadContributions(for: record)
+                await loadContributedTotals(for: record)
                 await calculateProgress(for: record)
 
                 // Check undo state
@@ -212,7 +205,7 @@ final class MonthlyExecutionViewModel: ObservableObject {
             showUndoBanner = true
             undoExpiresAt = record.canUndoUntil
 
-            await loadContributions(for: record)
+            await loadContributedTotals(for: record)
             await calculateProgress(for: record)
 
             isLoading = false
@@ -283,6 +276,7 @@ final class MonthlyExecutionViewModel: ObservableObject {
             .sink { [weak self] _ in
                 guard let self else { return }
                 Task { @MainActor in
+                    self.progressCache.invalidate()
                     await self.refresh()
                 }
             }
@@ -298,6 +292,7 @@ final class MonthlyExecutionViewModel: ObservableObject {
                     if relevant.isEmpty { return }
                 }
                 Task { @MainActor in
+                    self.progressCache.invalidate()
                     await self.refresh()
                 }
             }
@@ -314,29 +309,17 @@ final class MonthlyExecutionViewModel: ObservableObject {
                     if relevant.isEmpty { return }
                 }
                 Task { @MainActor in
+                    self.progressCache.invalidate()
                     await self.refresh()
                 }
             }
             .store(in: &cancellables)
     }
 
-    private func loadContributions(for record: MonthlyExecutionRecord) async {
+    private func loadContributedTotals(for record: MonthlyExecutionRecord) async {
         do {
-            if record.status == .executing {
-                contributions = []
-                contributionsByGoal = [:]
-                contributedTotals = try await executionService.getDerivedContributionTotals(for: record)
-                return
-            }
-
-            let allContributions = try executionService.getContributions(for: record)
-            contributions = allContributions
-
-            contributionsByGoal = try executionService.getContributionsByGoal(for: record)
-            contributedTotals = try executionService.getContributionTotals(for: record)
-
-            AppLog.info("Execution contributions loaded: \(allContributions.count) for month \(record.monthLabel)", category: .executionTracking)
-            for (_, _) in contributedTotals {
+            contributedTotals = try await progressCache.totals(for: record.id) {
+                try await self.executionService.getContributionTotals(for: record)
             }
         } catch {
             self.error = error

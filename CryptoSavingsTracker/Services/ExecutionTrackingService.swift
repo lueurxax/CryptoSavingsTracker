@@ -83,9 +83,6 @@ final class ExecutionTrackingService {
                     existing.completedExecution = nil
                 }
 
-                // Clean out stale contributions before regenerating snapshot
-                try purgeMonthContributions(for: monthLabel)
-
                 // Always refresh snapshot from current plans to reflect latest adjustments
                 let goalIds = plans.map { $0.goalId }
                 if let encoded = try? JSONEncoder().encode(goalIds) {
@@ -129,9 +126,6 @@ final class ExecutionTrackingService {
         // Create new record
         let goalIds = plans.map { $0.goalId }
         let record = MonthlyExecutionRecord(monthLabel: monthLabel, goalIds: goalIds)
-
-        // Clean out stale contributions for this month/goal set before we link new ones
-        try purgeMonthContributions(for: monthLabel)
 
         // Create snapshot using factory method (ensures proper SwiftData initialization)
 
@@ -213,9 +207,6 @@ final class ExecutionTrackingService {
         record.markComplete()
         let completedAt = record.completedAt ?? Date()
 
-        // Remove any legacy completion-time Contribution rows for this record to avoid drift.
-        try purgeRecordContributions(recordId: record.id)
-
         // Snapshot derived contributions for immutability in history views.
         let (exchangeRatesSnapshot, contributionSnapshots) = try await buildCompletedExecutionSnapshot(for: record, end: completedAt)
         if let existing = record.completedExecution {
@@ -239,7 +230,6 @@ final class ExecutionTrackingService {
             throw ExecutionError.undoPeriodExpired
         }
         record.undoCompletion()
-        try purgeRecordContributions(recordId: record.id)
         if let completed = record.completedExecution {
             modelContext.delete(completed)
             record.completedExecution = nil
@@ -256,65 +246,44 @@ final class ExecutionTrackingService {
         try modelContext.save()
     }
 
-    // MARK: - Contribution Tracking
+    // MARK: - Contribution Totals (Timestamp-Based)
 
-    /// Link contribution to execution record
-    func linkContribution(_ contribution: Contribution, to record: MonthlyExecutionRecord) throws {
-        contribution.executionRecordId = record.id
-        contribution.isPlanned = true
-        try modelContext.save()
+    /// Total contributed per goal in goal currency.
+    /// - For active months: derived from transactions + allocation history timestamps using current rates.
+    /// - For closed months: uses the immutable completion snapshot.
+    func getContributionTotals(for record: MonthlyExecutionRecord) async throws -> [UUID: Double] {
+        if record.status == .closed, let completed = record.completedExecution {
+            return completed.contributedTotalsByGoalId
+        }
+        guard record.status == .executing else { return [:] }
+        let calculator = ExecutionProgressCalculator(modelContext: modelContext, exchangeRateService: exchangeRateService)
+        return try await calculator.contributionTotalsInGoalCurrency(for: record, end: Date())
     }
 
-    /// Get contributions for execution record
-    func getContributions(for record: MonthlyExecutionRecord) throws -> [Contribution] {
-        // First fetch contributions already linked to this execution record
-        let recordId = record.id
-        let basePredicate = #Predicate<Contribution> { contribution in
-            contribution.executionRecordId == recordId
+    /// Calculate overall progress percentage for a record.
+    func calculateProgress(for record: MonthlyExecutionRecord) async throws -> Double {
+        let totals = try await getContributionTotals(for: record)
+        let totalContributed = totals.values.reduce(0, +)
+
+        if record.status == .closed {
+            guard let snapshot = record.snapshot else { return 0 }
+            return snapshot.totalPlanned > 0
+                ? (totalContributed / snapshot.totalPlanned) * 100
+                : 0
         }
 
-        let baseDescriptor = FetchDescriptor<Contribution>(
-            predicate: basePredicate,
-            sortBy: [SortDescriptor(\.date)]
-        )
+        guard record.status == .executing else { return 0 }
 
-        var contributions = try modelContext.fetch(baseDescriptor)
-        if !contributions.isEmpty {
-            AppLog.info("Execution contributions found for record \(record.monthLabel): \(contributions.count)", category: .executionTracking)
-        }
+        // Active months: compute planned total from persisted MonthlyPlans
+        let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
+        let plans = try planService.fetchPlans(for: record.monthLabel)
+        let totalPlanned = plans
+            .filter { record.goalIds.contains($0.goalId) }
+            .reduce(0) { $0 + $1.effectiveAmount }
 
-        // If none are linked yet, attempt a best-effort backfill by month/goal
-        if contributions.isEmpty {
-            let monthLabel = record.monthLabel
-            let goalIds = record.goalIds
-
-            // Fetch by month only (avoid optional unwrap in predicate), filter in memory by goalId
-            let backfillPredicate = #Predicate<Contribution> { contribution in
-                contribution.monthLabel == monthLabel
-            }
-            let backfillDescriptor = FetchDescriptor<Contribution>(
-                predicate: backfillPredicate,
-                sortBy: [SortDescriptor(\.date)]
-            )
-            let fetched = try modelContext.fetch(backfillDescriptor)
-            let backfill = fetched.filter { contrib in
-                if let goalId = contrib.goal?.id {
-                    return goalIds.contains(goalId)
-                }
-                return false
-            }
-            if !backfill.isEmpty {
-                for contrib in backfill {
-                    contrib.executionRecordId = record.id
-                    contrib.isPlanned = true
-                }
-                try modelContext.save()
-                contributions = backfill
-
-            }
-        }
-
-        return contributions
+        return totalPlanned > 0
+            ? (totalContributed / totalPlanned) * 100
+            : 0
     }
 
     /// Fetch goals matching a record's tracked goal IDs
@@ -329,113 +298,10 @@ final class ExecutionTrackingService {
         return try modelContext.fetch(descriptor)
     }
 
-    /// Remove contributions for a month/goal set to avoid stale data
-    private func purgeMonthContributions(for monthLabel: String) throws {
-        let predicate = #Predicate<Contribution> { contribution in
-            contribution.monthLabel == monthLabel
-        }
-        let descriptor = FetchDescriptor<Contribution>(predicate: predicate)
-        let fetched = try modelContext.fetch(descriptor)
-
-        var deletedCount = 0
-        for contrib in fetched {
-            modelContext.delete(contrib)
-            deletedCount += 1
-        }
-
-        if deletedCount > 0 {
-            try modelContext.save()
-            AppLog.info("Purged \(deletedCount) contributions for month \(monthLabel)", category: .executionTracking)
-        }
-    }
-
-    /// Get contributions grouped by goal
-    func getContributionsByGoal(for record: MonthlyExecutionRecord) throws -> [UUID: [Contribution]] {
-        let contributions = try getContributions(for: record)
-        var grouped: [UUID: [Contribution]] = [:]
-
-        for contribution in contributions {
-            guard let goalId = contribution.goal?.id else {
-                AppLog.warning("Contribution \(contribution.id) missing goal link for month \(contribution.monthLabel)", category: .executionTracking)
-                continue
-            }
-            grouped[goalId, default: []].append(contribution)
-        }
-
-        return grouped
-    }
-
-    /// Calculate total contributions per goal
-    func getContributionTotals(for record: MonthlyExecutionRecord) throws -> [UUID: Double] {
-        if record.status == .closed, let completed = record.completedExecution {
-            return completed.contributedTotalsByGoalId
-        }
-        let contributionsByGoal = try getContributionsByGoal(for: record)
-
-        var totals: [UUID: Double] = [:]
-        for (goalId, contributions) in contributionsByGoal {
-            let total = contributions.reduce(0) { $0 + $1.amount }
-            totals[goalId] = total
-        }
-
-        return totals
-    }
-
-    // MARK: - Fulfillment Checking
-
-    /// Check if specific goal is fulfilled for the month
-    func isGoalFulfilled(goalId: UUID, in record: MonthlyExecutionRecord, against plan: MonthlyPlan) throws -> Bool {
-        let totals = try getContributionTotals(for: record)
-        return (totals[goalId] ?? 0) >= plan.effectiveAmount
-    }
-
-    /// Get fulfillment status for all goals
-    func getFulfillmentStatus(
-        for record: MonthlyExecutionRecord,
-        plans: [MonthlyPlan]
-    ) throws -> [UUID: Bool] {
-        let totals = try getContributionTotals(for: record)
-        let planDict = Dictionary(uniqueKeysWithValues: plans.map { ($0.goalId, $0) })
-
-        var fulfillment: [UUID: Bool] = [:]
-        for goalId in record.goalIds {
-            guard let plan = planDict[goalId] else { continue }
-            let contributed = totals[goalId] ?? 0
-            fulfillment[goalId] = contributed >= plan.effectiveAmount
-        }
-
-        return fulfillment
-    }
-
-    /// Calculate overall progress percentage
-    func calculateProgress(for record: MonthlyExecutionRecord) throws -> Double {
-        let totals = try getContributionTotals(for: record)
-        let totalContributed = totals.values.reduce(0, +)
-
-        if record.status == .closed {
-            guard let snapshot = record.snapshot else { return 0 }
-            return snapshot.totalPlanned > 0
-                ? (totalContributed / snapshot.totalPlanned) * 100
-                : 0
-        }
-
-        // Active months: compute live from persisted MonthlyPlans
-        let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
-        let plans = try planService.fetchPlans(for: record.monthLabel)
-        let totalPlanned = plans
-            .filter { record.goalIds.contains($0.goalId) }
-            .reduce(0) { $0 + $1.effectiveAmount }
-
-        return totalPlanned > 0
-            ? (totalContributed / totalPlanned) * 100
-            : 0
-    }
-
     // MARK: - Helper Methods
 
     /// Delete execution record (use with caution)
     func deleteRecord(_ record: MonthlyExecutionRecord) throws {
-        try purgeRecordContributions(recordId: record.id)
         modelContext.delete(record)
         try modelContext.save()
     }
@@ -444,16 +310,6 @@ final class ExecutionTrackingService {
     func countRecords() throws -> Int {
         let descriptor = FetchDescriptor<MonthlyExecutionRecord>()
         return try modelContext.fetchCount(descriptor)
-    }
-
-    // MARK: - Derived Contribution Tracking (Timestamp-Based)
-
-    func getDerivedContributionTotals(for record: MonthlyExecutionRecord) async throws -> [UUID: Double] {
-        guard record.status == .executing else {
-            return try getContributionTotals(for: record)
-        }
-        let calculator = ExecutionProgressCalculator(modelContext: modelContext, exchangeRateService: exchangeRateService)
-        return try await calculator.contributionTotalsInGoalCurrency(for: record, end: Date())
     }
 
     private func buildCompletedExecutionSnapshot(
@@ -511,17 +367,6 @@ final class ExecutionTrackingService {
         }
 
         return (rateCache, snapshots.sorted(by: { $0.timestamp < $1.timestamp }))
-    }
-
-    private func purgeRecordContributions(recordId: UUID) throws {
-        let predicate = #Predicate<Contribution> { contribution in
-            contribution.executionRecordId == recordId
-        }
-        let descriptor = FetchDescriptor<Contribution>(predicate: predicate)
-        let contributions = (try? modelContext.fetch(descriptor)) ?? []
-        for contribution in contributions {
-            modelContext.delete(contribution)
-        }
     }
 
     private func fetchAsset(id: UUID) throws -> Asset {

@@ -119,7 +119,7 @@ class DashboardViewModel: ObservableObject {
                     assetBalance = await AssetViewModel.getCurrentAmount(for: asset)
                 } else {
                     // Use transaction history for older dates
-                    let transactions = asset.transactions.filter { $0.date <= currentDate }
+                    let transactions = asset.transactions.filter { $0.source == .manual && $0.date <= currentDate }
                     assetBalance = transactions.reduce(0) { $0 + $1.amount }
                 }
                 

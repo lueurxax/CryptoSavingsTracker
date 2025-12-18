@@ -121,12 +121,39 @@ final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableOb
     }
     
     // MARK: - Private Implementation
-    
-    /// Calculate months remaining between two dates
+
+    /// Calculate how many payment periods remain until the deadline
+    /// Uses the payment day from MonthlyPlanningSettings
+    ///
+    /// Example: Today Dec 18, payment day 25th, deadline March 1
+    /// Payment dates: Dec 25, Jan 25, Feb 25 = 3 periods
     private func calculateMonthsRemaining(from startDate: Date, to endDate: Date) -> Int {
+        let settings = MonthlyPlanningSettings.shared
+        let paymentDay = settings.paymentDay
         let calendar = Calendar.current
-        let components = calendar.dateComponents([.month], from: startDate, to: endDate)
-        return max(1, components.month ?? 1) // Minimum 1 month
+
+        // Find the next payment date from startDate
+        var components = calendar.dateComponents([.year, .month], from: startDate)
+        components.day = paymentDay
+        guard var paymentDate = calendar.date(from: components) else {
+            // Fallback to simple month calculation
+            return max(1, calendar.dateComponents([.month], from: startDate, to: endDate).month ?? 1)
+        }
+
+        // If payment date this month has passed, start from next month
+        if paymentDate <= startDate {
+            paymentDate = calendar.date(byAdding: .month, value: 1, to: paymentDate) ?? paymentDate
+        }
+
+        // Count payment dates until we pass the deadline
+        var count = 0
+        while paymentDate < endDate {
+            count += 1
+            paymentDate = calendar.date(byAdding: .month, value: 1, to: paymentDate) ?? paymentDate
+        }
+
+        // Ensure at least 1 payment period
+        return max(1, count)
     }
     
     /// Determine the status based on requirement calculations

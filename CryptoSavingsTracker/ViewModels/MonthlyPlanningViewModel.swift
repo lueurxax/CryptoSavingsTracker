@@ -143,7 +143,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
             // Fetch all active goals
             let descriptor = FetchDescriptor<Goal>(
                 predicate: #Predicate { goal in
-                    goal.archivedDate == nil
+                    goal.lifecycleStatusRawValue == "active"
                 },
                 sortBy: [SortDescriptor(\.deadline, order: .forward)]
             )

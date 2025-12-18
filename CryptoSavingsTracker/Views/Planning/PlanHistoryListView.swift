@@ -119,9 +119,9 @@ struct HistoryRecordRow: View {
     private func calculateProgress() async {
         do {
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
-            progress = try executionService.calculateProgress(for: record)
+            progress = try await executionService.calculateProgress(for: record)
 
-            let totals = try executionService.getContributionTotals(for: record)
+            let totals = try await executionService.getContributionTotals(for: record)
             totalContributed = totals.values.reduce(0, +)
             totalPlanned = record.snapshot?.totalPlanned ?? 0
         } catch {

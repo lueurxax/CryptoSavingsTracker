@@ -100,33 +100,41 @@ class GoalEditViewModel: ObservableObject {
         guard canSave else {
             throw GoalEditError.cannotSave("Goal is not in a saveable state")
         }
-        
+
         isSaving = true
         defer { isSaving = false }
-        
+
+        // Check if plan-affecting fields changed before saving
+        let planNeedsRecalculation = deadlineOrTargetChanged()
+
         do {
             // Final validation
             validate()
             guard !hasValidationErrors else {
                 throw GoalEditError.validationFailed(validationErrors)
             }
-            
+
             // Handle notification updates if reminder settings changed
             if reminderSettingsChanged() {
                 try await updateNotifications()
             }
-            
+
             // Update modification timestamp
             goal.lastModifiedDate = Date()
-            
+
             // Log goal save attempt with detailed field values
-            
+
             // Save to SwiftData
             try modelContext.save()
-            
+
+            // Recalculate monthly plan if deadline or target amount changed
+            if planNeedsRecalculation {
+                await recalculateMonthlyPlan()
+            }
+
             // Verify data was saved by re-reading from context
             AppLog.info("✅ Goal '\(goal.name)' saved successfully", category: .goalEdit)
-            
+
         } catch {
             AppLog.error("Failed to save goal: \(error)", category: .goalEdit)
             throw error
@@ -227,6 +235,30 @@ class GoalEditViewModel: ObservableObject {
     private func reminderSettingsChanged() -> Bool {
         return goal.reminderFrequency != originalSnapshot.reminderFrequency ||
                goal.reminderTime != originalSnapshot.reminderTime
+    }
+
+    private func deadlineOrTargetChanged() -> Bool {
+        return goal.deadline != originalSnapshot.deadline ||
+               goal.targetAmount != originalSnapshot.targetAmount
+    }
+
+    private func recalculateMonthlyPlan() async {
+        do {
+            let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
+
+            // Get current month label
+            let monthLabel = planService.currentMonthLabel()
+
+            // Find existing plan for this goal in current month
+            if let existingPlan = try planService.fetchPlan(for: goal.id, in: monthLabel) {
+                // Update the plan with new goal parameters
+                try await planService.updatePlan(existingPlan, withGoal: goal)
+                AppLog.info("✅ Recalculated monthly plan for '\(goal.name)' after deadline/target change", category: .goalEdit)
+            }
+        } catch {
+            AppLog.error("Failed to recalculate monthly plan: \(error)", category: .goalEdit)
+            // Non-fatal - goal was saved, plan will be recalculated on next view
+        }
     }
     
     private func updateNotifications() async throws {

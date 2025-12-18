@@ -9,7 +9,13 @@ import SwiftUI
 import SwiftData
 
 struct MonthlyPlanningView: View {
-    @Query(sort: \Goal.deadline) private var goals: [Goal]
+    @Query(
+        filter: #Predicate<Goal> { goal in
+            goal.lifecycleStatusRawValue == "active"
+        },
+        sort: \Goal.deadline
+    )
+    private var goals: [Goal]
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var coordinator: AppCoordinator
     @State private var viewModel: MonthlyPlanningViewModel?

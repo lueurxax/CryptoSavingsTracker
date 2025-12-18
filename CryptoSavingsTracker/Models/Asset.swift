@@ -24,18 +24,35 @@ final class Asset {
     var address: String?
     var chainId: String?
     
-    @Relationship(deleteRule: .cascade) var transactions: [Transaction] = []
-    @Relationship(deleteRule: .cascade) var allocations: [AssetAllocation] = []
-    @Relationship(deleteRule: .cascade, inverse: \Contribution.asset) var contributions: [Contribution] = []
+    @Relationship(deleteRule: .cascade, inverse: \Transaction.asset) var transactions: [Transaction] = []
+    @Relationship(deleteRule: .cascade, inverse: \AssetAllocation.asset) var allocations: [AssetAllocation] = []
     
     var manualBalance: Double {
-        transactions.reduce(0) { $0 + $1.amount }
+        transactions
+            .filter { $0.source == .manual }
+            .reduce(0) { $0 + $1.amount }
     }
-    
-    // For synchronous access, return manual balance only
-    // For accurate totals including on-chain balance, use AssetViewModel
+
+    /// Best-effort on-chain balance from cache (0 if unknown).
+    /// This avoids blocking UI and prevents allocation math from ignoring on-chain funds.
+    var cachedOnChainBalance: Double {
+        guard
+            let chainId,
+            let address,
+            !chainId.isEmpty,
+            !address.isEmpty
+        else {
+            return 0
+        }
+
+        let cacheKey = BalanceCacheManager.balanceCacheKey(chainId: chainId, address: address, symbol: currency)
+        return BalanceCacheManager.shared.getFallbackBalance(for: cacheKey) ?? 0
+    }
+
+    // For synchronous access, return the best-known total (manual + cached on-chain).
+    // For the freshest totals, use `AssetViewModel.getCurrentAmount(for:)` / `AssetViewModel.refreshBalances()`.
     var currentAmount: Double {
-        manualBalance
+        manualBalance + cachedOnChainBalance
     }
     
     // MARK: - Allocation Helper Methods

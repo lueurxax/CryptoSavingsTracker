@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CE0FEC142EF138D500F80950 /* CONTRIBUTION_TRACKING_REDESIGN.md in Resources */ = {isa = PBXBuildFile; fileRef = CE0FEC132EF138D400F80950 /* CONTRIBUTION_TRACKING_REDESIGN.md */; };
+		CE1752392EF346CE00E9514F /* CLOUDKIT_MIGRATION_PLAN.md in Resources */ = {isa = PBXBuildFile; fileRef = CE1752382EF346CE00E9514F /* CLOUDKIT_MIGRATION_PLAN.md */; };
 		CE1FBF9C2EEEC0A4008FA3F5 /* CONTRIBUTION_FLOW.md in Resources */ = {isa = PBXBuildFile; fileRef = CE1FBF9B2EEEC0A4008FA3F5 /* CONTRIBUTION_FLOW.md */; };
 		CEAAFFB02E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFA82E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md */; };
 		CEAAFFB32E4E4A5F00A6B5A3 /* ARCHITECTURE.md in Resources */ = {isa = PBXBuildFile; fileRef = CEAAFFA62E4E4A5F00A6B5A3 /* ARCHITECTURE.md */; };
@@ -39,7 +41,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		1069472D3340F44835C15971 /* Contribution.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Contribution.swift; path = CryptoSavingsTracker/Models/Contribution.swift; sourceTree = "<group>"; };
 		2DA29DF83F0229CE3C706F95 /* ExecutionTrackingService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExecutionTrackingService.swift; path = CryptoSavingsTracker/Services/ExecutionTrackingService.swift; sourceTree = "<group>"; };
 		4FA0A0551D616B6ACF8B3567 /* MonthlyExecutionView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MonthlyExecutionView.swift; path = CryptoSavingsTracker/Views/Planning/MonthlyExecutionView.swift; sourceTree = "<group>"; };
 		51F018F76A9D8C23B84771F0 /* MonthlyPlanningContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MonthlyPlanningContainer.swift; path = CryptoSavingsTracker/Views/Planning/MonthlyPlanningContainer.swift; sourceTree = "<group>"; };
@@ -47,6 +48,8 @@
 		73A7B5BB917DBACBFCC38444 /* ContributionEntryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContributionEntryView.swift; path = CryptoSavingsTracker/Views/Planning/ContributionEntryView.swift; sourceTree = "<group>"; };
 		94025BA93C3464506EF2FBF8 /* ExecutionSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExecutionSnapshot.swift; path = CryptoSavingsTracker/Models/ExecutionSnapshot.swift; sourceTree = "<group>"; };
 		C493491B92BD0C3AA48933B6 /* MonthlyExecutionRecord.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MonthlyExecutionRecord.swift; path = CryptoSavingsTracker/Models/MonthlyExecutionRecord.swift; sourceTree = "<group>"; };
+		CE0FEC132EF138D400F80950 /* CONTRIBUTION_TRACKING_REDESIGN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CONTRIBUTION_TRACKING_REDESIGN.md; sourceTree = "<group>"; };
+		CE1752382EF346CE00E9514F /* CLOUDKIT_MIGRATION_PLAN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLOUDKIT_MIGRATION_PLAN.md; sourceTree = "<group>"; };
 		CE1FBF9B2EEEC0A4008FA3F5 /* CONTRIBUTION_FLOW.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CONTRIBUTION_FLOW.md; sourceTree = "<group>"; };
 		CE224B232EE8D9FD007288F9 /* CryptoSavingsTrackerUITests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = CryptoSavingsTrackerUITests.xctestplan; sourceTree = "<group>"; };
 		CEAAFFA62E4E4A5F00A6B5A3 /* ARCHITECTURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ARCHITECTURE.md; sourceTree = "<group>"; };
@@ -64,7 +67,6 @@
 		CEF7B1E02E33FAB400FB26B3 /* CryptoSavingsTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CryptoSavingsTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CEF7B1F12E33FAB600FB26B3 /* CryptoSavingsTrackerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CryptoSavingsTrackerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CEF7B1FB2E33FAB600FB26B3 /* CryptoSavingsTrackerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CryptoSavingsTrackerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		ED5125EC782471CA1EC523D4 /* ContributionService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContributionService.swift; path = CryptoSavingsTracker/Services/ContributionService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -134,6 +136,8 @@
 		CEDD1EE32E4698B20026BFEF /* docs */ = {
 			isa = PBXGroup;
 			children = (
+				CE1752382EF346CE00E9514F /* CLOUDKIT_MIGRATION_PLAN.md */,
+				CE0FEC132EF138D400F80950 /* CONTRIBUTION_TRACKING_REDESIGN.md */,
 				CE1FBF9B2EEEC0A4008FA3F5 /* CONTRIBUTION_FLOW.md */,
 				CEAAFFA62E4E4A5F00A6B5A3 /* ARCHITECTURE.md */,
 				CEAAFFA82E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md */,
@@ -178,9 +182,7 @@
 				CEF7B1E12E33FAB400FB26B3 /* Products */,
 				C493491B92BD0C3AA48933B6 /* MonthlyExecutionRecord.swift */,
 				94025BA93C3464506EF2FBF8 /* ExecutionSnapshot.swift */,
-				1069472D3340F44835C15971 /* Contribution.swift */,
 				2DA29DF83F0229CE3C706F95 /* ExecutionTrackingService.swift */,
-				ED5125EC782471CA1EC523D4 /* ContributionService.swift */,
 				6214ED137F0705A07D8747E0 /* MonthlyExecutionViewModel.swift */,
 				4FA0A0551D616B6ACF8B3567 /* MonthlyExecutionView.swift */,
 				51F018F76A9D8C23B84771F0 /* MonthlyPlanningContainer.swift */,
@@ -322,7 +324,9 @@
 				CEDD1EE42E4698B20026BFEF /* sample-data.md in Resources */,
 				CE1FBF9C2EEEC0A4008FA3F5 /* CONTRIBUTION_FLOW.md in Resources */,
 				CEDD1EE62E4698B20026BFEF /* .gitkeep in Resources */,
+				CE1752392EF346CE00E9514F /* CLOUDKIT_MIGRATION_PLAN.md in Resources */,
 				CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */,
+				CE0FEC142EF138D500F80950 /* CONTRIBUTION_TRACKING_REDESIGN.md in Resources */,
 				CED9DE6A2E36232E00203A83 /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -391,7 +395,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 14;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_APP_SANDBOX = YES;
@@ -452,7 +456,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 14;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_APP_SANDBOX = YES;

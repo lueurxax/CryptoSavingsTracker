@@ -57,7 +57,9 @@ struct AssetRowView: View {
     }
     
     private var manualBalance: Double {
-        assetTransactions.reduce(0) { $0 + $1.amount }
+        assetTransactions
+            .filter { $0.source == .manual }
+            .reduce(0) { $0 + $1.amount }
     }
     
     private var isSharedAsset: Bool {
@@ -84,6 +86,12 @@ struct AssetRowView: View {
             return min(goalAllocationAmount, totalBalance)
         }
         return totalBalance
+    }
+
+    private var unallocatedAmountForAllocationUI: Double {
+        // Prefer the freshest balance we have in this view (on-chain fetch), but fall back to cached model value.
+        let bestKnownBalance = max(asset.currentAmount, totalBalance)
+        return max(0, bestKnownBalance - asset.totalAllocatedAmount)
     }
     
     init(asset: Asset, goal: Goal? = nil, isExpanded: Bool, onToggleExpanded: @escaping () -> Void, onDelete: (() -> Void)? = nil) {
@@ -258,6 +266,26 @@ struct AssetRowView: View {
                             }
                             .accessibilityIdentifier("shareAssetButton")
                             .buttonStyle(PlainButtonStyle())
+
+                            if let goal, unallocatedAmountForAllocationUI > 0.0000001 {
+                                Button(action: {
+                                    allocateAllUnallocated(to: goal)
+                                }) {
+                                    VStack(spacing: 4) {
+                                        Image(systemName: "arrow.down.right.circle.fill")
+                                            .font(.title3)
+                                            .foregroundColor(.mint)
+                                        Text("All")
+                                            .font(.caption2)
+                                            .foregroundColor(.primary)
+                                    }
+                                    .frame(width: 60, height: 50)
+                                    .background(Color.mint.opacity(0.12))
+                                    .cornerRadius(10)
+                                }
+                                .accessibilityIdentifier("allocateAllUnallocatedButton")
+                                .buttonStyle(PlainButtonStyle())
+                            }
                             
                             if hasOnChainAddress {
                                 // Update Transactions Button
@@ -444,6 +472,40 @@ struct AssetRowView: View {
             AssetSharingView(asset: asset)
         }
     }
+
+    private func allocateAllUnallocated(to goal: Goal) {
+        let remaining = unallocatedAmountForAllocationUI
+        guard remaining > 0.0000001 else { return }
+
+        let newAmount: Double
+        if let existing = asset.allocations.first(where: { $0.goal?.id == goal.id }) {
+            newAmount = existing.amountValue + remaining
+            existing.updateAmount(newAmount)
+        } else {
+            let allocation = AssetAllocation(asset: asset, goal: goal, amount: remaining)
+            modelContext.insert(allocation)
+            if !asset.allocations.contains(where: { $0.id == allocation.id }) {
+                asset.allocations.append(allocation)
+            }
+            if !goal.allocations.contains(where: { $0.id == allocation.id }) {
+                goal.allocations.append(allocation)
+            }
+            newAmount = remaining
+        }
+
+        modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: newAmount, timestamp: Date()))
+        try? modelContext.save()
+
+        NotificationCenter.default.post(name: .goalUpdated, object: nil, userInfo: ["assetId": asset.id])
+        NotificationCenter.default.post(
+            name: .monthlyPlanningAssetUpdated,
+            object: asset,
+            userInfo: [
+                "assetId": asset.id,
+                "goalIds": asset.allocations.compactMap { $0.goal?.id }
+            ]
+        )
+    }
     
     private func loadInitialData() async {
         // Load balance
@@ -463,7 +525,6 @@ struct AssetRowView: View {
     }
     
     private func deleteTransaction(_ transaction: Transaction) {
-        ContributionBridge.removeLinkedContributions(for: transaction, in: modelContext)
         modelContext.delete(transaction)
         try? modelContext.save()
     }
@@ -525,6 +586,24 @@ struct AssetRowView: View {
                 limit: 10,
                 forceRefresh: forceRefresh
             )
+
+            // Persist into SwiftData so execution tracking can use timestamps without live bridging.
+            let insertedCount = await MainActor.run { () -> Int in
+                let importer = OnChainTransactionImportService(modelContext: modelContext)
+                return (try? importer.upsert(transactions: transactions, for: asset)) ?? 0
+            }
+            if insertedCount > 0 {
+                NotificationCenter.default.post(name: .goalProgressRefreshed, object: nil)
+                NotificationCenter.default.post(
+                    name: .monthlyPlanningAssetUpdated,
+                    object: asset,
+                    userInfo: [
+                        "assetId": asset.id,
+                        "goalIds": asset.allocations.compactMap { $0.goal?.id }
+                    ]
+                )
+            }
+
             await MainActor.run {
                 onChainTransactions = transactions
                 isLoadingTransactions = false

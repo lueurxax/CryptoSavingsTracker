@@ -12,7 +12,7 @@
 
 ### Proposed Architecture (Recommended: Hybrid with Baseline)
 1) **Hybrid execution view (live for active, frozen baseline for closed)**
-   - Active month: compute planned vs. contributed on demand from `MonthlyPlan` (effectiveAmount/requiredMonthly) + `Contribution` totals.
+   - Active month: compute planned vs. contributed on demand from `MonthlyPlan` (effectiveAmount/requiredMonthly) + derived execution totals.
    - Closed months: display the frozen `ExecutionSnapshot` captured when the month was closed to preserve history.
    - Keep the original “Baseline Snapshot” from tracking start for reference/undo; show “Current Plan” live for the active month.
 

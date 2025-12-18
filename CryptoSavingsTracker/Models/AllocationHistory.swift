@@ -10,10 +10,12 @@ import Foundation
 
 @Model
 final class AllocationHistory {
-    @Attribute(.unique) var id: UUID
-    var amount: Double
-    var timestamp: Date
-    var monthLabel: String
+    @Attribute(.unique) var id: UUID = UUID()
+    var amount: Double = 0.0
+    var timestamp: Date = Date()
+    /// Creation time for tie-breaking when multiple snapshots share the same `timestamp`.
+    var createdAt: Date?
+    var monthLabel: String = ""
     var assetId: UUID?
     var goalId: UUID?
 
@@ -29,6 +31,11 @@ final class AllocationHistory {
         self.goal = goal
         self.amount = amount
         self.timestamp = timestamp
+        self.createdAt = Date()
         self.monthLabel = MonthlyExecutionRecord.monthLabel(from: timestamp)
+    }
+
+    var effectiveCreatedAt: Date {
+        createdAt ?? timestamp
     }
 }

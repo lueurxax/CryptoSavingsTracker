@@ -32,7 +32,10 @@ struct ContentView: View {
 // MARK: - iOS Content View
 
 struct iOSContentView: View {
-    @Query private var goals: [Goal]
+    @Query(filter: #Predicate<Goal> { goal in
+        goal.lifecycleStatusRawValue == "active"
+    })
+    private var goals: [Goal]
     @State private var selectedView: DetailViewType = .details
     @Environment(\.modelContext) private var modelContext
 
@@ -49,11 +52,9 @@ struct iOSContentView: View {
 
     private func deleteGoal(_ goal: Goal) {
         withAnimation {
-            Task {
-                await NotificationManager.shared.cancelNotifications(for: goal)
+            Task { @MainActor in
+                await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
             }
-            modelContext.delete(goal)
-            try? modelContext.save()
 
             NotificationCenter.default.post(name: .goalDeleted, object: goal)
         }
@@ -71,7 +72,10 @@ struct iOSContentView: View {
 // MARK: - macOS Content View
 
 struct macOSContentView: View {
-    @Query private var goals: [Goal]
+    @Query(filter: #Predicate<Goal> { goal in
+        goal.lifecycleStatusRawValue == "active"
+    })
+    private var goals: [Goal]
     @State private var selectedGoal: Goal?
     @State private var selectedView: DetailViewType = .details
 
@@ -114,6 +118,7 @@ struct GoalsList: View {
     let onDelete: (Goal) -> Void
     let onRefresh: () async -> Void
     @State private var showingAddGoal = false
+    @State private var showingSettings = false
     @State private var editingGoal: Goal?
     @State private var monthlyPlanningViewModel: MonthlyPlanningViewModel?
     @State private var refreshTrigger = UUID()
@@ -159,7 +164,17 @@ struct GoalsList: View {
                             GoalContextMenuContent(
                                 goal: goal,
                                 onDelete: { onDelete(goal) },
-                                onEdit: { editingGoal = goal }
+                                onEdit: { editingGoal = goal },
+                                onCancel: {
+                                    Task { @MainActor in
+                                        await GoalLifecycleService(modelContext: modelContext).cancelGoal(goal)
+                                    }
+                                },
+                                onFinish: {
+                                    Task { @MainActor in
+                                        await GoalLifecycleService(modelContext: modelContext).finishGoal(goal)
+                                    }
+                                }
                             )
                         }
                     }
@@ -174,16 +189,15 @@ struct GoalsList: View {
             await onRefresh()
         }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showingAddGoal = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel("Add goal")
-                .accessibilityIdentifier("addGoalButton")
-                .platformTouchTarget()
+            #if os(iOS)
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                goalsToolbarButtons
             }
+            #else
+            ToolbarItemGroup(placement: .primaryAction) {
+                goalsToolbarButtons
+            }
+            #endif
         }
         .onAppear {
             setupShortcuts()
@@ -196,6 +210,30 @@ struct GoalsList: View {
             EditGoalView(goal: goal, modelContext: goal.modelContext!)
                 .presentationDetents([.large])
         }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
+    }
+
+    @ViewBuilder
+    private var goalsToolbarButtons: some View {
+        Button {
+            showingSettings = true
+        } label: {
+            Image(systemName: "gearshape")
+        }
+        .accessibilityLabel("Settings")
+        .accessibilityIdentifier("openSettingsButton")
+        .platformTouchTarget()
+
+        Button {
+            showingAddGoal = true
+        } label: {
+            Image(systemName: "plus")
+        }
+        .accessibilityLabel("Add goal")
+        .accessibilityIdentifier("addGoalButton")
+        .platformTouchTarget()
     }
 
     private func setupShortcuts() {
@@ -209,11 +247,21 @@ struct GoalContextMenuContent: View {
     let goal: Goal
     let onDelete: () -> Void
     let onEdit: () -> Void
+    let onCancel: () -> Void
+    let onFinish: () -> Void
 
     var body: some View {
         Group {
             Button("Edit Goal") {
                 onEdit()
+            }
+
+            Button("Cancel Goal (free allocations)") {
+                onCancel()
+            }
+
+            Button("Mark Finished (keep allocations)") {
+                onFinish()
             }
 
             Button("Add Asset") {

@@ -224,7 +224,7 @@ private struct MonthlyPlanningContainerContent: View {
             // 1. Fetch active goals
             let descriptor = FetchDescriptor<Goal>(
                 predicate: #Predicate { goal in
-                    goal.archivedDate == nil
+                    goal.lifecycleStatusRawValue == "active"
                 }
             )
             let goals = try modelContext.fetch(descriptor)
@@ -312,24 +312,10 @@ private struct MonthlyPlanningContainerContent: View {
             let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
 
-            // Remove contributions for this month/goal set to fully reset
-            let monthLabel = record.monthLabel
-            let goalIds = Set(record.goalIds)
-            let contribPredicate = #Predicate<Contribution> { contribution in
-                contribution.monthLabel == monthLabel
-            }
-            let contribDescriptor = FetchDescriptor<Contribution>(predicate: contribPredicate)
-            if let contributions = try? modelContext.fetch(contribDescriptor) {
-                for contribution in contributions where contribution.goal != nil && goalIds.contains(contribution.goal!.id) {
-                    modelContext.delete(contribution)
-                }
-            }
-
             // Reset plans for this month back to draft/default state
             let plans = try planService.fetchPlans(for: record.monthLabel)
             for plan in plans {
                 plan.state = .draft
-                plan.totalContributed = 0
                 plan.customAmount = nil
                 plan.isProtected = false
                 plan.isSkipped = false

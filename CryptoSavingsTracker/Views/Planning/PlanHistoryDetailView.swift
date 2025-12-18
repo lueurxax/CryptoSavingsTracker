@@ -270,19 +270,12 @@ struct PlanHistoryDetailView: View {
 
         do {
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
-            contributedTotals = try executionService.getContributionTotals(for: record)
-            overallProgress = try executionService.calculateProgress(for: record)
+            contributedTotals = try await executionService.getContributionTotals(for: record)
+            overallProgress = try await executionService.calculateProgress(for: record)
 
-            if let completed = record.completedExecution {
-                contributionCountsByGoal = completed.contributionSnapshots.reduce(into: [:]) { partial, snapshot in
-                    partial[snapshot.goalId, default: 0] += 1
-                }
-            } else {
-                let byGoal = try executionService.getContributionsByGoal(for: record)
-                contributionCountsByGoal = byGoal.reduce(into: [:]) { partial, item in
-                    partial[item.key] = item.value.count
-                }
-            }
+            contributionCountsByGoal = record.completedExecution?.contributionSnapshots.reduce(into: [:]) { partial, snapshot in
+                partial[snapshot.goalId, default: 0] += 1
+            } ?? [:]
         } catch {
             print("Error loading data: \(error)")
         }

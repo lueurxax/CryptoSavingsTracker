@@ -90,13 +90,19 @@ class AssetViewModel: ObservableObject {
         isLoadingTransactions = true
         
         do {
-            onChainTransactions = try await tatumService.fetchTransactionHistory(
+            let fetched = try await tatumService.fetchTransactionHistory(
                 chainId: chainId,
                 address: address,
                 currency: asset.currency,
                 limit: 20,
                 forceRefresh: forceRefresh
             )
+            onChainTransactions = fetched
+
+            if let modelContext {
+                let importer = OnChainTransactionImportService(modelContext: modelContext)
+                _ = try? importer.upsert(transactions: fetched, for: asset)
+            }
         } catch {
             onChainTransactions = []
         }

@@ -71,14 +71,20 @@ final class BalanceCacheManager {
     }
     
     func cacheBalance(_ balance: Double, for key: String) {
-        cacheQueue.async(flags: .barrier) {
-            let entry = BalanceCacheEntry(
-                balance: balance,
-                timestamp: Date(),
-                expiresAt: Date().addingTimeInterval(self.balanceCacheDuration)
-            )
+        // Update in-memory cache synchronously so callers can read the new value immediately
+        // (e.g., allocation UI using `Asset.currentAmount` right after a balance refresh).
+        let entry = BalanceCacheEntry(
+            balance: balance,
+            timestamp: Date(),
+            expiresAt: Date().addingTimeInterval(self.balanceCacheDuration)
+        )
+        cacheQueue.sync(flags: .barrier) {
             self.balanceCache[key] = entry
-            Self.log.info("Cached balance \(balance, privacy: .public) for key: \(key, privacy: .public)")
+        }
+        Self.log.info("Cached balance \(balance, privacy: .public) for key: \(key, privacy: .public)")
+
+        // Persist asynchronously to avoid blocking the caller on JSON encoding/UserDefaults I/O.
+        cacheQueue.async(flags: .barrier) {
             self.persistCache()
             Self.log.info("Persisted \(self.balanceCache.count, privacy: .public) entries to disk")
         }
@@ -151,7 +157,7 @@ final class BalanceCacheManager {
     // MARK: - Persistence
     
     private func loadPersistedCache() {
-        cacheQueue.async(flags: .barrier) {
+        cacheQueue.sync(flags: .barrier) {
             if let data = UserDefaults.standard.data(forKey: self.balanceCacheKey),
                let decodedCache = try? JSONDecoder().decode([String: BalanceCacheEntry].self, from: data) {
                 // Only load non-expired entries or entries less than 24 hours old
@@ -174,4 +180,3 @@ final class BalanceCacheManager {
         }
     }
 }
-

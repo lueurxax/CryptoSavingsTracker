@@ -10,18 +10,36 @@ import Foundation
 
 @Model
 final class Transaction {
-    init(amount: Double, asset: Asset, comment: String? = nil) {
+    init(
+        amount: Double,
+        asset: Asset,
+        date: Date = Date(),
+        source: TransactionSource = .manual,
+        externalId: String? = nil,
+        counterparty: String? = nil,
+        comment: String? = nil
+    ) {
         self.id = UUID()
         self.amount = amount
-        self.date = Date()
+        self.date = date
         self.asset = asset
         self.comment = comment
+        self.sourceRawValue = source.rawValue
+        self.externalId = externalId
+        self.counterparty = counterparty
     }
 
     @Attribute(.unique) var id: UUID
     var amount: Double
     var date: Date
+    var sourceRawValue: String = TransactionSource.manual.rawValue
+    var externalId: String?
+    var counterparty: String?
     var comment: String?
     
-    @Relationship var asset: Asset
+    var asset: Asset
+
+    var source: TransactionSource {
+        TransactionSource(rawValue: sourceRawValue) ?? .manual
+    }
 }

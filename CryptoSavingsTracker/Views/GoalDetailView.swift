@@ -365,18 +365,24 @@ struct GoalDetailView: View {
             }
 #endif
         }
-        .confirmationDialog(
-            "Delete Goal?",
-            isPresented: $showingDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Delete Goal", role: .destructive) {
-                deleteGoal()
+            .confirmationDialog(
+                "Delete Goal?",
+                isPresented: $showingDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete Goal", role: .destructive) {
+                    deleteGoal()
+                }
+                Button("Cancel Goal (free allocations)", role: .destructive) {
+                    cancelGoal()
+                }
+                Button("Mark Finished (keep allocations)") {
+                    finishGoal()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Choose how to archive '\(goal.name)'. Finished goals keep allocations (treated as spent). Cancel frees allocations back to unallocated.")
             }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("This will permanently delete '\(goal.name)' and all associated assets and transactions. This action cannot be undone.")
-        }
         .sheet(item: $editingGoal) { goal in
             EditGoalView(goal: goal, modelContext: modelContext)
 #if os(macOS)
@@ -473,13 +479,23 @@ struct GoalDetailView: View {
     
     private func deleteGoal() {
         withAnimation {
-            Task {
-                await NotificationManager.shared.cancelNotifications(for: goal)
+            Task { @MainActor in
+                await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
             }
-            modelContext.delete(goal)
-            try? modelContext.save()
             
             NotificationCenter.default.post(name: .goalDeleted, object: goal)
+        }
+    }
+
+    private func cancelGoal() {
+        Task { @MainActor in
+            await GoalLifecycleService(modelContext: modelContext).cancelGoal(goal)
+        }
+    }
+
+    private func finishGoal() {
+        Task { @MainActor in
+            await GoalLifecycleService(modelContext: modelContext).finishGoal(goal)
         }
     }
 }
