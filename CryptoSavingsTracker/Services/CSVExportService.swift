@@ -102,7 +102,8 @@ private extension CSVExportService {
             "goalDescription",
             "link",
             "allocationCount",
-            "allocationIds"
+            "allocationIds",
+            "allocationsJson"
         ]
 
         let rows: [[String]] = goals.map { goal in
@@ -124,7 +125,8 @@ private extension CSVExportService {
                 goal.goalDescription ?? "",
                 goal.link ?? "",
                 String(goal.allocations.count),
-                allocationIds
+                allocationIds,
+                allocationsJSON(goal.allocations)
             ]
         }
 
@@ -140,7 +142,8 @@ private extension CSVExportService {
             "transactionCount",
             "transactionIds",
             "allocationCount",
-            "allocationIds"
+            "allocationIds",
+            "allocationsJson"
         ]
 
         let rows: [[String]] = assets.map { asset in
@@ -154,7 +157,8 @@ private extension CSVExportService {
                 String(asset.transactions.count),
                 transactionIds,
                 String(asset.allocations.count),
-                allocationIds
+                allocationIds,
+                allocationsJSON(asset.allocations)
             ]
         }
 
@@ -255,6 +259,39 @@ private extension CSVExportService {
             .map(\.row)
 
         return CSVWriter.csv(header: header, rows: sortedRows)
+    }
+
+    static func allocationsJSON(_ allocations: [AssetAllocation]) -> String {
+        struct ExportAllocation: Encodable {
+            let id: String
+            let amount: Double
+            let createdDate: String
+            let lastModifiedDate: String
+            let assetId: String
+            let goalId: String
+            let assetCurrency: String
+            let goalName: String
+        }
+
+        let exportAllocations: [ExportAllocation] = allocations.map { allocation in
+            ExportAllocation(
+                id: allocation.id.uuidString,
+                amount: allocation.amount,
+                createdDate: CSVFormatting.date(allocation.createdDate),
+                lastModifiedDate: CSVFormatting.date(allocation.lastModifiedDate),
+                assetId: allocation.asset?.id.uuidString ?? "",
+                goalId: allocation.goal?.id.uuidString ?? "",
+                assetCurrency: allocation.asset?.currency ?? "",
+                goalName: allocation.goal?.name ?? ""
+            )
+        }
+
+        do {
+            let data = try JSONEncoder().encode(exportAllocations)
+            return String(data: data, encoding: .utf8) ?? ""
+        } catch {
+            return ""
+        }
     }
 }
 

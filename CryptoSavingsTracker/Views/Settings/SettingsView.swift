@@ -13,8 +13,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var monthlySettings = MonthlyPlanningSettings.shared
     @State private var showingMonthlyPlanningSettings = false
-    @State private var showingExportShare = false
-    @State private var exportFileURLs: [URL] = []
+    @State private var exportResult: CSVExportResult?
     @State private var exportErrorMessage: String?
     @State private var showingExportError = false
     
@@ -24,8 +23,8 @@ struct SettingsView: View {
                 Section("Data") {
                     Button {
                         do {
-                            exportFileURLs = try CSVExportService.exportCSVFiles(using: modelContext)
-                            showingExportShare = true
+                            let urls = try CSVExportService.exportCSVFiles(using: modelContext)
+                            exportResult = CSVExportResult(fileURLs: urls)
                         } catch {
                             exportErrorMessage = error.localizedDescription
                             showingExportError = true
@@ -106,8 +105,8 @@ struct SettingsView: View {
         .sheet(isPresented: $showingMonthlyPlanningSettings) {
             MonthlyPlanningSettingsView(goals: [])
         }
-        .sheet(isPresented: $showingExportShare) {
-            CSVExportShareView(fileURLs: exportFileURLs)
+        .sheet(item: $exportResult) { result in
+            CSVExportShareView(fileURLs: result.fileURLs)
         }
         .alert("Export Failed", isPresented: $showingExportError) {
             Button("OK", role: .cancel) {}
@@ -133,6 +132,14 @@ private extension Int {
             }
         }
     }
+}
+
+// MARK: - CSV Export Result
+
+/// Wrapper for sheet(item:) presentation to ensure URLs are passed correctly
+struct CSVExportResult: Identifiable {
+    let id = UUID()
+    let fileURLs: [URL]
 }
 
 #Preview {
