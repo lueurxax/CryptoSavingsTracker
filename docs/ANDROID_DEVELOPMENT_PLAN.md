@@ -135,12 +135,12 @@ The following features are explicitly **out of scope** for the initial Android r
 ```kotlin
 // build.gradle.kts (app)
 //
-// NOTE ON PACKAGE NAMING:
-// Current: com.xax.CryptoSavingsTracker (mixed case, matches existing project)
-// Recommended: com.xax.cryptosavingstracker (lowercase, Java/Kotlin convention)
-//
-// If changing to lowercase, update: namespace, applicationId, folder structure,
-// HiltTestRunner package, and Room schema export path.
+// PACKAGE NAMING: com.xax.CryptoSavingsTracker
+// This mixed-case package is used consistently throughout:
+// - namespace and applicationId (below)
+// - folder structure: java/com/xax/CryptoSavingsTracker/
+// - HiltTestRunner package
+// - Room schema export path
 
 plugins {
     alias(libs.plugins.android.application)
@@ -690,7 +690,7 @@ object DatabaseMigrations {
             db.execSQL("ALTER TABLE goals_new RENAME TO goals")
 
             // 5. Recreate indices
-            db.execSQL("CREATE INDEX IF NOT EXISTS index_goals_deadline ON goals(deadline_utc)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_goals_deadline ON goals(deadline_epoch_day)")
         }
     }
 
