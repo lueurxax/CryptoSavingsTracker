@@ -52,3 +52,9 @@ val AltcoinPurple = Color(0xFF8B5CF6)
 // Transaction colors
 val DepositGreen = Color(0xFF00875A)
 val WithdrawalRed = Color(0xFFCC0000)
+
+// Accessible status colors (WCAG compliant)
+val AccessibleGreen = Color(0xFF00875A)
+val AccessibleRed = Color(0xFFCC0000)
+val AccessibleYellow = Color(0xFFCC6600)
+val AccessibleBlue = Color(0xFF0066CC)
