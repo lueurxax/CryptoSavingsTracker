@@ -8,7 +8,8 @@ import com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus
 import com.xax.CryptoSavingsTracker.domain.model.ReminderFrequency
 
 /**
- * Mapper functions to convert between GoalEntity (data layer) and Goal (domain layer)
+ * Mapper functions to convert between GoalEntity (data layer) and Goal (domain layer).
+ * Maps ALL fields to prevent data loss on roundtrip.
  */
 object GoalMapper {
 
@@ -21,9 +22,13 @@ object GoalMapper {
             deadline = deadlineEpochDay.toLocalDate(),
             startDate = startDateEpochDay.toLocalDate(),
             lifecycleStatus = GoalLifecycleStatus.fromString(lifecycleStatus),
-            reminderEnabled = reminderFrequency != null,
+            lifecycleStatusChangedAt = lifecycleStatusChangedAtUtcMillis,
+            emoji = emoji,
+            description = description,
+            link = link,
             reminderFrequency = ReminderFrequency.fromString(reminderFrequency),
-            notes = description,
+            reminderTimeMillis = reminderTimeUtcMillis,
+            firstReminderDate = firstReminderEpochDay?.toLocalDate(),
             createdAt = createdAtUtcMillis,
             updatedAt = lastModifiedAtUtcMillis
         )
@@ -37,9 +42,14 @@ object GoalMapper {
             targetAmount = targetAmount,
             deadlineEpochDay = deadline.toEpochDayInt(),
             startDateEpochDay = startDate.toEpochDayInt(),
-            lifecycleStatus = lifecycleStatus.name.lowercase(),
-            reminderFrequency = if (reminderEnabled) reminderFrequency?.name?.lowercase() else null,
-            description = notes,
+            lifecycleStatus = lifecycleStatus.rawValue,
+            lifecycleStatusChangedAtUtcMillis = lifecycleStatusChangedAt,
+            emoji = emoji,
+            description = description,
+            link = link,
+            reminderFrequency = reminderFrequency?.name?.lowercase(),
+            reminderTimeUtcMillis = reminderTimeMillis,
+            firstReminderEpochDay = firstReminderDate?.toEpochDayInt(),
             createdAtUtcMillis = createdAt,
             lastModifiedAtUtcMillis = updatedAt
         )

@@ -29,14 +29,14 @@ data class GoalListUiState(
 )
 
 /**
- * Filter options for goals
+ * Filter options for goals (matches iOS GoalLifecycleStatus)
  */
 enum class GoalFilter {
     ALL,
     ACTIVE,
-    PAUSED,
-    COMPLETED,
-    CANCELLED
+    FINISHED,
+    CANCELLED,
+    DELETED
 }
 
 /**
@@ -62,11 +62,11 @@ class GoalListViewModel @Inject constructor(
         _showDeleteConfirmation
     ) { goals, filter, isLoading, error, deleteConfirmation ->
         val filteredGoals = when (filter) {
-            GoalFilter.ALL -> goals
+            GoalFilter.ALL -> goals.filter { it.lifecycleStatus != GoalLifecycleStatus.DELETED }
             GoalFilter.ACTIVE -> goals.filter { it.lifecycleStatus == GoalLifecycleStatus.ACTIVE }
-            GoalFilter.PAUSED -> goals.filter { it.lifecycleStatus == GoalLifecycleStatus.PAUSED }
-            GoalFilter.COMPLETED -> goals.filter { it.lifecycleStatus == GoalLifecycleStatus.COMPLETED }
+            GoalFilter.FINISHED -> goals.filter { it.lifecycleStatus == GoalLifecycleStatus.FINISHED }
             GoalFilter.CANCELLED -> goals.filter { it.lifecycleStatus == GoalLifecycleStatus.CANCELLED }
+            GoalFilter.DELETED -> goals.filter { it.lifecycleStatus == GoalLifecycleStatus.DELETED }
         }
 
         GoalListUiState(

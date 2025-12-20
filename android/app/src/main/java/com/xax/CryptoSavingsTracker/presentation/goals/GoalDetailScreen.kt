@@ -220,9 +220,9 @@ fun GoalDetailScreen(
 
 private fun GoalLifecycleStatus.displayName(): String = when (this) {
     GoalLifecycleStatus.ACTIVE -> "Active"
-    GoalLifecycleStatus.PAUSED -> "Paused"
-    GoalLifecycleStatus.COMPLETED -> "Completed"
+    GoalLifecycleStatus.FINISHED -> "Finished"
     GoalLifecycleStatus.CANCELLED -> "Cancelled"
+    GoalLifecycleStatus.DELETED -> "Deleted"
 }
 
 @Composable
@@ -230,7 +230,7 @@ private fun GoalDetailContent(goal: Goal) {
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMMM d, yyyy") }
     val daysRemaining = goal.daysRemaining()
     val statusColor = when {
-        goal.lifecycleStatus == GoalLifecycleStatus.COMPLETED -> GoalCompleted
+        goal.lifecycleStatus == GoalLifecycleStatus.FINISHED -> GoalCompleted
         goal.isOverdue() -> GoalAtRisk
         daysRemaining < 30 -> GoalBehind
         else -> GoalOnTrack
@@ -353,7 +353,7 @@ private fun GoalDetailContent(goal: Goal) {
                 DetailRow(
                     "Time Remaining",
                     when {
-                        goal.lifecycleStatus == GoalLifecycleStatus.COMPLETED -> "Completed"
+                        goal.lifecycleStatus == GoalLifecycleStatus.FINISHED -> "Finished"
                         goal.isOverdue() -> "Overdue by ${-daysRemaining} days"
                         daysRemaining == 0L -> "Due today"
                         daysRemaining == 1L -> "1 day"
@@ -365,7 +365,7 @@ private fun GoalDetailContent(goal: Goal) {
         }
 
         // Reminders section
-        if (goal.reminderEnabled && goal.reminderFrequency != null) {
+        if (goal.isReminderEnabled && goal.reminderFrequency != null) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(16.dp)
@@ -385,21 +385,21 @@ private fun GoalDetailContent(goal: Goal) {
             }
         }
 
-        // Notes section
-        goal.notes?.let { notes ->
-            if (notes.isNotEmpty()) {
+        // Description section
+        goal.description?.let { description ->
+            if (description.isNotEmpty()) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Text(
-                            text = "Notes",
+                            text = "Description",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = notes,
+                            text = description,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -414,9 +414,9 @@ private fun GoalDetailContent(goal: Goal) {
 private fun StatusChip(status: GoalLifecycleStatus) {
     val (text, color) = when (status) {
         GoalLifecycleStatus.ACTIVE -> "Active" to GoalOnTrack
-        GoalLifecycleStatus.PAUSED -> "Paused" to GoalBehind
-        GoalLifecycleStatus.COMPLETED -> "Completed" to GoalCompleted
+        GoalLifecycleStatus.FINISHED -> "Finished" to GoalCompleted
         GoalLifecycleStatus.CANCELLED -> "Cancelled" to GoalAtRisk
+        GoalLifecycleStatus.DELETED -> "Deleted" to GoalBehind
     }
 
     Card(

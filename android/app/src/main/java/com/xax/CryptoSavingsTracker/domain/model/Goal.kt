@@ -5,6 +5,7 @@ import java.time.LocalDate
 /**
  * Domain model representing a savings goal.
  * This is the clean architecture domain entity, separate from the Room entity.
+ * All fields match iOS Goal model for data parity.
  */
 data class Goal(
     val id: String,
@@ -14,12 +15,22 @@ data class Goal(
     val deadline: LocalDate,
     val startDate: LocalDate,
     val lifecycleStatus: GoalLifecycleStatus,
-    val reminderEnabled: Boolean,
+    val lifecycleStatusChangedAt: Long?,
+    val emoji: String?,
+    val description: String?,
+    val link: String?,
     val reminderFrequency: ReminderFrequency?,
-    val notes: String?,
+    val reminderTimeMillis: Long?,
+    val firstReminderDate: LocalDate?,
     val createdAt: Long,
     val updatedAt: Long
 ) {
+    /**
+     * Whether reminders are enabled (matches iOS isReminderEnabled)
+     */
+    val isReminderEnabled: Boolean
+        get() = reminderFrequency != null && reminderTimeMillis != null
+
     /**
      * Calculate progress percentage based on current value
      */
@@ -56,18 +67,26 @@ data class Goal(
 }
 
 /**
- * Goal lifecycle status matching iOS GoalLifecycleStatus
+ * Goal lifecycle status matching iOS GoalLifecycleStatus exactly.
+ * Uses lowercase names to match iOS rawValue strings.
  */
-enum class GoalLifecycleStatus {
-    ACTIVE,
-    PAUSED,
-    COMPLETED,
-    CANCELLED;
+enum class GoalLifecycleStatus(val rawValue: String) {
+    ACTIVE("active"),
+    CANCELLED("cancelled"),
+    FINISHED("finished"),
+    DELETED("deleted");
 
     companion object {
         fun fromString(value: String): GoalLifecycleStatus {
-            return entries.find { it.name.equals(value, ignoreCase = true) } ?: ACTIVE
+            return entries.find { it.rawValue.equals(value, ignoreCase = true) } ?: ACTIVE
         }
+    }
+
+    fun displayName(): String = when (this) {
+        ACTIVE -> "Active"
+        CANCELLED -> "Cancelled"
+        FINISHED -> "Finished"
+        DELETED -> "Deleted"
     }
 }
 

@@ -9,7 +9,8 @@ import java.util.UUID
 import javax.inject.Inject
 
 /**
- * Use case for adding a new goal
+ * Use case for adding a new goal.
+ * All fields match iOS Goal model for data parity.
  */
 class AddGoalUseCase @Inject constructor(
     private val repository: GoalRepository
@@ -23,9 +24,12 @@ class AddGoalUseCase @Inject constructor(
         targetAmount: Double,
         deadline: LocalDate,
         startDate: LocalDate = LocalDate.now(),
-        reminderEnabled: Boolean = false,
+        emoji: String? = null,
+        description: String? = null,
+        link: String? = null,
         reminderFrequency: ReminderFrequency? = null,
-        notes: String? = null
+        reminderTimeMillis: Long? = null,
+        firstReminderDate: LocalDate? = null
     ): Result<Goal> {
         // Validation
         if (name.isBlank()) {
@@ -47,9 +51,13 @@ class AddGoalUseCase @Inject constructor(
             deadline = deadline,
             startDate = startDate,
             lifecycleStatus = GoalLifecycleStatus.ACTIVE,
-            reminderEnabled = reminderEnabled,
-            reminderFrequency = if (reminderEnabled) reminderFrequency else null,
-            notes = notes?.trim()?.takeIf { it.isNotEmpty() },
+            lifecycleStatusChangedAt = null,
+            emoji = emoji,
+            description = description?.trim()?.takeIf { it.isNotEmpty() },
+            link = link?.trim()?.takeIf { it.isNotEmpty() },
+            reminderFrequency = reminderFrequency,
+            reminderTimeMillis = reminderTimeMillis,
+            firstReminderDate = firstReminderDate,
             createdAt = now,
             updatedAt = now
         )

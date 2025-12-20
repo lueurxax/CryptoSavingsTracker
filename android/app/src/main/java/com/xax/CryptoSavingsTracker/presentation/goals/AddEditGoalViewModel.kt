@@ -18,7 +18,8 @@ import java.time.LocalDate
 import javax.inject.Inject
 
 /**
- * UI State for Add/Edit Goal screen
+ * UI State for Add/Edit Goal screen.
+ * Field names match iOS Goal model for consistency.
  */
 data class AddEditGoalUiState(
     val isLoading: Boolean = false,
@@ -29,9 +30,11 @@ data class AddEditGoalUiState(
     val targetAmount: String = "",
     val deadline: LocalDate = LocalDate.now().plusMonths(6),
     val startDate: LocalDate = LocalDate.now(),
+    val emoji: String? = null,
+    val description: String = "",
+    val link: String = "",
     val reminderEnabled: Boolean = false,
     val reminderFrequency: ReminderFrequency? = null,
-    val notes: String = "",
     val nameError: String? = null,
     val targetAmountError: String? = null,
     val deadlineError: String? = null,
@@ -86,9 +89,11 @@ class AddEditGoalViewModel @Inject constructor(
                         targetAmount = goal.targetAmount.toString(),
                         deadline = goal.deadline,
                         startDate = goal.startDate,
-                        reminderEnabled = goal.reminderEnabled,
-                        reminderFrequency = goal.reminderFrequency,
-                        notes = goal.notes ?: ""
+                        emoji = goal.emoji,
+                        description = goal.description ?: "",
+                        link = goal.link ?: "",
+                        reminderEnabled = goal.isReminderEnabled,
+                        reminderFrequency = goal.reminderFrequency
                     )
                 }
             } else {
@@ -141,8 +146,16 @@ class AddEditGoalViewModel @Inject constructor(
         _uiState.update { it.copy(reminderFrequency = frequency) }
     }
 
-    fun updateNotes(notes: String) {
-        _uiState.update { it.copy(notes = notes) }
+    fun updateDescription(description: String) {
+        _uiState.update { it.copy(description = description) }
+    }
+
+    fun updateLink(link: String) {
+        _uiState.update { it.copy(link = link) }
+    }
+
+    fun updateEmoji(emoji: String?) {
+        _uiState.update { it.copy(emoji = emoji) }
     }
 
     fun clearError() {
@@ -183,9 +196,11 @@ class AddEditGoalViewModel @Inject constructor(
                     targetAmount = targetAmount!!,
                     deadline = state.deadline,
                     startDate = state.startDate,
-                    reminderEnabled = state.reminderEnabled,
+                    emoji = state.emoji,
+                    description = state.description.trim().takeIf { it.isNotEmpty() },
+                    link = state.link.trim().takeIf { it.isNotEmpty() },
                     reminderFrequency = if (state.reminderEnabled) state.reminderFrequency else null,
-                    notes = state.notes.trim().takeIf { it.isNotEmpty() }
+                    updatedAt = System.currentTimeMillis()
                 )
                 updateGoalUseCase(updatedGoal)
             } else {
@@ -195,9 +210,10 @@ class AddEditGoalViewModel @Inject constructor(
                     targetAmount = targetAmount!!,
                     deadline = state.deadline,
                     startDate = state.startDate,
-                    reminderEnabled = state.reminderEnabled,
-                    reminderFrequency = if (state.reminderEnabled) state.reminderFrequency else null,
-                    notes = state.notes.trim().takeIf { it.isNotEmpty() }
+                    emoji = state.emoji,
+                    description = state.description.trim().takeIf { it.isNotEmpty() },
+                    link = state.link.trim().takeIf { it.isNotEmpty() },
+                    reminderFrequency = if (state.reminderEnabled) state.reminderFrequency else null
                 )
             }
 

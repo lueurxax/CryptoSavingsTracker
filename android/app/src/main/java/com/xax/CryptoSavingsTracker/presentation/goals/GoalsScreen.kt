@@ -173,9 +173,9 @@ private fun GoalFilterChips(
 private fun GoalFilter.displayName(): String = when (this) {
     GoalFilter.ALL -> "All"
     GoalFilter.ACTIVE -> "Active"
-    GoalFilter.PAUSED -> "Paused"
-    GoalFilter.COMPLETED -> "Completed"
+    GoalFilter.FINISHED -> "Finished"
     GoalFilter.CANCELLED -> "Cancelled"
+    GoalFilter.DELETED -> "Deleted"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -188,7 +188,7 @@ private fun GoalCard(
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
     val daysRemaining = goal.daysRemaining()
     val statusColor = when {
-        goal.lifecycleStatus == GoalLifecycleStatus.COMPLETED -> GoalCompleted
+        goal.lifecycleStatus == GoalLifecycleStatus.FINISHED -> GoalCompleted
         goal.isOverdue() -> GoalAtRisk
         daysRemaining < 30 -> GoalBehind
         else -> GoalOnTrack
@@ -262,7 +262,7 @@ private fun GoalCard(
                 )
                 Text(
                     text = when {
-                        goal.lifecycleStatus == GoalLifecycleStatus.COMPLETED -> "Completed"
+                        goal.lifecycleStatus == GoalLifecycleStatus.FINISHED -> "Finished"
                         goal.isOverdue() -> "Overdue by ${-daysRemaining} days"
                         daysRemaining == 0L -> "Due today"
                         daysRemaining == 1L -> "1 day left"
@@ -281,9 +281,9 @@ private fun GoalCard(
 private fun StatusBadge(status: GoalLifecycleStatus) {
     val (text, color) = when (status) {
         GoalLifecycleStatus.ACTIVE -> "Active" to GoalOnTrack
-        GoalLifecycleStatus.PAUSED -> "Paused" to GoalBehind
-        GoalLifecycleStatus.COMPLETED -> "Completed" to GoalCompleted
+        GoalLifecycleStatus.FINISHED -> "Finished" to GoalCompleted
         GoalLifecycleStatus.CANCELLED -> "Cancelled" to GoalAtRisk
+        GoalLifecycleStatus.DELETED -> "Deleted" to GoalBehind
     }
 
     Card(

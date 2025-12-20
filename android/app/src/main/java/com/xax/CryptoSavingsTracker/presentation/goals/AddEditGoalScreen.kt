@@ -186,11 +186,11 @@ fun AddEditGoalScreen(
                     )
                 }
 
-                // Notes
+                // Description
                 OutlinedTextField(
-                    value = uiState.notes,
-                    onValueChange = viewModel::updateNotes,
-                    label = { Text("Notes (optional)") },
+                    value = uiState.description,
+                    onValueChange = viewModel::updateDescription,
+                    label = { Text("Description (optional)") },
                     placeholder = { Text("Add any notes about this goal...") },
                     modifier = Modifier
                         .fillMaxWidth()
