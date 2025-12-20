@@ -1,6 +1,8 @@
 package com.xax.CryptoSavingsTracker.di
 
+import com.xax.CryptoSavingsTracker.data.repository.AssetRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.GoalRepositoryImpl
+import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import dagger.Binds
 import dagger.Module
@@ -20,4 +22,10 @@ abstract class RepositoryModule {
     abstract fun bindGoalRepository(
         goalRepositoryImpl: GoalRepositoryImpl
     ): GoalRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAssetRepository(
+        assetRepositoryImpl: AssetRepositoryImpl
+    ): AssetRepository
 }

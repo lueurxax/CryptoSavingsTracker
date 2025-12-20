@@ -23,6 +23,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.xax.CryptoSavingsTracker.presentation.assets.AddEditAssetScreen
+import com.xax.CryptoSavingsTracker.presentation.assets.AssetDetailScreen
 import com.xax.CryptoSavingsTracker.presentation.assets.AssetsScreen
 import com.xax.CryptoSavingsTracker.presentation.dashboard.DashboardScreen
 import com.xax.CryptoSavingsTracker.presentation.goals.AddEditGoalScreen
@@ -118,6 +120,20 @@ fun AppNavHost() {
                 )
             ) {
                 AddEditGoalScreen(navController = navController)
+            }
+
+            // Asset screens
+            composable(
+                route = Screen.AssetDetail.route,
+                arguments = listOf(
+                    navArgument("assetId") { type = NavType.StringType }
+                )
+            ) {
+                AssetDetailScreen(navController = navController)
+            }
+
+            composable(Screen.AddAsset.route) {
+                AddEditAssetScreen(navController = navController)
             }
         }
     }
