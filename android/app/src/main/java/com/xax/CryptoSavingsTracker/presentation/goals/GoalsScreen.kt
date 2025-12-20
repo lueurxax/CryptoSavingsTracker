@@ -232,14 +232,14 @@ private fun GoalCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Progress and target amount
+            // Progress and target amount (uses fundedAmount to match iOS)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${goal.currency} ${String.format("%,.2f", goalWithProgress.allocatedAmount)}",
+                    text = "${goal.currency} ${String.format("%,.2f", goalWithProgress.fundedAmount)}",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary

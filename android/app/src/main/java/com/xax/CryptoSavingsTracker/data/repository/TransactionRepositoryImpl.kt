@@ -59,6 +59,10 @@ class TransactionRepositoryImpl @Inject constructor(
         return transactionDao.getTotalAmountForAsset(assetId) ?: 0.0
     }
 
+    override suspend fun getManualBalanceForAsset(assetId: String): Double {
+        return transactionDao.getManualBalanceForAsset(assetId) ?: 0.0
+    }
+
     override suspend fun getTotalAmountForAssetSince(assetId: String, startMillis: Long): Double {
         return transactionDao.getTotalAmountForAssetSince(assetId, startMillis) ?: 0.0
     }

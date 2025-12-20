@@ -47,6 +47,12 @@ interface TransactionRepository {
     suspend fun getTotalAmountForAsset(assetId: String): Double
 
     /**
+     * Get manual balance for an asset (sum of manual transactions only).
+     * Matches iOS Asset.manualBalance calculation.
+     */
+    suspend fun getManualBalanceForAsset(assetId: String): Double
+
+    /**
      * Get total amount for an asset since a given date
      */
     suspend fun getTotalAmountForAssetSince(assetId: String, startMillis: Long): Double

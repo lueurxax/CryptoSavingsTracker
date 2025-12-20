@@ -163,6 +163,27 @@ fun AddEditGoalScreen(
                     error = uiState.deadlineError
                 )
 
+                // Emoji field
+                OutlinedTextField(
+                    value = uiState.emoji ?: "",
+                    onValueChange = { viewModel.updateEmoji(it.takeIf { it.isNotEmpty() }) },
+                    label = { Text("Emoji (optional)") },
+                    placeholder = { Text("e.g., 🎯 or 🏠") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                // Link field
+                OutlinedTextField(
+                    value = uiState.link,
+                    onValueChange = viewModel::updateLink,
+                    label = { Text("Link (optional)") },
+                    placeholder = { Text("e.g., https://example.com") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
+                )
+
                 // Reminders section
                 Row(
                     modifier = Modifier.fillMaxWidth(),

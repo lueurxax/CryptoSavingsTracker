@@ -33,6 +33,9 @@ interface TransactionDao {
     @Query("SELECT SUM(amount) FROM transactions WHERE asset_id = :assetId")
     suspend fun getTotalAmountForAsset(assetId: String): Double?
 
+    @Query("SELECT SUM(amount) FROM transactions WHERE asset_id = :assetId AND source = 'manual'")
+    suspend fun getManualBalanceForAsset(assetId: String): Double?
+
     @Query("SELECT SUM(amount) FROM transactions WHERE asset_id = :assetId AND date_utc_millis >= :startMillis")
     suspend fun getTotalAmountForAssetSince(assetId: String, startMillis: Long): Double?
 

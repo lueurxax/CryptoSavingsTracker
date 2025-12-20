@@ -159,9 +159,12 @@ fun GoalDetailScreen(
                 else -> {
                     GoalDetailContent(
                         goal = uiState.goal!!,
-                        allocatedAmount = uiState.allocatedAmount,
+                        fundedAmount = uiState.fundedAmount,  // Use fundedAmount to match iOS
                         progress = uiState.progress,
-                        progressPercent = uiState.progressPercent
+                        progressPercent = uiState.progressPercent,
+                        onManageAllocations = {
+                            navController.navigate(Screen.AllocationList.createRoute(uiState.goal!!.id))
+                        }
                     )
                 }
             }
@@ -233,9 +236,10 @@ private fun GoalLifecycleStatus.displayName(): String = when (this) {
 @Composable
 private fun GoalDetailContent(
     goal: Goal,
-    allocatedAmount: Double,
+    fundedAmount: Double,  // Actual funded amount (min of allocation vs balance, matches iOS)
     progress: Double,
-    progressPercent: Int
+    progressPercent: Int,
+    onManageAllocations: () -> Unit = {}
 ) {
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMMM d, yyyy") }
     val daysRemaining = goal.daysRemaining()
@@ -338,7 +342,7 @@ private fun GoalDetailContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "${goal.currency} ${String.format("%,.2f", allocatedAmount)}",
+                        text = "${goal.currency} ${String.format("%,.2f", fundedAmount)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -348,6 +352,34 @@ private fun GoalDetailContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+        }
+
+        // Allocations section
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Allocations",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    TextButton(onClick = onManageAllocations) {
+                        Text("Manage")
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Allocate assets to fund this goal",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 

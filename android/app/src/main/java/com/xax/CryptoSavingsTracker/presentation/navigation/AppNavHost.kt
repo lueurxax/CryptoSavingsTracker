@@ -34,6 +34,8 @@ import com.xax.CryptoSavingsTracker.presentation.goals.GoalsScreen
 import com.xax.CryptoSavingsTracker.presentation.planning.PlanningScreen
 import com.xax.CryptoSavingsTracker.presentation.transactions.AddTransactionScreen
 import com.xax.CryptoSavingsTracker.presentation.transactions.TransactionHistoryScreen
+import com.xax.CryptoSavingsTracker.presentation.allocations.AllocationListScreen
+import com.xax.CryptoSavingsTracker.presentation.allocations.AddAllocationScreen
 
 data class BottomNavItem(
     val screen: Screen,
@@ -165,6 +167,25 @@ fun AppNavHost() {
                 )
             ) {
                 TransactionHistoryScreen(navController = navController)
+            }
+
+            // Allocation screens
+            composable(
+                route = Screen.AllocationList.route,
+                arguments = listOf(
+                    navArgument("goalId") { type = NavType.StringType }
+                )
+            ) {
+                AllocationListScreen(navController = navController)
+            }
+
+            composable(
+                route = Screen.AddAllocation.route,
+                arguments = listOf(
+                    navArgument("goalId") { type = NavType.StringType }
+                )
+            ) {
+                AddAllocationScreen(navController = navController)
             }
 
             // Planning sub-screens (placeholders for Phase 1)

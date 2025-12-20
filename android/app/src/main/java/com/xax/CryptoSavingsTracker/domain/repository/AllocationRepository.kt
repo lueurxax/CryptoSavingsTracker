@@ -1,5 +1,6 @@
 package com.xax.CryptoSavingsTracker.domain.repository
 
+import com.xax.CryptoSavingsTracker.domain.model.Allocation
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -20,6 +21,49 @@ interface AllocationRepository {
 
     /**
      * Get allocations for a specific goal as a Flow for reactive updates.
+     * Returns the total allocated amount (sum of all allocations).
      */
     fun getAllocationsForGoalFlow(goalId: String): Flow<Double>
+
+    /**
+     * Get all allocations for a specific goal.
+     * Returns individual allocation records for proper progress calculation.
+     */
+    suspend fun getAllocationsForGoal(goalId: String): List<Allocation>
+
+    /**
+     * Get all allocations for a specific goal as a Flow for reactive updates.
+     * Returns individual allocation records for proper progress calculation.
+     */
+    fun getAllocationsForGoalListFlow(goalId: String): Flow<List<Allocation>>
+
+    /**
+     * Get all allocations for a specific asset.
+     */
+    suspend fun getAllocationsForAsset(assetId: String): List<Allocation>
+
+    /**
+     * Get allocation by asset and goal.
+     */
+    suspend fun getAllocationByAssetAndGoal(assetId: String, goalId: String): Allocation?
+
+    /**
+     * Insert or update an allocation.
+     */
+    suspend fun upsertAllocation(allocation: Allocation)
+
+    /**
+     * Delete an allocation by ID.
+     */
+    suspend fun deleteAllocation(id: String)
+
+    /**
+     * Delete all allocations for a goal.
+     */
+    suspend fun deleteAllocationsForGoal(goalId: String)
+
+    /**
+     * Delete all allocations for an asset.
+     */
+    suspend fun deleteAllocationsForAsset(assetId: String)
 }
