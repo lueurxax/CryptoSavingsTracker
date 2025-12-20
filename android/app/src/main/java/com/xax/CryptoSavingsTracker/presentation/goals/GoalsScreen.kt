@@ -47,8 +47,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.xax.CryptoSavingsTracker.domain.model.Goal
 import com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus
+import com.xax.CryptoSavingsTracker.domain.usecase.goal.GoalWithProgress
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
 import com.xax.CryptoSavingsTracker.presentation.theme.GoalAtRisk
 import com.xax.CryptoSavingsTracker.presentation.theme.GoalBehind
@@ -118,12 +118,12 @@ fun GoalsScreen(
                 ) {
                     items(
                         items = uiState.goals,
-                        key = { it.id }
-                    ) { goal ->
+                        key = { it.goal.id }
+                    ) { goalWithProgress ->
                         GoalCard(
-                            goal = goal,
-                            onClick = { navController.navigate(Screen.GoalDetail.createRoute(goal.id)) },
-                            onLongClick = { viewModel.requestDeleteGoal(goal) }
+                            goalWithProgress = goalWithProgress,
+                            onClick = { navController.navigate(Screen.GoalDetail.createRoute(goalWithProgress.goal.id)) },
+                            onLongClick = { viewModel.requestDeleteGoal(goalWithProgress.goal) }
                         )
                     }
                 }
@@ -181,10 +181,11 @@ private fun GoalFilter.displayName(): String = when (this) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GoalCard(
-    goal: Goal,
+    goalWithProgress: GoalWithProgress,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
+    val goal = goalWithProgress.goal
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
     val daysRemaining = goal.daysRemaining()
     val statusColor = when {
@@ -231,19 +232,37 @@ private fun GoalCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Target amount
+            // Progress and target amount
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${goal.currency} ${String.format("%,.2f", goalWithProgress.allocatedAmount)}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "${goalWithProgress.progressPercent}%",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = statusColor
+                )
+            }
+
             Text(
-                text = "${goal.currency} ${String.format("%,.2f", goal.targetAmount)}",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                text = "of ${goal.currency} ${String.format("%,.2f", goal.targetAmount)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Progress bar placeholder (will be connected to actual progress later)
+            // Progress bar with real progress
             LinearProgressIndicator(
-                progress = { 0f }, // TODO: Connect to actual progress
+                progress = { goalWithProgress.progress.toFloat().coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth(),
                 color = statusColor,
             )

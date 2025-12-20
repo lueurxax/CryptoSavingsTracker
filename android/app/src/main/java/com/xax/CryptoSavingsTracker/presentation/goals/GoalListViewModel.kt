@@ -5,13 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.domain.model.Goal
 import com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.DeleteGoalUseCase
-import com.xax.CryptoSavingsTracker.domain.usecase.goal.GetGoalsUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.goal.GetGoalProgressUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.goal.GoalWithProgress
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.UpdateGoalUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -21,7 +21,7 @@ import javax.inject.Inject
  * UI State for the Goals List screen
  */
 data class GoalListUiState(
-    val goals: List<Goal> = emptyList(),
+    val goals: List<GoalWithProgress> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
     val selectedFilter: GoalFilter = GoalFilter.ALL,
@@ -44,7 +44,7 @@ enum class GoalFilter {
  */
 @HiltViewModel
 class GoalListViewModel @Inject constructor(
-    private val getGoalsUseCase: GetGoalsUseCase,
+    private val getGoalProgressUseCase: GetGoalProgressUseCase,
     private val deleteGoalUseCase: DeleteGoalUseCase,
     private val updateGoalUseCase: UpdateGoalUseCase
 ) : ViewModel() {
@@ -55,22 +55,22 @@ class GoalListViewModel @Inject constructor(
     private val _showDeleteConfirmation = MutableStateFlow<Goal?>(null)
 
     val uiState: StateFlow<GoalListUiState> = combine(
-        getGoalsUseCase(),
+        getGoalProgressUseCase(),
         _selectedFilter,
         _isLoading,
         _error,
         _showDeleteConfirmation
-    ) { goals, filter, isLoading, error, deleteConfirmation ->
+    ) { goalsWithProgress, filter, isLoading, error, deleteConfirmation ->
         val filteredGoals = when (filter) {
-            GoalFilter.ALL -> goals.filter { it.lifecycleStatus != GoalLifecycleStatus.DELETED }
-            GoalFilter.ACTIVE -> goals.filter { it.lifecycleStatus == GoalLifecycleStatus.ACTIVE }
-            GoalFilter.FINISHED -> goals.filter { it.lifecycleStatus == GoalLifecycleStatus.FINISHED }
-            GoalFilter.CANCELLED -> goals.filter { it.lifecycleStatus == GoalLifecycleStatus.CANCELLED }
-            GoalFilter.DELETED -> goals.filter { it.lifecycleStatus == GoalLifecycleStatus.DELETED }
+            GoalFilter.ALL -> goalsWithProgress.filter { it.goal.lifecycleStatus != GoalLifecycleStatus.DELETED }
+            GoalFilter.ACTIVE -> goalsWithProgress.filter { it.goal.lifecycleStatus == GoalLifecycleStatus.ACTIVE }
+            GoalFilter.FINISHED -> goalsWithProgress.filter { it.goal.lifecycleStatus == GoalLifecycleStatus.FINISHED }
+            GoalFilter.CANCELLED -> goalsWithProgress.filter { it.goal.lifecycleStatus == GoalLifecycleStatus.CANCELLED }
+            GoalFilter.DELETED -> goalsWithProgress.filter { it.goal.lifecycleStatus == GoalLifecycleStatus.DELETED }
         }
 
         GoalListUiState(
-            goals = filteredGoals.sortedBy { it.deadline },
+            goals = filteredGoals.sortedBy { it.goal.deadline },
             isLoading = false,
             error = error,
             selectedFilter = filter,

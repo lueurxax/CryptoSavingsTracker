@@ -6,7 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.domain.model.Goal
 import com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.DeleteGoalUseCase
-import com.xax.CryptoSavingsTracker.domain.usecase.goal.GetGoalByIdUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.goal.GetGoalProgressUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.goal.GoalWithProgress
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.UpdateGoalUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +23,9 @@ import javax.inject.Inject
  */
 data class GoalDetailUiState(
     val goal: Goal? = null,
+    val allocatedAmount: Double = 0.0,
+    val progress: Double = 0.0,
+    val progressPercent: Int = 0,
     val isLoading: Boolean = true,
     val error: String? = null,
     val showDeleteConfirmation: Boolean = false,
@@ -35,7 +39,7 @@ data class GoalDetailUiState(
 @HiltViewModel
 class GoalDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val getGoalByIdUseCase: GetGoalByIdUseCase,
+    private val getGoalProgressUseCase: GetGoalProgressUseCase,
     private val updateGoalUseCase: UpdateGoalUseCase,
     private val deleteGoalUseCase: DeleteGoalUseCase
 ) : ViewModel() {
@@ -48,14 +52,17 @@ class GoalDetailViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<GoalDetailUiState> = combine(
-        getGoalByIdUseCase.asFlow(goalId),
+        getGoalProgressUseCase.getProgressFlow(goalId),
         _showDeleteConfirmation,
         _showStatusMenu,
         _isDeleted,
         _error
-    ) { goal, showDelete, showStatus, isDeleted, error ->
+    ) { goalWithProgress, showDelete, showStatus, isDeleted, error ->
         GoalDetailUiState(
-            goal = goal,
+            goal = goalWithProgress?.goal,
+            allocatedAmount = goalWithProgress?.allocatedAmount ?: 0.0,
+            progress = goalWithProgress?.progress ?: 0.0,
+            progressPercent = goalWithProgress?.progressPercent ?: 0,
             isLoading = false,
             error = error,
             showDeleteConfirmation = showDelete,

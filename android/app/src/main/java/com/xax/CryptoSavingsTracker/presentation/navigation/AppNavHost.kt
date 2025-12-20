@@ -139,6 +139,15 @@ fun AppNavHost() {
                 AddEditAssetScreen(navController = navController)
             }
 
+            composable(
+                route = Screen.EditAsset.route,
+                arguments = listOf(
+                    navArgument("assetId") { type = NavType.StringType }
+                )
+            ) {
+                AddEditAssetScreen(navController = navController)
+            }
+
             // Transaction screens
             composable(
                 route = Screen.AddTransaction.route,

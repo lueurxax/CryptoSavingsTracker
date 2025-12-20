@@ -1,8 +1,10 @@
 package com.xax.CryptoSavingsTracker.di
 
+import com.xax.CryptoSavingsTracker.data.repository.AllocationRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.AssetRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.GoalRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.TransactionRepositoryImpl
+import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
@@ -36,4 +38,10 @@ abstract class RepositoryModule {
     abstract fun bindTransactionRepository(
         transactionRepositoryImpl: TransactionRepositoryImpl
     ): TransactionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAllocationRepository(
+        allocationRepositoryImpl: AllocationRepositoryImpl
+    ): AllocationRepository
 }

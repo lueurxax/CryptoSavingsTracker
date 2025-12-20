@@ -157,7 +157,12 @@ fun GoalDetailScreen(
                     )
                 }
                 else -> {
-                    GoalDetailContent(goal = uiState.goal!!)
+                    GoalDetailContent(
+                        goal = uiState.goal!!,
+                        allocatedAmount = uiState.allocatedAmount,
+                        progress = uiState.progress,
+                        progressPercent = uiState.progressPercent
+                    )
                 }
             }
         }
@@ -226,7 +231,12 @@ private fun GoalLifecycleStatus.displayName(): String = when (this) {
 }
 
 @Composable
-private fun GoalDetailContent(goal: Goal) {
+private fun GoalDetailContent(
+    goal: Goal,
+    allocatedAmount: Double,
+    progress: Double,
+    progressPercent: Int
+) {
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMMM d, yyyy") }
     val daysRemaining = goal.daysRemaining()
     val statusColor = when {
@@ -243,16 +253,23 @@ private fun GoalDetailContent(goal: Goal) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header with icon and name
+        // Header with emoji/icon and name
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.Flag,
-                contentDescription = null,
-                tint = statusColor,
-                modifier = Modifier.size(32.dp)
-            )
+            if (goal.emoji != null) {
+                Text(
+                    text = goal.emoji,
+                    style = MaterialTheme.typography.headlineMedium
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Flag,
+                    contentDescription = null,
+                    tint = statusColor,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
@@ -288,7 +305,7 @@ private fun GoalDetailContent(goal: Goal) {
             }
         }
 
-        // Progress section (placeholder)
+        // Progress section with real values
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(16.dp)
@@ -303,7 +320,7 @@ private fun GoalDetailContent(goal: Goal) {
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "0%", // TODO: Connect to actual progress
+                        text = "$progressPercent%",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = statusColor
@@ -311,7 +328,7 @@ private fun GoalDetailContent(goal: Goal) {
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 LinearProgressIndicator(
-                    progress = { 0f }, // TODO: Connect to actual progress
+                    progress = { progress.toFloat().coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth(),
                     color = statusColor,
                 )
@@ -321,7 +338,7 @@ private fun GoalDetailContent(goal: Goal) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "${goal.currency} 0.00",
+                        text = "${goal.currency} ${String.format("%,.2f", allocatedAmount)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -330,6 +347,29 @@ private fun GoalDetailContent(goal: Goal) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+        }
+
+        // Link section
+        goal.link?.let { link ->
+            if (link.isNotEmpty()) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "Link",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = link,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
         }

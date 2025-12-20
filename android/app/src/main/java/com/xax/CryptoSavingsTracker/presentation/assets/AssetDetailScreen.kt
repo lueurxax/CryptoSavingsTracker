@@ -90,8 +90,12 @@ fun AssetDetailScreen(
                     }
                 },
                 actions = {
-                    uiState.asset?.let {
-                        IconButton(onClick = { /* TODO: Navigate to edit */ }) {
+                    uiState.asset?.let { asset ->
+                        IconButton(onClick = {
+                            navController.navigate(
+                                com.xax.CryptoSavingsTracker.presentation.navigation.Screen.EditAsset.createRoute(asset.id)
+                            )
+                        }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit")
                         }
                         IconButton(onClick = viewModel::showDeleteConfirmation) {
@@ -127,7 +131,19 @@ fun AssetDetailScreen(
                     )
                 }
                 else -> {
-                    AssetDetailContent(asset = uiState.asset!!)
+                    AssetDetailContent(
+                        asset = uiState.asset!!,
+                        onAddTransaction = {
+                            navController.navigate(
+                                com.xax.CryptoSavingsTracker.presentation.navigation.Screen.AddTransaction.createRoute(uiState.asset!!.id)
+                            )
+                        },
+                        onViewTransactions = {
+                            navController.navigate(
+                                com.xax.CryptoSavingsTracker.presentation.navigation.Screen.TransactionHistory.createRoute(uiState.asset!!.id)
+                            )
+                        }
+                    )
                 }
             }
         }
@@ -156,7 +172,11 @@ fun AssetDetailScreen(
 }
 
 @Composable
-private fun AssetDetailContent(asset: Asset) {
+private fun AssetDetailContent(
+    asset: Asset,
+    onAddTransaction: () -> Unit,
+    onViewTransactions: () -> Unit
+) {
     val clipboardManager = LocalClipboardManager.current
     val dateFormatter = remember {
         DateTimeFormatter.ofPattern("MMMM d, yyyy 'at' h:mm a")
@@ -298,27 +318,39 @@ private fun AssetDetailContent(asset: Asset) {
             }
         }
 
-        // Transaction history placeholder
+        // Transaction history section
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.padding(16.dp)
             ) {
-                Text(
-                    text = "Transaction History",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = "No transactions yet",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(onClick = { /* TODO: Add transaction */ }) {
-                    Text("Add Transaction")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Transaction History",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    TextButton(onClick = onViewTransactions) {
+                        Text("View All")
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "No transactions yet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextButton(onClick = onAddTransaction) {
+                        Text("Add Transaction")
+                    }
                 }
             }
         }
