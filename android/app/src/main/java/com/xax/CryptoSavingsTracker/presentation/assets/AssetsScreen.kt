@@ -1,6 +1,8 @@
 package com.xax.CryptoSavingsTracker.presentation.assets
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -48,7 +51,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.xax.CryptoSavingsTracker.domain.model.Asset
 import com.xax.CryptoSavingsTracker.domain.model.ChainIds
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
 import com.xax.CryptoSavingsTracker.presentation.theme.BitcoinOrange
@@ -75,7 +77,12 @@ fun AssetsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Assets") }
+                title = { Text("Assets") },
+                actions = {
+                    IconButton(onClick = { navController.navigate(Screen.Settings.route) }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                }
             )
         },
         floatingActionButton = {
@@ -109,13 +116,13 @@ fun AssetsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(
-                            items = uiState.assets,
-                            key = { it.id }
-                        ) { asset ->
+                        items = uiState.assets,
+                        key = { it.asset.id }
+                    ) { item ->
                             AssetCard(
-                                asset = asset,
-                                onClick = { navController.navigate(Screen.AssetDetail.createRoute(asset.id)) },
-                                onLongClick = { viewModel.requestDeleteAsset(asset) }
+                                item = item,
+                                onClick = { navController.navigate(Screen.AssetDetail.createRoute(item.asset.id)) },
+                                onLongClick = { viewModel.requestDeleteAsset(item.asset) }
                             )
                         }
                     }
@@ -147,18 +154,23 @@ fun AssetsScreen(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun AssetCard(
-    asset: Asset,
+    item: AssetListItem,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
+    val asset = item.asset
     val currencyColor = getCurrencyColor(asset.currency)
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -245,12 +257,18 @@ private fun AssetCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Placeholder for balance - will be connected later
             Text(
-                text = "Balance: --",
+                text = "Balance: ${String.format("%,.6f", item.manualBalance)} ${asset.currency}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            item.usdValue?.let { usd ->
+                Text(
+                    text = "≈ $${String.format("%,.2f", usd)} USD",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

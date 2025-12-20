@@ -123,6 +123,9 @@ fun AllocationListScreen(
                         totalFunded = uiState.totalFunded,
                         hasOverAllocatedAssets = uiState.hasOverAllocatedAssets,
                         onDeleteAllocation = viewModel::requestDeleteAllocation,
+                        onEditAllocation = { allocationId ->
+                            navController.navigate(Screen.EditAllocation.createRoute(uiState.goal!!.id, allocationId))
+                        },
                         onAddAllocation = {
                             navController.navigate(Screen.AddAllocation.createRoute(uiState.goal!!.id))
                         }
@@ -163,6 +166,7 @@ private fun AllocationListContent(
     totalFunded: Double,
     hasOverAllocatedAssets: Boolean,
     onDeleteAllocation: (com.xax.CryptoSavingsTracker.domain.model.Allocation) -> Unit,
+    onEditAllocation: (String) -> Unit,
     onAddAllocation: () -> Unit
 ) {
     LazyColumn(
@@ -199,6 +203,7 @@ private fun AllocationListContent(
                 AllocationCard(
                     allocationWithDetails = allocationWithDetails,
                     goalCurrency = goal.currency,
+                    onEdit = { onEditAllocation(allocationWithDetails.allocation.id) },
                     onDelete = { onDeleteAllocation(allocationWithDetails.allocation) }
                 )
             }
@@ -309,10 +314,12 @@ private fun AllocationSummaryCard(
 private fun AllocationCard(
     allocationWithDetails: AllocationWithDetails,
     goalCurrency: String,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val allocation = allocationWithDetails.allocation
     val asset = allocationWithDetails.asset
+    val allocationCurrency = asset?.currency ?: goalCurrency
     val currencyColor = getCurrencyColor(asset?.currency)
 
     // Visual warning states
@@ -327,7 +334,9 @@ private fun AllocationCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onEdit() },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = cardContainerColor)
     ) {
@@ -374,14 +383,14 @@ private fun AllocationCard(
                         horizontalAlignment = Alignment.End
                     ) {
                         Text(
-                            text = "$goalCurrency ${String.format("%,.2f", allocation.amount)}",
+                            text = "$allocationCurrency ${String.format("%,.2f", allocation.amount)}",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (hasWarning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                         )
                         if (isUnderfunded) {
                             Text(
-                                text = "Funded: ${String.format("%,.2f", allocationWithDetails.fundedAmount)}",
+                                text = "Funded: $allocationCurrency ${String.format("%,.2f", allocationWithDetails.fundedAmount)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error
                             )

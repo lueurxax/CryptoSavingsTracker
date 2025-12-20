@@ -5,6 +5,7 @@ import com.xax.CryptoSavingsTracker.domain.model.Goal
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
+import com.xax.CryptoSavingsTracker.domain.util.AllocationFunding
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -110,12 +111,16 @@ class GetGoalProgressUseCase @Inject constructor(
         for (allocation in allocations) {
             totalAllocated += allocation.amount
 
-            // Get the asset's manual balance (sum of manual transactions)
             val assetManualBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
+            val allAssetAllocations = allocationRepository.getAllocationsForAsset(allocation.assetId)
+            val totalAllocatedForAsset = allAssetAllocations.sumOf { max(0.0, it.amount) }
 
-            // Funded portion is min of allocation and actual balance (clamped to >= 0)
-            // This matches iOS: min(max(0, allocation.amountValue), asset.manualBalance)
-            val fundedPortion = min(max(0.0, allocation.amount), assetManualBalance)
+            // Under/over-funded assets distribute balance proportionally across targets.
+            val fundedPortion = AllocationFunding.fundedPortion(
+                allocationAmount = allocation.amount,
+                assetBalance = assetManualBalance,
+                totalAllocatedForAsset = totalAllocatedForAsset
+            )
             totalFunded += fundedPortion
         }
 

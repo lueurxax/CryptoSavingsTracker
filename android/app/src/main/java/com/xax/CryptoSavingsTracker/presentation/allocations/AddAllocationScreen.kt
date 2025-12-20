@@ -112,7 +112,6 @@ fun AddAllocationScreen(
                 else -> {
                     AddAllocationContent(
                         goalName = uiState.goal!!.name,
-                        goalCurrency = uiState.goal!!.currency,
                         availableAssets = uiState.availableAssets,
                         selectedAsset = uiState.selectedAsset,
                         amount = uiState.amount,
@@ -132,7 +131,6 @@ fun AddAllocationScreen(
 @Composable
 private fun AddAllocationContent(
     goalName: String,
-    goalCurrency: String,
     availableAssets: List<AssetForAllocation>,
     selectedAsset: AssetForAllocation?,
     amount: String,
@@ -204,16 +202,16 @@ private fun AddAllocationContent(
             }
         }
 
-        // Amount input (only show if asset is selected)
-        if (selectedAsset != null) {
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Allocation amount ($goalCurrency)",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+    // Amount input (only show if asset is selected)
+    if (selectedAsset != null) {
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Allocation amount (${selectedAsset.asset.currency})",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
 
             item {
                 Row(

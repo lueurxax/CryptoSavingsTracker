@@ -4,6 +4,7 @@
 
     <!-- Network permission for API calls (price fetching, etc.) -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".CryptoSavingsTrackerApp"

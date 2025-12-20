@@ -31,5 +31,5 @@ sealed class ExchangeRateException(message: String) : Exception(message) {
     data object RateNotAvailable : ExchangeRateException("Exchange rate temporarily unavailable. Please check your internet connection.")
     data object NetworkError : ExchangeRateException("Network error. Please try again later.")
     data object RateLimitExceeded : ExchangeRateException("API rate limit exceeded. Please wait before trying again.")
-    data object ApiKeyMissing : ExchangeRateException("API key not configured. Please add your CoinGecko API key in settings.")
+    data object ApiKeyMissing : ExchangeRateException("CoinGecko API key not configured. Add one in Settings to increase rate limits.")
 }

@@ -26,15 +26,23 @@ class AllocationHistoryService @Inject constructor(
      * @param allocation The allocation that was changed
      */
     suspend fun createSnapshot(allocation: Allocation) {
-        val now = System.currentTimeMillis()
+        createSnapshot(allocation = allocation, timestampMillis = System.currentTimeMillis())
+    }
+
+    /**
+     * Create a snapshot of an allocation change at a specific timestamp.
+     * Used for "auto-allocation" where the allocation target changes at the same time as the transaction event.
+     */
+    suspend fun createSnapshot(allocation: Allocation, timestampMillis: Long) {
+        val createdAt = System.currentTimeMillis()
         val snapshot = AllocationHistory(
             id = UUID.randomUUID().toString(),
             assetId = allocation.assetId,
             goalId = allocation.goalId,
             amount = allocation.amount,
-            monthLabel = generateMonthLabel(now),
-            timestamp = now,
-            createdAt = now
+            monthLabel = generateMonthLabel(timestampMillis),
+            timestamp = timestampMillis,
+            createdAt = createdAt
         )
         allocationHistoryRepository.insert(snapshot)
     }
@@ -45,15 +53,22 @@ class AllocationHistoryService @Inject constructor(
      * @param goalId The goal ID of the deleted allocation
      */
     suspend fun createDeletionSnapshot(assetId: String, goalId: String) {
-        val now = System.currentTimeMillis()
+        createDeletionSnapshot(assetId = assetId, goalId = goalId, timestampMillis = System.currentTimeMillis())
+    }
+
+    /**
+     * Create a snapshot for an allocation deletion (amount = 0) at a specific timestamp.
+     */
+    suspend fun createDeletionSnapshot(assetId: String, goalId: String, timestampMillis: Long) {
+        val createdAt = System.currentTimeMillis()
         val snapshot = AllocationHistory(
             id = UUID.randomUUID().toString(),
             assetId = assetId,
             goalId = goalId,
             amount = 0.0,
-            monthLabel = generateMonthLabel(now),
-            timestamp = now,
-            createdAt = now
+            monthLabel = generateMonthLabel(timestampMillis),
+            timestamp = timestampMillis,
+            createdAt = createdAt
         )
         allocationHistoryRepository.insert(snapshot)
     }

@@ -35,6 +35,9 @@ sealed class Screen(val route: String) {
     data object TransactionHistory : Screen("asset/{assetId}/transactions") {
         fun createRoute(assetId: String) = "asset/$assetId/transactions"
     }
+    data object EditTransaction : Screen("transaction/{transactionId}/edit") {
+        fun createRoute(transactionId: String) = "transaction/$transactionId/edit"
+    }
 
     // Allocation screens
     data object AllocationList : Screen("goal/{goalId}/allocations") {
@@ -42,6 +45,9 @@ sealed class Screen(val route: String) {
     }
     data object AddAllocation : Screen("goal/{goalId}/allocation/add") {
         fun createRoute(goalId: String) = "goal/$goalId/allocation/add"
+    }
+    data object EditAllocation : Screen("goal/{goalId}/allocation/{allocationId}/edit") {
+        fun createRoute(goalId: String, allocationId: String) = "goal/$goalId/allocation/$allocationId/edit"
     }
 
     // Planning screens

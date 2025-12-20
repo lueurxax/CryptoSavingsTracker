@@ -89,6 +89,7 @@ android/.cxx/
 
 ## Local configuration (contains secrets)
 android/local.properties
+android/app/src/main/assets/Config.properties
 
 ## IntelliJ IDEA
 android/.idea/caches/

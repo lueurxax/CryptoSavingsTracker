@@ -50,6 +50,10 @@ class AllocationRepositoryImpl @Inject constructor(
         return allocationDao.getAllocationByAssetAndGoal(assetId, goalId)?.toDomain()
     }
 
+    override suspend fun getAllocationById(id: String): Allocation? {
+        return allocationDao.getAllocationById(id)?.toDomain()
+    }
+
     override suspend fun upsertAllocation(allocation: Allocation) {
         allocationDao.insert(allocation.toEntity())
     }

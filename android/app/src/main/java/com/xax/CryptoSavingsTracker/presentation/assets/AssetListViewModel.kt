@@ -3,22 +3,36 @@ package com.xax.CryptoSavingsTracker.presentation.assets
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.domain.model.Asset
+import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
+import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
+import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.DeleteAssetUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.GetAssetsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 
 /**
  * UI State for the Assets List screen
  */
+data class AssetListItem(
+    val asset: Asset,
+    val manualBalance: Double,
+    val usdValue: Double?
+)
+
 data class AssetListUiState(
-    val assets: List<Asset> = emptyList(),
+    val assets: List<AssetListItem> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
     val showDeleteConfirmation: Asset? = null
@@ -30,30 +44,59 @@ data class AssetListUiState(
 @HiltViewModel
 class AssetListViewModel @Inject constructor(
     private val getAssetsUseCase: GetAssetsUseCase,
+    private val transactionRepository: TransactionRepository,
+    private val exchangeRateRepository: ExchangeRateRepository,
     private val deleteAssetUseCase: DeleteAssetUseCase
 ) : ViewModel() {
 
-    private val _isLoading = MutableStateFlow(true)
     private val _error = MutableStateFlow<String?>(null)
     private val _showDeleteConfirmation = MutableStateFlow<Asset?>(null)
 
-    val uiState: StateFlow<AssetListUiState> = combine(
-        getAssetsUseCase(),
-        _isLoading,
-        _error,
-        _showDeleteConfirmation
-    ) { assets, isLoading, error, deleteConfirmation ->
-        AssetListUiState(
-            assets = assets.sortedBy { it.currency },
-            isLoading = false,
-            error = error,
-            showDeleteConfirmation = deleteConfirmation
-        )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = AssetListUiState()
-    )
+    private val _uiState = MutableStateFlow(AssetListUiState())
+    val uiState: StateFlow<AssetListUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            combine(
+                getAssetsUseCase().catch { emit(emptyList()) },
+                transactionRepository.getAllTransactions().catch { emit(emptyList()) },
+                _showDeleteConfirmation,
+                _error
+            ) { assets, transactions, deleteConfirmation, error ->
+                Quadruple(assets, transactions, deleteConfirmation, error)
+            }.collectLatest { (assets, transactions, deleteConfirmation, error) ->
+                val manualBalanceByAssetId = transactions
+                    .filter { it.source == TransactionSource.MANUAL }
+                    .groupBy { it.assetId }
+                    .mapValues { (_, txs) -> txs.sumOf { it.amount } }
+
+                val currencies = assets.map { it.currency.uppercase() }.distinct()
+                val ratesByCurrency = coroutineScope {
+                    currencies.map { currency ->
+                        async {
+                            currency to runCatching { exchangeRateRepository.fetchRate(currency, "USD") }.getOrNull()
+                        }
+                    }.awaitAll().toMap()
+                }
+
+                val items = assets
+                    .sortedBy { it.currency }
+                    .map { asset ->
+                        val manualBalance = manualBalanceByAssetId[asset.id] ?: 0.0
+                        val rate = ratesByCurrency[asset.currency.uppercase()]
+                        val usdValue = rate?.let { manualBalance * it }
+                        AssetListItem(asset = asset, manualBalance = manualBalance, usdValue = usdValue)
+                    }
+
+                _uiState.value = AssetListUiState(
+                    assets = items,
+                    isLoading = false,
+                    error = error,
+                    showDeleteConfirmation = deleteConfirmation
+                )
+            }
+        }
+    }
 
     fun requestDeleteAsset(asset: Asset) {
         _showDeleteConfirmation.value = asset
@@ -82,3 +125,5 @@ class AssetListViewModel @Inject constructor(
         _error.value = null
     }
 }
+
+private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

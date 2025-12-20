@@ -26,16 +26,21 @@ import androidx.navigation.navArgument
 import com.xax.CryptoSavingsTracker.presentation.assets.AddEditAssetScreen
 import com.xax.CryptoSavingsTracker.presentation.assets.AssetDetailScreen
 import com.xax.CryptoSavingsTracker.presentation.assets.AssetsScreen
-import com.xax.CryptoSavingsTracker.presentation.common.PlaceholderScreen
 import com.xax.CryptoSavingsTracker.presentation.dashboard.DashboardScreen
+import com.xax.CryptoSavingsTracker.presentation.execution.ExecutionScreen
 import com.xax.CryptoSavingsTracker.presentation.goals.AddEditGoalScreen
 import com.xax.CryptoSavingsTracker.presentation.goals.GoalDetailScreen
 import com.xax.CryptoSavingsTracker.presentation.goals.GoalsScreen
 import com.xax.CryptoSavingsTracker.presentation.planning.PlanningScreen
+import com.xax.CryptoSavingsTracker.presentation.planning.MonthlyPlanningScreen
+import com.xax.CryptoSavingsTracker.presentation.planning.PlanHistoryScreen
+import com.xax.CryptoSavingsTracker.presentation.settings.SettingsScreen
 import com.xax.CryptoSavingsTracker.presentation.transactions.AddTransactionScreen
+import com.xax.CryptoSavingsTracker.presentation.transactions.EditTransactionScreen
 import com.xax.CryptoSavingsTracker.presentation.transactions.TransactionHistoryScreen
 import com.xax.CryptoSavingsTracker.presentation.allocations.AllocationListScreen
 import com.xax.CryptoSavingsTracker.presentation.allocations.AddAllocationScreen
+import com.xax.CryptoSavingsTracker.presentation.allocations.EditAllocationScreen
 
 data class BottomNavItem(
     val screen: Screen,
@@ -169,6 +174,15 @@ fun AppNavHost() {
                 TransactionHistoryScreen(navController = navController)
             }
 
+            composable(
+                route = Screen.EditTransaction.route,
+                arguments = listOf(
+                    navArgument("transactionId") { type = NavType.StringType }
+                )
+            ) {
+                EditTransactionScreen(navController = navController)
+            }
+
             // Allocation screens
             composable(
                 route = Screen.AllocationList.route,
@@ -188,34 +202,32 @@ fun AppNavHost() {
                 AddAllocationScreen(navController = navController)
             }
 
-            // Planning sub-screens (placeholders for Phase 1)
-            composable(Screen.MonthlyPlanning.route) {
-                PlaceholderScreen(
-                    title = "Monthly Planning",
-                    subtitle = "Coming soon"
+            composable(
+                route = Screen.EditAllocation.route,
+                arguments = listOf(
+                    navArgument("goalId") { type = NavType.StringType },
+                    navArgument("allocationId") { type = NavType.StringType }
                 )
+            ) {
+                EditAllocationScreen(navController = navController)
+            }
+
+            // Planning sub-screens
+            composable(Screen.MonthlyPlanning.route) {
+                MonthlyPlanningScreen(navController = navController)
             }
 
             composable(Screen.Execution.route) {
-                PlaceholderScreen(
-                    title = "Execution",
-                    subtitle = "Coming soon"
-                )
+                ExecutionScreen(navController = navController)
             }
 
             composable(Screen.PlanHistory.route) {
-                PlaceholderScreen(
-                    title = "Plan History",
-                    subtitle = "Coming soon"
-                )
+                PlanHistoryScreen(navController = navController)
             }
 
             // Settings (placeholder for Phase 1)
             composable(Screen.Settings.route) {
-                PlaceholderScreen(
-                    title = "Settings",
-                    subtitle = "Coming soon"
-                )
+                SettingsScreen(navController = navController)
             }
         }
     }

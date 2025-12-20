@@ -2,6 +2,7 @@ package com.xax.CryptoSavingsTracker.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.xax.CryptoSavingsTracker.data.local.security.ApiKeyStore
 import com.xax.CryptoSavingsTracker.data.remote.api.CoinGeckoApi
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateException
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
@@ -10,6 +11,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.xax.CryptoSavingsTracker.domain.util.TokenBucketRateLimiter
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Named
@@ -22,7 +24,8 @@ import javax.inject.Singleton
 @Singleton
 class ExchangeRateRepositoryImpl @Inject constructor(
     private val coinGeckoApi: CoinGeckoApi,
-    @Named("CoinGeckoApiKey") private val apiKey: String,
+    @Named("CoinGeckoRateLimiter") private val rateLimiter: TokenBucketRateLimiter,
+    private val apiKeyStore: ApiKeyStore,
     @ApplicationContext private val context: Context
 ) : ExchangeRateRepository {
 
@@ -83,15 +86,21 @@ class ExchangeRateRepositoryImpl @Inject constructor(
 
         // Check cache
         getCachedRate(canonicalFrom, canonicalTo)?.let { return it }
+        val stale = getStaleRate(canonicalFrom, canonicalTo)
 
         // Fetch from API
-        val rate = fetchRateFromAPI(canonicalFrom, canonicalTo)
-        cacheRate(canonicalFrom, canonicalTo, rate)
-        return rate
+        return try {
+            rateLimiter.acquire()
+            val rate = fetchRateFromAPI(canonicalFrom, canonicalTo)
+            cacheRate(canonicalFrom, canonicalTo, rate)
+            rate
+        } catch (e: Exception) {
+            stale ?: throw e
+        }
     }
 
     override fun hasValidConfiguration(): Boolean {
-        return apiKey.isNotEmpty()
+        return apiKeyStore.getCoinGeckoApiKey().isNotEmpty()
     }
 
     override suspend fun clearCache() {
@@ -111,6 +120,12 @@ class ExchangeRateRepositoryImpl @Inject constructor(
             } else {
                 null
             }
+        }
+    }
+
+    private suspend fun getStaleRate(from: String, to: String): Double? {
+        return mutex.withLock {
+            cachedRates[from]?.get(to)
         }
     }
 

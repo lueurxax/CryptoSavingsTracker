@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -134,6 +136,11 @@ fun TransactionHistoryScreen(
                         totalBalance = state.totalBalance,
                         depositCount = state.depositCount,
                         withdrawalCount = state.withdrawalCount,
+                        onEditTransaction = { tx ->
+                            if (tx.source == TransactionSource.MANUAL) {
+                                navController.navigate(Screen.EditTransaction.createRoute(tx.id))
+                            }
+                        },
                         onDeleteTransaction = { transactionToDelete = it }
                     )
                 }
@@ -175,6 +182,7 @@ private fun TransactionList(
     totalBalance: Double,
     depositCount: Int,
     withdrawalCount: Int,
+    onEditTransaction: (Transaction) -> Unit,
     onDeleteTransaction: (Transaction) -> Unit
 ) {
     LazyColumn(
@@ -201,6 +209,7 @@ private fun TransactionList(
             TransactionCard(
                 transaction = transaction,
                 currency = currency,
+                onEdit = { onEditTransaction(transaction) },
                 onDelete = { onDeleteTransaction(transaction) }
             )
         }
@@ -274,6 +283,7 @@ private fun SummaryCard(
 private fun TransactionCard(
     transaction: Transaction,
     currency: String,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val isDeposit = transaction.isDeposit
@@ -281,7 +291,15 @@ private fun TransactionCard(
     val icon = if (isDeposit) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward
 
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (transaction.source == TransactionSource.MANUAL) {
+                    Modifier.clickable(onClick = onEdit)
+                } else {
+                    Modifier
+                }
+            )
     ) {
         Row(
             modifier = Modifier
@@ -333,8 +351,15 @@ private fun TransactionCard(
                 }
             }
 
-            // Delete button (only for manual transactions)
+            // Actions (only for manual transactions)
             if (transaction.source == TransactionSource.MANUAL) {
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 IconButton(onClick = onDelete) {
                     Icon(
                         Icons.Default.Delete,

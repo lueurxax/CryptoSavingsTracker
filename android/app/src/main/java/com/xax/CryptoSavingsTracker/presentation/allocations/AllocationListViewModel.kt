@@ -35,10 +35,16 @@ data class AllocationWithDetails(
     val isAssetOverAllocated: Boolean  // True if asset's total allocations exceed balance
 ) {
     val fundedAmount: Double
-        get() = minOf(allocation.amount, assetBalance)
+        get() {
+            val total = assetTotalAllocated
+            val balance = assetBalance
+            if (total <= 0.0 || balance <= 0.0) return 0.0
+            val ratio = if (balance >= total) 1.0 else balance / total
+            return allocation.amount.coerceAtLeast(0.0) * ratio
+        }
 
     val isUnderfunded: Boolean
-        get() = allocation.amount > assetBalance
+        get() = fundedAmount + 0.0000001 < allocation.amount
 }
 
 /**

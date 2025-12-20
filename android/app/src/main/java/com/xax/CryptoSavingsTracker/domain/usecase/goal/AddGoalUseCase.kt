@@ -3,8 +3,11 @@ package com.xax.CryptoSavingsTracker.domain.usecase.goal
 import com.xax.CryptoSavingsTracker.domain.model.Goal
 import com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus
 import com.xax.CryptoSavingsTracker.domain.model.ReminderFrequency
+import com.xax.CryptoSavingsTracker.domain.reminders.GoalReminderScheduler
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
 import java.util.UUID
 import javax.inject.Inject
 
@@ -13,7 +16,8 @@ import javax.inject.Inject
  * All fields match iOS Goal model for data parity.
  */
 class AddGoalUseCase @Inject constructor(
-    private val repository: GoalRepository
+    private val repository: GoalRepository,
+    private val reminderScheduler: GoalReminderScheduler
 ) {
     /**
      * Add a new goal with the provided parameters
@@ -42,6 +46,20 @@ class AddGoalUseCase @Inject constructor(
             return Result.failure(IllegalArgumentException("Deadline must be after start date"))
         }
 
+        val normalizedReminderTimeMillis = if (reminderFrequency != null && reminderTimeMillis == null) {
+            val zone = ZoneId.systemDefault()
+            val baseDate = firstReminderDate ?: LocalDate.now(zone)
+            baseDate.atTime(DEFAULT_REMINDER_TIME).atZone(zone).toInstant().toEpochMilli()
+        } else {
+            reminderTimeMillis
+        }
+
+        val normalizedFirstReminderDate = if (reminderFrequency != null && firstReminderDate == null) {
+            LocalDate.now(ZoneId.systemDefault())
+        } else {
+            firstReminderDate
+        }
+
         val now = System.currentTimeMillis()
         val goal = Goal(
             id = UUID.randomUUID().toString(),
@@ -56,17 +74,22 @@ class AddGoalUseCase @Inject constructor(
             description = description?.trim()?.takeIf { it.isNotEmpty() },
             link = link?.trim()?.takeIf { it.isNotEmpty() },
             reminderFrequency = reminderFrequency,
-            reminderTimeMillis = reminderTimeMillis,
-            firstReminderDate = firstReminderDate,
+            reminderTimeMillis = normalizedReminderTimeMillis,
+            firstReminderDate = normalizedFirstReminderDate,
             createdAt = now,
             updatedAt = now
         )
 
         return try {
             repository.insertGoal(goal)
+            reminderScheduler.schedule(goal)
             Result.success(goal)
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private companion object {
+        val DEFAULT_REMINDER_TIME: LocalTime = LocalTime.of(9, 0)
     }
 }

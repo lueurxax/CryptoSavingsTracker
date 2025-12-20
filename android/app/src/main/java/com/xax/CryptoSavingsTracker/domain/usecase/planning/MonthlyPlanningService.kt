@@ -10,6 +10,7 @@ import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
+import com.xax.CryptoSavingsTracker.domain.util.AllocationFunding
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -74,20 +75,24 @@ class MonthlyPlanningService @Inject constructor(
 
         var total = 0.0
         for (requirement in requirements) {
-            if (requirement.currency == displayCurrency) {
-                total += requirement.requiredMonthly
-            } else {
-                try {
-                    val rate = exchangeRateRepository.fetchRate(requirement.currency, displayCurrency)
-                    total += requirement.requiredMonthly * rate
-                } catch (e: Exception) {
-                    // Fallback to 1:1 if conversion fails
-                    total += requirement.requiredMonthly
-                }
-            }
+            total += convertAmount(
+                amount = requirement.requiredMonthly,
+                fromCurrency = requirement.currency,
+                toCurrency = displayCurrency
+            )
         }
 
         return total
+    }
+
+    suspend fun convertAmount(amount: Double, fromCurrency: String, toCurrency: String): Double {
+        if (fromCurrency == toCurrency) return amount
+        return try {
+            val rate = exchangeRateRepository.fetchRate(fromCurrency, toCurrency)
+            amount * rate
+        } catch (e: Exception) {
+            amount
+        }
     }
 
     /**
@@ -141,9 +146,13 @@ class MonthlyPlanningService @Inject constructor(
         var total = 0.0
         for (allocation in allocations) {
             val assetBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
-            // Use min of allocation amount and asset balance (iOS parity)
-            val fundedPortion = min(max(0.0, allocation.amount), assetBalance)
-            total += fundedPortion
+            val allAssetAllocations = allocationRepository.getAllocationsForAsset(allocation.assetId)
+            val totalAllocatedForAsset = allAssetAllocations.sumOf { max(0.0, it.amount) }
+            total += AllocationFunding.fundedPortion(
+                allocationAmount = allocation.amount,
+                assetBalance = assetBalance,
+                totalAllocatedForAsset = totalAllocatedForAsset
+            )
         }
 
         return total

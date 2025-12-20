@@ -48,6 +48,11 @@ interface AllocationRepository {
     suspend fun getAllocationByAssetAndGoal(assetId: String, goalId: String): Allocation?
 
     /**
+     * Get allocation by ID.
+     */
+    suspend fun getAllocationById(id: String): Allocation?
+
+    /**
      * Insert or update an allocation.
      */
     suspend fun upsertAllocation(allocation: Allocation)

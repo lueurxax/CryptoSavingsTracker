@@ -121,10 +121,7 @@ class AddAllocationViewModel @Inject constructor(
                         availableBalance = totalBalance - alreadyAllocated,
                         isAlreadyAllocatedToThisGoal = isAllocatedToThisGoal
                     )
-                }.filter {
-                    // Filter out assets already allocated to this goal or with no available balance
-                    !it.isAlreadyAllocatedToThisGoal && it.availableBalance > 0
-                }
+                }.filter { !it.isAlreadyAllocatedToThisGoal }
 
                 _availableAssets.value = assetsForAllocation
             } catch (e: Exception) {
@@ -147,7 +144,8 @@ class AddAllocationViewModel @Inject constructor(
 
     fun setMaxAmount() {
         _selectedAsset.value?.let { asset ->
-            _amount.value = String.format("%.2f", asset.availableBalance)
+            val max = kotlin.math.max(0.0, asset.availableBalance)
+            _amount.value = String.format("%.2f", max)
             _amountError.value = null
         }
     }
@@ -162,11 +160,6 @@ class AddAllocationViewModel @Inject constructor(
         val amountValue = _amount.value.toDoubleOrNull()
         if (amountValue == null || amountValue <= 0) {
             _amountError.value = "Please enter a valid amount"
-            return
-        }
-
-        if (amountValue > asset.availableBalance) {
-            _amountError.value = "Amount exceeds available balance (${String.format("%.2f", asset.availableBalance)})"
             return
         }
 

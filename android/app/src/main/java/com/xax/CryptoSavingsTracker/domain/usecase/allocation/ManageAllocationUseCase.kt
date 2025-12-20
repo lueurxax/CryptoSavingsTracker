@@ -2,7 +2,6 @@ package com.xax.CryptoSavingsTracker.domain.usecase.allocation
 
 import com.xax.CryptoSavingsTracker.domain.model.Allocation
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
-import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import java.util.UUID
 import javax.inject.Inject
 
@@ -12,7 +11,6 @@ import javax.inject.Inject
  */
 class AddAllocationUseCase @Inject constructor(
     private val allocationRepository: AllocationRepository,
-    private val transactionRepository: TransactionRepository,
     private val allocationHistoryService: AllocationHistoryService
 ) {
     /**
@@ -35,19 +33,8 @@ class AddAllocationUseCase @Inject constructor(
             throw IllegalStateException("Allocation already exists for this asset and goal")
         }
 
-        // Check if asset has sufficient manual balance
-        val assetBalance = transactionRepository.getManualBalanceForAsset(assetId)
-
-        // Get current allocations for this asset to calculate available balance
-        val existingAllocationsForAsset = allocationRepository.getAllocationsForAsset(assetId)
-        val totalAllocated = existingAllocationsForAsset.sumOf { it.amount }
-        val availableBalance = assetBalance - totalAllocated
-
-        if (amount > availableBalance) {
-            throw IllegalArgumentException(
-                "Insufficient available balance. Available: $availableBalance, Requested: $amount"
-            )
-        }
+        // Note: We intentionally do NOT block "over-allocation".
+        // Over-allocated state is valid (allocations represent the plan, not guaranteed balance).
 
         val now = System.currentTimeMillis()
         val allocation = Allocation(
@@ -74,7 +61,6 @@ class AddAllocationUseCase @Inject constructor(
  */
 class UpdateAllocationUseCase @Inject constructor(
     private val allocationRepository: AllocationRepository,
-    private val transactionRepository: TransactionRepository,
     private val allocationHistoryService: AllocationHistoryService
 ) {
     /**
@@ -82,21 +68,8 @@ class UpdateAllocationUseCase @Inject constructor(
      */
     suspend operator fun invoke(allocation: Allocation): Result<Allocation> = runCatching {
         require(allocation.amount > 0) { "Allocation amount must be positive" }
-
-        // Verify asset has sufficient balance for the update
-        val assetBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
-
-        // Get other allocations for this asset (excluding current one)
-        val otherAllocations = allocationRepository.getAllocationsForAsset(allocation.assetId)
-            .filter { it.id != allocation.id }
-        val totalOtherAllocated = otherAllocations.sumOf { it.amount }
-        val availableBalance = assetBalance - totalOtherAllocated
-
-        if (allocation.amount > availableBalance) {
-            throw IllegalArgumentException(
-                "Insufficient available balance. Available: $availableBalance, Requested: ${allocation.amount}"
-            )
-        }
+        // Note: We intentionally do NOT block "over-allocation".
+        // Over-allocated state is valid (allocations represent the plan, not guaranteed balance).
 
         val updatedAllocation = allocation.copy(
             lastModifiedAt = System.currentTimeMillis()

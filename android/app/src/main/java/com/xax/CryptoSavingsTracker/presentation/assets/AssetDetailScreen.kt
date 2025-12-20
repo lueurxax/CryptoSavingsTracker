@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -49,8 +50,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.xax.CryptoSavingsTracker.domain.model.Asset
 import com.xax.CryptoSavingsTracker.domain.model.ChainIds
+import com.xax.CryptoSavingsTracker.domain.model.OnChainBalance
+import com.xax.CryptoSavingsTracker.domain.model.Transaction
 import com.xax.CryptoSavingsTracker.presentation.theme.BitcoinOrange
 import com.xax.CryptoSavingsTracker.presentation.theme.EthereumBlue
+import com.xax.CryptoSavingsTracker.presentation.theme.WithdrawalRed
+import com.xax.CryptoSavingsTracker.presentation.theme.DepositGreen
 import com.xax.CryptoSavingsTracker.presentation.theme.StablecoinGreen
 import java.time.Instant
 import java.time.ZoneId
@@ -133,6 +138,19 @@ fun AssetDetailScreen(
                 else -> {
                     AssetDetailContent(
                         asset = uiState.asset!!,
+                        manualBalance = uiState.manualBalance,
+                        manualBalanceUsd = uiState.manualBalanceUsd,
+                        isUsdLoading = uiState.isUsdLoading,
+                        usdError = uiState.usdError,
+                        onRefreshUsdBalance = viewModel::refreshUsdBalance,
+                        transactionCount = uiState.transactionCount,
+                        depositCount = uiState.depositCount,
+                        withdrawalCount = uiState.withdrawalCount,
+                        recentTransactions = uiState.recentTransactions,
+                        onChainBalance = uiState.onChainBalance,
+                        isOnChainLoading = uiState.isOnChainLoading,
+                        onChainError = uiState.onChainError,
+                        onRefreshOnChainBalance = viewModel::refreshOnChainBalance,
                         onAddTransaction = {
                             navController.navigate(
                                 com.xax.CryptoSavingsTracker.presentation.navigation.Screen.AddTransaction.createRoute(uiState.asset!!.id)
@@ -174,6 +192,19 @@ fun AssetDetailScreen(
 @Composable
 private fun AssetDetailContent(
     asset: Asset,
+    manualBalance: Double,
+    manualBalanceUsd: Double?,
+    isUsdLoading: Boolean,
+    usdError: String?,
+    onRefreshUsdBalance: () -> Unit,
+    transactionCount: Int,
+    depositCount: Int,
+    withdrawalCount: Int,
+    recentTransactions: List<Transaction>,
+    onChainBalance: OnChainBalance?,
+    isOnChainLoading: Boolean,
+    onChainError: String?,
+    onRefreshOnChainBalance: () -> Unit,
     onAddTransaction: () -> Unit,
     onViewTransactions: () -> Unit
 ) {
@@ -218,7 +249,7 @@ private fun AssetDetailContent(
             }
         }
 
-        // Balance card (placeholder)
+        // Balance card (manual balance, Phase 2)
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
@@ -228,22 +259,203 @@ private fun AssetDetailContent(
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Manual Balance",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                    IconButton(onClick = onRefreshUsdBalance) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh USD value",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                }
                 Text(
-                    text = "Balance",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                )
-                Text(
-                    text = "-- ${asset.currency}",
+                    text = "${String.format("%,.4f", manualBalance)} ${asset.currency}",
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-                Text(
-                    text = "≈ $0.00 USD",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                )
+                when {
+                    manualBalanceUsd != null -> {
+                        Text(
+                            text = "≈ $${String.format("%,.2f", manualBalanceUsd)} USD",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                    isUsdLoading -> {
+                        Text(
+                            text = "Fetching USD rate…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                    usdError != null -> {
+                        Text(
+                            text = usdError,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    else -> {
+                        Text(
+                            text = "USD value unavailable",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+                if (asset.isCryptoAsset) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Manual balance uses transactions you add; on-chain balance is shown separately below.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "$transactionCount",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "Tx",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "$depositCount",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = DepositGreen
+                        )
+                        Text(
+                            text = "Deposits",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "$withdrawalCount",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = WithdrawalRed
+                        )
+                        Text(
+                            text = "Withdrawals",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+        }
+
+        // On-chain balance section (Phase 6)
+        if (asset.isCryptoAsset && asset.address != null && asset.chainId != null) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "On-chain Balance",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        IconButton(onClick = onRefreshOnChainBalance) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh on-chain balance"
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    when {
+                        isOnChainLoading && onChainBalance == null -> {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Fetching…",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        onChainBalance == null -> {
+                            Text(
+                                text = onChainError ?: "No on-chain balance available",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (onChainError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        else -> {
+                            Text(
+                                text = "${String.format("%,.6f", onChainBalance.balance)} ${asset.currency}",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Fetched: ${dateFormatter.format(Instant.ofEpochMilli(onChainBalance.fetchedAtMillis))}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (onChainBalance.isStale) {
+                                Text(
+                                    text = "Showing cached value (stale)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (isOnChainLoading) {
+                                Text(
+                                    text = "Refreshing…",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (onChainError != null) {
+                                Text(
+                                    text = onChainError,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "This doesn’t change manual balance until you add/import transactions.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -338,22 +550,70 @@ private fun AssetDetailContent(
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "No transactions yet",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextButton(onClick = onAddTransaction) {
-                        Text("Add Transaction")
+                if (recentTransactions.isEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "No transactions yet",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(onClick = onAddTransaction) {
+                            Text("Add Transaction")
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        recentTransactions.forEach { tx ->
+                            TransactionPreviewRow(
+                                transaction = tx,
+                                currency = asset.currency
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        TextButton(onClick = onAddTransaction) {
+                            Text("Add Transaction")
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TransactionPreviewRow(
+    transaction: Transaction,
+    currency: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = if (transaction.isDeposit) "Deposit" else "Withdrawal",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = transaction.formattedDate(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        val sign = if (transaction.isDeposit) "+" else "-"
+        val color = if (transaction.isDeposit) DepositGreen else WithdrawalRed
+        Text(
+            text = "$sign${String.format("%,.4f", transaction.absoluteAmount)} $currency",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
     }
 }
 

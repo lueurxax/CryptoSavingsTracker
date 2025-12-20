@@ -31,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
@@ -42,18 +43,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.xax.CryptoSavingsTracker.domain.model.MonthlyRequirement
 import com.xax.CryptoSavingsTracker.domain.model.RequirementStatus
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleGreen
@@ -69,6 +72,7 @@ fun MonthlyPlanningScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var customDialogGoalId by remember { mutableStateOf<String?>(null) }
 
     // Show error in snackbar
     LaunchedEffect(uiState.error) {
@@ -83,6 +87,12 @@ fun MonthlyPlanningScreen(
             TopAppBar(
                 title = { Text("Monthly Planning") },
                 actions = {
+                    IconButton(onClick = { navController.navigate(Screen.Execution.route) }) {
+                        Icon(Icons.Default.Flag, contentDescription = "Execution")
+                    }
+                    IconButton(onClick = { navController.navigate(Screen.PlanHistory.route) }) {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = "History")
+                    }
                     IconButton(onClick = { viewModel.loadData() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
@@ -113,12 +123,18 @@ fun MonthlyPlanningScreen(
                 else -> {
                     MonthlyPlanningContent(
                         requirements = uiState.requirements,
+                        flexPercentage = uiState.flexPercentage,
                         totalRequired = uiState.totalRequired,
+                        baseTotalRequired = uiState.baseTotalRequired,
                         displayCurrency = uiState.displayCurrency,
                         paymentDay = uiState.paymentDay,
                         onGoalClick = { goalId ->
                             navController.navigate(Screen.GoalDetail.createRoute(goalId))
-                        }
+                        },
+                        onFlexPercentageChanged = viewModel::updateFlexPercentage,
+                        onToggleProtected = viewModel::toggleProtected,
+                        onToggleSkipped = viewModel::toggleSkipped,
+                        onCustomAmountClick = { goalId -> customDialogGoalId = goalId }
                     )
                 }
             }
@@ -132,16 +148,45 @@ fun MonthlyPlanningScreen(
                 onConfirm = { day -> viewModel.updatePaymentDay(day) }
             )
         }
+
+        val dialogGoalId = customDialogGoalId
+        if (dialogGoalId != null) {
+            val row = uiState.requirements.firstOrNull { it.goalId == dialogGoalId }
+            if (row != null) {
+                CustomAmountDialog(
+                    goalName = row.requirement.goalName,
+                    currency = row.requirement.currency,
+                    currentAmount = row.customAmount,
+                    onDismiss = { customDialogGoalId = null },
+                    onClear = {
+                        viewModel.setCustomAmount(dialogGoalId, null)
+                        customDialogGoalId = null
+                    },
+                    onConfirm = { amount ->
+                        viewModel.setCustomAmount(dialogGoalId, amount)
+                        customDialogGoalId = null
+                    }
+                )
+            } else {
+                customDialogGoalId = null
+            }
+        }
     }
 }
 
 @Composable
 private fun MonthlyPlanningContent(
-    requirements: List<MonthlyRequirement>,
+    requirements: List<MonthlyRequirementRow>,
+    flexPercentage: Double,
     totalRequired: Double,
+    baseTotalRequired: Double,
     displayCurrency: String,
     paymentDay: Int,
-    onGoalClick: (String) -> Unit
+    onGoalClick: (String) -> Unit,
+    onFlexPercentageChanged: (Double) -> Unit,
+    onToggleProtected: (String) -> Unit,
+    onToggleSkipped: (String) -> Unit,
+    onCustomAmountClick: (String) -> Unit
 ) {
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
@@ -151,10 +196,13 @@ private fun MonthlyPlanningContent(
         item {
             TotalRequirementCard(
                 totalRequired = totalRequired,
+                baseTotalRequired = baseTotalRequired,
                 displayCurrency = displayCurrency,
                 paymentDay = paymentDay,
-                activeCount = requirements.count { it.status != RequirementStatus.COMPLETED },
-                completedCount = requirements.count { it.status == RequirementStatus.COMPLETED }
+                flexPercentage = flexPercentage,
+                onFlexPercentageChanged = onFlexPercentageChanged,
+                activeCount = requirements.count { it.requirement.status != RequirementStatus.COMPLETED },
+                completedCount = requirements.count { it.requirement.status == RequirementStatus.COMPLETED }
             )
         }
 
@@ -166,11 +214,14 @@ private fun MonthlyPlanningContent(
         // Requirement cards
         items(
             items = requirements,
-            key = { it.id }
-        ) { requirement ->
+            key = { it.goalId }
+        ) { row ->
             RequirementCard(
-                requirement = requirement,
-                onClick = { onGoalClick(requirement.goalId) }
+                row = row,
+                onClick = { onGoalClick(row.goalId) },
+                onToggleProtected = { onToggleProtected(row.goalId) },
+                onToggleSkipped = { onToggleSkipped(row.goalId) },
+                onCustomAmountClick = { onCustomAmountClick(row.goalId) }
             )
         }
     }
@@ -179,8 +230,11 @@ private fun MonthlyPlanningContent(
 @Composable
 private fun TotalRequirementCard(
     totalRequired: Double,
+    baseTotalRequired: Double,
     displayCurrency: String,
     paymentDay: Int,
+    flexPercentage: Double,
+    onFlexPercentageChanged: (Double) -> Unit,
     activeCount: Int,
     completedCount: Int
 ) {
@@ -216,6 +270,14 @@ private fun TotalRequirementCard(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
+            if (kotlin.math.abs(totalRequired - baseTotalRequired) > 0.01) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Base: $displayCurrency ${String.format("%,.2f", baseTotalRequired)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Row {
                 Text(
@@ -230,16 +292,29 @@ private fun TotalRequirementCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Flex: ${(flexPercentage * 100).roundToInt()}%",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Slider(
+                value = flexPercentage.toFloat(),
+                onValueChange = { onFlexPercentageChanged(it.toDouble()) },
+                valueRange = 0f..1.5f
+            )
         }
     }
 }
 
 @Composable
-private fun StatusSummaryRow(requirements: List<MonthlyRequirement>) {
-    val criticalCount = requirements.count { it.status == RequirementStatus.CRITICAL }
-    val attentionCount = requirements.count { it.status == RequirementStatus.ATTENTION }
-    val onTrackCount = requirements.count { it.status == RequirementStatus.ON_TRACK }
-    val completedCount = requirements.count { it.status == RequirementStatus.COMPLETED }
+private fun StatusSummaryRow(requirements: List<MonthlyRequirementRow>) {
+    val criticalCount = requirements.count { it.requirement.status == RequirementStatus.CRITICAL }
+    val attentionCount = requirements.count { it.requirement.status == RequirementStatus.ATTENTION }
+    val onTrackCount = requirements.count { it.requirement.status == RequirementStatus.ON_TRACK }
+    val completedCount = requirements.count { it.requirement.status == RequirementStatus.COMPLETED }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -315,9 +390,13 @@ private fun StatusChip(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RequirementCard(
-    requirement: MonthlyRequirement,
-    onClick: () -> Unit
+    row: MonthlyRequirementRow,
+    onClick: () -> Unit,
+    onToggleProtected: () -> Unit,
+    onToggleSkipped: () -> Unit,
+    onCustomAmountClick: () -> Unit
 ) {
+    val requirement = row.requirement
     val statusColor = when (requirement.status) {
         RequirementStatus.COMPLETED -> AccessibleGreen
         RequirementStatus.ON_TRACK -> AccessibleGreen
@@ -398,11 +477,19 @@ private fun RequirementCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = requirement.formattedRequiredMonthly(),
+                        text = row.formattedAdjustedRequiredMonthly(),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = if (requirement.status == RequirementStatus.CRITICAL) statusColor else MaterialTheme.colorScheme.onSurface
                     )
+                    val baseChanged = kotlin.math.abs(row.adjustedRequiredMonthly - requirement.requiredMonthly) > 0.01
+                    if (baseChanged) {
+                        Text(
+                            text = "Base: ${requirement.formattedRequiredMonthly()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
@@ -426,8 +513,113 @@ private fun RequirementCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onToggleProtected) {
+                        Icon(
+                            imageVector = Icons.Default.Flag,
+                            contentDescription = null,
+                            tint = if (row.isProtected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (row.isProtected) "Protected" else "Protect")
+                    }
+                    TextButton(onClick = onToggleSkipped) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = if (row.isSkipped) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (row.isSkipped) "Skipped" else "Skip")
+                    }
+                }
+                TextButton(onClick = onCustomAmountClick) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        tint = if (row.customAmount != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(if (row.customAmount != null) "Custom" else "Set")
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun CustomAmountDialog(
+    goalName: String,
+    currency: String,
+    currentAmount: Double?,
+    onDismiss: () -> Unit,
+    onClear: () -> Unit,
+    onConfirm: (Double) -> Unit
+) {
+    var value by remember {
+        mutableStateOf(currentAmount?.let { String.format("%.2f", it) } ?: "")
+    }
+    val parsed = value.toDoubleOrNull()
+    val error = if (value.isNotEmpty() && (parsed == null || parsed < 0.0)) "Enter a valid amount" else null
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Custom Amount") },
+        text = {
+            Column {
+                Text(
+                    text = "Set a custom monthly amount for \"$goalName\".",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { newValue ->
+                        val filtered = newValue.filter { it.isDigit() || it == '.' }
+                        if (filtered.count { it == '.' } <= 1) value = filtered
+                    },
+                    label = { Text("Amount ($currency)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    isError = error != null,
+                    supportingText = error?.let { { Text(it) } },
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(parsed ?: 0.0) },
+                enabled = parsed != null && parsed >= 0.0 && error == null
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            Row {
+                if (currentAmount != null) {
+                    TextButton(onClick = onClear) {
+                        Text("Clear")
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
+            }
+        }
+    )
 }
 
 @Composable
