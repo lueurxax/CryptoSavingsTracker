@@ -134,6 +134,14 @@ The following features are explicitly **out of scope** for the initial Android r
 
 ```kotlin
 // build.gradle.kts (app)
+//
+// NOTE ON PACKAGE NAMING:
+// Current: com.xax.CryptoSavingsTracker (mixed case, matches existing project)
+// Recommended: com.xax.cryptosavingstracker (lowercase, Java/Kotlin convention)
+//
+// If changing to lowercase, update: namespace, applicationId, folder structure,
+// HiltTestRunner package, and Room schema export path.
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -337,7 +345,7 @@ android/app/src/
 │       └── e2e/
 │
 └── schemas/                       # Room schema exports
-    └── com.xax.cryptosavingstracker.data.local.database.AppDatabase/
+    └── com.xax.CryptoSavingsTracker.data.local.database.AppDatabase/
         ├── 1.json
         ├── 2.json
         └── ...
@@ -620,7 +628,17 @@ object DatabaseMigrations {
      *      a) Downgrades only happen in dev (installing older APK over newer)
      *      b) Production users can't downgrade past Play Store's minimum version
      *      c) Data loss on downgrade is preferable to crash loops
+     *
+     * NOTE: The migrations below are TEMPLATES for future schema changes.
+     * Initial release uses version = 1 with no migrations needed.
+     * When you need to change the schema:
+     *   1. Increment @Database(version = N)
+     *   2. Add MIGRATION_(N-1)_N following the patterns below
+     *   3. Add a test for the new migration
      */
+
+    // === FUTURE MIGRATION TEMPLATES ===
+    // Uncomment and modify when schema changes are needed
 
     val MIGRATION_1_2 = object : Migration(1, 2) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -718,10 +736,18 @@ class DatabaseMigrationTest {
     @Test
     fun migrate1To2() {
         // Create database at version 1
+        // Note: Column names must match GoalEntity schema exactly
         helper.createDatabase("test_db", 1).apply {
             execSQL("""
-                INSERT INTO goals (id, name, currency, target_amount, deadline_utc, start_date_utc, lifecycle_status)
-                VALUES ('test-id', 'Test Goal', 'USD', 1000.0, 1736942400000, 1704067200000, 'active')
+                INSERT INTO goals (
+                    id, name, currency, target_amount,
+                    deadline_epoch_day, start_date_epoch_day,
+                    lifecycle_status, created_at_utc_millis, last_modified_at_utc_millis
+                ) VALUES (
+                    'test-id', 'Test Goal', 'USD', 1000.0,
+                    20089, 19724,  -- epochDay values (2025-01-01, 2024-01-01)
+                    'active', 1704067200000, 1704067200000
+                )
             """)
             close()
         }
@@ -1369,6 +1395,20 @@ class ExchangeRateRepositoryTest {
 
 ### 9.4 UI Tests (Compose Testing)
 
+**Running UI Tests:**
+```bash
+# Run all instrumented tests (includes Compose UI tests)
+./gradlew connectedDebugAndroidTest
+
+# Run a specific test class
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.xax.CryptoSavingsTracker.GoalsListScreenTest
+```
+
+**Required Dependencies** (already included in Section 2):
+- `androidTestImplementation("androidx.compose.ui:ui-test-junit4")` - Compose test APIs
+- `debugImplementation("androidx.compose.ui:ui-test-manifest")` - Required for createAndroidComposeRule
+- `androidTestImplementation("com.google.dagger:hilt-android-testing:2.52")` - Hilt test support
+
 ```kotlin
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
@@ -1568,14 +1608,18 @@ class HiltTestRunner : AndroidJUnitRunner() {
 
 ## 11. CSV Export Format Specification
 
-CSV export must be compatible with iOS app format for potential future cross-platform data exchange.
+CSV export **must match iOS format exactly** for cross-platform data exchange compatibility.
+
+**iOS exports 3 files:**
+1. `goals.csv` - with allocations embedded as JSON
+2. `assets.csv` - with allocations embedded as JSON
+3. `value_changes.csv` - combined transactions and allocation history events
 
 ### 11.1 goals.csv
 
 ```csv
-id,name,currency,target_amount,deadline,start_date,lifecycle_status,emoji,description,link
-"uuid-1","Emergency Fund","USD",10000.00,"2025-06-15","2024-01-01","active","💰","6 months expenses",""
-"uuid-2","Vacation","EUR",5000.00,"2025-12-01","2024-03-01","active","✈️","Greece trip",""
+id,name,currency,targetAmount,deadline,startDate,lifecycleStatusRawValue,lifecycleStatusChangedAt,lastModifiedDate,reminderFrequency,reminderTime,firstReminderDate,emoji,goalDescription,link,allocationCount,allocationIds,allocationsJson
+"uuid-1","Emergency Fund","USD",10000.0,"2024-01-01T00:00:00.000Z","2024-01-01T00:00:00.000Z","active","","2024-03-15T10:00:00.000Z","monthly","","","💰","6 months expenses","",2,"alloc-1;alloc-2","[{...}]"
 ```
 
 | Column | Type | Format | Notes |
@@ -1583,21 +1627,27 @@ id,name,currency,target_amount,deadline,start_date,lifecycle_status,emoji,descri
 | id | String | UUID | Primary key |
 | name | String | UTF-8 | Goal name |
 | currency | String | ISO 4217 / crypto | e.g., "USD", "BTC" |
-| target_amount | Decimal | 2 decimal places | Target value |
-| deadline | String | ISO 8601 date | "yyyy-MM-dd" |
-| start_date | String | ISO 8601 date | "yyyy-MM-dd" |
-| lifecycle_status | String | Enum | "active", "cancelled", "finished", "deleted" |
+| targetAmount | Double | Full precision | Target value |
+| deadline | String | ISO 8601 | Full timestamp with fractional seconds |
+| startDate | String | ISO 8601 | Full timestamp |
+| lifecycleStatusRawValue | String | Enum | "active", "cancelled", "finished", "deleted" |
+| lifecycleStatusChangedAt | String | ISO 8601 | Optional |
+| lastModifiedDate | String | ISO 8601 | Last update |
+| reminderFrequency | String | Enum | Optional: "daily", "weekly", "monthly" |
+| reminderTime | String | ISO 8601 | Optional |
+| firstReminderDate | String | ISO 8601 | Optional |
 | emoji | String | UTF-8 emoji | Optional |
-| description | String | UTF-8 | Optional, escaped quotes |
+| goalDescription | String | UTF-8 | Optional |
 | link | String | URL | Optional |
+| allocationCount | Int | Count | Number of allocations |
+| allocationIds | String | Semicolon-separated UUIDs | "id1;id2;id3" |
+| allocationsJson | String | JSON array | Embedded allocation objects |
 
 ### 11.2 assets.csv
 
 ```csv
-id,currency,address,chain_id,created_at
-"uuid-1","BTC","bc1q...xyz","bitcoin","2024-01-15T10:30:00Z"
-"uuid-2","ETH","0x...abc","ethereum","2024-02-01T14:00:00Z"
-"uuid-3","USD","","","2024-01-01T00:00:00Z"
+id,currency,address,chainId,transactionCount,transactionIds,allocationCount,allocationIds,allocationsJson
+"uuid-1","BTC","bc1q...xyz","bitcoin",5,"tx-1;tx-2;tx-3;tx-4;tx-5",2,"alloc-1;alloc-2","[{...}]"
 ```
 
 | Column | Type | Format | Notes |
@@ -1605,43 +1655,59 @@ id,currency,address,chain_id,created_at
 | id | String | UUID | Primary key |
 | currency | String | Symbol | e.g., "BTC", "ETH", "USD" |
 | address | String | Blockchain address | Optional, empty for fiat |
-| chain_id | String | Chain identifier | Optional, empty for fiat |
-| created_at | String | ISO 8601 timestamp | "yyyy-MM-dd'T'HH:mm:ss'Z'" |
+| chainId | String | Chain identifier | Optional, empty for fiat |
+| transactionCount | Int | Count | Number of transactions |
+| transactionIds | String | Semicolon-separated UUIDs | "id1;id2;id3" |
+| allocationCount | Int | Count | Number of allocations |
+| allocationIds | String | Semicolon-separated UUIDs | "id1;id2;id3" |
+| allocationsJson | String | JSON array | Embedded allocation objects |
 
-### 11.3 transactions.csv
+### 11.3 value_changes.csv
+
+Combines transactions and allocation history into a single chronological event stream.
 
 ```csv
-id,asset_id,amount,date,source,external_id,counterparty,comment
-"uuid-1","asset-uuid-1",0.05,"2024-03-15T09:00:00Z","manual","","","Monthly DCA"
-"uuid-2","asset-uuid-1",0.10,"2024-03-20T14:30:00Z","onChain","tx-hash-abc","exchange","Withdrawal"
+eventType,eventId,timestamp,amount,amountSemantics,assetId,assetCurrency,assetChainId,assetAddress,goalId,goalName,transactionSource,transactionExternalId,transactionCounterparty,transactionComment,allocationMonthLabel,allocationCreatedAt
+"transaction","tx-uuid-1","2024-03-15T09:00:00.000Z",0.05,"delta","asset-uuid-1","BTC","bitcoin","bc1q...","","","manual","","","Monthly DCA","",""
+"allocationHistory","ah-uuid-1","2024-03-15T10:00:00.000Z",5000.0,"allocationTargetSnapshot","asset-uuid-1","BTC","bitcoin","bc1q...","goal-uuid-1","Emergency Fund","","","","","2024-03","2024-03-15T10:00:00.000Z"
 ```
 
 | Column | Type | Format | Notes |
 |--------|------|--------|-------|
-| id | String | UUID | Primary key |
-| asset_id | String | UUID | Foreign key to assets |
-| amount | Decimal | Signed | Positive = deposit, negative = withdrawal |
-| date | String | ISO 8601 timestamp | Transaction time |
-| source | String | Enum | "manual" or "onChain" |
-| external_id | String | Tx hash | Optional, for on-chain |
-| counterparty | String | UTF-8 | Optional |
-| comment | String | UTF-8 | Optional |
+| eventType | String | Enum | "transaction" or "allocationHistory" |
+| eventId | String | UUID | Event ID |
+| timestamp | String | ISO 8601 | Event timestamp |
+| amount | Double | Full precision | Transaction delta or allocation snapshot |
+| amountSemantics | String | Enum | "delta" (tx) or "allocationTargetSnapshot" (history) |
+| assetId | String | UUID | Asset reference |
+| assetCurrency | String | Symbol | Asset currency |
+| assetChainId | String | Chain ID | Optional |
+| assetAddress | String | Address | Optional |
+| goalId | String | UUID | Only for allocationHistory |
+| goalName | String | UTF-8 | Only for allocationHistory |
+| transactionSource | String | Enum | "manual" or "onChain" (tx only) |
+| transactionExternalId | String | Tx hash | On-chain tx hash (tx only) |
+| transactionCounterparty | String | UTF-8 | Optional (tx only) |
+| transactionComment | String | UTF-8 | Optional (tx only) |
+| allocationMonthLabel | String | "yyyy-MM" | Month label (history only) |
+| allocationCreatedAt | String | ISO 8601 | Creation time (history only) |
 
-### 11.4 allocations.csv
+### 11.4 Allocations JSON Schema (embedded in goals.csv and assets.csv)
 
-```csv
-id,asset_id,goal_id,amount,last_modified_at
-"uuid-1","asset-uuid-1","goal-uuid-1",5000.00,"2024-03-15T10:00:00Z"
-"uuid-2","asset-uuid-1","goal-uuid-2",3000.00,"2024-03-15T10:00:00Z"
+```json
+[
+  {
+    "id": "uuid",
+    "amount": 5000.0,
+    "createdDate": "2024-01-15T10:00:00.000Z",
+    "lastModifiedDate": "2024-03-15T10:00:00.000Z",
+    "assetId": "asset-uuid",
+    "goalId": "goal-uuid",
+    "assetCurrency": "BTC",
+    "goalName": "Emergency Fund"
+  }
+]
 ```
-
-| Column | Type | Format | Notes |
-|--------|------|--------|-------|
-| id | String | UUID | Primary key |
-| asset_id | String | UUID | Foreign key |
-| goal_id | String | UUID | Foreign key |
-| amount | Decimal | Fixed allocation | In asset's native currency |
-| last_modified_at | String | ISO 8601 timestamp | Last update time |
 
 ### 11.5 Export Implementation
 
@@ -1650,44 +1716,119 @@ class CsvExportService @Inject constructor(
     private val goalRepository: GoalRepository,
     private val assetRepository: AssetRepository,
     private val transactionRepository: TransactionRepository,
-    private val allocationRepository: AllocationRepository
+    private val allocationHistoryRepository: AllocationHistoryRepository
 ) {
+    private val isoFormatter = DateTimeFormatter.ISO_INSTANT
+
+    /**
+     * Exports 3 files matching iOS format:
+     * - goals.csv (with embedded allocations JSON)
+     * - assets.csv (with embedded allocations JSON)
+     * - value_changes.csv (combined transactions + allocation history)
+     */
     suspend fun exportAll(outputDir: File): List<File> {
-        val files = mutableListOf<File>()
+        val goals = goalRepository.getAllGoals().first()
+        val assets = assetRepository.getAllAssets().first()
+        val transactions = transactionRepository.getAllTransactions().first()
+        val allocationHistories = allocationHistoryRepository.getAll().first()
 
-        files += exportGoals(File(outputDir, "goals.csv"))
-        files += exportAssets(File(outputDir, "assets.csv"))
-        files += exportTransactions(File(outputDir, "transactions.csv"))
-        files += exportAllocations(File(outputDir, "allocations.csv"))
+        val timestamp = Instant.now().toString()
+            .replace(":", "-").replace(".", "-")
+        val exportDir = File(outputDir, "CryptoSavingsTracker-CSV-$timestamp")
+        exportDir.mkdirs()
 
-        return files
+        return listOf(
+            exportGoals(goals, File(exportDir, "goals.csv")),
+            exportAssets(assets, File(exportDir, "assets.csv")),
+            exportValueChanges(transactions, allocationHistories, goals, assets,
+                File(exportDir, "value_changes.csv"))
+        )
     }
 
-    private suspend fun exportGoals(file: File): File {
-        val goals = goalRepository.getAllGoals().first()
+    private fun exportGoals(goals: List<Goal>, file: File): File {
+        val header = "id,name,currency,targetAmount,deadline,startDate," +
+            "lifecycleStatusRawValue,lifecycleStatusChangedAt,lastModifiedDate," +
+            "reminderFrequency,reminderTime,firstReminderDate,emoji,goalDescription,link," +
+            "allocationCount,allocationIds,allocationsJson"
+
         file.bufferedWriter().use { writer ->
-            writer.write("id,name,currency,target_amount,deadline,start_date,lifecycle_status,emoji,description,link\n")
+            writer.write(header + "\n")
             goals.forEach { goal ->
-                writer.write(buildString {
-                    append('"').append(goal.id).append('"').append(',')
-                    append('"').append(goal.name.escapeCsv()).append('"').append(',')
-                    append('"').append(goal.currency).append('"').append(',')
-                    append(goal.targetAmount.formatDecimal()).append(',')
-                    append('"').append(goal.deadline.format(DateTimeFormatter.ISO_LOCAL_DATE)).append('"').append(',')
-                    append('"').append(goal.startDate.format(DateTimeFormatter.ISO_LOCAL_DATE)).append('"').append(',')
-                    append('"').append(goal.lifecycleStatus.name.lowercase()).append('"').append(',')
-                    append('"').append(goal.emoji.orEmpty()).append('"').append(',')
-                    append('"').append(goal.description.orEmpty().escapeCsv()).append('"').append(',')
-                    append('"').append(goal.link.orEmpty()).append('"')
-                    append('\n')
-                })
+                val allocationIds = goal.allocations.joinToString(";") { it.id }
+                val allocationsJson = Json.encodeToString(goal.allocations.map { it.toExportDto() })
+                writer.write(csvLine(
+                    goal.id, goal.name, goal.currency, goal.targetAmount.toString(),
+                    goal.deadline.format(isoFormatter), goal.startDate.format(isoFormatter),
+                    goal.lifecycleStatus.name.lowercase(), goal.lifecycleStatusChangedAt?.format(isoFormatter) ?: "",
+                    goal.lastModifiedDate.format(isoFormatter),
+                    goal.reminderFrequency ?: "", goal.reminderTime?.format(isoFormatter) ?: "",
+                    goal.firstReminderDate?.format(isoFormatter) ?: "",
+                    goal.emoji ?: "", goal.description ?: "", goal.link ?: "",
+                    goal.allocations.size.toString(), allocationIds, allocationsJson
+                ))
             }
         }
         return file
     }
 
-    private fun String.escapeCsv(): String = this.replace("\"", "\"\"")
-    private fun Double.formatDecimal(): String = "%.2f".format(this)
+    private fun exportValueChanges(
+        transactions: List<Transaction>,
+        histories: List<AllocationHistory>,
+        goals: List<Goal>,
+        assets: List<Asset>,
+        file: File
+    ): File {
+        val goalNameById = goals.associate { it.id to it.name }
+        val assetById = assets.associateBy { it.id }
+
+        data class Event(val timestamp: Instant, val row: List<String>)
+        val events = mutableListOf<Event>()
+
+        // Add transaction events
+        transactions.forEach { tx ->
+            val asset = assetById[tx.assetId]
+            events += Event(tx.date, listOf(
+                "transaction", tx.id, tx.date.format(isoFormatter), tx.amount.toString(), "delta",
+                tx.assetId, asset?.currency ?: "", asset?.chainId ?: "", asset?.address ?: "",
+                "", "", tx.source.name.lowercase(), tx.externalId ?: "",
+                tx.counterparty ?: "", tx.comment ?: "", "", ""
+            ))
+        }
+
+        // Add allocation history events
+        histories.forEach { history ->
+            val asset = assetById[history.assetId]
+            val goalName = goalNameById[history.goalId] ?: ""
+            events += Event(history.timestamp, listOf(
+                "allocationHistory", history.id, history.timestamp.format(isoFormatter),
+                history.amount.toString(), "allocationTargetSnapshot",
+                history.assetId, asset?.currency ?: "", asset?.chainId ?: "", asset?.address ?: "",
+                history.goalId, goalName, "", "", "", "", history.monthLabel,
+                history.createdAt.format(isoFormatter)
+            ))
+        }
+
+        // Sort chronologically and write
+        val header = "eventType,eventId,timestamp,amount,amountSemantics,assetId,assetCurrency," +
+            "assetChainId,assetAddress,goalId,goalName,transactionSource,transactionExternalId," +
+            "transactionCounterparty,transactionComment,allocationMonthLabel,allocationCreatedAt"
+
+        file.bufferedWriter().use { writer ->
+            writer.write(header + "\n")
+            events.sortedBy { it.timestamp }.forEach { event ->
+                writer.write(csvLine(*event.row.toTypedArray()))
+            }
+        }
+        return file
+    }
+
+    private fun csvLine(vararg values: String): String {
+        return values.joinToString(",") { value ->
+            if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+                "\"${value.replace("\"", "\"\"")}\""
+            } else value
+        } + "\n"
+    }
 }
 ```
 
