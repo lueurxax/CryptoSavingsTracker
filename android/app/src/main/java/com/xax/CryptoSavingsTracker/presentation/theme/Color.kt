@@ -48,3 +48,7 @@ val BitcoinOrange = Color(0xFFF7931A)
 val EthereumBlue = Color(0xFF627EEA)
 val StablecoinGreen = Color(0xFF26A17B)
 val AltcoinPurple = Color(0xFF8B5CF6)
+
+// Transaction colors
+val DepositGreen = Color(0xFF00875A)
+val WithdrawalRed = Color(0xFFCC0000)

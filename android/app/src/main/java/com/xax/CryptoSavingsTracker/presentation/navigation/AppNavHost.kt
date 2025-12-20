@@ -26,11 +26,14 @@ import androidx.navigation.navArgument
 import com.xax.CryptoSavingsTracker.presentation.assets.AddEditAssetScreen
 import com.xax.CryptoSavingsTracker.presentation.assets.AssetDetailScreen
 import com.xax.CryptoSavingsTracker.presentation.assets.AssetsScreen
+import com.xax.CryptoSavingsTracker.presentation.common.PlaceholderScreen
 import com.xax.CryptoSavingsTracker.presentation.dashboard.DashboardScreen
 import com.xax.CryptoSavingsTracker.presentation.goals.AddEditGoalScreen
 import com.xax.CryptoSavingsTracker.presentation.goals.GoalDetailScreen
 import com.xax.CryptoSavingsTracker.presentation.goals.GoalsScreen
 import com.xax.CryptoSavingsTracker.presentation.planning.PlanningScreen
+import com.xax.CryptoSavingsTracker.presentation.transactions.AddTransactionScreen
+import com.xax.CryptoSavingsTracker.presentation.transactions.TransactionHistoryScreen
 
 data class BottomNavItem(
     val screen: Screen,
@@ -134,6 +137,55 @@ fun AppNavHost() {
 
             composable(Screen.AddAsset.route) {
                 AddEditAssetScreen(navController = navController)
+            }
+
+            // Transaction screens
+            composable(
+                route = Screen.AddTransaction.route,
+                arguments = listOf(
+                    navArgument("assetId") { type = NavType.StringType }
+                )
+            ) {
+                AddTransactionScreen(navController = navController)
+            }
+
+            composable(
+                route = Screen.TransactionHistory.route,
+                arguments = listOf(
+                    navArgument("assetId") { type = NavType.StringType }
+                )
+            ) {
+                TransactionHistoryScreen(navController = navController)
+            }
+
+            // Planning sub-screens (placeholders for Phase 1)
+            composable(Screen.MonthlyPlanning.route) {
+                PlaceholderScreen(
+                    title = "Monthly Planning",
+                    subtitle = "Coming soon"
+                )
+            }
+
+            composable(Screen.Execution.route) {
+                PlaceholderScreen(
+                    title = "Execution",
+                    subtitle = "Coming soon"
+                )
+            }
+
+            composable(Screen.PlanHistory.route) {
+                PlaceholderScreen(
+                    title = "Plan History",
+                    subtitle = "Coming soon"
+                )
+            }
+
+            // Settings (placeholder for Phase 1)
+            composable(Screen.Settings.route) {
+                PlaceholderScreen(
+                    title = "Settings",
+                    subtitle = "Coming soon"
+                )
             }
         }
     }
