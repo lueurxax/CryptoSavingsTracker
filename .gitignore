@@ -1,107 +1,138 @@
-# Xcode
-#
-# gitignore contributors: remember to update Global/Xcode.gitignore, Objective-C.gitignore & Swift.gitignore
-
-## User settings
-xcuserdata/
-
-## compatibility with Xcode 8 and earlier (ignoring not required starting Xcode 9)
-*.xcscmblueprint
-*.xccheckout
-
-## compatibility with Xcode 3 and earlier (ignoring not required starting Xcode 4)
-build/
-DerivedData/
-DerivedDataCodex/
-DerivedDataSim/
-*.moved-aside
-*.pbxuser
-!default.pbxuser
-*.mode1v3
-!default.mode1v3
-*.mode2v3
-!default.mode2v3
-*.perspectivev3
-!default.perspectivev3
-
-## Obj-C/Swift specific
-*.hmap
-
-## App packaging
-*.ipa
-*.dSYM.zip
-*.dSYM
-
-## Playgrounds
-timeline.xctimeline
-playground.xcworkspace
-
-# Swift Package Manager
-#
-# Add this line if you want to avoid checking in source code from Swift Package Manager dependencies.
-# Packages/
-# Package.pins
-# Package.resolved
-# *.xcodeproj
-#
-# Xcode automatically generates this directory with a .xcworkspacedata file and xcuserdata dir, do not check in.
-# Package.xcworkspace/
-
-.build/
-
-# CocoaPods
-#
-# We recommend against adding the Pods directory to your .gitignore. However
-# you should judge for yourself, the pros and cons are mentioned at:
-# https://guides.cocoapods.org/using/using-cocoapods.html#should-i-check-the-pods-directory-into-source-control
-#
-# Pods/
-#
-# Add this line if you want to avoid checking in source code from the Xcode workspace
-# *.xcworkspace
-
-# Carthage
-#
-# Add this line if you want to avoid checking in source code from Carthage dependencies.
-# Carthage/Checkouts
-
-Carthage/Build/
-
-# Accio dependency management
-Dependencies/
-.accio/
-
-# fastlane
-#
-# It is recommended to not store the screenshots in the git repo.
-# Instead, use fastlane to re-generate the screenshots whenever they are needed.
-# For more information about the recommended setup visit:
-# https://docs.fastlane.tools/best-practices/source-control/
-
-fastlane/report.xml
-fastlane/Preview.html
-fastlane/screenshots/**/*.png
-fastlane/test_output
-
-# Code Injection
-#
-# After new code Injection tools there's a generated folder /iOSInjectionProject
-# https://github.com/johnno1962/injectionforxcode
-
-iOSInjectionProject/
+# =============================================================================
+# CryptoSavingsTracker - Monorepo .gitignore
+# =============================================================================
 
 # macOS
 .DS_Store
+*.swp
+*.swo
+*~
 
-# SwiftPM
-.swiftpm/
+# Xcode DerivedData (root level - legacy location)
+/DerivedData/
+/DerivedDataSim/
+/DerivedDataCodex/
 
-# Claude Code
-.claude/
+# =============================================================================
+# iOS / macOS (Xcode)
+# =============================================================================
 
-# API Configuration
-Config.plist
+## User settings
+ios/xcuserdata/
+ios/**/xcuserdata/
+**/xcuserdata/
+*.xcuserstate
 
-# UI test artifacts
-*.xcappdata/
-*.xcresult/
+## Xcode build artifacts
+ios/build/
+ios/DerivedData/
+ios/DerivedDataCodex/
+ios/DerivedDataSim/
+ios/*.moved-aside
+ios/*.pbxuser
+!ios/default.pbxuser
+ios/*.mode1v3
+!ios/default.mode1v3
+ios/*.mode2v3
+!ios/default.mode2v3
+ios/*.perspectivev3
+!ios/default.perspectivev3
+ios/*.xcscmblueprint
+ios/*.xccheckout
+
+## Obj-C/Swift specific
+ios/*.hmap
+
+## App packaging
+ios/*.ipa
+ios/*.dSYM.zip
+ios/*.dSYM
+
+## Playgrounds
+ios/timeline.xctimeline
+ios/playground.xcworkspace
+
+## Swift Package Manager
+ios/.build/
+ios/.swiftpm/
+
+## CocoaPods
+# ios/Pods/
+
+## Carthage
+ios/Carthage/Build/
+
+## fastlane
+ios/fastlane/report.xml
+ios/fastlane/Preview.html
+ios/fastlane/screenshots/**/*.png
+ios/fastlane/test_output
+
+## API Configuration (contains secrets)
+ios/Config.plist
+
+## UI test artifacts
+ios/*.xcappdata/
+ios/*.xcresult/
+
+# =============================================================================
+# Android (Gradle)
+# =============================================================================
+
+## Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/captures/
+android/.externalNativeBuild/
+android/.cxx/
+
+## Local configuration (contains secrets)
+android/local.properties
+
+## IntelliJ IDEA
+android/.idea/caches/
+android/.idea/libraries/
+android/.idea/modules.xml
+android/.idea/workspace.xml
+android/.idea/navEditor.xml
+android/.idea/assetWizardSettings.xml
+*.iml
+
+## Signing keys
+android/*.keystore
+android/*.jks
+
+# =============================================================================
+# Shared / IDE
+# =============================================================================
+
+## JetBrains IDEs
+.idea/
+*.ipr
+*.iws
+
+## VS Code
+.vscode/
+
+## Fleet
+.fleet/
+
+# =============================================================================
+# Build outputs
+# =============================================================================
+
+*.log
+*.tmp
+build_output.txt
+build_content_error.txt
+
+# =============================================================================
+# Secrets and credentials
+# =============================================================================
+
+*.pem
+*.p12
+*.key
+secrets/
+credentials/
