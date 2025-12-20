@@ -17,12 +17,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.xax.CryptoSavingsTracker.presentation.assets.AssetsScreen
 import com.xax.CryptoSavingsTracker.presentation.dashboard.DashboardScreen
+import com.xax.CryptoSavingsTracker.presentation.goals.AddEditGoalScreen
+import com.xax.CryptoSavingsTracker.presentation.goals.GoalDetailScreen
 import com.xax.CryptoSavingsTracker.presentation.goals.GoalsScreen
 import com.xax.CryptoSavingsTracker.presentation.planning.PlanningScreen
 
@@ -93,7 +97,28 @@ fun AppNavHost() {
                 PlanningScreen(navController = navController)
             }
 
-            // TODO: Add detail screens as we implement them
+            // Goal screens
+            composable(
+                route = Screen.GoalDetail.route,
+                arguments = listOf(
+                    navArgument("goalId") { type = NavType.StringType }
+                )
+            ) {
+                GoalDetailScreen(navController = navController)
+            }
+
+            composable(Screen.AddGoal.route) {
+                AddEditGoalScreen(navController = navController)
+            }
+
+            composable(
+                route = Screen.EditGoal.route,
+                arguments = listOf(
+                    navArgument("goalId") { type = NavType.StringType }
+                )
+            ) {
+                AddEditGoalScreen(navController = navController)
+            }
         }
     }
 }
