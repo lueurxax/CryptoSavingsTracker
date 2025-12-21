@@ -1,5 +1,8 @@
 package com.xax.CryptoSavingsTracker.presentation.settings
 
+import android.content.ClipData
+import android.content.Intent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,14 +27,20 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.annotation.VisibleForTesting
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.xax.CryptoSavingsTracker.BuildConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +49,8 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val developerTapCount = rememberSaveable { mutableIntStateOf(0) }
 
     LaunchedEffect(uiState.saveMessage, uiState.cacheMessage) {
         // Clear transient messages after they are shown once (keeps UI clean without snackbars).
@@ -47,6 +58,26 @@ fun SettingsScreen(
             kotlinx.coroutines.delay(2500)
             viewModel.clearMessages()
         }
+    }
+
+    LaunchedEffect(uiState.exportedCsvUris) {
+        val uris = uiState.exportedCsvUris ?: return@LaunchedEffect
+        if (uris.isEmpty()) return@LaunchedEffect
+
+        val primary = uris.first()
+        val clipData = ClipData.newRawUri("CryptoSavingsTracker CSV Export", primary).apply {
+            for (uri in uris.drop(1)) addItem(ClipData.Item(uri))
+        }
+
+        val sendMultipleIntent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "text/csv"
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            this.clipData = clipData
+        }
+
+        context.startActivity(Intent.createChooser(sendMultipleIntent, "Export Data (CSV)"))
+        viewModel.consumeExportResult()
     }
 
     Scaffold(
@@ -61,33 +92,140 @@ fun SettingsScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        SettingsContent(
+            uiState = uiState,
+            onUpdateCoinGeckoApiKey = viewModel::updateCoinGeckoApiKey,
+            onUpdateTatumApiKey = viewModel::updateTatumApiKey,
+            onSave = viewModel::save,
+            onClearCaches = viewModel::clearCaches,
+            onExportCsv = viewModel::exportCsv,
+            onImportData = { /* TODO: Implement import */ },
+            onTapVersion = { developerTapCount.intValue += 1 },
+            isDeveloperModeEnabled = developerTapCount.intValue >= 7,
+            versionLabel = BuildConfig.VERSION_NAME,
+            modifier = Modifier.padding(paddingValues)
+        )
+    }
+}
+
+@Composable
+@VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+internal fun SettingsContent(
+    uiState: SettingsUiState,
+    onUpdateCoinGeckoApiKey: (String) -> Unit,
+    onUpdateTatumApiKey: (String) -> Unit,
+    onSave: () -> Unit,
+    onClearCaches: () -> Unit,
+    onExportCsv: () -> Unit,
+    onImportData: () -> Unit,
+    onTapVersion: () -> Unit,
+    isDeveloperModeEnabled: Boolean,
+    versionLabel: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Data",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Button(
+            onClick = onExportCsv,
             modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .fillMaxWidth()
+                .testTag("settingsExportCsvButton"),
+            enabled = !uiState.isExportingCsv
         ) {
+            if (uiState.isExportingCsv) {
+                Box(modifier = Modifier.height(18.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.height(18.dp))
+                }
+            } else {
+                Text("Export Data (CSV)")
+            }
+        }
+
+        Button(
+            onClick = onImportData,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("settingsImportButton"),
+            enabled = false
+        ) {
+            Text("Import Data (Coming Soon)")
+        }
+
+        if (uiState.exportMessage != null) {
             Text(
-                text = "API Keys",
+                text = uiState.exportMessage ?: "",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (uiState.exportErrorMessage != null) {
+            Text(
+                text = uiState.exportErrorMessage ?: "",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "About",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Text(
+            text = "Version $versionLabel",
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onTapVersion)
+                .testTag("settingsVersion"),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        if (isDeveloperModeEnabled) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Developer",
                 style = MaterialTheme.typography.titleMedium
+            )
+
+            Text(
+                text = "API keys and cache controls are hidden to match iOS settings.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             OutlinedTextField(
                 value = uiState.coinGeckoApiKey,
-                onValueChange = viewModel::updateCoinGeckoApiKey,
+                onValueChange = onUpdateCoinGeckoApiKey,
                 label = { Text("CoinGecko API Key (optional)") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settingsCoinGeckoKey"),
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation()
             )
 
             OutlinedTextField(
                 value = uiState.tatumApiKey,
-                onValueChange = viewModel::updateTatumApiKey,
+                onValueChange = onUpdateTatumApiKey,
                 label = { Text("Tatum API Key (optional; required for on-chain)") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settingsTatumKey"),
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation()
             )
@@ -101,8 +239,10 @@ fun SettingsScreen(
             }
 
             Button(
-                onClick = viewModel::save,
-                modifier = Modifier.fillMaxWidth(),
+                onClick = onSave,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settingsSaveButton"),
                 enabled = !uiState.isSaving
             ) {
                 if (uiState.isSaving) {
@@ -110,7 +250,7 @@ fun SettingsScreen(
                         CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.height(18.dp))
                     }
                 } else {
-                    Text("Save")
+                    Text("Save API Keys")
                 }
             }
 
@@ -136,8 +276,10 @@ fun SettingsScreen(
             }
 
             Button(
-                onClick = viewModel::clearCaches,
-                modifier = Modifier.fillMaxWidth(),
+                onClick = onClearCaches,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settingsClearCachesButton"),
                 enabled = !uiState.isClearingCaches
             ) {
                 if (uiState.isClearingCaches) {

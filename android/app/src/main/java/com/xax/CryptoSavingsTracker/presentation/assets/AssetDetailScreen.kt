@@ -43,9 +43,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.annotation.VisibleForTesting
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.xax.CryptoSavingsTracker.domain.model.Asset
@@ -139,13 +141,11 @@ fun AssetDetailScreen(
                     AssetDetailContent(
                         asset = uiState.asset!!,
                         manualBalance = uiState.manualBalance,
-                        manualBalanceUsd = uiState.manualBalanceUsd,
+                        currentBalance = uiState.currentBalance,
+                        currentBalanceUsd = uiState.currentBalanceUsd,
                         isUsdLoading = uiState.isUsdLoading,
                         usdError = uiState.usdError,
                         onRefreshUsdBalance = viewModel::refreshUsdBalance,
-                        transactionCount = uiState.transactionCount,
-                        depositCount = uiState.depositCount,
-                        withdrawalCount = uiState.withdrawalCount,
                         recentTransactions = uiState.recentTransactions,
                         onChainBalance = uiState.onChainBalance,
                         isOnChainLoading = uiState.isOnChainLoading,
@@ -190,16 +190,15 @@ fun AssetDetailScreen(
 }
 
 @Composable
-private fun AssetDetailContent(
+@VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+internal fun AssetDetailContent(
     asset: Asset,
     manualBalance: Double,
-    manualBalanceUsd: Double?,
+    currentBalance: Double,
+    currentBalanceUsd: Double?,
     isUsdLoading: Boolean,
     usdError: String?,
     onRefreshUsdBalance: () -> Unit,
-    transactionCount: Int,
-    depositCount: Int,
-    withdrawalCount: Int,
     recentTransactions: List<Transaction>,
     onChainBalance: OnChainBalance?,
     isOnChainLoading: Boolean,
@@ -214,6 +213,7 @@ private fun AssetDetailContent(
             .withZone(ZoneId.systemDefault())
     }
     val currencyColor = getCurrencyColor(asset.currency)
+    val hasOnChain = asset.isCryptoAsset && asset.address != null && asset.chainId != null
 
     Column(
         modifier = Modifier
@@ -249,11 +249,11 @@ private fun AssetDetailContent(
             }
         }
 
-        // Balance card (manual balance, Phase 2)
+        // Balance card (iOS parity: show total balance, including on-chain when available)
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
             )
         ) {
             Column(
@@ -265,37 +265,51 @@ private fun AssetDetailContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Manual Balance",
+                        text = "Balance",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    IconButton(onClick = onRefreshUsdBalance) {
+                    IconButton(onClick = if (hasOnChain) onRefreshOnChainBalance else onRefreshUsdBalance) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh USD value",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            contentDescription = if (hasOnChain) "Refresh balance" else "Refresh USD value",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                Text(
-                    text = "${String.format("%,.4f", manualBalance)} ${asset.currency}",
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                when {
-                    manualBalanceUsd != null -> {
+                if (hasOnChain && isOnChainLoading && onChainBalance == null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "≈ $${String.format("%,.2f", manualBalanceUsd)} USD",
+                            text = "Fetching on-chain balance…",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "${String.format("%,.6f", currentBalance)} ${asset.currency}",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.testTag("assetDetailCurrentBalance"),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                when {
+                    currentBalanceUsd != null -> {
+                        Text(
+                            text = "≈ $${String.format("%,.2f", currentBalanceUsd)} USD",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     isUsdLoading -> {
                         Text(
                             text = "Fetching USD rate…",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     usdError != null -> {
@@ -309,151 +323,50 @@ private fun AssetDetailContent(
                         Text(
                             text = "USD value unavailable",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                if (asset.isCryptoAsset) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Manual balance uses transactions you add; on-chain balance is shown separately below.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (hasOnChain) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    if (onChainBalance != null) {
+                        val chainPart = String.format("%,.6f", onChainBalance.balance)
+                        val manualPart = String.format("%,.6f", manualBalance)
                         Text(
-                            text = "$transactionCount",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            text = "Tx",
+                            text = if (manualBalance != 0.0) {
+                                "Chain: $chainPart • Manual: $manualPart"
+                            } else {
+                                "Chain: $chainPart"
+                            },
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "$depositCount",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = DepositGreen
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Deposits",
+                            text = "Fetched: ${dateFormatter.format(Instant.ofEpochMilli(onChainBalance.fetchedAtMillis))}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "$withdrawalCount",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = WithdrawalRed
-                        )
-                        Text(
-                            text = "Withdrawals",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-            }
-        }
-
-        // On-chain balance section (Phase 6)
-        if (asset.isCryptoAsset && asset.address != null && asset.chainId != null) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "On-chain Balance",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        IconButton(onClick = onRefreshOnChainBalance) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Refresh on-chain balance"
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    when {
-                        isOnChainLoading && onChainBalance == null -> {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = "Fetching…",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        onChainBalance == null -> {
+                        if (onChainBalance.isStale) {
                             Text(
-                                text = onChainError ?: "No on-chain balance available",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (onChainError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        else -> {
-                            Text(
-                                text = "${String.format("%,.6f", onChainBalance.balance)} ${asset.currency}",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Fetched: ${dateFormatter.format(Instant.ofEpochMilli(onChainBalance.fetchedAtMillis))}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (onChainBalance.isStale) {
-                                Text(
-                                    text = "Showing cached value (stale)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            if (isOnChainLoading) {
-                                Text(
-                                    text = "Refreshing…",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            if (onChainError != null) {
-                                Text(
-                                    text = onChainError,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "This doesn’t change manual balance until you add/import transactions.",
+                                text = "Showing cached value (stale)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                    }
+                    if (isOnChainLoading && onChainBalance != null) {
+                        Text(
+                            text = "Refreshing…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (onChainError != null) {
+                        Text(
+                            text = onChainError,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
             }
@@ -514,6 +427,11 @@ private fun AssetDetailContent(
 
                 if (asset.chainId != null) {
                     DetailRow("Network", ChainIds.displayName(asset.chainId))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                }
+
+                if (hasOnChain && manualBalance != 0.0) {
+                    DetailRow("Manual Transactions", String.format("%,.6f", manualBalance))
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 }
 

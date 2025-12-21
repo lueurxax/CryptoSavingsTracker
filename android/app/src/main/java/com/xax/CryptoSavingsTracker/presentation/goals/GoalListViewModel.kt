@@ -4,15 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.domain.model.Goal
 import com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus
+import com.xax.CryptoSavingsTracker.domain.usecase.allocation.AllocationValidationService
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.DeleteGoalUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.GetGoalProgressUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.GoalWithProgress
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.UpdateGoalUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -22,6 +25,7 @@ import javax.inject.Inject
  */
 data class GoalListUiState(
     val goals: List<GoalWithProgress> = emptyList(),
+    val unallocatedAssets: List<UnallocatedAssetWarning> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
     val selectedFilter: GoalFilter = GoalFilter.ALL,
@@ -43,24 +47,43 @@ enum class GoalFilter {
  * ViewModel for the Goals List screen
  */
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class GoalListViewModel @Inject constructor(
     private val getGoalProgressUseCase: GetGoalProgressUseCase,
     private val deleteGoalUseCase: DeleteGoalUseCase,
-    private val updateGoalUseCase: UpdateGoalUseCase
+    private val updateGoalUseCase: UpdateGoalUseCase,
+    private val allocationValidationService: AllocationValidationService
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(GoalFilter.ALL)
-    private val _isLoading = MutableStateFlow(true)
     private val _error = MutableStateFlow<String?>(null)
     private val _showDeleteConfirmation = MutableStateFlow<Goal?>(null)
 
+    private val goalsWithProgressFlow: StateFlow<List<GoalWithProgress>> = getGoalProgressUseCase()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    private val unallocatedAssetsFlow: StateFlow<List<UnallocatedAssetWarning>> = goalsWithProgressFlow
+        .mapLatest {
+            val statuses = allocationValidationService.getAllAssetAllocationStatuses()
+            UnallocatedAssetsMapper.fromStatuses(statuses)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     val uiState: StateFlow<GoalListUiState> = combine(
-        getGoalProgressUseCase(),
+        goalsWithProgressFlow,
+        unallocatedAssetsFlow,
         _selectedFilter,
-        _isLoading,
         _error,
         _showDeleteConfirmation
-    ) { goalsWithProgress, filter, isLoading, error, deleteConfirmation ->
+    ) { goalsWithProgress, unallocatedAssets, filter, error, deleteConfirmation ->
         val filteredGoals = when (filter) {
             GoalFilter.ALL -> goalsWithProgress.filter { it.goal.lifecycleStatus != GoalLifecycleStatus.DELETED }
             GoalFilter.ACTIVE -> goalsWithProgress.filter { it.goal.lifecycleStatus == GoalLifecycleStatus.ACTIVE }
@@ -71,6 +94,7 @@ class GoalListViewModel @Inject constructor(
 
         GoalListUiState(
             goals = filteredGoals.sortedBy { it.goal.deadline },
+            unallocatedAssets = unallocatedAssets,
             isLoading = false,
             error = error,
             selectedFilter = filter,

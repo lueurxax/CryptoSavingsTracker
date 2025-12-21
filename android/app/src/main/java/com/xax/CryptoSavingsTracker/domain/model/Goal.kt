@@ -40,6 +40,22 @@ data class Goal(
     }
 
     /**
+     * Progress from a funded total (0.0 to 1.0), capped at 1.0.
+     * Mirrors iOS Goal.progress behavior.
+     */
+    fun progressFromFunded(fundedAmount: Double): Double {
+        if (targetAmount <= 0) return 0.0
+        return (fundedAmount / targetAmount).coerceIn(0.0, 1.0)
+    }
+
+    /**
+     * Progress percent (0..100) based on funded amount.
+     */
+    fun progressPercentFromFunded(fundedAmount: Double): Int {
+        return (progressFromFunded(fundedAmount) * 100).toInt().coerceIn(0, 100)
+    }
+
+    /**
      * Calculate days remaining until deadline
      */
     fun daysRemaining(): Long {

@@ -11,6 +11,7 @@ import com.xax.CryptoSavingsTracker.data.local.database.dao.CompletedExecutionDa
 import com.xax.CryptoSavingsTracker.data.local.database.dao.ExecutionRecordDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.ExecutionSnapshotDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.GoalDao
+import com.xax.CryptoSavingsTracker.data.local.database.dao.MonthlyGoalPlanDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.MonthlyPlanDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.TransactionDao
 import com.xax.CryptoSavingsTracker.data.local.database.entity.AllocationHistoryEntity
@@ -19,6 +20,7 @@ import com.xax.CryptoSavingsTracker.data.local.database.entity.AssetEntity
 import com.xax.CryptoSavingsTracker.data.local.database.entity.CompletedExecutionEntity
 import com.xax.CryptoSavingsTracker.data.local.database.entity.ExecutionSnapshotEntity
 import com.xax.CryptoSavingsTracker.data.local.database.entity.GoalEntity
+import com.xax.CryptoSavingsTracker.data.local.database.entity.MonthlyGoalPlanEntity
 import com.xax.CryptoSavingsTracker.data.local.database.entity.MonthlyExecutionRecordEntity
 import com.xax.CryptoSavingsTracker.data.local.database.entity.MonthlyPlanEntity
 import com.xax.CryptoSavingsTracker.data.local.database.entity.TransactionEntity
@@ -31,11 +33,12 @@ import com.xax.CryptoSavingsTracker.data.local.database.entity.TransactionEntity
         AssetAllocationEntity::class,
         AllocationHistoryEntity::class,
         MonthlyPlanEntity::class,
+        MonthlyGoalPlanEntity::class,
         MonthlyExecutionRecordEntity::class,
         ExecutionSnapshotEntity::class,
         CompletedExecutionEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -47,6 +50,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun allocationDao(): AllocationDao
     abstract fun allocationHistoryDao(): AllocationHistoryDao
     abstract fun monthlyPlanDao(): MonthlyPlanDao
+    abstract fun monthlyGoalPlanDao(): MonthlyGoalPlanDao
     abstract fun executionRecordDao(): ExecutionRecordDao
     abstract fun executionSnapshotDao(): ExecutionSnapshotDao
     abstract fun completedExecutionDao(): CompletedExecutionDao

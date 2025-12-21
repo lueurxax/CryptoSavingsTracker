@@ -123,7 +123,7 @@ fun MonthlyPlanningScreen(
                 else -> {
                     MonthlyPlanningContent(
                         requirements = uiState.requirements,
-                        flexPercentage = uiState.flexPercentage,
+                        flexAdjustment = uiState.flexAdjustment,
                         totalRequired = uiState.totalRequired,
                         baseTotalRequired = uiState.baseTotalRequired,
                         displayCurrency = uiState.displayCurrency,
@@ -131,7 +131,7 @@ fun MonthlyPlanningScreen(
                         onGoalClick = { goalId ->
                             navController.navigate(Screen.GoalDetail.createRoute(goalId))
                         },
-                        onFlexPercentageChanged = viewModel::updateFlexPercentage,
+                        onFlexAdjustmentChanged = viewModel::updateFlexAdjustment,
                         onToggleProtected = viewModel::toggleProtected,
                         onToggleSkipped = viewModel::toggleSkipped,
                         onCustomAmountClick = { goalId -> customDialogGoalId = goalId }
@@ -177,13 +177,13 @@ fun MonthlyPlanningScreen(
 @Composable
 private fun MonthlyPlanningContent(
     requirements: List<MonthlyRequirementRow>,
-    flexPercentage: Double,
+    flexAdjustment: Double,
     totalRequired: Double,
     baseTotalRequired: Double,
     displayCurrency: String,
     paymentDay: Int,
     onGoalClick: (String) -> Unit,
-    onFlexPercentageChanged: (Double) -> Unit,
+    onFlexAdjustmentChanged: (Double) -> Unit,
     onToggleProtected: (String) -> Unit,
     onToggleSkipped: (String) -> Unit,
     onCustomAmountClick: (String) -> Unit
@@ -199,8 +199,8 @@ private fun MonthlyPlanningContent(
                 baseTotalRequired = baseTotalRequired,
                 displayCurrency = displayCurrency,
                 paymentDay = paymentDay,
-                flexPercentage = flexPercentage,
-                onFlexPercentageChanged = onFlexPercentageChanged,
+                flexAdjustment = flexAdjustment,
+                onFlexAdjustmentChanged = onFlexAdjustmentChanged,
                 activeCount = requirements.count { it.requirement.status != RequirementStatus.COMPLETED },
                 completedCount = requirements.count { it.requirement.status == RequirementStatus.COMPLETED }
             )
@@ -233,8 +233,8 @@ private fun TotalRequirementCard(
     baseTotalRequired: Double,
     displayCurrency: String,
     paymentDay: Int,
-    flexPercentage: Double,
-    onFlexPercentageChanged: (Double) -> Unit,
+    flexAdjustment: Double,
+    onFlexAdjustmentChanged: (Double) -> Unit,
     activeCount: Int,
     completedCount: Int
 ) {
@@ -295,14 +295,14 @@ private fun TotalRequirementCard(
 
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "Flex: ${(flexPercentage * 100).roundToInt()}%",
+                text = "Flex: ${(flexAdjustment * 100).roundToInt()}%",
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Slider(
-                value = flexPercentage.toFloat(),
-                onValueChange = { onFlexPercentageChanged(it.toDouble()) },
+                value = flexAdjustment.toFloat(),
+                onValueChange = { onFlexAdjustmentChanged(it.toDouble()) },
                 valueRange = 0f..1.5f
             )
         }

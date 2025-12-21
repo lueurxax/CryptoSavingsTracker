@@ -7,6 +7,7 @@ import com.xax.CryptoSavingsTracker.data.repository.CompletedExecutionRepository
 import com.xax.CryptoSavingsTracker.data.repository.ExecutionRecordRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.ExecutionSnapshotRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.GoalRepositoryImpl
+import com.xax.CryptoSavingsTracker.data.repository.MonthlyGoalPlanRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.MonthlyPlanRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.OnChainBalanceRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.TransactionRepositoryImpl
@@ -17,6 +18,7 @@ import com.xax.CryptoSavingsTracker.domain.repository.CompletedExecutionReposito
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionRecordRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionSnapshotRepository
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
+import com.xax.CryptoSavingsTracker.domain.repository.MonthlyGoalPlanRepository
 import com.xax.CryptoSavingsTracker.domain.repository.MonthlyPlanRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
@@ -68,6 +70,12 @@ abstract class RepositoryModule {
     abstract fun bindMonthlyPlanRepository(
         monthlyPlanRepositoryImpl: MonthlyPlanRepositoryImpl
     ): MonthlyPlanRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMonthlyGoalPlanRepository(
+        impl: MonthlyGoalPlanRepositoryImpl
+    ): MonthlyGoalPlanRepository
 
     @Binds
     @Singleton

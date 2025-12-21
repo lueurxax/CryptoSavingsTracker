@@ -7,8 +7,10 @@ import com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus
 import com.xax.CryptoSavingsTracker.domain.model.MonthlyRequirement
 import com.xax.CryptoSavingsTracker.domain.model.RequirementStatus
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
+import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
+import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.util.AllocationFunding
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -33,6 +35,8 @@ class MonthlyPlanningService @Inject constructor(
     private val allocationRepository: AllocationRepository,
     private val transactionRepository: TransactionRepository,
     private val exchangeRateRepository: ExchangeRateRepository,
+    private val assetRepository: AssetRepository,
+    private val onChainBalanceRepository: OnChainBalanceRepository,
     @ApplicationContext private val context: Context
 ) {
     private val prefs: SharedPreferences by lazy {
@@ -45,6 +49,13 @@ class MonthlyPlanningService @Inject constructor(
     var paymentDay: Int
         get() = prefs.getInt("payment_day", 1).coerceIn(1, 28)
         set(value) = prefs.edit().putInt("payment_day", value.coerceIn(1, 28)).apply()
+
+    /**
+     * Flex adjustment (0.0..1.5) stored separately from per-goal plans, matching iOS UserDefaults behavior.
+     */
+    var flexAdjustment: Double
+        get() = prefs.getFloat("flex_adjustment", 1.0f).toDouble().coerceIn(0.0, 1.5)
+        set(value) = prefs.edit().putFloat("flex_adjustment", value.toFloat().coerceIn(0.0f, 1.5f)).apply()
 
     /**
      * Calculate monthly requirements for all active goals.
@@ -108,7 +119,7 @@ class MonthlyPlanningService @Inject constructor(
      */
     private suspend fun calculateRequirementForGoal(goal: Goal): MonthlyRequirement {
         // Calculate current total from allocations (using funded amount like iOS)
-        val currentTotal = calculateCurrentTotal(goal.id)
+        val currentTotal = calculateCurrentTotal(goal)
         val remaining = max(0.0, goal.targetAmount - currentTotal)
         val monthsRemaining = max(1, calculateMonthsRemaining(LocalDate.now(), goal.deadline))
         val requiredMonthly = remaining / monthsRemaining.toDouble()
@@ -140,19 +151,41 @@ class MonthlyPlanningService @Inject constructor(
      * Calculate current total for a goal from allocations.
      * Uses the funded amount (min of allocation and asset balance).
      */
-    private suspend fun calculateCurrentTotal(goalId: String): Double {
-        val allocations = allocationRepository.getAllocationsForGoal(goalId)
+    private suspend fun calculateCurrentTotal(goal: Goal): Double {
+        val allocations = allocationRepository.getAllocationsForGoal(goal.id)
 
         var total = 0.0
         for (allocation in allocations) {
-            val assetBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
+            val asset = assetRepository.getAssetById(allocation.assetId)
+            val assetCurrency = asset?.currency ?: goal.currency
+
+            val manualBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
+            val onChainBalance = runCatching {
+                if (asset?.isCryptoAsset == true && asset.address != null && asset.chainId != null) {
+                    onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0
+                } else {
+                    0.0
+                }
+            }.getOrElse { 0.0 }
+            val assetBalance = manualBalance + onChainBalance
+
             val allAssetAllocations = allocationRepository.getAllocationsForAsset(allocation.assetId)
             val totalAllocatedForAsset = allAssetAllocations.sumOf { max(0.0, it.amount) }
-            total += AllocationFunding.fundedPortion(
+            val fundedInAssetCurrency = AllocationFunding.fundedPortion(
                 allocationAmount = allocation.amount,
                 assetBalance = assetBalance,
                 totalAllocatedForAsset = totalAllocatedForAsset
             )
+
+            val fundedInGoalCurrency = if (assetCurrency.uppercase() == goal.currency.uppercase()) {
+                fundedInAssetCurrency
+            } else {
+                runCatching {
+                    exchangeRateRepository.fetchRate(assetCurrency, goal.currency)
+                }.map { rate -> fundedInAssetCurrency * rate }
+                    .getOrDefault(0.0)
+            }
+            total += fundedInGoalCurrency
         }
 
         return total

@@ -3,7 +3,12 @@
     "allow": [
       "Bash(xargs basename:*)",
       "Bash(grep:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat\\(android\\): implement Phases 5-7 with execution tracking, API integration, and dashboard\n\nPhase 5 - Execution Tracking:\n- Add ExecutionRecord, ExecutionSnapshot, CompletedExecution domain models\n- Implement execution repositories with mappers\n- Add execution use cases \\(Start, Complete, Undo with 24h window\\)\n- Create ExecutionScreen and ExecutionViewModel\n- Add execution progress calculator with timestamp-based derivation\n\nPhase 6 - API Integration:\n- Add TatumApi with support for UTXO, EVM, and account-based chains\n- Implement OnChainBalanceRepository with caching and stale detection\n- Add TokenBucketRateLimiter with configurable rates\n- Create RateLimiterModule for CoinGecko and Tatum\n- Implement SecureApiKeyStorage with EncryptedSharedPreferences\n\nPhase 7 - Dashboard & Polish:\n- Enhance DashboardScreen with portfolio overview and goal summaries\n- Add DashboardViewModel with real-time data aggregation\n- Create SettingsScreen for API key management\n- Add reminder infrastructure with WorkManager\n- Implement EditAllocationScreen and EditTransactionScreen\n- Add PlanHistoryScreen for viewing past monthly plans\n\nAdditional:\n- Add AllocationDaoTest and MonthlyPlanDaoTest\n- Create TestDatabaseFactory for instrumented tests\n- Update navigation with new routes\n- Fix DAO tests to use proper test infrastructure\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(./gradlew :app:compileDebugKotlin:*)"
     ]
   }
 }

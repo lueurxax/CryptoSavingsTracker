@@ -84,7 +84,18 @@ class AddEditAssetViewModel @Inject constructor(
     }
 
     fun updateCurrency(currency: String) {
-        _uiState.update { it.copy(currency = currency.uppercase(), currencyError = null) }
+        val upperCurrency = currency.uppercase()
+        val predictedChain = if (_uiState.value.isCryptoAsset) {
+            ChainIds.predictChain(upperCurrency)
+        } else null
+
+        _uiState.update {
+            it.copy(
+                currency = upperCurrency,
+                currencyError = null,
+                chainId = predictedChain ?: it.chainId
+            )
+        }
     }
 
     fun updateAddress(address: String) {
@@ -106,7 +117,17 @@ class AddEditAssetViewModel @Inject constructor(
     }
 
     fun selectCurrency(currency: String) {
-        _uiState.update { it.copy(currency = currency, currencyError = null) }
+        val predictedChain = if (_uiState.value.isCryptoAsset) {
+            ChainIds.predictChain(currency)
+        } else null
+
+        _uiState.update {
+            it.copy(
+                currency = currency,
+                currencyError = null,
+                chainId = predictedChain ?: it.chainId
+            )
+        }
     }
 
     fun clearError() {

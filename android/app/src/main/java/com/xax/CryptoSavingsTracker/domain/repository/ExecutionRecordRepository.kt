@@ -13,4 +13,5 @@ interface ExecutionRecordRepository {
     suspend fun upsert(record: ExecutionRecord)
     suspend fun close(recordId: String, closedAtMillis: Long)
     suspend fun reopen(recordId: String)
+    suspend fun revertToDraft(recordId: String)
 }

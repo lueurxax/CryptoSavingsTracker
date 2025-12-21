@@ -25,6 +25,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.xax.CryptoSavingsTracker.presentation.assets.AddEditAssetScreen
 import com.xax.CryptoSavingsTracker.presentation.assets.AssetDetailScreen
+import com.xax.CryptoSavingsTracker.presentation.assets.AssetSharingScreen
 import com.xax.CryptoSavingsTracker.presentation.assets.AssetsScreen
 import com.xax.CryptoSavingsTracker.presentation.dashboard.DashboardScreen
 import com.xax.CryptoSavingsTracker.presentation.execution.ExecutionScreen
@@ -153,6 +154,15 @@ fun AppNavHost() {
                 )
             ) {
                 AddEditAssetScreen(navController = navController)
+            }
+
+            composable(
+                route = Screen.AssetSharing.route,
+                arguments = listOf(
+                    navArgument("assetId") { type = NavType.StringType }
+                )
+            ) {
+                AssetSharingScreen(navController = navController)
             }
 
             // Transaction screens

@@ -59,4 +59,9 @@ class ExecutionRecordRepositoryImpl @Inject constructor(
             )
         )
     }
+
+    override suspend fun revertToDraft(recordId: String) {
+        val now = System.currentTimeMillis()
+        executionRecordDao.revertToDraft(recordId, now)
+    }
 }

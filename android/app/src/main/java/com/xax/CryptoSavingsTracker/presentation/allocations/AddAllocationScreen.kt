@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import com.xax.CryptoSavingsTracker.presentation.theme.BitcoinOrange
 import com.xax.CryptoSavingsTracker.presentation.theme.EthereumBlue
 import com.xax.CryptoSavingsTracker.presentation.theme.StablecoinGreen
@@ -241,7 +242,13 @@ private fun AddAllocationContent(
 
             item {
                 Text(
-                    text = "Available: ${selectedAsset.asset.currency} ${String.format("%,.2f", selectedAsset.availableBalance)}",
+                    text = "Available: ${
+                        AmountFormatters.formatDisplayCurrencyAmount(
+                            selectedAsset.availableBalance,
+                            selectedAsset.asset.currency,
+                            isCrypto = selectedAsset.asset.isCryptoAsset
+                        )
+                    }",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -324,13 +331,24 @@ private fun AssetSelectionCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "Available: ${asset.currency} ${String.format("%,.2f", assetForAllocation.availableBalance)}",
+                        text = "Available: ${
+                            AmountFormatters.formatDisplayCurrencyAmount(
+                                assetForAllocation.availableBalance,
+                                asset.currency,
+                                isCrypto = asset.isCryptoAsset
+                            )
+                        }",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (assetForAllocation.alreadyAllocated > 0) {
                         Text(
-                            text = "Allocated elsewhere: ${String.format("%,.2f", assetForAllocation.alreadyAllocated)}",
+                            text = "Allocated elsewhere: ${
+                                AmountFormatters.formatDisplayAmount(
+                                    assetForAllocation.alreadyAllocated,
+                                    isCrypto = asset.isCryptoAsset
+                                )
+                            }",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )

@@ -6,6 +6,7 @@ import com.xax.CryptoSavingsTracker.domain.model.Asset
 import com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus
 import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
+import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.GetAssetsUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.GetGoalProgressUseCase
@@ -30,7 +31,7 @@ import javax.inject.Inject
 
 data class DashboardAssetSummary(
     val asset: Asset,
-    val manualBalance: Double,
+    val currentBalance: Double,
     val usdValue: Double?
 )
 
@@ -54,6 +55,7 @@ class DashboardViewModel @Inject constructor(
     private val getAssetsUseCase: GetAssetsUseCase,
     private val transactionRepository: TransactionRepository,
     private val exchangeRateRepository: ExchangeRateRepository,
+    private val onChainBalanceRepository: OnChainBalanceRepository,
     private val getGoalProgressUseCase: GetGoalProgressUseCase
 ) : ViewModel() {
 
@@ -91,7 +93,8 @@ class DashboardViewModel @Inject constructor(
         runCatching {
             val summariesAndMeta = buildSummaries(assets, transactions)
             val summaries = summariesAndMeta.summaries
-            val total = summaries.mapNotNull { it.usdValue }.sum()
+            val partialTotal = summaries.mapNotNull { it.usdValue }.sum()
+            val total = if (summariesAndMeta.hasMissingUsdRates && partialTotal == 0.0) null else partialTotal
             val activeGoals = goalsWithProgress
                 .filter { it.goal.lifecycleStatus == GoalLifecycleStatus.ACTIVE }
                 .sortedBy { it.goal.deadline }
@@ -132,6 +135,22 @@ class DashboardViewModel @Inject constructor(
             .groupBy { it.assetId }
             .mapValues { (_, txs) -> txs.sumOf { it.amount } }
 
+        val onChainByAssetId = assets
+            .map { asset ->
+                async {
+                    val hasOnChain = asset.isCryptoAsset && asset.address != null && asset.chainId != null
+                    val balance = if (!hasOnChain) {
+                        0.0
+                    } else {
+                        runCatching { onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0 }
+                            .getOrElse { 0.0 }
+                    }
+                    asset.id to balance
+                }
+            }
+            .awaitAll()
+            .toMap()
+
         val currencies = assets.map { it.currency.uppercase() }.distinct()
         val ratesByCurrency = currencies
             .map { currency ->
@@ -146,17 +165,20 @@ class DashboardViewModel @Inject constructor(
         val summaries = assets.map { asset ->
             async {
                 val manualBalance = manualBalanceByAssetId[asset.id] ?: 0.0
+                val onChainBalance = onChainByAssetId[asset.id] ?: 0.0
+                val currentBalance = manualBalance + onChainBalance
                 val rate = ratesByCurrency[asset.currency.uppercase()]
-                val usdValue = rate?.let { manualBalance * it }
-                DashboardAssetSummary(asset = asset, manualBalance = manualBalance, usdValue = usdValue)
+                val usdValue = rate?.let { currentBalance * it }
+                DashboardAssetSummary(asset = asset, currentBalance = currentBalance, usdValue = usdValue)
             }
         }.awaitAll()
 
-        val hasMissingUsdRates = summaries.any { it.manualBalance != 0.0 && it.usdValue == null }
+        val hasMissingUsdRates = summaries.any { it.currentBalance != 0.0 && it.usdValue == null }
         val last30Days = buildLast30DaysChart(
             assets = assets,
             manualTransactions = manualTransactions,
-            ratesByCurrency = ratesByCurrency
+            ratesByCurrency = ratesByCurrency,
+            onChainByAssetId = onChainByAssetId
         )
 
         SummariesResult(summaries = summaries, last30Days = last30Days, hasMissingUsdRates = hasMissingUsdRates)
@@ -165,7 +187,8 @@ class DashboardViewModel @Inject constructor(
     private fun buildLast30DaysChart(
         assets: List<Asset>,
         manualTransactions: List<com.xax.CryptoSavingsTracker.domain.model.Transaction>,
-        ratesByCurrency: Map<String, Double?>
+        ratesByCurrency: Map<String, Double?>,
+        onChainByAssetId: Map<String, Double>
     ): List<PortfolioChartPoint> {
         if (assets.isEmpty()) return emptyList()
 
@@ -190,7 +213,7 @@ class DashboardViewModel @Inject constructor(
             val rate = ratesByCurrency[asset.currency.uppercase()] ?: return@forEach
             val txs = manualTxsByAssetId[asset.id].orEmpty()
             var index = 0
-            var balance = 0.0
+            var balance = onChainByAssetId[asset.id] ?: 0.0
 
             days.forEachIndexed { dayIndex, day ->
                 while (index < txs.size && !txs[index].first.isAfter(day)) {

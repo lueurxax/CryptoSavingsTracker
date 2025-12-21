@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
 import com.xax.CryptoSavingsTracker.presentation.theme.BitcoinOrange
 import com.xax.CryptoSavingsTracker.presentation.theme.EthereumBlue
@@ -136,12 +137,20 @@ fun AllocationListScreen(
 
         // Delete confirmation dialog
         uiState.showDeleteConfirmation?.let { allocation ->
-            val assetName = uiState.allocations.find { it.allocation.id == allocation.id }?.assetDisplayName ?: "this asset"
+            val details = uiState.allocations.find { it.allocation.id == allocation.id }
+            val assetName = details?.assetDisplayName ?: "this asset"
+            val assetCurrency = details?.asset?.currency ?: ""
+            val isCryptoAsset = details?.asset?.isCryptoAsset == true
+            val amountText = if (assetCurrency.isNotBlank()) {
+                AmountFormatters.formatDisplayCurrencyAmount(allocation.amount, assetCurrency, isCrypto = isCryptoAsset)
+            } else {
+                AmountFormatters.formatDisplayAmount(allocation.amount, isCrypto = isCryptoAsset)
+            }
             AlertDialog(
                 onDismissRequest = viewModel::dismissDeleteConfirmation,
                 title = { Text("Delete Allocation") },
                 text = {
-                    Text("Remove allocation of ${String.format("%,.2f", allocation.amount)} from $assetName?")
+                    Text("Remove allocation of $amountText from $assetName?")
                 },
                 confirmButton = {
                     TextButton(onClick = viewModel::confirmDeleteAllocation) {
@@ -283,13 +292,25 @@ private fun AllocationSummaryCard(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Allocated: $goalCurrency ${String.format("%,.2f", totalAllocated)} / ${String.format("%,.2f", targetAmount)}",
+                text = "Allocated: ${
+                    AmountFormatters.formatDisplayCurrencyAmount(
+                        totalAllocated,
+                        goalCurrency,
+                        isCrypto = false
+                    )
+                } / ${AmountFormatters.formatDisplayAmount(targetAmount, isCrypto = false)}",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
             )
             if (hasUnderfunding) {
                 Text(
-                    text = "Funded: $goalCurrency ${String.format("%,.2f", totalFunded)}",
+                    text = "Funded: ${
+                        AmountFormatters.formatDisplayCurrencyAmount(
+                            totalFunded,
+                            goalCurrency,
+                            isCrypto = false
+                        )
+                    }",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.error
@@ -321,6 +342,7 @@ private fun AllocationCard(
     val asset = allocationWithDetails.asset
     val allocationCurrency = asset?.currency ?: goalCurrency
     val currencyColor = getCurrencyColor(asset?.currency)
+    val isCryptoAsset = asset?.isCryptoAsset == true
 
     // Visual warning states
     val isOverAllocated = allocationWithDetails.isAssetOverAllocated
@@ -370,7 +392,13 @@ private fun AllocationCard(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "Balance: ${asset?.currency ?: "?"} ${String.format("%,.2f", allocationWithDetails.assetBalance)}",
+                            text = "Balance: ${
+                                AmountFormatters.formatDisplayCurrencyAmount(
+                                    allocationWithDetails.assetBalance,
+                                    asset?.currency ?: "?",
+                                    isCrypto = isCryptoAsset
+                                )
+                            }",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -383,14 +411,24 @@ private fun AllocationCard(
                         horizontalAlignment = Alignment.End
                     ) {
                         Text(
-                            text = "$allocationCurrency ${String.format("%,.2f", allocation.amount)}",
+                            text = AmountFormatters.formatDisplayCurrencyAmount(
+                                allocation.amount,
+                                allocationCurrency,
+                                isCrypto = isCryptoAsset
+                            ),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (hasWarning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                         )
                         if (isUnderfunded) {
                             Text(
-                                text = "Funded: $allocationCurrency ${String.format("%,.2f", allocationWithDetails.fundedAmount)}",
+                                text = "Funded: ${
+                                    AmountFormatters.formatDisplayCurrencyAmount(
+                                        allocationWithDetails.fundedAmount,
+                                        allocationCurrency,
+                                        isCrypto = isCryptoAsset
+                                    )
+                                }",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error
                             )
@@ -421,7 +459,12 @@ private fun AllocationCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Asset over-allocated by ${String.format("%,.2f", allocationWithDetails.assetTotalAllocated - allocationWithDetails.assetBalance)}",
+                        text = "Asset over-allocated by ${
+                            AmountFormatters.formatDisplayAmount(
+                                allocationWithDetails.assetTotalAllocated - allocationWithDetails.assetBalance,
+                                isCrypto = isCryptoAsset
+                            )
+                        }",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )

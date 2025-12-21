@@ -43,6 +43,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,6 +109,7 @@ fun EditAllocationScreen(
                         goalName = uiState.goal?.name ?: "Goal",
                         assetName = uiState.asset?.displayName() ?: "Unknown Asset",
                         assetCurrency = uiState.asset?.currency ?: "?",
+                        isCryptoAsset = uiState.asset?.isCryptoAsset == true,
                         assetBalance = uiState.assetBalance,
                         availableBalance = uiState.availableBalance,
                         amount = uiState.amount,
@@ -146,6 +148,7 @@ private fun EditAllocationContent(
     goalName: String,
     assetName: String,
     assetCurrency: String,
+    isCryptoAsset: Boolean,
     assetBalance: Double,
     availableBalance: Double,
     amount: String,
@@ -174,13 +177,13 @@ private fun EditAllocationContent(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Balance: $assetCurrency ${String.format("%,.2f", assetBalance)}",
+                    text = "Balance: ${AmountFormatters.formatDisplayCurrencyAmount(assetBalance, assetCurrency, isCrypto = isCryptoAsset)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Available (unallocated): $assetCurrency ${String.format("%,.2f", availableBalance)}",
+                    text = "Available (unallocated): ${AmountFormatters.formatDisplayCurrencyAmount(availableBalance, assetCurrency, isCrypto = isCryptoAsset)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

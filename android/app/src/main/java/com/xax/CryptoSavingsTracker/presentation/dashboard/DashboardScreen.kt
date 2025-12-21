@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
+import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
@@ -237,7 +238,7 @@ fun DashboardScreen(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
-                                                text = "${String.format("%,.4f", summary.manualBalance)} ${summary.asset.currency}",
+                                                text = "${AmountFormatters.formatDisplayAmount(summary.currentBalance, isCrypto = summary.asset.isCryptoAsset)} ${summary.asset.currency}",
                                                 style = MaterialTheme.typography.bodyLarge
                                             )
                                             Text(

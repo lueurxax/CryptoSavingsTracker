@@ -8,6 +8,7 @@ import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionSession
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.GetExecutionSessionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.StartExecutionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.UndoExecutionUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.execution.UndoStartExecutionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +22,7 @@ import javax.inject.Inject
 data class ExecutionUiState(
     val session: ExecutionSession? = null,
     val undoableRecordId: String? = null,
+    val canUndoStart: Boolean = false,
     val isBusy: Boolean = false,
     val error: String? = null
 )
@@ -31,6 +33,7 @@ class ExecutionViewModel @Inject constructor(
     private val getExecutionSessionUseCase: GetExecutionSessionUseCase,
     private val completeExecutionUseCase: CompleteExecutionUseCase,
     private val undoExecutionUseCase: UndoExecutionUseCase,
+    private val undoStartExecutionUseCase: UndoStartExecutionUseCase,
     private val completedExecutionRepository: CompletedExecutionRepository
 ) : ViewModel() {
 
@@ -52,9 +55,15 @@ class ExecutionViewModel @Inject constructor(
         _isBusy,
         _error
     ) { session, undoableRecordId, isBusy, error ->
+        val now = System.currentTimeMillis()
+        val canUndoStart = session?.record?.startedAtMillis?.let { startedAt ->
+            now < startedAt + UNDO_WINDOW_MILLIS
+        } ?: false
+
         ExecutionUiState(
             session = session,
             undoableRecordId = undoableRecordId,
+            canUndoStart = canUndoStart,
             isBusy = isBusy,
             error = error
         )
@@ -101,5 +110,21 @@ class ExecutionViewModel @Inject constructor(
             )
             _isBusy.value = false
         }
+    }
+
+    fun undoStartExecution() {
+        val recordId = uiState.value.session?.record?.id ?: return
+        viewModelScope.launch {
+            _isBusy.value = true
+            undoStartExecutionUseCase(recordId).fold(
+                onSuccess = { /* record goes back to draft */ },
+                onFailure = { e -> _error.value = e.message ?: "Failed to undo start" }
+            )
+            _isBusy.value = false
+        }
+    }
+
+    private companion object {
+        const val UNDO_WINDOW_MILLIS: Long = 24L * 60L * 60L * 1000L
     }
 }

@@ -63,7 +63,7 @@ class AllocationDaoTest {
 
         val forGoal = allocationDao.getAllocationsByGoalId("goal").first()
         assertEquals(1, forGoal.size)
-        assertEquals(12.34, forGoal.first().amount)
+        assertEquals(12.34, forGoal.first().amount, 0.000001)
 
         val lookup = allocationDao.getAllocationByAssetAndGoal("asset", "goal")
         assertNotNull(lookup)

@@ -54,6 +54,12 @@ object ChainIds {
     const val OPTIMISM = "optimism"
     const val BASE = "base"
     const val BSC = "bsc"
+    const val LITECOIN = "litecoin"
+    const val BITCOIN_CASH = "bitcoin-cash"
+    const val DOGECOIN = "dogecoin"
+    const val XRP = "xrp"
+    const val TRON = "tron"
+    const val CARDANO = "cardano"
 
     fun displayName(chainId: String?): String = when (chainId) {
         ETHEREUM -> "Ethereum"
@@ -64,12 +70,55 @@ object ChainIds {
         OPTIMISM -> "Optimism"
         BASE -> "Base"
         BSC -> "BNB Chain"
+        LITECOIN -> "Litecoin"
+        BITCOIN_CASH -> "Bitcoin Cash"
+        DOGECOIN -> "Dogecoin"
+        XRP -> "XRP Ledger"
+        TRON -> "Tron"
+        CARDANO -> "Cardano"
         else -> chainId ?: "Unknown"
     }
 
     val allChains = listOf(
-        ETHEREUM, BITCOIN, POLYGON, SOLANA, ARBITRUM, OPTIMISM, BASE, BSC
+        ETHEREUM, BITCOIN, POLYGON, SOLANA, ARBITRUM, OPTIMISM, BASE, BSC,
+        LITECOIN, BITCOIN_CASH, DOGECOIN, XRP, TRON, CARDANO
     )
+
+    /**
+     * Predict the blockchain network based on currency symbol.
+     * Returns the chain ID if a match is found, null otherwise.
+     * Matches iOS predictChain(for:) behavior.
+     */
+    fun predictChain(symbol: String): String? {
+        val upperSymbol = symbol.uppercase()
+
+        // Direct matches for native currencies
+        return when (upperSymbol) {
+            // Native chain currencies
+            "BTC" -> BITCOIN
+            "ETH" -> ETHEREUM
+            "SOL" -> SOLANA
+            "MATIC" -> POLYGON
+            "BNB" -> BSC
+            "LTC" -> LITECOIN
+            "BCH" -> BITCOIN_CASH
+            "DOGE" -> DOGECOIN
+            "XRP" -> XRP
+            "TRX" -> TRON
+            "ADA" -> CARDANO
+
+            // Common ERC-20 tokens (Ethereum)
+            "USDT", "USDC", "DAI", "WETH", "UNI", "LINK", "AAVE", "SHIB", "APE", "CRV", "MKR", "SNX", "COMP", "YFI", "SUSHI" -> ETHEREUM
+
+            // BSC tokens
+            "BUSD", "CAKE", "BAKE" -> BSC
+
+            // Polygon tokens
+            "WMATIC", "QUICK" -> POLYGON
+
+            else -> null
+        }
+    }
 }
 
 /**

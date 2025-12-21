@@ -3,7 +3,10 @@ package com.xax.CryptoSavingsTracker.domain.usecase.goal
 import com.xax.CryptoSavingsTracker.domain.model.Allocation
 import com.xax.CryptoSavingsTracker.domain.model.Goal
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
+import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
+import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.util.AllocationFunding
 import kotlinx.coroutines.flow.Flow
@@ -11,19 +14,19 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import kotlin.math.max
-import kotlin.math.min
 
 /**
  * Data class representing a goal with its progress information.
  * Progress is calculated as fundedAmount / targetAmount, where fundedAmount
- * is the sum of min(allocation.amount, assetManualBalance) for each allocation.
- * This matches iOS behavior exactly.
+ * is the sum of each allocation's funded portion converted into the goal currency.
+ * Funded portion uses best-known asset balance (manual + cached on-chain when available),
+ * then distributes balance proportionally across allocations (iOS parity).
  */
 data class GoalWithProgress(
     val goal: Goal,
-    val allocatedAmount: Double,  // Total allocated (sum of allocations)
-    val fundedAmount: Double,     // Actual funded amount (min of allocation vs balance)
-    val progress: Double          // 0.0 to 1.0 (capped at 1.0)
+    val allocatedAmount: Double,  // Total allocated value in goal currency
+    val fundedAmount: Double,     // Total funded value in goal currency
+    val progress: Double          // 0.0 to 1.0 (capped at 1.0), based on fundedAmount
 ) {
     val progressPercent: Int get() = (progress * 100).toInt().coerceIn(0, 100)
     val progressPercentExact: Double get() = progress * 100
@@ -40,17 +43,21 @@ data class GoalWithProgress(
 /**
  * Use case to get goals with their progress calculated from allocations.
  *
- * Progress formula matches iOS exactly:
- * - For each allocation: min(max(0, allocation.amount), asset.manualBalance)
- * - Sum all funded portions
- * - Progress = fundedTotal / targetAmount (capped at 1.0)
+ * Progress formula (iOS parity):
+ * - Compute best-known asset balance (manual + cached on-chain if applicable)
+ * - Under/over-funded assets distribute balance proportionally across targets
+ * - Convert each allocation's allocated + funded values into the goal currency
+ * - Progress = fundedTotalInGoalCurrency / targetAmount (capped at 1.0)
  *
  * This ensures progress reflects actual available funds, not just allocations.
  */
 class GetGoalProgressUseCase @Inject constructor(
     private val goalRepository: GoalRepository,
     private val allocationRepository: AllocationRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val assetRepository: AssetRepository,
+    private val onChainBalanceRepository: OnChainBalanceRepository,
+    private val exchangeRateRepository: ExchangeRateRepository
 ) {
     /**
      * Get all goals with their progress.
@@ -105,37 +112,65 @@ class GetGoalProgressUseCase @Inject constructor(
         goal: Goal,
         allocations: List<Allocation>
     ): GoalWithProgress {
-        var totalAllocated = 0.0
-        var totalFunded = 0.0
+        var totalAllocatedInGoalCurrency = 0.0
+        var totalFundedInGoalCurrency = 0.0
 
         for (allocation in allocations) {
-            totalAllocated += allocation.amount
+            val asset = assetRepository.getAssetById(allocation.assetId)
+            val assetCurrency = asset?.currency ?: goal.currency
 
             val assetManualBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
+            val onChainBalance = runCatching {
+                if (asset?.isCryptoAsset == true && asset.address != null && asset.chainId != null) {
+                    onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0
+                } else {
+                    0.0
+                }
+            }.getOrElse { 0.0 }
+            val assetBalance = assetManualBalance + onChainBalance
+
             val allAssetAllocations = allocationRepository.getAllocationsForAsset(allocation.assetId)
             val totalAllocatedForAsset = allAssetAllocations.sumOf { max(0.0, it.amount) }
 
             // Under/over-funded assets distribute balance proportionally across targets.
             val fundedPortion = AllocationFunding.fundedPortion(
                 allocationAmount = allocation.amount,
-                assetBalance = assetManualBalance,
+                assetBalance = assetBalance,
                 totalAllocatedForAsset = totalAllocatedForAsset
             )
-            totalFunded += fundedPortion
+
+            val allocatedValue = convertToGoalCurrency(
+                amount = allocation.amount,
+                fromCurrency = assetCurrency,
+                goalCurrency = goal.currency
+            ) ?: continue
+            val fundedValue = convertToGoalCurrency(
+                amount = fundedPortion,
+                fromCurrency = assetCurrency,
+                goalCurrency = goal.currency
+            ) ?: continue
+
+            totalAllocatedInGoalCurrency += allocatedValue
+            totalFundedInGoalCurrency += fundedValue
         }
 
-        // Progress is capped at 1.0 (100%) to match iOS behavior
-        val progress = if (goal.targetAmount > 0) {
-            min(totalFunded / goal.targetAmount, 1.0)
-        } else {
-            0.0
-        }
+        val progress = goal.progressFromFunded(totalFundedInGoalCurrency)
 
         return GoalWithProgress(
             goal = goal,
-            allocatedAmount = totalAllocated,
-            fundedAmount = totalFunded,
+            allocatedAmount = totalAllocatedInGoalCurrency,
+            fundedAmount = totalFundedInGoalCurrency,
             progress = progress
         )
+    }
+
+    private suspend fun convertToGoalCurrency(
+        amount: Double,
+        fromCurrency: String,
+        goalCurrency: String
+    ): Double? {
+        if (fromCurrency.equals(goalCurrency, ignoreCase = true)) return amount
+        val rate = runCatching { exchangeRateRepository.fetchRate(fromCurrency, goalCurrency) }.getOrNull()
+        return rate?.let { amount * it }
     }
 }

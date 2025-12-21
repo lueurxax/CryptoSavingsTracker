@@ -53,6 +53,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.GoalWithProgress
+import com.xax.CryptoSavingsTracker.presentation.common.EmptyState
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
 import com.xax.CryptoSavingsTracker.presentation.theme.GoalAtRisk
 import com.xax.CryptoSavingsTracker.presentation.theme.GoalBehind
@@ -125,6 +126,19 @@ fun GoalsScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    if (uiState.selectedFilter == GoalFilter.ALL || uiState.selectedFilter == GoalFilter.ACTIVE) {
+                        if (uiState.unallocatedAssets.isNotEmpty()) {
+                            item(key = "unallocated-assets-section") {
+                                UnallocatedAssetsSection(
+                                    items = uiState.unallocatedAssets,
+                                    onAssetClick = { assetId ->
+                                        navController.navigate(Screen.AssetSharing.createRoute(assetId))
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     items(
                         items = uiState.goals,
                         key = { it.goal.id }
@@ -336,42 +350,15 @@ private fun EmptyGoalsState(
     filter: GoalFilter,
     onAddGoal: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.Flag,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = if (filter == GoalFilter.ALL) "No goals yet" else "No ${filter.displayName().lowercase()} goals",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = if (filter == GoalFilter.ALL) {
-                "Create your first savings goal to start tracking your progress"
-            } else {
-                "Goals with this status will appear here"
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        if (filter == GoalFilter.ALL) {
-            Spacer(modifier = Modifier.height(24.dp))
-            TextButton(onClick = onAddGoal) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Add Goal")
-            }
-        }
-    }
+    EmptyState(
+        icon = Icons.Default.Flag,
+        title = if (filter == GoalFilter.ALL) "No goals yet" else "No ${filter.displayName().lowercase()} goals",
+        message = if (filter == GoalFilter.ALL) {
+            "Create your first savings goal to start tracking your progress"
+        } else {
+            "Goals with this status will appear here"
+        },
+        actionLabel = if (filter == GoalFilter.ALL) "Add Goal" else null,
+        onAction = if (filter == GoalFilter.ALL) onAddGoal else null
+    )
 }

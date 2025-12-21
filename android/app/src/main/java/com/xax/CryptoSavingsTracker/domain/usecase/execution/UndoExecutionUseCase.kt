@@ -10,6 +10,11 @@ class UndoExecutionUseCase @Inject constructor(
     private val completedExecutionRepository: CompletedExecutionRepository
 ) {
     suspend operator fun invoke(recordId: String): Result<Unit> = runCatching {
+        val executing = executionRecordRepository.getCurrentExecutingRecord().first()
+        if (executing != null && executing.id != recordId) {
+            throw IllegalStateException("Another execution is already active for ${executing.monthLabel}")
+        }
+
         val now = System.currentTimeMillis()
         val completed = completedExecutionRepository.getByRecordId(recordId).first()
         if (completed.isEmpty()) {
@@ -24,4 +29,3 @@ class UndoExecutionUseCase @Inject constructor(
         executionRecordRepository.reopen(recordId)
     }
 }
-

@@ -136,9 +136,14 @@ fun AddEditAssetScreen(
 
                 // Chain selection (only for crypto)
                 if (uiState.isCryptoAsset) {
+                    // Show auto-detected indicator
+                    val isAutoDetected = uiState.chainId != null &&
+                        ChainIds.predictChain(uiState.currency) == uiState.chainId
+
                     ChainDropdown(
                         selectedChain = uiState.chainId,
-                        onChainSelected = viewModel::updateChainId
+                        onChainSelected = viewModel::updateChainId,
+                        isAutoDetected = isAutoDetected
                     )
 
                     // Wallet address
@@ -229,36 +234,42 @@ private fun CurrencyDropdown(
 @Composable
 private fun ChainDropdown(
     selectedChain: String?,
-    onChainSelected: (String?) -> Unit
+    onChainSelected: (String?) -> Unit,
+    isAutoDetected: Boolean = false
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
-        OutlinedTextField(
-            value = selectedChain?.let { ChainIds.displayName(it) } ?: "Select network",
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Network") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }
-        )
-        ExposedDropdownMenu(
+    Column {
+        ExposedDropdownMenuBox(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onExpandedChange = { expanded = it }
         ) {
-            AddEditAssetViewModel.availableChains.forEach { chain ->
-                DropdownMenuItem(
-                    text = { Text(ChainIds.displayName(chain)) },
-                    onClick = {
-                        onChainSelected(chain)
-                        expanded = false
-                    }
-                )
+            OutlinedTextField(
+                value = selectedChain?.let { ChainIds.displayName(it) } ?: "Select network",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Network") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                supportingText = if (isAutoDetected) {
+                    { Text("Auto-detected from currency", color = MaterialTheme.colorScheme.primary) }
+                } else null
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                AddEditAssetViewModel.availableChains.forEach { chain ->
+                    DropdownMenuItem(
+                        text = { Text(ChainIds.displayName(chain)) },
+                        onClick = {
+                            onChainSelected(chain)
+                            expanded = false
+                        }
+                    )
+                }
             }
         }
     }

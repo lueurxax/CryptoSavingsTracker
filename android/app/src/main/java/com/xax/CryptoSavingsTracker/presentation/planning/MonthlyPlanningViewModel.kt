@@ -3,11 +3,9 @@ package com.xax.CryptoSavingsTracker.presentation.planning
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.domain.model.MonthlyRequirement
-import com.xax.CryptoSavingsTracker.domain.model.MonthlyPlan
-import com.xax.CryptoSavingsTracker.domain.model.MonthlyPlanGoalSettings
-import com.xax.CryptoSavingsTracker.domain.model.MonthlyPlanSettings
 import com.xax.CryptoSavingsTracker.domain.model.RequirementStatus
-import com.xax.CryptoSavingsTracker.domain.repository.MonthlyPlanRepository
+import com.xax.CryptoSavingsTracker.domain.model.MonthlyGoalPlan
+import com.xax.CryptoSavingsTracker.domain.usecase.planning.MonthlyGoalPlanService
 import com.xax.CryptoSavingsTracker.domain.usecase.planning.MonthlyPlanningService
 import com.xax.CryptoSavingsTracker.domain.util.MonthLabelUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,7 +40,7 @@ data class MonthlyPlanningUiState(
     val totalRequired: Double = 0.0,
     val displayCurrency: String = "USD",
     val paymentDay: Int = 1,
-    val flexPercentage: Double = 1.0,
+    val flexAdjustment: Double = 1.0,
     val isLoading: Boolean = true,
     val error: String? = null,
     val showSettingsDialog: Boolean = false
@@ -66,7 +64,7 @@ data class MonthlyPlanningUiState(
 @HiltViewModel
 class MonthlyPlanningViewModel @Inject constructor(
     private val monthlyPlanningService: MonthlyPlanningService,
-    private val monthlyPlanRepository: MonthlyPlanRepository
+    private val monthlyGoalPlanService: MonthlyGoalPlanService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MonthlyPlanningUiState())
@@ -74,7 +72,7 @@ class MonthlyPlanningViewModel @Inject constructor(
 
     private val monthLabel: String = MonthLabelUtils.nowUtc()
     private var baseRequirements: List<MonthlyRequirement> = emptyList()
-    private var plan: MonthlyPlan? = null
+    private var plansByGoalId: Map<String, MonthlyGoalPlan> = emptyMap()
 
     init {
         loadData()
@@ -86,18 +84,18 @@ class MonthlyPlanningViewModel @Inject constructor(
 
             try {
                 val displayCurrency = "USD" // TODO: Get from user settings
-                val currentPlan = monthlyPlanRepository.getOrCreatePlan(monthLabel)
                 val requirements = monthlyPlanningService.calculateMonthlyRequirements()
                 baseRequirements = requirements
-                plan = currentPlan
 
-                val rows = buildRows(requirements, currentPlan)
+                val syncedPlans = monthlyGoalPlanService.syncPlans(monthLabel, requirements)
+                plansByGoalId = syncedPlans.associateBy { it.goalId }
+
+                val rows = buildRows(requirements, syncedPlans.associateBy { it.goalId })
                 val baseTotalRequired = calculateTotal(displayCurrency, requirements.map { it.currency to it.requiredMonthly })
                 val totalRequired = calculateTotal(
                     displayCurrency,
                     rows.map { it.requirement.currency to it.adjustedRequiredMonthly }
                 )
-                val planWithTotals = currentPlan.copy(totalRequired = totalRequired)
                 val paymentDay = monthlyPlanningService.paymentDay
 
                 _uiState.update {
@@ -108,12 +106,10 @@ class MonthlyPlanningViewModel @Inject constructor(
                         totalRequired = totalRequired,
                         displayCurrency = displayCurrency,
                         paymentDay = paymentDay,
-                        flexPercentage = planWithTotals.flexPercentage,
+                        flexAdjustment = monthlyPlanningService.flexAdjustment,
                         isLoading = false
                     )
                 }
-                plan = planWithTotals
-                monthlyPlanRepository.upsertPlan(planWithTotals)
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
@@ -125,31 +121,38 @@ class MonthlyPlanningViewModel @Inject constructor(
         }
     }
 
-    fun updateFlexPercentage(value: Double) {
-        val existing = plan ?: return
-        val clamped = value.coerceIn(0.0, 1.5)
-        updatePlan(existing.copy(flexPercentage = clamped))
+    fun updateFlexAdjustment(value: Double) {
+        viewModelScope.launch {
+            val clamped = value.coerceIn(0.0, 1.5)
+            monthlyPlanningService.flexAdjustment = clamped
+            val updatedPlans = monthlyGoalPlanService.applyFlexAdjustment(monthLabel, clamped)
+            plansByGoalId = updatedPlans.associateBy { it.goalId }
+            refreshRows()
+        }
     }
 
     fun toggleProtected(goalId: String) {
-        val existing = plan ?: return
-        val current = existing.settings.perGoal[goalId] ?: MonthlyPlanGoalSettings()
-        val updated = current.copy(isProtected = !current.isProtected, isSkipped = false)
-        updateGoalSettings(goalId, updated)
+        viewModelScope.launch {
+            val updated = monthlyGoalPlanService.toggleProtected(monthLabel, goalId)
+            plansByGoalId = plansByGoalId.toMutableMap().apply { put(goalId, updated) }
+            refreshRows()
+        }
     }
 
     fun toggleSkipped(goalId: String) {
-        val existing = plan ?: return
-        val current = existing.settings.perGoal[goalId] ?: MonthlyPlanGoalSettings()
-        val updated = current.copy(isSkipped = !current.isSkipped, isProtected = false, customAmount = null)
-        updateGoalSettings(goalId, updated)
+        viewModelScope.launch {
+            val updated = monthlyGoalPlanService.toggleSkipped(monthLabel, goalId)
+            plansByGoalId = plansByGoalId.toMutableMap().apply { put(goalId, updated) }
+            refreshRows()
+        }
     }
 
     fun setCustomAmount(goalId: String, amount: Double?) {
-        val existing = plan ?: return
-        val current = existing.settings.perGoal[goalId] ?: MonthlyPlanGoalSettings()
-        val updated = current.copy(customAmount = amount, isSkipped = false)
-        updateGoalSettings(goalId, updated)
+        viewModelScope.launch {
+            val updated = monthlyGoalPlanService.setCustomAmount(monthLabel, goalId, amount)
+            plansByGoalId = plansByGoalId.toMutableMap().apply { put(goalId, updated) }
+            refreshRows()
+        }
     }
 
     fun showSettings() {
@@ -166,58 +169,34 @@ class MonthlyPlanningViewModel @Inject constructor(
         loadData() // Recalculate with new payment day
     }
 
-    private fun updateGoalSettings(goalId: String, settings: MonthlyPlanGoalSettings) {
-        val existing = plan ?: return
-        val updatedMap = existing.settings.perGoal.toMutableMap().apply {
-            if (settings == MonthlyPlanGoalSettings()) {
-                remove(goalId)
-            } else {
-                put(goalId, settings)
-            }
-        }.toMap()
-
-        updatePlan(existing.copy(settings = MonthlyPlanSettings(perGoal = updatedMap)))
-    }
-
-    private fun updatePlan(updated: MonthlyPlan) {
-        viewModelScope.launch {
-            val rows = buildRows(baseRequirements, updated)
-            val total = calculateTotal(
-                _uiState.value.displayCurrency,
-                rows.map { it.requirement.currency to it.adjustedRequiredMonthly }
+    private suspend fun refreshRows() {
+        val rows = buildRows(baseRequirements, plansByGoalId)
+        val total = calculateTotal(
+            _uiState.value.displayCurrency,
+            rows.map { it.requirement.currency to it.adjustedRequiredMonthly }
+        )
+        _uiState.update {
+            it.copy(
+                requirements = rows,
+                totalRequired = total,
+                flexAdjustment = monthlyPlanningService.flexAdjustment
             )
-            val updatedWithTotals = updated.copy(totalRequired = total)
-            plan = updatedWithTotals
-
-            _uiState.update {
-                it.copy(
-                    requirements = rows,
-                    totalRequired = total,
-                    flexPercentage = updatedWithTotals.flexPercentage
-                )
-            }
-            monthlyPlanRepository.upsertPlan(updatedWithTotals)
         }
     }
 
     private fun buildRows(
         requirements: List<MonthlyRequirement>,
-        plan: MonthlyPlan
+        plansByGoalId: Map<String, MonthlyGoalPlan>
     ): List<MonthlyRequirementRow> {
         return requirements.map { requirement ->
-            val settings = plan.settings.perGoal[requirement.goalId] ?: MonthlyPlanGoalSettings()
-            val adjustedRequired = when {
-                settings.isSkipped -> 0.0
-                settings.customAmount != null -> settings.customAmount
-                settings.isProtected -> requirement.requiredMonthly
-                else -> requirement.requiredMonthly * plan.flexPercentage
-            }
+            val plan = plansByGoalId[requirement.goalId]
+            val adjustedRequired = plan?.effectiveAmount ?: requirement.requiredMonthly
             MonthlyRequirementRow(
                 requirement = requirement,
                 adjustedRequiredMonthly = adjustedRequired,
-                isProtected = settings.isProtected,
-                isSkipped = settings.isSkipped,
-                customAmount = settings.customAmount
+                isProtected = plan?.isProtected == true,
+                isSkipped = plan?.isSkipped == true,
+                customAmount = plan?.customAmount
             )
         }.sortedBy { it.requirement.goalName }
     }

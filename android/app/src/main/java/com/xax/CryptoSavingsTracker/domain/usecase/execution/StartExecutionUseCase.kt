@@ -3,12 +3,12 @@ package com.xax.CryptoSavingsTracker.domain.usecase.execution
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionRecord
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionSnapshot
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionStatus
-import com.xax.CryptoSavingsTracker.domain.model.MonthlyPlanGoalSettings
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionRecordRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionSnapshotRepository
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.repository.MonthlyPlanRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.GetGoalProgressUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.planning.MonthlyGoalPlanService
 import com.xax.CryptoSavingsTracker.domain.usecase.planning.MonthlyPlanningService
 import com.xax.CryptoSavingsTracker.domain.util.MonthLabelUtils
 import kotlinx.coroutines.flow.first
@@ -21,6 +21,7 @@ class StartExecutionUseCase @Inject constructor(
     private val executionSnapshotRepository: ExecutionSnapshotRepository,
     private val goalRepository: GoalRepository,
     private val goalProgressUseCase: GetGoalProgressUseCase,
+    private val monthlyGoalPlanService: MonthlyGoalPlanService,
     private val monthlyPlanningService: MonthlyPlanningService
 ) {
     suspend operator fun invoke(monthLabel: String = MonthLabelUtils.nowUtc()): Result<ExecutionRecord> = runCatching {
@@ -32,7 +33,11 @@ class StartExecutionUseCase @Inject constructor(
         val now = System.currentTimeMillis()
         val plan = monthlyPlanRepository.getOrCreatePlan(monthLabel)
         val planId = plan.id
-        val requirementsByGoalId = monthlyPlanningService.calculateMonthlyRequirements()
+        val requirements = monthlyPlanningService.calculateMonthlyRequirements()
+        val requirementsByGoalId = requirements.associateBy { it.goalId }
+        monthlyGoalPlanService.syncPlans(monthLabel, requirements)
+        val perGoalPlans = monthlyGoalPlanService
+            .applyFlexAdjustment(monthLabel, monthlyPlanningService.flexAdjustment)
             .associateBy { it.goalId }
 
         val existing = executionRecordRepository.getRecordByMonthLabelOnce(monthLabel)
@@ -64,14 +69,9 @@ class StartExecutionUseCase @Inject constructor(
 
         val activeGoals = goalRepository.getActiveGoals().first()
         val snapshots = activeGoals.map { goal ->
-            val goalSettings = plan.settings.perGoal[goal.id] ?: MonthlyPlanGoalSettings()
+            val goalPlan = perGoalPlans[goal.id]
             val baseMonthlyRequired = requirementsByGoalId[goal.id]?.requiredMonthly
-            val plannedMonthly = when {
-                goalSettings.isSkipped -> 0.0
-                goalSettings.customAmount != null -> goalSettings.customAmount
-                goalSettings.isProtected -> baseMonthlyRequired
-                else -> baseMonthlyRequired?.times(plan.flexPercentage)
-            }
+            val plannedMonthly = goalPlan?.effectiveAmount ?: baseMonthlyRequired
 
             val progress = goalProgressUseCase.getProgress(goal.id)
             val fundedAtStart = progress?.fundedAmount ?: 0.0
@@ -87,9 +87,9 @@ class StartExecutionUseCase @Inject constructor(
                 targetAmount = goal.targetAmount,
                 currentTotalAtStart = fundedAtStart,
                 requiredAmount = requiredAmount,
-                isProtected = goalSettings.isProtected,
-                isSkipped = goalSettings.isSkipped,
-                customAmount = goalSettings.customAmount,
+                isProtected = goalPlan?.isProtected == true,
+                isSkipped = goalPlan?.isSkipped == true,
+                customAmount = goalPlan?.customAmount,
                 createdAtMillis = now
             )
         }

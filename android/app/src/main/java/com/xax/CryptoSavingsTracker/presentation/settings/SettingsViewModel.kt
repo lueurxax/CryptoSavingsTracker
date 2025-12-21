@@ -2,6 +2,8 @@ package com.xax.CryptoSavingsTracker.presentation.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.net.Uri
+import com.xax.CryptoSavingsTracker.data.export.CsvExportService
 import com.xax.CryptoSavingsTracker.data.local.security.ApiKeyStore
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
@@ -19,14 +21,19 @@ data class SettingsUiState(
     val isSaving: Boolean = false,
     val saveMessage: String? = null,
     val isClearingCaches: Boolean = false,
-    val cacheMessage: String? = null
+    val cacheMessage: String? = null,
+    val isExportingCsv: Boolean = false,
+    val exportMessage: String? = null,
+    val exportErrorMessage: String? = null,
+    val exportedCsvUris: List<Uri>? = null
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val apiKeyStore: ApiKeyStore,
     private val exchangeRateRepository: ExchangeRateRepository,
-    private val onChainBalanceRepository: OnChainBalanceRepository
+    private val onChainBalanceRepository: OnChainBalanceRepository,
+    private val csvExportService: CsvExportService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -74,7 +81,42 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun exportCsv() {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isExportingCsv = true,
+                    exportMessage = null,
+                    exportErrorMessage = null,
+                    exportedCsvUris = null
+                )
+            }
+            runCatching { csvExportService.exportCsvFiles() }
+                .onSuccess { result ->
+                    _uiState.update {
+                        it.copy(
+                            isExportingCsv = false,
+                            exportMessage = "Export ready",
+                            exportedCsvUris = result.fileUris
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isExportingCsv = false,
+                            exportErrorMessage = e.message ?: "Failed to export"
+                        )
+                    }
+                }
+        }
+    }
+
+    fun consumeExportResult() {
+        _uiState.update { it.copy(exportedCsvUris = null) }
+    }
+
     fun clearMessages() {
-        _uiState.update { it.copy(saveMessage = null, cacheMessage = null) }
+        _uiState.update { it.copy(saveMessage = null, cacheMessage = null, exportMessage = null, exportErrorMessage = null) }
     }
 }

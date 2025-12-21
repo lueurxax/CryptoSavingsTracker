@@ -91,9 +91,11 @@ fun ExecutionScreen(
                 ActiveExecutionState(
                     monthLabel = uiState.session!!.record.monthLabel,
                     startedAtMillis = uiState.session!!.record.startedAtMillis,
+                    canUndoStart = uiState.canUndoStart,
                     goals = uiState.session!!.goals,
                     isBusy = uiState.isBusy,
-                    onComplete = viewModel::completeExecution
+                    onComplete = viewModel::completeExecution,
+                    onUndoStart = viewModel::undoStartExecution
                 )
             }
         }
@@ -152,9 +154,11 @@ private fun EmptyExecutionState(
 private fun ActiveExecutionState(
     monthLabel: String,
     startedAtMillis: Long?,
+    canUndoStart: Boolean,
     goals: List<ExecutionGoalProgress>,
     isBusy: Boolean,
-    onComplete: () -> Unit
+    onComplete: () -> Unit,
+    onUndoStart: () -> Unit
 ) {
     val startedAtText = remember(startedAtMillis) {
         startedAtMillis?.let {
@@ -189,6 +193,18 @@ private fun ActiveExecutionState(
                         Icon(Icons.Default.CheckCircle, contentDescription = null)
                         Spacer(modifier = Modifier.padding(start = 8.dp))
                         Text("Complete Execution")
+                    }
+                    if (canUndoStart) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = onUndoStart,
+                            enabled = !isBusy,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = null)
+                            Spacer(modifier = Modifier.padding(start = 8.dp))
+                            Text("Undo Start (24h)")
+                        }
                     }
                 }
             }

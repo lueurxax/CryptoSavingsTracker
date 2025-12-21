@@ -54,6 +54,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.xax.CryptoSavingsTracker.domain.model.Transaction
 import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
+import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
 import com.xax.CryptoSavingsTracker.presentation.theme.DepositGreen
 import com.xax.CryptoSavingsTracker.presentation.theme.WithdrawalRed
@@ -133,6 +134,7 @@ fun TransactionHistoryScreen(
                     TransactionList(
                         transactions = state.transactions,
                         currency = state.assetCurrency,
+                        isCryptoAsset = state.isCryptoAsset,
                         totalBalance = state.totalBalance,
                         depositCount = state.depositCount,
                         withdrawalCount = state.withdrawalCount,
@@ -154,7 +156,10 @@ fun TransactionHistoryScreen(
             onDismissRequest = { transactionToDelete = null },
             title = { Text("Delete Transaction") },
             text = {
-                Text("Are you sure you want to delete this ${if (transaction.isDeposit) "deposit" else "withdrawal"} of ${formatAmount(transaction.absoluteAmount, state.assetCurrency)}?")
+                Text(
+                    "Are you sure you want to delete this ${if (transaction.isDeposit) "deposit" else "withdrawal"} " +
+                        "of ${formatAmount(transaction.absoluteAmount, state.assetCurrency, state.isCryptoAsset)}?"
+                )
             },
             confirmButton = {
                 TextButton(
@@ -179,6 +184,7 @@ fun TransactionHistoryScreen(
 private fun TransactionList(
     transactions: List<Transaction>,
     currency: String,
+    isCryptoAsset: Boolean,
     totalBalance: Double,
     depositCount: Int,
     withdrawalCount: Int,
@@ -196,6 +202,7 @@ private fun TransactionList(
             SummaryCard(
                 totalBalance = totalBalance,
                 currency = currency,
+                isCryptoAsset = isCryptoAsset,
                 depositCount = depositCount,
                 withdrawalCount = withdrawalCount
             )
@@ -209,6 +216,7 @@ private fun TransactionList(
             TransactionCard(
                 transaction = transaction,
                 currency = currency,
+                isCryptoAsset = isCryptoAsset,
                 onEdit = { onEditTransaction(transaction) },
                 onDelete = { onDeleteTransaction(transaction) }
             )
@@ -220,6 +228,7 @@ private fun TransactionList(
 private fun SummaryCard(
     totalBalance: Double,
     currency: String,
+    isCryptoAsset: Boolean,
     depositCount: Int,
     withdrawalCount: Int
 ) {
@@ -240,7 +249,7 @@ private fun SummaryCard(
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Text(
-                text = formatAmount(totalBalance, currency),
+                text = formatAmount(totalBalance, currency, isCryptoAsset),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = if (totalBalance >= 0) DepositGreen else WithdrawalRed
@@ -283,6 +292,7 @@ private fun SummaryCard(
 private fun TransactionCard(
     transaction: Transaction,
     currency: String,
+    isCryptoAsset: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -321,7 +331,7 @@ private fun TransactionCard(
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = formatAmount(transaction.absoluteAmount, currency),
+                        text = formatAmount(transaction.absoluteAmount, currency, isCryptoAsset),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = amountColor
@@ -438,6 +448,6 @@ private fun EmptyTransactionsState(onAddTransaction: () -> Unit) {
     }
 }
 
-private fun formatAmount(amount: Double, currency: String): String {
-    return "$currency ${String.format("%.8f", amount).trimEnd('0').trimEnd('.')}"
+private fun formatAmount(amount: Double, currency: String, isCrypto: Boolean): String {
+    return AmountFormatters.formatDisplayCurrencyAmount(amount, currency, isCrypto = isCrypto)
 }

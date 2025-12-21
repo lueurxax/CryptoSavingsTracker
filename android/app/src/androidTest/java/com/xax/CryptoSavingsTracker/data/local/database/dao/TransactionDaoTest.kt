@@ -12,6 +12,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 
 @RunWith(AndroidJUnit4::class)
 class TransactionDaoTest {
@@ -56,7 +57,12 @@ class TransactionDaoTest {
             )
         )
 
-        assertEquals(100.0, transactionDao.getManualBalanceForAsset("asset"))
-        assertEquals(150.0, transactionDao.getTotalAmountForAsset("asset"))
+        val manualBalance = transactionDao.getManualBalanceForAsset("asset")
+        val totalBalance = transactionDao.getTotalAmountForAsset("asset")
+
+        assertNotNull(manualBalance)
+        assertNotNull(totalBalance)
+        assertEquals(100.0, manualBalance!!, 0.000001)
+        assertEquals(150.0, totalBalance!!, 0.000001)
     }
 }

@@ -9,9 +9,11 @@ import com.xax.CryptoSavingsTracker.domain.model.Goal
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
+import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.allocation.DeleteAllocationUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.allocation.UpdateAllocationUseCase
+import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,6 +45,7 @@ class EditAllocationViewModel @Inject constructor(
     private val allocationRepository: AllocationRepository,
     private val assetRepository: AssetRepository,
     private val transactionRepository: TransactionRepository,
+    private val onChainBalanceRepository: OnChainBalanceRepository,
     private val updateAllocationUseCase: UpdateAllocationUseCase,
     private val deleteAllocationUseCase: DeleteAllocationUseCase
 ) : ViewModel() {
@@ -70,7 +73,15 @@ class EditAllocationViewModel @Inject constructor(
                 }
 
                 val asset = assetRepository.getAssetById(allocation.assetId)
-                val assetBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
+                val manualBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
+                val onChainBalance = runCatching {
+                    if (asset?.isCryptoAsset == true && asset.address != null && asset.chainId != null) {
+                        onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0
+                    } else {
+                        0.0
+                    }
+                }.getOrElse { 0.0 }
+                val assetBalance = manualBalance + onChainBalance
                 val otherAllocations = allocationRepository.getAllocationsForAsset(allocation.assetId)
                     .filter { it.id != allocation.id }
                 val availableBalance = assetBalance - otherAllocations.sumOf { it.amount }
@@ -82,7 +93,7 @@ class EditAllocationViewModel @Inject constructor(
                         asset = asset,
                         assetBalance = assetBalance,
                         availableBalance = max(0.0, availableBalance),
-                        amount = String.format("%.2f", allocation.amount),
+                        amount = AmountFormatters.formatInputAmount(allocation.amount, isCrypto = asset?.isCryptoAsset == true),
                         isLoading = false
                     )
                 }
@@ -100,7 +111,8 @@ class EditAllocationViewModel @Inject constructor(
 
     fun setMaxAmount() {
         val maxAmount = _uiState.value.availableBalance
-        _uiState.update { it.copy(amount = String.format("%.2f", maxAmount), amountError = null) }
+        val isCrypto = _uiState.value.asset?.isCryptoAsset == true
+        _uiState.update { it.copy(amount = AmountFormatters.formatInputAmount(maxAmount, isCrypto = isCrypto), amountError = null) }
     }
 
     fun save() {
@@ -108,6 +120,15 @@ class EditAllocationViewModel @Inject constructor(
         val amountValue = _uiState.value.amount.toDoubleOrNull()
         if (amountValue == null || amountValue <= 0) {
             _uiState.update { it.copy(amountError = "Please enter a valid amount") }
+            return
+        }
+        if (amountValue > _uiState.value.availableBalance + 0.0000001) {
+            val isCrypto = _uiState.value.asset?.isCryptoAsset == true
+            _uiState.update {
+                it.copy(
+                    amountError = "Amount exceeds available balance (${AmountFormatters.formatDisplayAmount(it.availableBalance, isCrypto = isCrypto)})"
+                )
+            }
             return
         }
 

@@ -11,7 +11,8 @@ import javax.inject.Inject
  */
 class AddAllocationUseCase @Inject constructor(
     private val allocationRepository: AllocationRepository,
-    private val allocationHistoryService: AllocationHistoryService
+    private val allocationHistoryService: AllocationHistoryService,
+    private val validationService: AllocationValidationService
 ) {
     /**
      * Add a new allocation.
@@ -27,14 +28,19 @@ class AddAllocationUseCase @Inject constructor(
     ): Result<Allocation> = runCatching {
         require(amount > 0) { "Allocation amount must be positive" }
 
+        validationService.validateAllocation(
+            assetId = assetId,
+            goalId = goalId,
+            amount = amount
+        )?.let { message ->
+            throw IllegalStateException(message)
+        }
+
         // Check if allocation already exists for this asset-goal pair
         val existingAllocation = allocationRepository.getAllocationByAssetAndGoal(assetId, goalId)
         if (existingAllocation != null) {
             throw IllegalStateException("Allocation already exists for this asset and goal")
         }
-
-        // Note: We intentionally do NOT block "over-allocation".
-        // Over-allocated state is valid (allocations represent the plan, not guaranteed balance).
 
         val now = System.currentTimeMillis()
         val allocation = Allocation(
@@ -61,15 +67,22 @@ class AddAllocationUseCase @Inject constructor(
  */
 class UpdateAllocationUseCase @Inject constructor(
     private val allocationRepository: AllocationRepository,
-    private val allocationHistoryService: AllocationHistoryService
+    private val allocationHistoryService: AllocationHistoryService,
+    private val validationService: AllocationValidationService
 ) {
     /**
      * Update an allocation with full details.
      */
     suspend operator fun invoke(allocation: Allocation): Result<Allocation> = runCatching {
         require(allocation.amount > 0) { "Allocation amount must be positive" }
-        // Note: We intentionally do NOT block "over-allocation".
-        // Over-allocated state is valid (allocations represent the plan, not guaranteed balance).
+        validationService.validateAllocation(
+            assetId = allocation.assetId,
+            goalId = allocation.goalId,
+            amount = allocation.amount,
+            excludeAllocationId = allocation.id
+        )?.let { message ->
+            throw IllegalStateException(message)
+        }
 
         val updatedAllocation = allocation.copy(
             lastModifiedAt = System.currentTimeMillis()

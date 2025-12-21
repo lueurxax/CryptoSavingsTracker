@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.xax.CryptoSavingsTracker.domain.model.ChainIds
+import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
+import com.xax.CryptoSavingsTracker.presentation.common.EmptyState
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
 import com.xax.CryptoSavingsTracker.presentation.theme.BitcoinOrange
 import com.xax.CryptoSavingsTracker.presentation.theme.EthereumBlue
@@ -258,13 +260,13 @@ private fun AssetCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Balance: ${String.format("%,.6f", item.manualBalance)} ${asset.currency}",
+                text = "Balance: ${AmountFormatters.formatDisplayAmount(item.totalBalance, isCrypto = asset.isCryptoAsset)} ${asset.currency}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             item.usdValue?.let { usd ->
                 Text(
-                    text = "≈ $${String.format("%,.2f", usd)} USD",
+                    text = "≈ $${AmountFormatters.formatDisplayAmount(usd, isCrypto = false)} USD",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -277,38 +279,13 @@ private fun AssetCard(
 private fun EmptyAssetsState(
     onAddAsset: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.AccountBalance,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "No assets yet",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Add your first crypto wallet or fiat account to start tracking",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        TextButton(onClick = onAddAsset) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Add Asset")
-        }
-    }
+    EmptyState(
+        icon = Icons.Default.AccountBalance,
+        title = "No assets yet",
+        message = "Add your first crypto wallet or fiat account to start tracking",
+        actionLabel = "Add Asset",
+        onAction = onAddAsset
+    )
 }
 
 private fun getCurrencyColor(currency: String) = when (currency.uppercase()) {

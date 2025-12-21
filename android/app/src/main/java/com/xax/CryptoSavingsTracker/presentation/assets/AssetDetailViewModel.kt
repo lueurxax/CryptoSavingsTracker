@@ -27,7 +27,8 @@ import javax.inject.Inject
 data class AssetDetailUiState(
     val asset: Asset? = null,
     val manualBalance: Double = 0.0,
-    val manualBalanceUsd: Double? = null,
+    val currentBalance: Double = 0.0,
+    val currentBalanceUsd: Double? = null,
     val isUsdLoading: Boolean = false,
     val usdError: String? = null,
     val transactionCount: Int = 0,
@@ -64,7 +65,7 @@ class AssetDetailViewModel @Inject constructor(
     private val _onChainBalance = MutableStateFlow<OnChainBalance?>(null)
     private val _isOnChainLoading = MutableStateFlow(false)
     private val _onChainError = MutableStateFlow<String?>(null)
-    private val _manualBalanceUsd = MutableStateFlow<Double?>(null)
+    private val _currentBalanceUsd = MutableStateFlow<Double?>(null)
     private val _isUsdLoading = MutableStateFlow(false)
     private val _usdError = MutableStateFlow<String?>(null)
 
@@ -94,15 +95,32 @@ class AssetDetailViewModel @Inject constructor(
                     _onChainError.value = null
                     _isOnChainLoading.value = false
                 }
-
-                if (asset != null) {
-                    loadUsdBalanceIfNeeded(currency = asset.currency, manualBalance = latestManualBalance)
-                } else {
-                    _manualBalanceUsd.value = null
+                if (asset == null) {
+                    _currentBalanceUsd.value = null
                     _usdError.value = null
                     _isUsdLoading.value = false
                     latestUsdKey = null
                 }
+            }
+        }
+
+        viewModelScope.launch {
+            combine(
+                assetAndTransactions,
+                _onChainBalance
+            ) { (asset, transactions), onChainBalance ->
+                Triple(asset, transactions, onChainBalance)
+            }.collect { (asset, transactions, onChainBalance) ->
+                if (asset == null) return@collect
+                val manualBalance = transactions
+                    .filter { it.source == TransactionSource.MANUAL }
+                    .sumOf { it.amount }
+                val currentBalance = AssetBalanceCalculator.totalBalance(
+                    manualBalance = manualBalance,
+                    onChainBalance = onChainBalance?.balance,
+                    hasOnChain = asset.isCryptoAsset && asset.address != null && asset.chainId != null
+                )
+                loadUsdBalanceIfNeeded(currency = asset.currency, balance = currentBalance)
             }
         }
     }
@@ -116,7 +134,7 @@ class AssetDetailViewModel @Inject constructor(
     }
 
     private val usdState = combine(
-        _manualBalanceUsd,
+        _currentBalanceUsd,
         _isUsdLoading,
         _usdError
     ) { usd, isLoading, error ->
@@ -141,10 +159,20 @@ class AssetDetailViewModel @Inject constructor(
         val manualBalance = transactions
             .filter { it.source == TransactionSource.MANUAL }
             .sumOf { it.amount }
+        val currentBalance = if (asset != null) {
+            AssetBalanceCalculator.totalBalance(
+                manualBalance = manualBalance,
+                onChainBalance = onChainBalance?.balance,
+                hasOnChain = asset.isCryptoAsset && asset.address != null && asset.chainId != null
+            )
+        } else {
+            0.0
+        }
         AssetDetailUiState(
             asset = asset,
             manualBalance = manualBalance,
-            manualBalanceUsd = manualBalanceUsd,
+            currentBalance = currentBalance,
+            currentBalanceUsd = manualBalanceUsd,
             isUsdLoading = isUsdLoading,
             usdError = usdError,
             transactionCount = transactions.size,
@@ -173,7 +201,13 @@ class AssetDetailViewModel @Inject constructor(
 
     fun refreshUsdBalance() {
         val asset = latestAsset ?: return
-        loadUsdBalance(currency = asset.currency, manualBalance = latestManualBalance, forceRefresh = true)
+        val currentBalance = AssetBalanceCalculator.totalBalance(
+            manualBalance = latestManualBalance,
+            onChainBalance = _onChainBalance.value?.balance,
+            hasOnChain = asset.isCryptoAsset && asset.address != null && asset.chainId != null
+        )
+        latestUsdKey = null
+        loadUsdBalance(currency = asset.currency, balance = currentBalance, forceRefresh = true)
     }
 
     private fun loadOnChainBalance(asset: Asset, forceRefresh: Boolean) {
@@ -193,16 +227,16 @@ class AssetDetailViewModel @Inject constructor(
         }
     }
 
-    private fun loadUsdBalanceIfNeeded(currency: String, manualBalance: Double) {
-        val key = "${currency.uppercase()}:${String.format("%.8f", manualBalance)}"
+    private fun loadUsdBalanceIfNeeded(currency: String, balance: Double) {
+        val key = "${currency.uppercase()}:${String.format("%.8f", balance)}"
         if (key == latestUsdKey) return
         latestUsdKey = key
-        loadUsdBalance(currency = currency, manualBalance = manualBalance, forceRefresh = false)
+        loadUsdBalance(currency = currency, balance = balance, forceRefresh = false)
     }
 
-    private fun loadUsdBalance(currency: String, manualBalance: Double, forceRefresh: Boolean) {
-        if (manualBalance == 0.0) {
-            _manualBalanceUsd.value = 0.0
+    private fun loadUsdBalance(currency: String, balance: Double, forceRefresh: Boolean) {
+        if (balance == 0.0) {
+            _currentBalanceUsd.value = 0.0
             _usdError.value = null
             _isUsdLoading.value = false
             return
@@ -216,9 +250,9 @@ class AssetDetailViewModel @Inject constructor(
                     exchangeRateRepository.clearCache()
                 }
                 val rate = exchangeRateRepository.fetchRate(currency, "USD")
-                manualBalance * rate
+                balance * rate
             }.onSuccess { usd ->
-                _manualBalanceUsd.value = usd
+                _currentBalanceUsd.value = usd
                 _isUsdLoading.value = false
             }.onFailure { e ->
                 _usdError.value = e.message ?: "Failed to fetch USD rate"

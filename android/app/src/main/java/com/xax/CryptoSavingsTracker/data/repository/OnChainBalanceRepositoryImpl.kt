@@ -44,9 +44,6 @@ class OnChainBalanceRepositoryImpl @Inject constructor(
     private val cacheTtlMillis = 5 * 60 * 1000L
 
     override suspend fun getBalance(asset: Asset, forceRefresh: Boolean): Result<OnChainBalance> = runCatching {
-        if (apiKeyStore.getTatumApiKey().isBlank()) {
-            throw IllegalStateException("On-chain balance requires a Tatum API key. Add it in Settings or bundle it via Config.properties.")
-        }
         val address = asset.address ?: throw IllegalArgumentException("Asset has no address")
         val chainId = asset.chainId ?: throw IllegalArgumentException("Asset has no chainId")
 
@@ -76,6 +73,14 @@ class OnChainBalanceRepositoryImpl @Inject constructor(
                 fetchedAtMillis = it.fetchedAtMillis,
                 isStale = true
             )
+        }
+
+        // iOS parity: allow returning cached balances even when the API key is missing (offline / key removed).
+        if (apiKeyStore.getTatumApiKey().isBlank()) {
+            return@runCatching staleBalance
+                ?: throw IllegalStateException(
+                    "On-chain balance requires a Tatum API key. Add it in Settings or bundle it via Config.properties."
+                )
         }
 
         return@runCatching try {

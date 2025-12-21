@@ -19,6 +19,7 @@ data class TransactionListState(
     val transactions: List<Transaction> = emptyList(),
     val assetCurrency: String = "",
     val assetName: String = "",
+    val isCryptoAsset: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null,
     val totalBalance: Double = 0.0,
@@ -51,7 +52,8 @@ class TransactionListViewModel @Inject constructor(
                 if (asset != null) {
                     _state.update { it.copy(
                         assetCurrency = asset.currency,
-                        assetName = asset.displayName()
+                        assetName = asset.displayName(),
+                        isCryptoAsset = asset.isCryptoAsset
                     )}
                 }
             } catch (e: Exception) {

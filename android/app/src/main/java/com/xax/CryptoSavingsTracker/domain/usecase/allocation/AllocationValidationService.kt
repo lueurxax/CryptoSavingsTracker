@@ -1,10 +1,12 @@
 package com.xax.CryptoSavingsTracker.domain.usecase.allocation
 
 import com.xax.CryptoSavingsTracker.domain.model.Asset
+import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.first
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
@@ -34,7 +36,8 @@ data class AssetAllocationStatus(
 class AllocationValidationService @Inject constructor(
     private val allocationRepository: AllocationRepository,
     private val transactionRepository: TransactionRepository,
-    private val assetRepository: AssetRepository
+    private val assetRepository: AssetRepository,
+    private val onChainBalanceRepository: OnChainBalanceRepository
 ) {
     companion object {
         private const val EPSILON = 0.0000001
@@ -84,7 +87,9 @@ class AllocationValidationService @Inject constructor(
             return "Allocation amount must be positive"
         }
 
-        val balance = transactionRepository.getManualBalanceForAsset(assetId)
+        val asset = assetRepository.getAssetById(assetId)
+            ?: return "Asset not found"
+        val balance = bestKnownBalance(asset)
         val allocations = allocationRepository.getAllocationsForAsset(assetId)
 
         // Sum allocations, excluding the one being updated if specified
@@ -95,7 +100,9 @@ class AllocationValidationService @Inject constructor(
         val availableBalance = balance - existingAllocated
 
         if (amount > availableBalance + EPSILON) {
-            return "Amount exceeds available balance (${String.format("%.2f", availableBalance)})"
+            val pattern = if (asset.isCryptoAsset) "%,.6f" else "%,.2f"
+            val formattedAvailable = String.format(Locale.getDefault(), pattern, availableBalance)
+            return "Amount exceeds available balance ($formattedAvailable)"
         }
 
         // Check if allocation already exists for this asset-goal pair (for new allocations)
@@ -113,7 +120,7 @@ class AllocationValidationService @Inject constructor(
      * Calculate allocation status for an asset.
      */
     private suspend fun calculateAssetAllocationStatus(asset: Asset): AssetAllocationStatus {
-        val totalBalance = transactionRepository.getManualBalanceForAsset(asset.id)
+        val totalBalance = bestKnownBalance(asset)
         val allocations = allocationRepository.getAllocationsForAsset(asset.id)
         val totalAllocated = allocations.sumOf { it.amount }
 
@@ -131,5 +138,17 @@ class AllocationValidationService @Inject constructor(
             isFullyAllocated = isFullyAllocated,
             isOverAllocated = isOverAllocated
         )
+    }
+
+    private suspend fun bestKnownBalance(asset: Asset): Double {
+        val manual = transactionRepository.getManualBalanceForAsset(asset.id)
+        val hasOnChain = asset.isCryptoAsset && asset.address != null && asset.chainId != null
+        if (!hasOnChain) return manual
+
+        val onChain = runCatching {
+            onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0
+        }.getOrElse { 0.0 }
+
+        return manual + onChain
     }
 }

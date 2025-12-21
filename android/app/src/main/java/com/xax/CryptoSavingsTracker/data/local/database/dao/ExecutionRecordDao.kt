@@ -47,4 +47,7 @@ interface ExecutionRecordDao {
 
     @Query("UPDATE monthly_execution_records SET status = 'closed', closed_at_utc_millis = :closedAt, last_modified_at_utc_millis = :modifiedAt WHERE id = :id")
     suspend fun closeRecord(id: String, closedAt: Long, modifiedAt: Long)
+
+    @Query("UPDATE monthly_execution_records SET status = 'draft', started_at_utc_millis = NULL, closed_at_utc_millis = NULL, last_modified_at_utc_millis = :modifiedAt WHERE id = :id")
+    suspend fun revertToDraft(id: String, modifiedAt: Long)
 }

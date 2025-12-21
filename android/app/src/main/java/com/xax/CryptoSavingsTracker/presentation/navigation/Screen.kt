@@ -28,6 +28,10 @@ sealed class Screen(val route: String) {
         fun createRoute(assetId: String) = "asset/$assetId/edit"
     }
 
+    data object AssetSharing : Screen("asset/{assetId}/sharing") {
+        fun createRoute(assetId: String) = "asset/$assetId/sharing"
+    }
+
     // Transaction screens
     data object AddTransaction : Screen("asset/{assetId}/transaction/add") {
         fun createRoute(assetId: String) = "asset/$assetId/transaction/add"
