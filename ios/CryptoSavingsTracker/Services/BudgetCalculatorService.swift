@@ -1,17 +1,17 @@
 //
-//  FixedBudgetPlanningService.swift
+//  BudgetCalculatorService.swift
 //  CryptoSavingsTracker
 //
-//  Created by Claude on 03/01/2026.
+//  Computes budget-based contribution previews for monthly planning.
 //
 
 import Foundation
 import SwiftData
 import Combine
 
-/// Service for computing fixed budget plans with optimal contribution sequencing
+/// Service for computing budget calculator previews with optimal contribution sequencing.
 @MainActor
-final class FixedBudgetPlanningService: ObservableObject {
+final class BudgetCalculatorService: ObservableObject {
 
     // MARK: - Dependencies
 
@@ -20,9 +20,10 @@ final class FixedBudgetPlanningService: ObservableObject {
 
     // MARK: - Cache
 
-    private var cachedPlan: FixedBudgetPlan?
+    private var cachedPlan: BudgetCalculatorPlan?
     private var cacheGoalIds: Set<UUID> = []
     private var cacheBudget: Double = 0
+    private var cacheCurrency: String = ""
     private var lastCacheUpdate: Date = .distantPast
     private let cacheExpiration: TimeInterval = 300 // 5 minutes
 
@@ -40,12 +41,14 @@ final class FixedBudgetPlanningService: ObservableObject {
 
     // MARK: - Public API
 
-    /// Calculate the minimum budget needed to meet all goal deadlines
-    /// Returns the MAX of all individual goal minimums (the binding constraint)
+    /// Calculate the minimum budget needed to meet all goal deadlines.
+    /// Returns the MAX of all individual goal minimums (the binding constraint).
     func calculateMinimumBudget(goals: [Goal], currency: String) async -> Double {
         guard !goals.isEmpty else { return 0 }
 
-        let activeGoals = goals.filter { $0.lifecycleStatus == .active }.sorted { $0.deadline < $1.deadline }
+        let activeGoals = goals
+            .filter { $0.lifecycleStatus == .active }
+            .sorted { $0.deadline < $1.deadline }
         guard !activeGoals.isEmpty else { return 0 }
 
         var cumulativeRemaining: Double = 0
@@ -58,7 +61,7 @@ final class FixedBudgetPlanningService: ObservableObject {
                     let rate = try await exchangeRateService.fetchRate(from: goal.currency, to: currency)
                     remaining *= rate
                 } catch {
-                    AppLog.warning("Currency conversion failed: \(error.localizedDescription)", category: .exchangeRate)
+                    AppLog.warning("Budget conversion failed: \(error.localizedDescription)", category: .exchangeRate)
                 }
             }
 
@@ -73,42 +76,7 @@ final class FixedBudgetPlanningService: ObservableObject {
         return maxRequired
     }
 
-    /// Calculate the leveled budget (total remaining / months to last deadline)
-    func calculateLeveledBudget(goals: [Goal], currency: String) async -> Double {
-        guard !goals.isEmpty else { return 0 }
-
-        let activeGoals = goals.filter { $0.lifecycleStatus == .active }
-        guard !activeGoals.isEmpty else { return 0 }
-
-        var totalRemaining: Double = 0
-        var latestDeadline = Date()
-
-        for goal in activeGoals {
-            let remaining = await calculateRemaining(for: goal)
-
-            // Convert to target currency
-            var convertedRemaining = remaining
-            if goal.currency != currency {
-                do {
-                    let rate = try await exchangeRateService.fetchRate(from: goal.currency, to: currency)
-                    convertedRemaining = remaining * rate
-                } catch {
-                    AppLog.warning("Currency conversion failed: \(error.localizedDescription)", category: .exchangeRate)
-                }
-            }
-
-            totalRemaining += convertedRemaining
-
-            if goal.deadline > latestDeadline {
-                latestDeadline = goal.deadline
-            }
-        }
-
-        let monthsToLast = max(1, calculateMonthsRemaining(from: Date(), to: latestDeadline))
-        return totalRemaining / Double(monthsToLast)
-    }
-
-    /// Check if the given budget is sufficient for all goals
+    /// Check if the given budget is sufficient for all goals.
     func checkFeasibility(goals: [Goal], budget: Double, currency: String) async -> FeasibilityResult {
         guard !goals.isEmpty else {
             return .empty
@@ -119,16 +87,22 @@ final class FixedBudgetPlanningService: ObservableObject {
 
         var infeasibleGoals: [InfeasibleGoal] = []
         var suggestions: [FeasibilitySuggestion] = []
+        var addedGoalSuggestions = false
 
         if !isFeasible {
-            let activeGoals = goals.filter { $0.lifecycleStatus == .active }.sorted { $0.deadline < $1.deadline }
+            let activeGoals = goals
+                .filter { $0.lifecycleStatus == .active }
+                .sorted { $0.deadline < $1.deadline }
             var cumulativeRemaining: Double = 0
 
             for goal in activeGoals {
-                var remaining = await calculateRemaining(for: goal)
+                let remainingInGoalCurrency = await calculateRemaining(for: goal)
+                var remaining = remainingInGoalCurrency
+                var conversionRate: Double?
                 if goal.currency != currency {
                     if let rate = try? await exchangeRateService.fetchRate(from: goal.currency, to: currency) {
                         remaining *= rate
+                        conversionRate = rate
                     }
                 }
 
@@ -149,34 +123,42 @@ final class FixedBudgetPlanningService: ObservableObject {
                         shortfall: shortfall,
                         currency: currency
                     ))
+
+                    if !addedGoalSuggestions, budget > 0 {
+                        let monthsNeeded = Int(ceil(cumulativeRemaining / budget))
+                        let extensionMonths = max(0, monthsNeeded - months)
+                        if extensionMonths > 0 {
+                            suggestions.append(
+                                .extendDeadline(
+                                    goalId: goal.id,
+                                    goalName: goal.name,
+                                    byMonths: extensionMonths
+                                )
+                            )
+                        }
+
+                        let reductionBudget = shortfall * Double(months)
+                        let reductionGoalCurrency = conversionRate.map { reductionBudget / $0 } ?? reductionBudget
+                        let proposedTarget = max(goal.currentTotal, goal.targetAmount - reductionGoalCurrency)
+                        if proposedTarget < goal.targetAmount {
+                            suggestions.append(
+                                .reduceTarget(
+                                    goalId: goal.id,
+                                    goalName: goal.name,
+                                    to: proposedTarget,
+                                    currency: currency  // Use display currency, not goal's original currency
+                                )
+                            )
+                        }
+
+                        suggestions.append(.editGoal(goalId: goal.id, goalName: goal.name))
+                        addedGoalSuggestions = true
+                    }
                 }
             }
 
-            // Generate suggestions
             if !infeasibleGoals.isEmpty {
-                // Suggest increasing budget
                 suggestions.append(.increaseBudget(to: minimumRequired, currency: currency))
-
-                // Suggest extending deadlines
-                for infeasible in infeasibleGoals.prefix(2) {
-                    // Calculate months needed at current budget
-                    let remaining = await calculateRemainingForGoal(id: infeasible.goalId, in: goals)
-                    guard budget > 0, budget.isFinite, remaining.isFinite else { continue }
-                    let monthsNeededDouble = remaining / budget
-                    guard monthsNeededDouble.isFinite else { continue }
-                    let cappedMonthsNeeded = min(monthsNeededDouble, Double(Int.max))
-                    let monthsNeeded = Int(ceil(cappedMonthsNeeded))
-                    let currentMonths = calculateMonthsRemaining(from: Date(), to: infeasible.deadline)
-                    let extensionNeeded = monthsNeeded - currentMonths
-
-                    if extensionNeeded > 0 && extensionNeeded <= 12 {
-                        suggestions.append(.extendDeadline(
-                            goalId: infeasible.goalId,
-                            goalName: infeasible.goalName,
-                            byMonths: extensionNeeded
-                        ))
-                    }
-                }
             }
         }
 
@@ -189,8 +171,8 @@ final class FixedBudgetPlanningService: ObservableObject {
         )
     }
 
-    /// Generate the optimal contribution schedule
-    func generateSchedule(goals: [Goal], budget: Double, currency: String) async -> FixedBudgetPlan {
+    /// Generate the optimal contribution schedule.
+    func generateSchedule(goals: [Goal], budget: Double, currency: String) async -> BudgetCalculatorPlan {
         isCalculating = true
         defer { isCalculating = false }
 
@@ -198,17 +180,17 @@ final class FixedBudgetPlanningService: ObservableObject {
         if let cached = cachedPlan,
            cacheGoalIds == goalIds,
            abs(cacheBudget - budget) < 0.01,
+           cacheCurrency == currency,
            Date().timeIntervalSince(lastCacheUpdate) < cacheExpiration {
             return cached
         }
 
-        // Sort goals by deadline (earliest first)
         let activeGoals = goals
             .filter { $0.lifecycleStatus == .active }
             .sorted { $0.deadline < $1.deadline }
 
         guard !activeGoals.isEmpty else {
-            return FixedBudgetPlan(
+            return BudgetCalculatorPlan(
                 monthlyBudget: budget,
                 currency: currency,
                 schedule: [],
@@ -218,7 +200,6 @@ final class FixedBudgetPlanningService: ObservableObject {
             )
         }
 
-        // Calculate remaining amounts for each goal (converted to target currency)
         var goalRemaining: [UUID: Double] = [:]
         var goalNames: [UUID: String] = [:]
         for goal in activeGoals {
@@ -234,7 +215,7 @@ final class FixedBudgetPlanningService: ObservableObject {
 
         guard budget > 0 else {
             let minimumRequired = await calculateMinimumBudget(goals: goals, currency: currency)
-            return FixedBudgetPlan(
+            return BudgetCalculatorPlan(
                 monthlyBudget: budget,
                 currency: currency,
                 schedule: [],
@@ -244,14 +225,12 @@ final class FixedBudgetPlanningService: ObservableObject {
             )
         }
 
-        // Generate payment dates starting from next payment day
         var payments: [ScheduledPayment] = []
         var paymentNumber = 1
         var paymentDate = nextPaymentDate()
         var goalRunningTotals: [UUID: Double] = [:]
         var remainingByGoal = goalRemaining
 
-        // Initialize running totals
         for goal in activeGoals {
             goalRunningTotals[goal.id] = 0
         }
@@ -310,7 +289,7 @@ final class FixedBudgetPlanningService: ObservableObject {
         }
 
         let minimumRequired = await calculateMinimumBudget(goals: goals, currency: currency)
-        let plan = FixedBudgetPlan(
+        let plan = BudgetCalculatorPlan(
             monthlyBudget: budget,
             currency: currency,
             schedule: payments,
@@ -319,17 +298,17 @@ final class FixedBudgetPlanningService: ObservableObject {
             goalRemainingById: goalRemaining
         )
 
-        // Cache the result
         cachedPlan = plan
         cacheGoalIds = goalIds
         cacheBudget = budget
+        cacheCurrency = currency
         lastCacheUpdate = Date()
 
         return plan
     }
 
-    /// Build timeline blocks for visualization
-    func buildTimelineBlocks(from plan: FixedBudgetPlan, goals: [Goal]) -> [ScheduledGoalBlock] {
+    /// Build timeline blocks for visualization.
+    func buildTimelineBlocks(from plan: BudgetCalculatorPlan, goals: [Goal]) -> [ScheduledGoalBlock] {
         let deadlines = Dictionary(uniqueKeysWithValues: goals.map { ($0.id, $0.deadline) })
         var summaries: [UUID: (goalName: String, startPayment: Int, endPayment: Int, startDate: Date, endDate: Date, totalAmount: Double, paymentCount: Int)] = [:]
 
@@ -360,6 +339,8 @@ final class FixedBudgetPlanningService: ObservableObject {
             .sorted { $0.value.startPayment < $1.value.startPayment }
             .map { goalId, summary in
                 let goal = goals.first { $0.id == goalId }
+                // Calculate payment count from payment number range (not from loop increments)
+                let correctPaymentCount = summary.endPayment - summary.startPayment + 1
                 return ScheduledGoalBlock(
                     id: UUID(),
                     goalId: goalId,
@@ -370,127 +351,18 @@ final class FixedBudgetPlanningService: ObservableObject {
                     startDate: summary.startDate,
                     endDate: summary.endDate,
                     totalAmount: summary.totalAmount,
-                    paymentCount: summary.paymentCount
+                    paymentCount: correctPaymentCount
                 )
             }
     }
 
-    /// Clear the cache
+    /// Clear the cache.
     func clearCache() {
         cachedPlan = nil
         cacheGoalIds = []
         cacheBudget = 0
+        cacheCurrency = ""
         lastCacheUpdate = .distantPast
-    }
-
-    // MARK: - Recalculation with CompletionBehavior
-
-    /// Recalculate the schedule after an actual contribution that differs from the planned amount.
-    /// Uses the CompletionBehavior setting to determine how to handle the difference.
-    ///
-    /// - Parameters:
-    ///   - plan: The original fixed budget plan
-    ///   - actualContribution: The amount actually contributed this period
-    ///   - forPaymentNumber: The payment number where the contribution was made
-    ///   - goals: Current list of active goals
-    ///   - behavior: How to handle over/under contributions
-    /// - Returns: A new plan reflecting the recalculated schedule
-    func recalculateAfterContribution(
-        plan: FixedBudgetPlan,
-        actualContribution: Double,
-        forPaymentNumber: Int,
-        goals: [Goal],
-        behavior: CompletionBehavior
-    ) async -> FixedBudgetPlan {
-        clearCache()
-
-        // Calculate total remaining after this payment
-        let completedPayments = plan.schedule.prefix(forPaymentNumber)
-        let totalContributedBefore = completedPayments.reduce(0) { $0 + $1.totalAmount }
-        let adjustedTotalContributed = totalContributedBefore - (completedPayments.last?.totalAmount ?? 0) + actualContribution
-
-        // Calculate remaining amount for all goals
-        var totalRemaining: Double = 0
-        for goal in goals.filter({ $0.lifecycleStatus == .active }) {
-            let remaining = await calculateRemaining(for: goal)
-            var convertedRemaining = remaining
-            if goal.currency != plan.currency {
-                if let rate = try? await exchangeRateService.fetchRate(from: goal.currency, to: plan.currency) {
-                    convertedRemaining = remaining * rate
-                }
-            }
-            totalRemaining += convertedRemaining
-        }
-
-        // Subtract what's already contributed
-        let remainingAfterContribution = max(0, totalRemaining - adjustedTotalContributed)
-
-        switch behavior {
-        case .finishFaster:
-            // Keep the same monthly budget, goals complete earlier if over-contributed
-            // Just regenerate the schedule from the current state
-            return await generateSchedule(goals: goals, budget: plan.monthlyBudget, currency: plan.currency)
-
-        case .lowerPayments:
-            // Recalculate to spread remaining amount over remaining months
-            // Keep original timeline, reduce monthly amount
-            let remainingPayments = plan.schedule.count - forPaymentNumber
-            guard remainingPayments > 0 else {
-                // No more payments needed
-                return await generateSchedule(goals: goals, budget: plan.monthlyBudget, currency: plan.currency)
-            }
-
-            let newMonthlyBudget = remainingAfterContribution / Double(remainingPayments)
-            // Ensure we don't go below minimum required
-            let minimum = await calculateMinimumBudget(goals: goals, currency: plan.currency)
-            let adjustedBudget = max(newMonthlyBudget, minimum)
-
-            return await generateSchedule(goals: goals, budget: adjustedBudget, currency: plan.currency)
-        }
-    }
-
-    /// Calculate the difference between planned and actual contribution
-    func contributionDifference(
-        plan: FixedBudgetPlan,
-        actualContribution: Double,
-        forPaymentNumber: Int
-    ) -> Double {
-        guard forPaymentNumber > 0 && forPaymentNumber <= plan.schedule.count else {
-            return 0
-        }
-        let plannedAmount = plan.schedule[forPaymentNumber - 1].totalAmount
-        return actualContribution - plannedAmount
-    }
-
-    /// Get the adjusted schedule after applying a contribution difference
-    func adjustedScheduleSummary(
-        plan: FixedBudgetPlan,
-        actualContribution: Double,
-        forPaymentNumber: Int,
-        behavior: CompletionBehavior
-    ) -> (newMonthlyAmount: Double?, monthsSaved: Int?) {
-        let difference = contributionDifference(plan: plan, actualContribution: actualContribution, forPaymentNumber: forPaymentNumber)
-
-        switch behavior {
-        case .finishFaster:
-            // Calculate how many months could be saved
-            if difference > 0 {
-                let remainingPayments = plan.schedule.count - forPaymentNumber
-                let monthsSaved = Int(difference / plan.monthlyBudget)
-                return (nil, min(monthsSaved, remainingPayments))
-            }
-            return (nil, nil)
-
-        case .lowerPayments:
-            // Calculate new monthly amount
-            let totalRemaining = plan.schedule.suffix(from: forPaymentNumber).reduce(0) { $0 + $1.totalAmount }
-            let adjustedRemaining = totalRemaining - difference
-            let remainingPayments = plan.schedule.count - forPaymentNumber
-            guard remainingPayments > 0 else { return (nil, nil) }
-
-            let newMonthly = adjustedRemaining / Double(remainingPayments)
-            return (newMonthly, nil)
-        }
     }
 
     // MARK: - Private Helpers
@@ -498,11 +370,6 @@ final class FixedBudgetPlanningService: ObservableObject {
     private func calculateRemaining(for goal: Goal) async -> Double {
         let currentTotal = await GoalCalculationService.getCurrentTotal(for: goal)
         return max(0, goal.targetAmount - currentTotal)
-    }
-
-    private func calculateRemainingForGoal(id: UUID, in goals: [Goal]) async -> Double {
-        guard let goal = goals.first(where: { $0.id == id }) else { return 0 }
-        return await calculateRemaining(for: goal)
     }
 
     private func calculateMonthsRemaining(from startDate: Date, to endDate: Date) -> Int {

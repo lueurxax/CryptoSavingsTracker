@@ -49,7 +49,8 @@ final class ExecutionContributionCalculatorTests: XCTestCase {
         )
 
         let remaining = await calculator.remainingToClose(goalSnapshot: snapshot, contributed: 40, in: "EUR")
-        XCTAssertEqual(remaining, 30, accuracy: 0.0001)
+        XCTAssertNotNil(remaining)
+        XCTAssertEqual(remaining ?? 0, 30, accuracy: 0.0001)
     }
 
     func testRemainingToCloseReturnsZeroWhenOverfunded() async {

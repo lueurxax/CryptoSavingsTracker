@@ -16,10 +16,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -46,17 +52,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.xax.CryptoSavingsTracker.domain.model.Goal
 import com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus
+import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
 import com.xax.CryptoSavingsTracker.presentation.theme.GoalAtRisk
 import com.xax.CryptoSavingsTracker.presentation.theme.GoalBehind
 import com.xax.CryptoSavingsTracker.presentation.theme.GoalCompleted
 import com.xax.CryptoSavingsTracker.presentation.theme.GoalOnTrack
+import com.xax.CryptoSavingsTracker.presentation.theme.IconSize
+import com.xax.CryptoSavingsTracker.presentation.theme.Spacing
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -162,52 +173,140 @@ fun GoalDetailScreen(
             }
         }
 
-        // Archive goal dialog - matches iOS behavior with clear action choices
+        // Archive goal dialog - 2-step flow for clearer UX
         if (uiState.showDeleteConfirmation) {
+            var dialogStep by remember { mutableStateOf(0) }
+
             AlertDialog(
-                onDismissRequest = viewModel::dismissDeleteConfirmation,
-                title = { Text("Archive Goal?") },
+                onDismissRequest = {
+                    dialogStep = 0
+                    viewModel.dismissDeleteConfirmation()
+                },
+                title = {
+                    Text(
+                        if (dialogStep == 0) "What would you like to do?"
+                        else "Choose Archive Type"
+                    )
+                },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            "Choose how to archive \"${uiState.goal?.name}\":",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            "Finished goals keep allocations (treated as spent). Cancelled goals free allocations back to unallocated.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        if (dialogStep == 0) {
+                            // Step 1: Archive vs Delete
+                            Text(
+                                "\"${uiState.goal?.name}\"",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+
+                            // Archive button (primary action)
+                            Button(
+                                onClick = { dialogStep = 1 },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Archive,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(IconSize.small)
+                                )
+                                Spacer(modifier = Modifier.width(Spacing.xs))
+                                Text("Archive Goal")
+                            }
+
+                            // Delete button (destructive action)
+                            OutlinedButton(
+                                onClick = viewModel::confirmDelete,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(IconSize.small)
+                                )
+                                Spacer(modifier = Modifier.width(Spacing.xs))
+                                Text("Delete Permanently")
+                            }
+                        } else {
+                            // Step 2: Choose archive type
+
+                            // Mark Finished option
+                            OutlinedButton(
+                                onClick = { viewModel.updateStatus(GoalLifecycleStatus.FINISHED) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.Start
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(IconSize.small)
+                                        )
+                                        Spacer(modifier = Modifier.width(Spacing.xs))
+                                        Text(
+                                            "Mark as Finished",
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                    Text(
+                                        "Allocations are kept (treated as spent)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            // Cancel Goal option
+                            OutlinedButton(
+                                onClick = { viewModel.updateStatus(GoalLifecycleStatus.CANCELLED) },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.Start
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Cancel,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(IconSize.small)
+                                        )
+                                        Spacer(modifier = Modifier.width(Spacing.xs))
+                                        Text(
+                                            "Cancel Goal",
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                    Text(
+                                        "Allocations are freed back to unallocated",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                     }
                 },
-                confirmButton = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        TextButton(
-                            onClick = { viewModel.updateStatus(GoalLifecycleStatus.FINISHED) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Mark Finished (keep allocations)")
-                        }
-                        TextButton(
-                            onClick = { viewModel.updateStatus(GoalLifecycleStatus.CANCELLED) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Cancel Goal (free allocations)", color = MaterialTheme.colorScheme.error)
-                        }
-                        TextButton(
-                            onClick = viewModel::confirmDelete,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Delete Permanently", color = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                },
+                confirmButton = { /* Actions are in text content */ },
                 dismissButton = {
-                    TextButton(onClick = viewModel::dismissDeleteConfirmation) {
-                        Text("Back")
+                    TextButton(
+                        onClick = {
+                            if (dialogStep == 1) {
+                                dialogStep = 0
+                            } else {
+                                viewModel.dismissDeleteConfirmation()
+                            }
+                        }
+                    ) {
+                        Text(if (dialogStep == 1) "Back" else "Cancel")
                     }
                 }
             )
@@ -243,8 +342,8 @@ private fun GoalDetailContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         // Header with emoji/icon and name
         Row(
@@ -260,10 +359,10 @@ private fun GoalDetailContent(
                     imageVector = Icons.Default.Flag,
                     contentDescription = null,
                     tint = statusColor,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(IconSize.large)
                 )
             }
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(Spacing.sm))
             Column {
                 Text(
                     text = goal.name,
@@ -282,7 +381,7 @@ private fun GoalDetailContent(
             )
         ) {
             Column(
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(Spacing.md)
             ) {
                 Text(
                     text = "Target Amount",
@@ -290,7 +389,7 @@ private fun GoalDetailContent(
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                 )
                 Text(
-                    text = "${goal.currency} ${String.format("%,.2f", goal.targetAmount)}",
+                    text = AmountFormatters.formatDisplayCurrencyAmount(goal.targetAmount, goal.currency, isCrypto = false),
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -301,7 +400,7 @@ private fun GoalDetailContent(
         // Progress section with real values
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(Spacing.md)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -319,24 +418,27 @@ private fun GoalDetailContent(
                         color = statusColor
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Spacing.xs))
                 LinearProgressIndicator(
                     progress = { progress.toFloat().coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { contentDescription = "${goal.name} progress: $progressPercent percent complete" },
                     color = statusColor,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Spacing.xs))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "${goal.currency} ${String.format("%,.2f", fundedAmount)}",
+                        text = AmountFormatters.formatDisplayCurrencyAmount(fundedAmount, goal.currency, isCrypto = false),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "${goal.currency} ${String.format("%,.2f", goal.targetAmount)}",
+                        text = AmountFormatters.formatDisplayCurrencyAmount(goal.targetAmount, goal.currency, isCrypto = false),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -347,7 +449,7 @@ private fun GoalDetailContent(
         // Allocations section
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(Spacing.md)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -363,7 +465,7 @@ private fun GoalDetailContent(
                         Text("Manage")
                     }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(Spacing.xxs))
                 Text(
                     text = "Allocate assets to fund this goal",
                     style = MaterialTheme.typography.bodySmall,
@@ -377,14 +479,14 @@ private fun GoalDetailContent(
             if (link.isNotEmpty()) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
-                        modifier = Modifier.padding(16.dp)
+                        modifier = Modifier.padding(Spacing.md)
                     ) {
                         Text(
                             text = "Link",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(Spacing.xs))
                         Text(
                             text = link,
                             style = MaterialTheme.typography.bodyMedium,
@@ -398,27 +500,30 @@ private fun GoalDetailContent(
         // Timeline section
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(Spacing.md)
             ) {
                 Text(
                     text = "Timeline",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Spacing.sm))
 
                 DetailRow("Start Date", goal.startDate.format(dateFormatter))
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.xs))
                 DetailRow("Deadline", goal.deadline.format(dateFormatter))
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.xs))
                 DetailRow(
                     "Time Remaining",
                     when {
                         goal.lifecycleStatus == GoalLifecycleStatus.FINISHED -> "Finished"
                         goal.isOverdue() -> "Overdue by ${-daysRemaining} days"
                         daysRemaining == 0L -> "Due today"
-                        daysRemaining == 1L -> "1 day"
-                        else -> "$daysRemaining days"
+                        daysRemaining == 1L -> "1 day left"
+                        daysRemaining < 7L -> "$daysRemaining days left"
+                        daysRemaining < 30L -> "${daysRemaining / 7} weeks left"
+                        daysRemaining < 365L -> "${daysRemaining / 30} months left"
+                        else -> "${daysRemaining / 365} years left"
                     },
                     valueColor = statusColor
                 )
@@ -429,14 +534,14 @@ private fun GoalDetailContent(
         if (goal.isReminderEnabled && goal.reminderFrequency != null) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(Spacing.md)
                 ) {
                     Text(
                         text = "Reminders",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.xs))
                     Text(
                         text = goal.reminderFrequency.displayName(),
                         style = MaterialTheme.typography.bodyLarge,
@@ -451,14 +556,14 @@ private fun GoalDetailContent(
             if (description.isNotEmpty()) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
-                        modifier = Modifier.padding(16.dp)
+                        modifier = Modifier.padding(Spacing.md)
                     ) {
                         Text(
                             text = "Description",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(Spacing.xs))
                         Text(
                             text = description,
                             style = MaterialTheme.typography.bodyMedium,
@@ -474,8 +579,8 @@ private fun GoalDetailContent(
 @Composable
 private fun StatusChip(status: GoalLifecycleStatus) {
     val (text, color) = when (status) {
-        GoalLifecycleStatus.ACTIVE -> "Active" to GoalOnTrack
-        GoalLifecycleStatus.FINISHED -> "Finished" to GoalCompleted
+        GoalLifecycleStatus.ACTIVE -> "Active" to GoalCompleted  // Blue to avoid conflict with green progress bars
+        GoalLifecycleStatus.FINISHED -> "Finished" to GoalOnTrack  // Green for completed
         GoalLifecycleStatus.CANCELLED -> "Cancelled" to GoalAtRisk
         GoalLifecycleStatus.DELETED -> "Deleted" to GoalBehind
     }
@@ -489,7 +594,7 @@ private fun StatusChip(status: GoalLifecycleStatus) {
             text = text,
             style = MaterialTheme.typography.labelSmall,
             color = color,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs)
         )
     }
 }

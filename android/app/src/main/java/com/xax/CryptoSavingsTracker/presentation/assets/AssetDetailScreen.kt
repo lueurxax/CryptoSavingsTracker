@@ -55,11 +55,14 @@ import com.xax.CryptoSavingsTracker.domain.model.ChainIds
 import com.xax.CryptoSavingsTracker.domain.model.OnChainBalance
 import com.xax.CryptoSavingsTracker.domain.model.Transaction
 import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
+import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import com.xax.CryptoSavingsTracker.presentation.theme.BitcoinOrange
-import com.xax.CryptoSavingsTracker.presentation.theme.EthereumBlue
-import com.xax.CryptoSavingsTracker.presentation.theme.WithdrawalRed
 import com.xax.CryptoSavingsTracker.presentation.theme.DepositGreen
+import com.xax.CryptoSavingsTracker.presentation.theme.EthereumBlue
+import com.xax.CryptoSavingsTracker.presentation.theme.IconSize
+import com.xax.CryptoSavingsTracker.presentation.theme.Spacing
 import com.xax.CryptoSavingsTracker.presentation.theme.StablecoinGreen
+import com.xax.CryptoSavingsTracker.presentation.theme.WithdrawalRed
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -226,8 +229,8 @@ internal fun AssetDetailContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         // Header with icon and currency
         Row(
@@ -237,9 +240,9 @@ internal fun AssetDetailContent(
                 imageVector = Icons.Default.AccountBalance,
                 contentDescription = null,
                 tint = currencyColor,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(IconSize.hero)
             )
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(Spacing.md))
             Column {
                 Text(
                     text = asset.currency,
@@ -264,7 +267,7 @@ internal fun AssetDetailContent(
             )
         ) {
             Column(
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(Spacing.md)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -286,8 +289,8 @@ internal fun AssetDetailContent(
                 }
                 if (hasOnChain && isOnChainLoading && onChainBalance == null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
+                        CircularProgressIndicator(modifier = Modifier.size(IconSize.small))
+                        Spacer(modifier = Modifier.width(Spacing.sm))
                         Text(
                             text = "Fetching on-chain balance…",
                             style = MaterialTheme.typography.bodyMedium,
@@ -296,7 +299,7 @@ internal fun AssetDetailContent(
                     }
                 } else {
                     Text(
-                        text = "${String.format("%,.6f", currentBalance)} ${asset.currency}",
+                        text = AmountFormatters.formatDisplayCurrencyAmount(currentBalance, asset.currency, isCrypto = asset.isCryptoAsset),
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.testTag("assetDetailCurrentBalance"),
@@ -335,10 +338,10 @@ internal fun AssetDetailContent(
                     }
                 }
                 if (hasOnChain) {
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(Spacing.xxs))
                     if (onChainBalance != null) {
-                        val chainPart = String.format("%,.6f", onChainBalance.balance)
-                        val manualPart = String.format("%,.6f", manualBalance)
+                        val chainPart = AmountFormatters.formatDisplayAmount(onChainBalance.balance, isCrypto = asset.isCryptoAsset && !AmountFormatters.isStablecoin(asset.currency))
+                        val manualPart = AmountFormatters.formatDisplayAmount(manualBalance, isCrypto = asset.isCryptoAsset && !AmountFormatters.isStablecoin(asset.currency))
                         Text(
                             text = "Chain: $chainPart • Manual: $manualPart",
                             style = MaterialTheme.typography.bodySmall,
@@ -379,14 +382,14 @@ internal fun AssetDetailContent(
         if (!asset.address.isNullOrBlank()) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(Spacing.md)
                 ) {
                     Text(
                         text = "Wallet Address",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.xs))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -416,33 +419,33 @@ internal fun AssetDetailContent(
         // Info card
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(Spacing.md)
             ) {
                 Text(
                     text = "Information",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Spacing.sm))
 
                 DetailRow("Type", if (asset.isCryptoAsset) "Cryptocurrency" else "Fiat Account")
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.xs))
 
                 if (!asset.chainId.isNullOrBlank()) {
                     DetailRow("Network", ChainIds.displayName(asset.chainId))
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.xs))
                 }
 
                 if (hasOnChain && manualBalance != 0.0) {
-                    DetailRow("Manual Transactions", String.format("%,.6f", manualBalance))
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    DetailRow("Manual Transactions", AmountFormatters.formatDisplayAmount(manualBalance, isCrypto = asset.isCryptoAsset && !AmountFormatters.isStablecoin(asset.currency)))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.xs))
                 }
 
                 DetailRow(
                     "Created",
                     dateFormatter.format(Instant.ofEpochMilli(asset.createdAt))
                 )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.xs))
 
                 DetailRow(
                     "Last Updated",
@@ -460,7 +463,7 @@ internal fun AssetDetailContent(
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(Spacing.md)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -487,7 +490,7 @@ internal fun AssetDetailContent(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.md))
                 if (recentTransactions.isEmpty()) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -503,10 +506,10 @@ internal fun AssetDetailContent(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         if (hasOnChain && isOnChainTransactionsLoading) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(Spacing.xs))
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(10.dp))
+                                CircularProgressIndicator(modifier = Modifier.size(IconSize.small))
+                                Spacer(modifier = Modifier.width(Spacing.xs))
                                 Text(
                                     text = "Fetching on-chain transactions…",
                                     style = MaterialTheme.typography.bodySmall,
@@ -515,27 +518,27 @@ internal fun AssetDetailContent(
                             }
                         }
                         if (hasOnChain && onChainTransactionsError != null) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(Spacing.xs))
                             Text(
                                 text = onChainTransactionsError,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error
                             )
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(Spacing.xs))
                         TextButton(onClick = onAddTransaction) {
                             Text("Add Transaction")
                         }
                     }
                 } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                         recentTransactions.forEach { tx ->
                             TransactionPreviewRow(
                                 transaction = tx,
                                 currency = asset.currency
                             )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(Spacing.xxs))
                         TextButton(onClick = onAddTransaction) {
                             Text("Add Transaction")
                         }

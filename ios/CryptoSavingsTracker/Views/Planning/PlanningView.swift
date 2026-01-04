@@ -55,89 +55,15 @@ struct iOSCompactPlanningView: View {
     let staleDrafts: [MonthlyPlan]
     @Environment(\.modelContext) private var modelContext
     @State private var selectedTab = 0
-    @AppStorage("MonthlyPlanning.FixedBudget.IsEnabled") private var isFixedBudgetMode = false
-    @AppStorage("FixedBudget.HasSeenIntro") private var hasSeenIntro = false
-    @State private var planningMode: PlanningMode = .perGoal
-    @State private var showHelpSheet = false
-    @State private var fixedBudgetViewModel: FixedBudgetPlanningViewModel?
+    @State private var showingBudgetSheet = false
 
     var body: some View {
         VStack(spacing: 0) {
-            // Fixed Budget Intro Card (show only when in Per Goal mode and not seen yet)
-            if !hasSeenIntro && planningMode == .perGoal {
-                FixedBudgetIntroCard(
-                    onLearnMore: { showHelpSheet = true },
-                    onTryIt: {
-                        hasSeenIntro = true
-                        planningMode = .fixedBudget
-                        isFixedBudgetMode = true
-                    },
-                    onDismiss: { hasSeenIntro = true }
-                )
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-            }
-
-            // Planning Mode Segmented Control
-            HStack {
-                PlanningModeSegmentedControl(selectedMode: $planningMode)
-
-                Button {
-                    showHelpSheet = true
-                } label: {
-                    Image(systemName: "questionmark.circle")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .onChange(of: planningMode) { _, newValue in
-                isFixedBudgetMode = (newValue == .fixedBudget)
-            }
-
-            if planningMode == .fixedBudget {
-                // Fixed Budget Mode
-                if let fbViewModel = fixedBudgetViewModel {
-                    FixedBudgetPlanningView(viewModel: fbViewModel)
-                } else {
-                    ProgressView("Loading...")
-                        .onAppear {
-                            createFixedBudgetViewModel()
-                        }
-                }
-            } else {
-                // Per Goal Mode (original view)
-                perGoalContent
-            }
+            perGoalContent
         }
         .background(.regularMaterial)
-        .onAppear {
-            planningMode = isFixedBudgetMode ? .fixedBudget : .perGoal
-            if planningMode == .fixedBudget && fixedBudgetViewModel == nil {
-                createFixedBudgetViewModel()
-            }
-        }
-        .onReceive(viewModel.$goals) { goals in
-            guard let fixedBudgetViewModel else { return }
-            Task {
-                await fixedBudgetViewModel.loadGoals(goals)
-            }
-        }
-        .sheet(isPresented: $showHelpSheet) {
-            PlanningModeHelpView()
-        }
-    }
-
-    private func createFixedBudgetViewModel() {
-        let service = DIContainer.shared.fixedBudgetPlanningService(modelContext: modelContext)
-        let newViewModel = FixedBudgetPlanningViewModel(service: service, settings: .shared)
-        fixedBudgetViewModel = newViewModel
-        let goals = viewModel.goals
-        if !goals.isEmpty {
-            Task {
-                await newViewModel.loadGoals(goals)
-            }
+        .sheet(isPresented: $showingBudgetSheet) {
+            BudgetCalculatorSheet(viewModel: viewModel)
         }
     }
 
@@ -165,6 +91,30 @@ struct iOSCompactPlanningView: View {
                 )
                 .padding(.horizontal)
                 .padding(.vertical, 8)
+            }
+
+            BudgetNoticesView(viewModel: viewModel) {
+                showingBudgetSheet = true
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 4)
+
+            if viewModel.hasBudget {
+                BudgetSummaryCard(
+                    budgetAmount: viewModel.budgetAmount,
+                    budgetCurrency: viewModel.budgetCurrency,
+                    feasibility: viewModel.budgetFeasibility,
+                    isApplied: viewModel.isBudgetAppliedForCurrentMonth,
+                    currentFocusGoal: viewModel.budgetFocusGoalName,
+                    currentFocusDeadline: viewModel.budgetFocusGoalDeadline,
+                    onEdit: { showingBudgetSheet = true }
+                )
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+            } else {
+                BudgetEntryCard(onSetBudget: { showingBudgetSheet = true })
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
             }
 
             // Consolidated Header (replaces context + summary)
@@ -396,12 +346,16 @@ struct iOSCompactPlanningView: View {
                     GoalRequirementRow(
                         requirement: requirement,
                         flexState: viewModel.getFlexState(for: requirement.goalId),
-                        adjustedAmount: nil,
+                        adjustedAmount: viewModel.getEffectiveAmount(for: requirement.goalId),
+                        showBudgetIndicator: viewModel.hasBudget && viewModel.hasCustomAmount(for: requirement.goalId),
                         onToggleProtection: {
                             viewModel.toggleProtection(for: requirement.goalId)
                         },
                         onToggleSkip: {
                             viewModel.toggleSkip(for: requirement.goalId)
+                        },
+                        onSetCustomAmount: { amount in
+                            viewModel.setCustomAmount(for: requirement.goalId, amount: amount)
                         }
                     )
                 }
@@ -442,10 +396,17 @@ struct iOSCompactPlanningView: View {
                         Text("Payment Adjustment")
                             .font(.headline)
                         Spacer()
-                        Text("\(Int(viewModel.flexAdjustment * 100))%")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(AccessibleColors.primaryInteractive)
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("\(Int(viewModel.flexAdjustment * 100))%")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(AccessibleColors.primaryInteractive)
+                            if viewModel.hasBudget {
+                                Text("of budget \(formatAmount(viewModel.budgetAmount, currency: viewModel.budgetCurrency))")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     }
                     
                     Slider(value: Binding(
@@ -721,6 +682,7 @@ struct iOSRegularPlanningView: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
     let staleDrafts: [MonthlyPlan]
     @Environment(\.modelContext) private var modelContext
+    @State private var showingBudgetSheet = false
     
     var body: some View {
         #if os(macOS)
@@ -742,12 +704,16 @@ struct iOSRegularPlanningView: View {
                             GoalRequirementRow(
                                 requirement: requirement,
                                 flexState: viewModel.getFlexState(for: requirement.goalId),
-                                adjustedAmount: nil,
+                                adjustedAmount: viewModel.getEffectiveAmount(for: requirement.goalId),
+                                showBudgetIndicator: viewModel.hasBudget && viewModel.hasCustomAmount(for: requirement.goalId),
                                 onToggleProtection: {
                                     viewModel.toggleProtection(for: requirement.goalId)
                                 },
                                 onToggleSkip: {
                                     viewModel.toggleSkip(for: requirement.goalId)
+                                },
+                                onSetCustomAmount: { amount in
+                                    viewModel.setCustomAmount(for: requirement.goalId, amount: amount)
                                 }
                             )
                         }
@@ -757,7 +723,7 @@ struct iOSRegularPlanningView: View {
                 .navigationTitle("Goals")
             }
             .frame(minWidth: 300)
-            
+
             // Right panel - Controls and statistics
             macOSControlsPanel(viewModel: viewModel)
                 .frame(minWidth: 350)
@@ -771,16 +737,38 @@ struct iOSRegularPlanningView: View {
         NavigationView {
             ScrollView {
                 LazyVStack(spacing: 12) {
+                    BudgetNoticesView(viewModel: viewModel) {
+                        showingBudgetSheet = true
+                    }
+
+                    if viewModel.hasBudget {
+                        BudgetSummaryCard(
+                            budgetAmount: viewModel.budgetAmount,
+                            budgetCurrency: viewModel.budgetCurrency,
+                            feasibility: viewModel.budgetFeasibility,
+                            isApplied: viewModel.isBudgetAppliedForCurrentMonth,
+                            currentFocusGoal: viewModel.budgetFocusGoalName,
+                            currentFocusDeadline: viewModel.budgetFocusGoalDeadline,
+                            onEdit: { showingBudgetSheet = true }
+                        )
+                    } else {
+                        BudgetEntryCard(onSetBudget: { showingBudgetSheet = true })
+                    }
+
                     ForEach(viewModel.monthlyRequirements) { requirement in
                         GoalRequirementRow(
                             requirement: requirement,
                             flexState: viewModel.getFlexState(for: requirement.goalId),
-                            adjustedAmount: nil,
+                            adjustedAmount: viewModel.getEffectiveAmount(for: requirement.goalId),
+                            showBudgetIndicator: viewModel.hasBudget && viewModel.hasCustomAmount(for: requirement.goalId),
                             onToggleProtection: {
                                 viewModel.toggleProtection(for: requirement.goalId)
                             },
                             onToggleSkip: {
                                 viewModel.toggleSkip(for: requirement.goalId)
+                            },
+                            onSetCustomAmount: { amount in
+                                viewModel.setCustomAmount(for: requirement.goalId, amount: amount)
                             }
                         )
                     }
@@ -791,6 +779,9 @@ struct iOSRegularPlanningView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+        }
+        .sheet(isPresented: $showingBudgetSheet) {
+            BudgetCalculatorSheet(viewModel: viewModel)
         }
     }
 }
@@ -858,12 +849,16 @@ struct macOSPlanningView: View {
                                 GoalRequirementRow(
                                     requirement: requirement,
                                     flexState: viewModel.getFlexState(for: requirement.goalId),
-                                    adjustedAmount: nil,
+                                    adjustedAmount: viewModel.getEffectiveAmount(for: requirement.goalId),
+                                    showBudgetIndicator: viewModel.hasBudget && viewModel.hasCustomAmount(for: requirement.goalId),
                                     onToggleProtection: {
                                         viewModel.toggleProtection(for: requirement.goalId)
                                     },
                                     onToggleSkip: {
                                         viewModel.toggleSkip(for: requirement.goalId)
+                                    },
+                                    onSetCustomAmount: { amount in
+                                        viewModel.setCustomAmount(for: requirement.goalId, amount: amount)
                                     }
                                 )
                             }
@@ -876,7 +871,7 @@ struct macOSPlanningView: View {
         }
     }
     #endif
-    
+
     @ViewBuilder
     private var iosLayout: some View {
         // iOS simplified layout
@@ -890,12 +885,16 @@ struct macOSPlanningView: View {
                             GoalRequirementRow(
                                 requirement: requirement,
                                 flexState: viewModel.getFlexState(for: requirement.goalId),
-                                adjustedAmount: nil,
+                                adjustedAmount: viewModel.getEffectiveAmount(for: requirement.goalId),
+                                showBudgetIndicator: viewModel.hasBudget && viewModel.hasCustomAmount(for: requirement.goalId),
                                 onToggleProtection: {
                                     viewModel.toggleProtection(for: requirement.goalId)
                                 },
                                 onToggleSkip: {
                                     viewModel.toggleSkip(for: requirement.goalId)
+                                },
+                                onSetCustomAmount: { amount in
+                                    viewModel.setCustomAmount(for: requirement.goalId, amount: amount)
                                 }
                             )
                         }
@@ -937,10 +936,29 @@ struct macOSPlanningView: View {
 
 struct macOSControlsPanel: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
+    @State private var showingBudgetSheet = false
     
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
+                BudgetNoticesView(viewModel: viewModel) {
+                    showingBudgetSheet = true
+                }
+
+                if viewModel.hasBudget {
+                    BudgetSummaryCard(
+                        budgetAmount: viewModel.budgetAmount,
+                        budgetCurrency: viewModel.budgetCurrency,
+                        feasibility: viewModel.budgetFeasibility,
+                        isApplied: viewModel.isBudgetAppliedForCurrentMonth,
+                        currentFocusGoal: viewModel.budgetFocusGoalName,
+                        currentFocusDeadline: viewModel.budgetFocusGoalDeadline,
+                        onEdit: { showingBudgetSheet = true }
+                    )
+                } else {
+                    BudgetEntryCard(onSetBudget: { showingBudgetSheet = true })
+                }
+
                 // Summary section
                 summarySection
                 
@@ -962,6 +980,9 @@ struct macOSControlsPanel: View {
         #else
         .background(Color(.systemBackground))
         #endif
+        .sheet(isPresented: $showingBudgetSheet) {
+            BudgetCalculatorSheet(viewModel: viewModel)
+        }
     }
     
     @ViewBuilder
@@ -1014,9 +1035,16 @@ struct macOSControlsPanel: View {
                 HStack {
                     Text("Amount")
                     Spacer()
-                    Text("\(Int(viewModel.flexAdjustment * 100))%")
-                        .fontWeight(.medium)
-                        .foregroundColor(AccessibleColors.primaryInteractive)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(Int(viewModel.flexAdjustment * 100))%")
+                            .fontWeight(.medium)
+                            .foregroundColor(AccessibleColors.primaryInteractive)
+                        if viewModel.hasBudget {
+                            Text("of budget \(formatAmount(viewModel.budgetAmount, currency: viewModel.budgetCurrency))")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
                 
                 Slider(value: Binding(

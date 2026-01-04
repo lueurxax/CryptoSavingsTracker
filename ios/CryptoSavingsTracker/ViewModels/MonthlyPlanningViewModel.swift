@@ -56,6 +56,29 @@ final class MonthlyPlanningViewModel: ObservableObject {
     
     /// Skipped goal IDs (temporarily excluded from payments)
     @Published var skippedGoalIds: Set<UUID> = []
+
+    // MARK: - Budget Calculator State
+
+    /// Latest budget calculator preview plan (ephemeral).
+    @Published var budgetPreviewPlan: BudgetCalculatorPlan?
+
+    /// Feasibility status for the current budget input.
+    @Published var budgetFeasibility: FeasibilityResult = .empty
+
+    /// Timeline blocks for the preview schedule.
+    @Published var budgetPreviewTimeline: [ScheduledGoalBlock] = []
+
+    /// Loading state for budget preview.
+    @Published var isBudgetPreviewLoading = false
+
+    /// Budget preview error message.
+    @Published var budgetPreviewError: String?
+
+    /// One-time migration notice flag (view-level).
+    @Published var showBudgetMigrationNotice = false
+
+    /// Prompt for recalculation when goals or month change.
+    @Published var showBudgetRecalculationPrompt = false
     
     // MARK: - Computed Properties
     
@@ -109,15 +132,58 @@ final class MonthlyPlanningViewModel: ObservableObject {
             shortestDeadline: monthlyRequirements.map { $0.deadline }.min()
         )
     }
+
+    /// Whether a monthly budget is configured.
+    var hasBudget: Bool {
+        (settings.monthlyBudget ?? 0) > 0
+    }
+
+    /// Current budget amount (0 when not set).
+    var budgetAmount: Double {
+        settings.monthlyBudget ?? 0
+    }
+
+    /// Budget currency (defaults to settings).
+    var budgetCurrency: String {
+        settings.budgetCurrency
+    }
+
+    /// Whether the budget has been applied to the current planning month.
+    var isBudgetAppliedForCurrentMonth: Bool {
+        settings.budgetAppliedMonthLabel == planningMonthLabel && hasBudget
+    }
+
+    /// Current focus goal for budget summary (earliest deadline with remaining amount).
+    private var budgetFocusGoal: Goal? {
+        guard hasBudget else { return nil }
+        let candidates = currentPlans
+            .filter { !$0.isSkipped && ($0.customAmount ?? 0) > 0.01 }
+            .compactMap { plan in
+                goals.first { $0.id == plan.goalId }
+            }
+        return candidates.min(by: { $0.deadline < $1.deadline })
+    }
+
+    /// Current focus goal name for budget summary.
+    var budgetFocusGoalName: String? {
+        budgetFocusGoal?.name
+    }
+
+    /// Current focus goal deadline for budget summary.
+    var budgetFocusGoalDeadline: Date? {
+        budgetFocusGoal?.deadline
+    }
     
     // MARK: - Dependencies
     
     private let planService: MonthlyPlanService
     private let exchangeRateService: ExchangeRateServiceProtocol
+    private let budgetCalculatorService: BudgetCalculatorService
     private let modelContext: ModelContext
     private var flexService: FlexAdjustmentService?
     private var cancellables = Set<AnyCancellable>()
     private var currentPlans: [MonthlyPlan] = []
+    private var isApplyingBudgetMigration = false
     
     // MARK: - Initialization
     
@@ -125,6 +191,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
         self.modelContext = modelContext
         self.planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
         self.exchangeRateService = DIContainer.shared.exchangeRateService
+        self.budgetCalculatorService = DIContainer.shared.budgetCalculatorService(modelContext: modelContext)
         self.flexService = DIContainer.shared.makeFlexAdjustmentService(modelContext: modelContext)
         self.planningMonthLabel = planService.currentMonthLabel()
         
@@ -189,6 +256,9 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 self.protectedGoalIds = Set(plans.filter { $0.flexState == .protected || $0.isProtected }.map { $0.goalId })
                 self.skippedGoalIds = Set(plans.filter { $0.flexState == .skipped || $0.isSkipped }.map { $0.goalId })
             }
+
+            await refreshBudgetStatus()
+            await handleBudgetMigrationIfNeeded(goals: goals)
             
         } catch {
             await MainActor.run {
@@ -202,6 +272,149 @@ final class MonthlyPlanningViewModel: ObservableObject {
     /// Refresh calculations (force cache clear)
     func refreshCalculations() async {
         await loadMonthlyRequirements()
+    }
+
+    // MARK: - Budget Calculator
+
+    /// Prepare preview data for the budget calculator sheet.
+    func previewBudget(amount: Double, currency: String) async {
+        let normalizedAmount = max(0, amount)
+        let eligibleGoals = budgetEligibleGoals()
+
+        guard normalizedAmount > 0, !eligibleGoals.isEmpty else {
+            budgetPreviewPlan = nil
+            budgetPreviewTimeline = []
+            budgetFeasibility = .empty
+            return
+        }
+
+        isBudgetPreviewLoading = true
+        budgetPreviewError = nil
+
+        let feasibility = await budgetCalculatorService.checkFeasibility(
+            goals: eligibleGoals,
+            budget: normalizedAmount,
+            currency: currency
+        )
+        let plan = await budgetCalculatorService.generateSchedule(
+            goals: eligibleGoals,
+            budget: normalizedAmount,
+            currency: currency
+        )
+        let timeline = budgetCalculatorService.buildTimelineBlocks(from: plan, goals: eligibleGoals)
+
+        budgetFeasibility = feasibility
+        budgetPreviewPlan = plan
+        budgetPreviewTimeline = timeline
+        isBudgetPreviewLoading = false
+    }
+
+    /// Apply a feasibility suggestion that modifies goals and refreshes the preview.
+    func applyFeasibilitySuggestion(
+        _ suggestion: FeasibilitySuggestion,
+        currentBudget: Double,
+        currency: String
+    ) async -> Bool {
+        switch suggestion {
+        case .increaseBudget:
+            return false
+        case .editGoal:
+            return false
+        case .extendDeadline(let goalId, _, let months):
+            guard let goal = goals.first(where: { $0.id == goalId }) else { return false }
+            if let updated = Calendar.current.date(byAdding: .month, value: months, to: goal.deadline) {
+                goal.deadline = updated
+            } else {
+                return false
+            }
+        case .reduceTarget(let goalId, _, let to, _):
+            guard let goal = goals.first(where: { $0.id == goalId }) else { return false }
+            goal.targetAmount = to
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            self.error = error
+            return false
+        }
+
+        await loadMonthlyRequirements(for: planningMonthLabel)
+        if currentBudget > 0 {
+            await previewBudget(amount: currentBudget, currency: currency)
+        }
+        return true
+    }
+
+    func hasCustomAmount(for goalId: UUID) -> Bool {
+        currentPlans.first(where: { $0.goalId == goalId })?.customAmount != nil
+    }
+
+    /// Apply the budget calculator results to the current month's plans.
+    func applyBudgetPlan(
+        plan: BudgetCalculatorPlan,
+        amount: Double,
+        currency: String
+    ) async -> Bool {
+        guard !currentPlans.isEmpty else { return false }
+
+        let contributionMap = Dictionary(
+            uniqueKeysWithValues: (plan.schedule.first?.contributions ?? []).map { ($0.goalId, $0.amount) }
+        )
+
+        var conversionFailed = false
+        for plan in currentPlans {
+            guard !plan.isSkipped else { continue }
+            let plannedAmount = contributionMap[plan.goalId] ?? 0
+            var converted = plannedAmount
+
+            if plannedAmount > 0, plan.currency != currency {
+                if let rate = try? await exchangeRateService.fetchRate(from: currency, to: plan.currency) {
+                    converted = plannedAmount * rate
+                } else {
+                    conversionFailed = true
+                    continue
+                }
+            }
+
+            plan.setCustomAmount(plannedAmount > 0 ? converted : 0)
+        }
+
+        if conversionFailed {
+            budgetPreviewError = "Missing exchange rates for some goals."
+            return false
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            budgetPreviewError = "Failed to apply budget to plans."
+            return false
+        }
+
+        settings.monthlyBudget = amount
+        settings.budgetCurrency = currency
+        settings.budgetAppliedMonthLabel = planningMonthLabel
+        settings.budgetAppliedSignature = budgetSignature(for: budgetEligibleGoals())
+
+        flexAdjustment = 1.0
+        saveUserPreferences()
+
+        await loadMonthlyRequirements()
+        return true
+    }
+
+    /// Dismiss the one-time migration notice.
+    func dismissBudgetMigrationNotice() {
+        settings.hasSeenBudgetMigrationNotice = true
+        showBudgetMigrationNotice = false
+    }
+
+    /// Mark the recalculation prompt as acknowledged for the current inputs.
+    func acknowledgeBudgetRecalculationPrompt() {
+        settings.budgetAppliedMonthLabel = planningMonthLabel
+        settings.budgetAppliedSignature = budgetSignature(for: budgetEligibleGoals())
+        showBudgetRecalculationPrompt = false
     }
 
     /// Apply flex adjustment to persisted plans and refresh UI
@@ -233,6 +446,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 self.monthlyRequirements = requirements
                 self.totalRequired = total
             }
+            await refreshBudgetStatus()
         } catch {
             await MainActor.run {
                 self.error = error
@@ -252,6 +466,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
         saveUserPreferences()
         Task {
             await applyFlexAdjustment(flexAdjustment)
+            await refreshBudgetStatus()
         }
     }
     
@@ -266,9 +481,55 @@ final class MonthlyPlanningViewModel: ObservableObject {
         saveUserPreferences()
         Task {
             await applyFlexAdjustment(flexAdjustment)
+            await refreshBudgetStatus()
         }
     }
-    
+
+    /// Set a custom amount for a specific goal
+    /// - Parameters:
+    ///   - goalId: The goal to set custom amount for
+    ///   - amount: The custom amount (nil to clear)
+    func setCustomAmount(for goalId: UUID, amount: Double?) {
+        guard let plan = currentPlans.first(where: { $0.goalId == goalId }) else {
+            AppLog.warning("No plan found for goal \(goalId)", category: .monthlyPlanning)
+            return
+        }
+
+        // Set the custom amount directly on the plan
+        do {
+            try planService.setCustomAmount(amount, for: plan)
+
+            // If setting a custom amount, auto-protect this goal
+            if amount != nil {
+                protectedGoalIds.insert(goalId)
+                skippedGoalIds.remove(goalId)
+            }
+
+            saveUserPreferences()
+
+            // Refresh the adjusted amounts display
+            Task {
+                await loadMonthlyRequirements(for: planningMonthLabel)
+                await refreshBudgetStatus()
+            }
+
+            AppLog.info("Set custom amount \(amount ?? 0) for goal \(goalId)", category: .monthlyPlanning)
+        } catch {
+            AppLog.error("Failed to set custom amount: \(error)", category: .monthlyPlanning)
+        }
+    }
+
+    /// Get the current effective amount for a goal (custom amount or calculated)
+    func getEffectiveAmount(for goalId: UUID) -> Double? {
+        guard let plan = currentPlans.first(where: { $0.goalId == goalId }) else { return nil }
+        return plan.effectiveAmount
+    }
+
+    /// Get the required monthly amount for a goal (before any adjustments)
+    func getRequiredAmount(for goalId: UUID) -> Double? {
+        return monthlyRequirements.first(where: { $0.goalId == goalId })?.requiredMonthly
+    }
+
     /// Apply quick action
     func applyQuickAction(_ action: QuickAction) async {
         switch action {
@@ -385,6 +646,102 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+
+        // Observe budget changes
+        settings.$monthlyBudget
+            .dropFirst()
+            .sink { [weak self] _ in
+                Task { [weak self] in
+                    await self?.refreshBudgetStatus()
+                }
+            }
+            .store(in: &cancellables)
+
+        settings.$budgetCurrency
+            .dropFirst()
+            .sink { [weak self] _ in
+                Task { [weak self] in
+                    await self?.refreshBudgetStatus()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func refreshBudgetStatus() async {
+        guard hasBudget else {
+            budgetFeasibility = .empty
+            showBudgetRecalculationPrompt = false
+            return
+        }
+
+        let eligibleGoals = budgetEligibleGoals()
+        guard !eligibleGoals.isEmpty else {
+            budgetFeasibility = .empty
+            return
+        }
+
+        let budget = settings.monthlyBudget ?? 0
+        let currency = settings.budgetCurrency
+        let feasibility = await budgetCalculatorService.checkFeasibility(
+            goals: eligibleGoals,
+            budget: budget,
+            currency: currency
+        )
+        budgetFeasibility = feasibility
+
+        guard settings.budgetAppliedMonthLabel != nil else {
+            showBudgetRecalculationPrompt = false
+            return
+        }
+
+        let signature = budgetSignature(for: eligibleGoals)
+        if settings.budgetAppliedMonthLabel != planningMonthLabel {
+            showBudgetRecalculationPrompt = true
+        } else {
+            showBudgetRecalculationPrompt = settings.budgetAppliedSignature != signature
+        }
+    }
+
+    private func handleBudgetMigrationIfNeeded(goals: [Goal]) async {
+        guard hasBudget, settings.budgetAppliedMonthLabel == nil else { return }
+        guard !isApplyingBudgetMigration else { return }
+        let eligibleGoals = budgetEligibleGoals(from: goals)
+        guard !eligibleGoals.isEmpty else { return }
+
+        isApplyingBudgetMigration = true
+        defer { isApplyingBudgetMigration = false }
+
+        let budget = settings.monthlyBudget ?? 0
+        let currency = settings.budgetCurrency
+        let plan = await budgetCalculatorService.generateSchedule(
+            goals: eligibleGoals,
+            budget: budget,
+            currency: currency
+        )
+
+        let applied = await applyBudgetPlan(plan: plan, amount: budget, currency: currency)
+        if applied, !settings.hasSeenBudgetMigrationNotice {
+            showBudgetMigrationNotice = true
+        }
+    }
+
+    private func budgetEligibleGoals(from goals: [Goal]? = nil) -> [Goal] {
+        let source = goals ?? self.goals
+        let skipped = skippedGoalIds
+        return source.filter { goal in
+            goal.lifecycleStatus == .active && !skipped.contains(goal.id)
+        }
+    }
+
+    private func budgetSignature(for goals: [Goal]) -> String {
+        let formatter = ISO8601DateFormatter()
+        return goals
+            .sorted { $0.id.uuidString < $1.id.uuidString }
+            .map { goal in
+                let deadline = formatter.string(from: goal.deadline)
+                return "\(goal.id.uuidString)|\(goal.currency)|\(goal.targetAmount)|\(deadline)"
+            }
+            .joined(separator: ";")
     }
     
     /// Load saved flex states from SwiftData

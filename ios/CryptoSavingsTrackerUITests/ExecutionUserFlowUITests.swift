@@ -745,8 +745,34 @@ final class ExecutionUserFlowUITests: XCTestCase {
         XCTAssertTrue(app.buttons[buttonId].waitForExistence(timeout: 3))
         app.buttons[buttonId].tap()
 
-        let search = app.textFields["currencySearchField"]
-        XCTAssertTrue(search.waitForExistence(timeout: 3))
+        let symbolUpper = symbol.uppercased()
+        var search = app.textFields["currencySearchField"]
+        if !search.waitForExistence(timeout: 3) {
+            let searchField = app.searchFields["currencySearchField"]
+            if searchField.waitForExistence(timeout: 3) {
+                search = searchField
+            }
+        }
+
+        if !search.exists {
+            let cell = app.buttons["currencyCell-\(symbolUpper)"].firstMatch
+            if cell.waitForExistence(timeout: 2) {
+                tapForce(cell)
+                return
+            }
+
+            let overrideId = buttonId == "currencyButton" ? "goalCurrencyOverrideField" : "assetCurrencyOverrideField"
+            let overrideField = app.textFields[overrideId]
+            if waitForExistenceWithScroll(app: app, element: overrideField, maxSwipes: 3, perAttemptTimeout: 1.0) {
+                tapForce(overrideField)
+                clearTextField(overrideField)
+                overrideField.typeText(symbolUpper)
+                return
+            }
+
+            XCTFail("Currency picker did not appear for \(buttonId)")
+            return
+        }
         search.tap()
         search.typeText(symbol)
         // Dismiss keyboard if it stays up to avoid focus issues.
@@ -754,7 +780,6 @@ final class ExecutionUserFlowUITests: XCTestCase {
             app.keyboards.buttons["Return"].tap()
         }
 
-        let symbolUpper = symbol.uppercased()
         let cell = app.buttons["currencyCell-\(symbolUpper)"].firstMatch
 
         // Picker may auto-pick and dismiss in UI test mode.

@@ -30,6 +30,10 @@ struct AddAssetView: View {
     @State private var hasAttemptedSubmit = false
     @State private var currencyFieldTouched = false
     @State private var addressFieldTouched = false
+
+    private var isUITestFlow: Bool {
+        UITestFlags.isEnabled
+    }
     
     // Computed validation properties
     private var showCurrencyError: Bool {
@@ -375,7 +379,17 @@ struct AddAssetView: View {
                             .accessibilityHint("Tap to choose a cryptocurrency")
                         }
                         .padding(.vertical, 4)
-                        
+
+                        #if os(iOS)
+                        if isUITestFlow {
+                            TextField("Currency (Test)", text: $currency)
+                                .textInputAutocapitalization(.characters)
+                                .disableAutocorrection(true)
+                                .accessibilityIdentifier("assetCurrencyOverrideField")
+                                .padding(.vertical, 4)
+                        }
+                        #endif
+
                         if showCurrencyError {
                             Text("Please select a currency")
                                 .font(.caption)
@@ -497,9 +511,25 @@ struct AddAssetView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingCurrencyPicker) {
-                let isUITestFlow = ProcessInfo.processInfo.arguments.contains("UITEST_UI_FLOW")
-                SearchableCurrencyPicker(selectedCurrency: $currency, pickerType: isUITestFlow ? .fiat : .crypto)
+            .fullScreenCover(isPresented: Binding(
+                get: { isUITestFlow && showingCurrencyPicker },
+                set: { newValue in
+                    if isUITestFlow {
+                        showingCurrencyPicker = newValue
+                    }
+                }
+            )) {
+                SearchableCurrencyPicker(selectedCurrency: $currency, pickerType: .fiat)
+            }
+            .sheet(isPresented: Binding(
+                get: { !isUITestFlow && showingCurrencyPicker },
+                set: { newValue in
+                    if !isUITestFlow {
+                        showingCurrencyPicker = newValue
+                    }
+                }
+            )) {
+                SearchableCurrencyPicker(selectedCurrency: $currency, pickerType: .crypto)
             }
 #endif
         }

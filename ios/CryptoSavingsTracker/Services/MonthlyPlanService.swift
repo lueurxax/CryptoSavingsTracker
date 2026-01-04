@@ -377,14 +377,16 @@ final class MonthlyPlanService {
                 } else {
                     // Flexible plan - apply adjustment
                     plan.flexState = .flexible
-                    let adjustedAmount = plan.requiredMonthly * adjustment
+                    // IMPORTANT: Always use requiredMonthly as the base, not customAmount
+                    // This prevents compounding adjustments when slider is moved multiple times
+                    let baseAmount = plan.requiredMonthly
+                    let adjustedAmount = baseAmount * adjustment
 
-                    // Validation: no zero or negative amounts
-                    guard adjustedAmount > 0 else {
-                        throw PlanError.invalidAmount("Adjusted amount must be positive for goal \(plan.goalId)")
+                    if adjustedAmount <= 0.01 {
+                        plan.setCustomAmount(0)
+                    } else {
+                        plan.setCustomAmount(adjustedAmount)
                     }
-
-                    plan.setCustomAmount(adjustedAmount)
                 }
             }
 

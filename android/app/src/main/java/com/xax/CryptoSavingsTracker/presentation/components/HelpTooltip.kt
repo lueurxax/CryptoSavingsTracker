@@ -15,6 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.xax.CryptoSavingsTracker.presentation.theme.Elevation
+import com.xax.CryptoSavingsTracker.presentation.theme.IconSize
+import com.xax.CryptoSavingsTracker.presentation.theme.Spacing
 
 /**
  * Data class for tooltip content
@@ -38,13 +41,13 @@ fun HelpTooltip(
     Box(modifier = modifier) {
         IconButton(
             onClick = { showTooltip = true },
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(IconSize.standard)
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.HelpOutline,
                 contentDescription = "Help: $title",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(IconSize.inline)
             )
         }
 
@@ -56,14 +59,14 @@ fun HelpTooltip(
                 Surface(
                     modifier = Modifier
                         .widthIn(max = 300.dp)
-                        .padding(8.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    shadowElevation = 8.dp,
+                        .padding(Spacing.xs),
+                    shape = MaterialTheme.shapes.medium,
+                    shadowElevation = Elevation.tooltip,
                     color = MaterialTheme.colorScheme.surface
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier.padding(Spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -77,13 +80,13 @@ fun HelpTooltip(
                             )
                             IconButton(
                                 onClick = { showTooltip = false },
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(IconSize.standard)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "Close help",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(IconSize.small)
                                 )
                             }
                         }
@@ -112,7 +115,7 @@ fun TextWithTooltip(
 ) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xxs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(

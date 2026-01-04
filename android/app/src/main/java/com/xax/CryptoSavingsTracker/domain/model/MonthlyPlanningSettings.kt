@@ -115,17 +115,7 @@ class MonthlyPlanningSettings @Inject constructor(
             notifyChange()
         }
 
-    // MARK: - Fixed Budget Settings
-
-    /**
-     * Whether Fixed Budget mode is enabled (vs Per Goal mode)
-     */
-    var isFixedBudgetEnabled: Boolean
-        get() = prefs.getBoolean(Keys.IS_FIXED_BUDGET_ENABLED, false)
-        set(value) {
-            prefs.edit().putBoolean(Keys.IS_FIXED_BUDGET_ENABLED, value).apply()
-            notifyChange()
-        }
+    // MARK: - Budget Settings
 
     /**
      * User's monthly savings budget amount (null = use calculated minimum)
@@ -144,7 +134,7 @@ class MonthlyPlanningSettings @Inject constructor(
         }
 
     /**
-     * Currency for the fixed budget
+     * Currency for the budget calculator
      */
     var budgetCurrency: String
         get() = prefs.getString(Keys.BUDGET_CURRENCY, "USD")?.uppercase() ?: "USD"
@@ -154,49 +144,41 @@ class MonthlyPlanningSettings @Inject constructor(
         }
 
     /**
-     * What happens when a goal completes early
+     * Month label where the budget was last applied.
      */
-    var completionBehavior: CompletionBehavior
-        get() {
-            val name = prefs.getString(Keys.COMPLETION_BEHAVIOR, CompletionBehavior.FINISH_FASTER.name)
-            return try {
-                CompletionBehavior.valueOf(name ?: CompletionBehavior.FINISH_FASTER.name)
-            } catch (_: IllegalArgumentException) {
-                CompletionBehavior.FINISH_FASTER
+    var budgetAppliedMonthLabel: String?
+        get() = prefs.getString(Keys.BUDGET_APPLIED_MONTH_LABEL, null)
+        set(value) {
+            if (value == null) {
+                prefs.edit().remove(Keys.BUDGET_APPLIED_MONTH_LABEL).apply()
+            } else {
+                prefs.edit().putString(Keys.BUDGET_APPLIED_MONTH_LABEL, value).apply()
             }
-        }
-        set(value) {
-            prefs.edit().putString(Keys.COMPLETION_BEHAVIOR, value.name).apply()
             notifyChange()
         }
 
     /**
-     * Whether user has completed the fixed budget onboarding flow
+     * Signature of goal inputs when the budget was last applied.
      */
-    var hasCompletedFixedBudgetOnboarding: Boolean
-        get() = prefs.getBoolean(Keys.HAS_COMPLETED_FIXED_BUDGET_ONBOARDING, false)
+    var budgetAppliedSignature: String?
+        get() = prefs.getString(Keys.BUDGET_APPLIED_SIGNATURE, null)
         set(value) {
-            prefs.edit().putBoolean(Keys.HAS_COMPLETED_FIXED_BUDGET_ONBOARDING, value).apply()
+            if (value == null) {
+                prefs.edit().remove(Keys.BUDGET_APPLIED_SIGNATURE).apply()
+            } else {
+                prefs.edit().putString(Keys.BUDGET_APPLIED_SIGNATURE, value).apply()
+            }
             notifyChange()
         }
 
     /**
-     * Whether user has seen the Fixed Budget intro card (promotional)
+     * One-time migration notice flag for budget users.
      */
-    var hasSeenFixedBudgetIntro: Boolean
-        get() = prefs.getBoolean(Keys.HAS_SEEN_FIXED_BUDGET_INTRO, false)
+    var hasSeenBudgetMigrationNotice: Boolean
+        get() = prefs.getBoolean(Keys.HAS_SEEN_BUDGET_MIGRATION_NOTICE, false)
         set(value) {
-            prefs.edit().putBoolean(Keys.HAS_SEEN_FIXED_BUDGET_INTRO, value).apply()
+            prefs.edit().putBoolean(Keys.HAS_SEEN_BUDGET_MIGRATION_NOTICE, value).apply()
             notifyChange()
-        }
-
-    /**
-     * Current planning mode (convenience property)
-     */
-    var planningMode: PlanningMode
-        get() = if (isFixedBudgetEnabled) PlanningMode.FIXED_BUDGET else PlanningMode.PER_GOAL
-        set(value) {
-            isFixedBudgetEnabled = (value == PlanningMode.FIXED_BUDGET)
         }
 
     // MARK: - Computed Properties
@@ -250,12 +232,12 @@ class MonthlyPlanningSettings @Inject constructor(
         autoStartEnabled = false
         autoCompleteEnabled = false
         undoGracePeriodHours = 24
-        // Fixed Budget settings
-        isFixedBudgetEnabled = false
+        // Budget settings
         monthlyBudget = null
         budgetCurrency = "USD"
-        completionBehavior = CompletionBehavior.FINISH_FASTER
-        hasCompletedFixedBudgetOnboarding = false
+        budgetAppliedMonthLabel = null
+        budgetAppliedSignature = null
+        hasSeenBudgetMigrationNotice = false
     }
 
     /**
@@ -315,13 +297,12 @@ class MonthlyPlanningSettings @Inject constructor(
         const val AUTO_START_ENABLED = "MonthlyPlanning.AutoStartEnabled"
         const val AUTO_COMPLETE_ENABLED = "MonthlyPlanning.AutoCompleteEnabled"
         const val UNDO_GRACE_PERIOD_HOURS = "MonthlyPlanning.UndoGracePeriodHours"
-        // Fixed Budget settings
-        const val IS_FIXED_BUDGET_ENABLED = "MonthlyPlanning.FixedBudget.IsEnabled"
+        // Budget settings
         const val MONTHLY_BUDGET = "MonthlyPlanning.FixedBudget.MonthlyBudget"
         const val BUDGET_CURRENCY = "MonthlyPlanning.FixedBudget.Currency"
-        const val COMPLETION_BEHAVIOR = "MonthlyPlanning.FixedBudget.CompletionBehavior"
-        const val HAS_COMPLETED_FIXED_BUDGET_ONBOARDING = "MonthlyPlanning.FixedBudget.HasCompletedOnboarding"
-        const val HAS_SEEN_FIXED_BUDGET_INTRO = "MonthlyPlanning.FixedBudget.HasSeenIntro"
+        const val BUDGET_APPLIED_MONTH_LABEL = "MonthlyPlanning.Budget.AppliedMonthLabel"
+        const val BUDGET_APPLIED_SIGNATURE = "MonthlyPlanning.Budget.AppliedSignature"
+        const val HAS_SEEN_BUDGET_MIGRATION_NOTICE = "MonthlyPlanning.Budget.HasSeenMigrationNotice"
     }
 
     companion object {

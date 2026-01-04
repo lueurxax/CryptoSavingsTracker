@@ -14,8 +14,30 @@ struct GoalRequirementRow: View {
     let adjustedAmount: Double?
     let onToggleProtection: () -> Void
     let onToggleSkip: () -> Void
+    let onSetCustomAmount: ((Double?) -> Void)?
+    let showBudgetIndicator: Bool
 
     @State private var showDetails = false
+    @State private var showCustomAmountSheet = false
+    @State private var customAmountText = ""
+
+    init(
+        requirement: MonthlyRequirement,
+        flexState: MonthlyPlan.FlexState,
+        adjustedAmount: Double?,
+        showBudgetIndicator: Bool = false,
+        onToggleProtection: @escaping () -> Void,
+        onToggleSkip: @escaping () -> Void,
+        onSetCustomAmount: ((Double?) -> Void)? = nil
+    ) {
+        self.requirement = requirement
+        self.flexState = flexState
+        self.adjustedAmount = adjustedAmount
+        self.showBudgetIndicator = showBudgetIndicator
+        self.onToggleProtection = onToggleProtection
+        self.onToggleSkip = onToggleSkip
+        self.onSetCustomAmount = onSetCustomAmount
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,6 +55,21 @@ struct GoalRequirementRow: View {
         .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
+        .sheet(isPresented: $showCustomAmountSheet) {
+            CustomAmountSheet(
+                goalName: requirement.goalName,
+                currency: requirement.currency,
+                requiredAmount: requirement.requiredMonthly,
+                currentCustomAmount: adjustedAmount,
+                onSave: { amount in
+                    onSetCustomAmount?(amount)
+                    showCustomAmountSheet = false
+                },
+                onCancel: {
+                    showCustomAmountSheet = false
+                }
+            )
+        }
     }
 
     // MARK: - Main Row Content
@@ -72,6 +109,12 @@ struct GoalRequirementRow: View {
                         .foregroundColor(.secondary)
 
                     amountDisplay
+
+                    if showBudgetIndicator {
+                        Text("From budget")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 .frame(minWidth: 80, alignment: .leading)
 
@@ -186,6 +229,24 @@ struct GoalRequirementRow: View {
     @ViewBuilder
     private var flexStateChip: some View {
         Menu {
+            // Set Custom Amount option
+            if onSetCustomAmount != nil {
+                Button(action: { showCustomAmountSheet = true }) {
+                    Label(
+                        adjustedAmount != nil ? "Edit Custom Amount" : "Set Custom Amount",
+                        systemImage: "dollarsign.circle"
+                    )
+                }
+
+                if adjustedAmount != nil {
+                    Button(role: .destructive, action: { onSetCustomAmount?(nil) }) {
+                        Label("Clear Custom Amount", systemImage: "xmark.circle")
+                    }
+                }
+
+                Divider()
+            }
+
             Button(action: onToggleProtection) {
                 Label(
                     flexState == .protected ? "Unlock Amount" : "Lock This Amount",
@@ -476,6 +537,234 @@ struct GoalRequirementRow: View {
         }
     }
     
+    private func formatAmount(_ amount: Double, currency: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = currency
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: amount)) ?? "\(currency) \(Int(amount))"
+    }
+}
+
+// MARK: - Custom Amount Sheet
+
+struct CustomAmountSheet: View {
+    let goalName: String
+    let currency: String
+    let requiredAmount: Double
+    let currentCustomAmount: Double?
+    let onSave: (Double?) -> Void
+    let onCancel: () -> Void
+
+    @State private var amountText: String = ""
+    @FocusState private var isAmountFocused: Bool
+
+    init(
+        goalName: String,
+        currency: String,
+        requiredAmount: Double,
+        currentCustomAmount: Double?,
+        onSave: @escaping (Double?) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.goalName = goalName
+        self.currency = currency
+        self.requiredAmount = requiredAmount
+        self.currentCustomAmount = currentCustomAmount
+        self.onSave = onSave
+        self.onCancel = onCancel
+        // Initialize with current custom amount or empty
+        _amountText = State(initialValue: currentCustomAmount.map { String(format: "%.2f", $0) } ?? "")
+    }
+
+    private var parsedAmount: Double? {
+        Double(amountText.replacingOccurrences(of: ",", with: "."))
+    }
+
+    private var isValidAmount: Bool {
+        guard let amount = parsedAmount else { return false }
+        return amount >= 0
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // Header info
+                VStack(spacing: 8) {
+                    Text(goalName)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+
+                    Text("Required: \(formatAmount(requiredAmount, currency: currency))")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top)
+
+                // Amount input
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Custom Amount (\(currency))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    HStack {
+                        Text(currencySymbol)
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+
+                        #if os(iOS)
+                        TextField("0.00", text: $amountText)
+                            .font(.title)
+                            .keyboardType(.decimalPad)
+                            .focused($isAmountFocused)
+                            .multilineTextAlignment(.leading)
+                        #else
+                        TextField("0.00", text: $amountText)
+                            .font(.title)
+                            .focused($isAmountFocused)
+                            .multilineTextAlignment(.leading)
+                        #endif
+                    }
+                    .padding()
+                    .background(.regularMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .padding(.horizontal)
+
+                // Quick amount buttons
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Quick Select")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            quickAmountButton(multiplier: 0.5, label: "50%")
+                            quickAmountButton(multiplier: 0.75, label: "75%")
+                            quickAmountButton(multiplier: 1.0, label: "100%")
+                            quickAmountButton(multiplier: 1.25, label: "125%")
+                            quickAmountButton(multiplier: 1.5, label: "150%")
+                            quickAmountButton(multiplier: 2.0, label: "200%")
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+
+                // Impact preview
+                if let amount = parsedAmount, amount > 0 {
+                    impactPreview(amount: amount)
+                        .padding(.horizontal)
+                }
+
+                Spacer()
+
+                // Action buttons
+                VStack(spacing: 12) {
+                    Button(action: {
+                        if let amount = parsedAmount, amount > 0 {
+                            onSave(amount)
+                        }
+                    }) {
+                        Text("Save Custom Amount")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(isValidAmount && (parsedAmount ?? 0) > 0 ? AccessibleColors.primaryInteractive : Color.gray)
+                            .foregroundColor(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .disabled(!isValidAmount || (parsedAmount ?? 0) <= 0)
+
+                    if currentCustomAmount != nil {
+                        Button(role: .destructive, action: { onSave(nil) }) {
+                            Text("Clear Custom Amount")
+                                .font(.subheadline)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom)
+            }
+            .navigationTitle("Set Amount")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+            }
+            .onAppear {
+                isAmountFocused = true
+            }
+        }
+        #if os(iOS)
+        .presentationDetents([.medium])
+        #endif
+    }
+
+    @ViewBuilder
+    private func quickAmountButton(multiplier: Double, label: String) -> some View {
+        let amount = requiredAmount * multiplier
+        Button(action: {
+            amountText = String(format: "%.2f", amount)
+        }) {
+            VStack(spacing: 4) {
+                Text(label)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                Text(formatAmount(amount, currency: currency))
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.quaternary)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func impactPreview(amount: Double) -> some View {
+        let difference = amount - requiredAmount
+        let percentChange = requiredAmount > 0 ? (difference / requiredAmount) * 100 : 0
+        let isIncrease = difference >= 0
+
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Compared to required")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 4) {
+                    Image(systemName: isIncrease ? "arrow.up" : "arrow.down")
+                        .font(.caption)
+                    Text("\(isIncrease ? "+" : "")\(formatAmount(difference, currency: currency))")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Text("(\(isIncrease ? "+" : "")\(String(format: "%.0f", percentChange))%)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .foregroundColor(isIncrease ? AccessibleColors.success : AccessibleColors.warning)
+            }
+
+            Spacer()
+        }
+        .padding()
+        .background((isIncrease ? AccessibleColors.success : AccessibleColors.warning).opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var currencySymbol: String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = currency
+        return formatter.currencySymbol ?? currency
+    }
+
     private func formatAmount(_ amount: Double, currency: String) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency

@@ -47,18 +47,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.GoalWithProgress
+import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import com.xax.CryptoSavingsTracker.presentation.common.EmptyState
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
+import com.xax.CryptoSavingsTracker.presentation.theme.Elevation
 import com.xax.CryptoSavingsTracker.presentation.theme.GoalAtRisk
 import com.xax.CryptoSavingsTracker.presentation.theme.GoalBehind
 import com.xax.CryptoSavingsTracker.presentation.theme.GoalCompleted
 import com.xax.CryptoSavingsTracker.presentation.theme.GoalOnTrack
+import com.xax.CryptoSavingsTracker.presentation.theme.IconSize
+import com.xax.CryptoSavingsTracker.presentation.theme.Spacing
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -123,8 +129,8 @@ fun GoalsScreen(
                 )
             } else {
                 LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
                     if (uiState.selectedFilter == GoalFilter.ALL || uiState.selectedFilter == GoalFilter.ACTIVE) {
                         if (uiState.unallocatedAssets.isNotEmpty()) {
@@ -180,8 +186,8 @@ private fun GoalFilterChips(
     onFilterSelected: (GoalFilter) -> Unit
 ) {
     LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
     ) {
         items(GoalFilter.entries) { filter ->
             FilterChip(
@@ -224,10 +230,10 @@ private fun GoalCard(
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = Elevation.card)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(Spacing.md)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -241,9 +247,9 @@ private fun GoalCard(
                         imageVector = Icons.Default.Flag,
                         contentDescription = null,
                         tint = statusColor,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(IconSize.standard)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(Spacing.xs))
                     Text(
                         text = goal.name,
                         style = MaterialTheme.typography.titleMedium,
@@ -255,7 +261,7 @@ private fun GoalCard(
                 StatusBadge(status = goal.lifecycleStatus)
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
 
             // Progress and target amount (uses fundedAmount to match iOS)
             Row(
@@ -264,7 +270,7 @@ private fun GoalCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${goal.currency} ${String.format("%,.2f", goalWithProgress.fundedAmount)}",
+                    text = AmountFormatters.formatDisplayCurrencyAmount(goalWithProgress.fundedAmount, goal.currency, isCrypto = false),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -278,21 +284,24 @@ private fun GoalCard(
             }
 
             Text(
-                text = "of ${goal.currency} ${String.format("%,.2f", goal.targetAmount)}",
+                text = "of ${AmountFormatters.formatDisplayCurrencyAmount(goal.targetAmount, goal.currency, isCrypto = false)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.xs))
 
             // Progress bar with real progress
             LinearProgressIndicator(
                 progress = { goalWithProgress.progress.toFloat().coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "${goal.name} progress: ${goalWithProgress.progressPercent} percent complete" },
                 color = statusColor,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.xs))
 
             // Deadline info
             Row(
@@ -310,7 +319,10 @@ private fun GoalCard(
                         goal.isOverdue() -> "Overdue by ${-daysRemaining} days"
                         daysRemaining == 0L -> "Due today"
                         daysRemaining == 1L -> "1 day left"
-                        else -> "$daysRemaining days left"
+                        daysRemaining < 7L -> "$daysRemaining days left"
+                        daysRemaining < 30L -> "${daysRemaining / 7} weeks left"
+                        daysRemaining < 365L -> "${daysRemaining / 30} months left"
+                        else -> "${daysRemaining / 365} years left"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium,
@@ -324,8 +336,8 @@ private fun GoalCard(
 @Composable
 private fun StatusBadge(status: GoalLifecycleStatus) {
     val (text, color) = when (status) {
-        GoalLifecycleStatus.ACTIVE -> "Active" to GoalOnTrack
-        GoalLifecycleStatus.FINISHED -> "Finished" to GoalCompleted
+        GoalLifecycleStatus.ACTIVE -> "Active" to GoalCompleted  // Blue to avoid conflict with green progress bars
+        GoalLifecycleStatus.FINISHED -> "Finished" to GoalOnTrack  // Green for completed
         GoalLifecycleStatus.CANCELLED -> "Cancelled" to GoalAtRisk
         GoalLifecycleStatus.DELETED -> "Deleted" to GoalBehind
     }
@@ -339,7 +351,7 @@ private fun StatusBadge(status: GoalLifecycleStatus) {
             text = text,
             style = MaterialTheme.typography.labelSmall,
             color = color,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs)
         )
     }
 }

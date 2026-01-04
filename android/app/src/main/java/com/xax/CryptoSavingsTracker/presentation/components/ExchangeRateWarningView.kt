@@ -19,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.xax.CryptoSavingsTracker.presentation.theme.IconSize
+import com.xax.CryptoSavingsTracker.presentation.theme.Spacing
 import com.xax.CryptoSavingsTracker.presentation.theme.WarningOrange
 import java.time.Duration
 import java.time.Instant
@@ -39,17 +41,17 @@ fun ExchangeRateWarningView(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(MaterialTheme.shapes.small)
             .background(WarningOrange.copy(alpha = 0.1f))
-            .padding(8.dp),
+            .padding(Spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
     ) {
         Icon(
             imageVector = Icons.Default.Warning,
             contentDescription = null,
             tint = WarningOrange,
-            modifier = Modifier.size(16.dp)
+            modifier = Modifier.size(IconSize.inline)
         )
 
         Column(modifier = Modifier.weight(1f)) {
@@ -84,17 +86,17 @@ fun ExchangeRateStatusBadge(
     if (!hasRates) {
         Row(
             modifier = modifier
-                .clip(RoundedCornerShape(4.dp))
+                .clip(MaterialTheme.shapes.extraSmall)
                 .background(WarningOrange.copy(alpha = 0.1f))
                 .padding(horizontal = 6.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xxs)
         ) {
             Icon(
                 imageVector = Icons.Default.Warning,
                 contentDescription = null,
                 tint = WarningOrange,
-                modifier = Modifier.size(12.dp)
+                modifier = Modifier.size(Spacing.sm)
             )
             Text(
                 text = "Rates Unavailable",

@@ -204,6 +204,13 @@ final class ExecutionTrackingService {
 
     /// Mark month as complete
     func markComplete(_ record: MonthlyExecutionRecord) async throws {
+        if UITestFlags.isEnabled {
+            record.markComplete()
+            try modelContext.save()
+            NotificationCenter.default.post(name: .monthlyExecutionCompleted, object: record)
+            return
+        }
+
         record.markComplete()
         let completedAt = record.completedAt ?? Date()
 

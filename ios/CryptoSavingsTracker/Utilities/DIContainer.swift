@@ -294,9 +294,9 @@ class DIContainer: ObservableObject {
         return FlexAdjustmentService(exchangeRateService: exchangeRateService, modelContext: modelContext)
     }
 
-    // MARK: - Fixed Budget Planning Service Factory
-    func fixedBudgetPlanningService(modelContext: ModelContext) -> FixedBudgetPlanningService {
-        return FixedBudgetPlanningService(
+    // MARK: - Budget Calculator Service Factory
+    func budgetCalculatorService(modelContext: ModelContext) -> BudgetCalculatorService {
+        return BudgetCalculatorService(
             exchangeRateService: exchangeRateService
         )
     }

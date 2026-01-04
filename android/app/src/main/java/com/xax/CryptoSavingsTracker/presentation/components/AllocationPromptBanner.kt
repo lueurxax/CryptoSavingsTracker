@@ -29,7 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
+import com.xax.CryptoSavingsTracker.presentation.theme.Elevation
+import com.xax.CryptoSavingsTracker.presentation.theme.IconSize
 import com.xax.CryptoSavingsTracker.presentation.theme.InfoBlue
+import com.xax.CryptoSavingsTracker.presentation.theme.Spacing
 import kotlinx.coroutines.delay
 
 /**
@@ -62,19 +65,19 @@ fun AllocationPromptBanner(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .shadow(2.dp, RoundedCornerShape(10.dp))
+                .padding(horizontal = Spacing.md, vertical = Spacing.xs)
+                .shadow(Elevation.card, RoundedCornerShape(10.dp))
                 .clip(RoundedCornerShape(10.dp))
                 .background(InfoBlue.copy(alpha = 0.1f))
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
         ) {
             Icon(
                 imageVector = Icons.Default.Info,
                 contentDescription = null,
                 tint = InfoBlue,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(IconSize.small)
             )
 
             Column(modifier = Modifier.weight(1f)) {
@@ -104,7 +107,7 @@ fun AllocationPromptBanner(
 
             IconButton(
                 onClick = onDismiss,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(IconSize.standard)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,

@@ -34,12 +34,12 @@ val OnSurfaceDark = Color(0xFFE6E6E6)
 // Status colors (accessible)
 val PositiveGreen = Color(0xFF00875A)
 val NegativeRed = Color(0xFFCC0000)
-val WarningOrange = Color(0xFFCC6600)
+val WarningOrange = Color(0xFFB84D00) // Darkened from #CC6600 for WCAG AA contrast
 val InfoBlue = Color(0xFF0066CC)
 
 // Goal progress colors
 val GoalOnTrack = Color(0xFF00875A)
-val GoalBehind = Color(0xFFCC6600)
+val GoalBehind = Color(0xFFB84D00) // Darkened from #CC6600 for WCAG AA contrast
 val GoalAtRisk = Color(0xFFCC0000)
 val GoalCompleted = Color(0xFF0066CC)
 
@@ -53,8 +53,8 @@ val AltcoinPurple = Color(0xFF8B5CF6)
 val DepositGreen = Color(0xFF00875A)
 val WithdrawalRed = Color(0xFFCC0000)
 
-// Accessible status colors (WCAG compliant)
+// Accessible status colors (WCAG AA compliant)
 val AccessibleGreen = Color(0xFF00875A)
 val AccessibleRed = Color(0xFFCC0000)
-val AccessibleYellow = Color(0xFFCC6600)
+val AccessibleYellow = Color(0xFFB84D00) // Darkened from #CC6600 for better contrast (5.4:1)
 val AccessibleBlue = Color(0xFF0066CC)

@@ -2,10 +2,7 @@ package com.xax.CryptoSavingsTracker.presentation.execution
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.xax.CryptoSavingsTracker.domain.model.GoalContribution
 import com.xax.CryptoSavingsTracker.domain.model.MonthlyPlanningSettings
-import com.xax.CryptoSavingsTracker.domain.model.PlanningMode
-import com.xax.CryptoSavingsTracker.domain.model.ScheduledGoalBlock
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
 import com.xax.CryptoSavingsTracker.domain.repository.CompletedExecutionRepository
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
@@ -18,7 +15,6 @@ import com.xax.CryptoSavingsTracker.domain.usecase.execution.GetExecutionSession
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.StartExecutionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.UndoExecutionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.UndoStartExecutionUseCase
-import com.xax.CryptoSavingsTracker.domain.usecase.planning.FixedBudgetPlanningUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +27,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.max
+import java.time.LocalDate
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 data class ExecutionUiState(
     val session: ExecutionSession? = null,
@@ -43,27 +41,13 @@ data class ExecutionUiState(
     val remainingCurrencyByGoalId: Map<String, String> = emptyMap(),
     val totalRemainingDisplay: Double? = null,
     val hasRateConversionWarning: Boolean = false,
-    // Fixed Budget Mode context
-    val isFixedBudgetMode: Boolean = false,
-    val monthlyBudget: Double = 0.0,
-    val budgetCurrency: String = "USD",
-    val budgetProgress: Double = 0.0, // Progress toward monthly budget (0-100)
-    val currentScheduledGoal: FixedBudgetGoalInfo? = null,
-    val nextUpGoal: FixedBudgetGoalInfo? = null,
-    val scheduleBlocks: List<ScheduledGoalBlock> = emptyList()
+    val currentFocusGoal: ExecutionFocusGoal? = null,
+    val lastRateUpdateMillis: Long? = null
 )
 
-/**
- * Info about a goal in the fixed budget schedule.
- */
-data class FixedBudgetGoalInfo(
-    val goalId: String,
+data class ExecutionFocusGoal(
     val goalName: String,
-    val emoji: String?,
-    val progress: Double, // 0-100
-    val contributed: Double,
-    val target: Double,
-    val paymentsRemaining: Int
+    val deadline: LocalDate
 )
 
 data class ExecutionAssetOption(
@@ -77,10 +61,12 @@ private data class RemainingDisplayState(
     val remainingByGoal: Map<String, Double>,
     val remainingCurrencyByGoal: Map<String, String>,
     val totalRemaining: Double?,
-    val hasWarning: Boolean
+    val hasWarning: Boolean,
+    val rateUpdateMillis: Long?
 )
 
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class ExecutionViewModel @Inject constructor(
     private val startExecutionUseCase: StartExecutionUseCase,
     private val getExecutionSessionUseCase: GetExecutionSessionUseCase,
@@ -92,7 +78,6 @@ class ExecutionViewModel @Inject constructor(
     private val executionContributionCalculator: ExecutionContributionCalculatorUseCase,
     private val getAssetsUseCase: GetAssetsUseCase,
     private val allocationRepository: AllocationRepository,
-    private val fixedBudgetPlanningUseCase: FixedBudgetPlanningUseCase,
     private val goalRepository: GoalRepository
 ) : ViewModel() {
 
@@ -102,14 +87,22 @@ class ExecutionViewModel @Inject constructor(
         monthlyPlanningSettings.executionDisplayCurrency
     )
 
-    // Fixed Budget Mode state
-    private val _fixedBudgetState = kotlinx.coroutines.flow.MutableStateFlow(FixedBudgetExecutionState())
-
     private val sessionFlow = getExecutionSessionUseCase.currentExecuting()
     private val remainingDisplayFlow = sessionFlow.combine(_displayCurrency) { session, currency ->
         session to currency
     }.mapLatest { (session, currency) ->
         buildRemainingDisplay(session, currency)
+    }
+    private val focusGoalFlow = sessionFlow.combine(goalRepository.getActiveGoals()) { session, goals ->
+        if (session == null) return@combine null
+        val goalById = goals.associateBy { it.id }
+        val candidates = session.activeGoals.mapNotNull { progress ->
+            val remaining = progress.plannedAmount - progress.contributed
+            if (remaining <= 0.01) return@mapNotNull null
+            val goal = goalById[progress.snapshot.goalId] ?: return@mapNotNull null
+            ExecutionFocusGoal(goalName = progress.snapshot.goalName, deadline = goal.deadline)
+        }
+        candidates.minByOrNull { it.deadline }
     }
 
     // Extract undoable record flow as a separate property
@@ -124,13 +117,6 @@ class ExecutionViewModel @Inject constructor(
         }
         .distinctUntilChanged()
 
-    init {
-        // Load fixed budget context when settings change
-        viewModelScope.launch {
-            loadFixedBudgetContext()
-        }
-    }
-
     // Use nested combine to stay within 5-parameter limit
     val uiState: StateFlow<ExecutionUiState> = combine(
         combine(sessionFlow, undoableRecordFlow) { session, undoableRecordId ->
@@ -140,8 +126,8 @@ class ExecutionViewModel @Inject constructor(
             Triple(isBusy, error, displayCurrency)
         },
         remainingDisplayFlow,
-        _fixedBudgetState
-    ) { (session, undoableRecordId), (isBusy, error, displayCurrency), remainingDisplay, fixedBudgetState ->
+        focusGoalFlow
+    ) { (session, undoableRecordId), (isBusy, error, displayCurrency), remainingDisplay, focusGoal ->
         val now = System.currentTimeMillis()
         val canUndoStart = session?.record?.startedAtMillis?.let { startedAt ->
             now < startedAt + UNDO_WINDOW_MILLIS
@@ -158,14 +144,8 @@ class ExecutionViewModel @Inject constructor(
             remainingCurrencyByGoalId = remainingDisplay.remainingCurrencyByGoal,
             totalRemainingDisplay = remainingDisplay.totalRemaining,
             hasRateConversionWarning = remainingDisplay.hasWarning,
-            // Fixed Budget Mode context
-            isFixedBudgetMode = fixedBudgetState.isEnabled,
-            monthlyBudget = fixedBudgetState.monthlyBudget,
-            budgetCurrency = fixedBudgetState.currency,
-            budgetProgress = fixedBudgetState.budgetProgress,
-            currentScheduledGoal = fixedBudgetState.currentGoal,
-            nextUpGoal = fixedBudgetState.nextUpGoal,
-            scheduleBlocks = fixedBudgetState.scheduleBlocks
+            currentFocusGoal = focusGoal,
+            lastRateUpdateMillis = remainingDisplay.rateUpdateMillis
         )
     }.stateIn(
         scope = viewModelScope,
@@ -281,7 +261,8 @@ class ExecutionViewModel @Inject constructor(
                 remainingByGoal = emptyMap(),
                 remainingCurrencyByGoal = emptyMap(),
                 totalRemaining = null,
-                hasWarning = false
+                hasWarning = false,
+                rateUpdateMillis = null
             )
         }
 
@@ -289,6 +270,7 @@ class ExecutionViewModel @Inject constructor(
         val currencyByGoal = mutableMapOf<String, String>()
         val rateCache = mutableMapOf<String, Double>()
         var hasWarning = false
+        var didFetchRates = false
 
         for (goal in session.goals) {
             val remaining = max(0.0, goal.plannedAmount - goal.contributed)
@@ -306,6 +288,7 @@ class ExecutionViewModel @Inject constructor(
 
             val key = "${goal.snapshot.currency.uppercase()}->${displayCurrency.uppercase()}"
             val rate = rateCache[key] ?: runCatching {
+                didFetchRates = true
                 executionContributionCalculator.convertAmount(1.0, goal.snapshot.currency, displayCurrency)
             }.getOrNull()?.also { rateCache[key] = it } ?: 0.0
 
@@ -329,124 +312,9 @@ class ExecutionViewModel @Inject constructor(
             remainingByGoal = remainingByGoal,
             remainingCurrencyByGoal = currencyByGoal,
             totalRemaining = totalRemaining,
-            hasWarning = hasWarning
+            hasWarning = hasWarning,
+            rateUpdateMillis = if (didFetchRates || rateCache.isNotEmpty()) System.currentTimeMillis() else null
         )
     }
 
-    /**
-     * Load fixed budget context for execution display.
-     * Shows current scheduled goal, progress toward monthly budget, and next-up goal.
-     */
-    private suspend fun loadFixedBudgetContext() {
-        val isEnabled = monthlyPlanningSettings.planningMode == PlanningMode.FIXED_BUDGET
-        if (!isEnabled) {
-            _fixedBudgetState.value = FixedBudgetExecutionState()
-            return
-        }
-
-        val budget = monthlyPlanningSettings.monthlyBudget ?: 0.0
-        val currency = monthlyPlanningSettings.budgetCurrency
-
-        if (budget <= 0) {
-            _fixedBudgetState.value = FixedBudgetExecutionState(isEnabled = true, currency = currency)
-            return
-        }
-
-        try {
-            // Get active goals and generate schedule
-            val goals = goalRepository.getAllGoals().first()
-                .filter { it.lifecycleStatus == com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus.ACTIVE }
-
-            if (goals.isEmpty()) {
-                _fixedBudgetState.value = FixedBudgetExecutionState(
-                    isEnabled = true,
-                    monthlyBudget = budget,
-                    currency = currency
-                )
-                return
-            }
-
-            // Generate the schedule
-            val plan = fixedBudgetPlanningUseCase.generateSchedule(goals, budget, currency)
-            val scheduleBlocks = fixedBudgetPlanningUseCase.buildTimelineBlocks(plan, goals)
-
-            // Find current goal being funded (first incomplete goal in schedule)
-            val currentContribution = plan.schedule.firstOrNull()?.contributions?.firstOrNull()
-            val currentGoalInfo = currentContribution?.let { contribution ->
-                val goal = goals.find { it.id == contribution.goalId }
-                goal?.let {
-                    FixedBudgetGoalInfo(
-                        goalId = it.id,
-                        goalName = it.name,
-                        emoji = it.emoji,
-                        progress = if (it.targetAmount > 0) (contribution.runningTotal / it.targetAmount * 100).coerceIn(0.0, 100.0) else 0.0,
-                        contributed = contribution.runningTotal,
-                        target = it.targetAmount,
-                        paymentsRemaining = scheduleBlocks.find { block -> block.goalId == it.id }?.paymentCount ?: 0
-                    )
-                }
-            }
-
-            // Find next-up goal (second goal in schedule, if any)
-            val nextContribution = plan.schedule.firstOrNull()?.contributions?.getOrNull(1)
-                ?: plan.schedule.getOrNull(1)?.contributions?.firstOrNull()
-            val nextUpGoalInfo = nextContribution?.let { contribution ->
-                val goal = goals.find { it.id == contribution.goalId }
-                goal?.let {
-                    FixedBudgetGoalInfo(
-                        goalId = it.id,
-                        goalName = it.name,
-                        emoji = it.emoji,
-                        progress = if (it.targetAmount > 0) (contribution.runningTotal / it.targetAmount * 100).coerceIn(0.0, 100.0) else 0.0,
-                        contributed = contribution.runningTotal,
-                        target = it.targetAmount,
-                        paymentsRemaining = scheduleBlocks.find { block -> block.goalId == it.id }?.paymentCount ?: 0
-                    )
-                }
-            }
-
-            // Calculate budget progress (contributed this month vs monthly budget)
-            val totalContributed = uiState.value.session?.totalContributed ?: 0.0
-            val budgetProgress = if (budget > 0) (totalContributed / budget * 100).coerceIn(0.0, 100.0) else 0.0
-
-            _fixedBudgetState.value = FixedBudgetExecutionState(
-                isEnabled = true,
-                monthlyBudget = budget,
-                currency = currency,
-                budgetProgress = budgetProgress,
-                currentGoal = currentGoalInfo,
-                nextUpGoal = nextUpGoalInfo,
-                scheduleBlocks = scheduleBlocks
-            )
-        } catch (e: Exception) {
-            // Silently fail - just don't show fixed budget context
-            _fixedBudgetState.value = FixedBudgetExecutionState(
-                isEnabled = true,
-                monthlyBudget = budget,
-                currency = currency
-            )
-        }
-    }
-
-    /**
-     * Refresh fixed budget context (call after contribution changes).
-     */
-    fun refreshFixedBudgetContext() {
-        viewModelScope.launch {
-            loadFixedBudgetContext()
-        }
-    }
 }
-
-/**
- * Internal state for fixed budget mode in execution.
- */
-private data class FixedBudgetExecutionState(
-    val isEnabled: Boolean = false,
-    val monthlyBudget: Double = 0.0,
-    val currency: String = "USD",
-    val budgetProgress: Double = 0.0,
-    val currentGoal: FixedBudgetGoalInfo? = null,
-    val nextUpGoal: FixedBudgetGoalInfo? = null,
-    val scheduleBlocks: List<ScheduledGoalBlock> = emptyList()
-)

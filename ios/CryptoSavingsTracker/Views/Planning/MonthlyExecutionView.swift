@@ -34,11 +34,6 @@ struct MonthlyExecutionView: View {
                 // Combined Progress Header
                 progressHeaderSection
 
-                // Fixed Budget Mode Header (if enabled)
-                if viewModel.isFixedBudgetMode && viewModel.monthlyBudget > 0 {
-                    fixedBudgetExecutionHeader
-                }
-
                 // Undo Banner
                 if viewModel.showUndoBanner {
                     undoBanner
@@ -213,6 +208,12 @@ struct MonthlyExecutionView: View {
                     .foregroundStyle(.orange)
             }
 
+            if let focus = viewModel.currentFocusGoal {
+                Text("Current focus: \(focus.goalName) (until \(formatFocusDate(focus.deadline)))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
             // Stats row
             HStack {
                 let stats = MonthlyExecutionStatistics(
@@ -273,104 +274,6 @@ struct MonthlyExecutionView: View {
         #endif
         .cornerRadius(12)
         .shadow(radius: 2)
-    }
-
-    // MARK: - Fixed Budget Execution Header
-
-    private var fixedBudgetExecutionHeader: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header with mode indicator
-            HStack {
-                Image(systemName: "play.fill")
-                    .font(.caption)
-                    .foregroundStyle(.blue)
-                Text("Fixed Budget Mode")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.blue)
-
-                Spacer()
-
-                Text(formatCurrency(viewModel.monthlyBudget, currency: viewModel.budgetCurrency))
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-            }
-
-            // Budget progress bar
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("Budget Progress")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text("\(Int(viewModel.budgetProgress))%")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(viewModel.budgetProgress >= 100 ? .green : .primary)
-                }
-
-                ProgressView(value: min(max(viewModel.budgetProgress, 0), 100), total: 100)
-                    .tint(viewModel.budgetProgress >= 100 ? .green : .blue)
-                    .scaleEffect(y: 1.2)
-            }
-
-            // Current goal being funded
-            if let currentGoal = viewModel.currentScheduledGoal {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Currently Funding")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        HStack(spacing: 4) {
-                            if let emoji = currentGoal.emoji {
-                                Text(emoji)
-                                    .font(.subheadline)
-                            }
-                            Text(currentGoal.goalName)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        }
-                    }
-
-                    Spacer()
-
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(Int(currentGoal.progress))%")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        if currentGoal.paymentsRemaining > 0 {
-                            Text("\(currentGoal.paymentsRemaining) payment\(currentGoal.paymentsRemaining > 1 ? "s" : "") left")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-
-            // Next-up goal preview
-            if let nextUpGoal = viewModel.nextUpGoal,
-               nextUpGoal.goalId != viewModel.currentScheduledGoal?.goalId {
-                HStack(spacing: 8) {
-                    Text("→")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("Next:")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    if let emoji = nextUpGoal.emoji {
-                        Text(emoji)
-                            .font(.caption)
-                    }
-                    Text(nextUpGoal.goalName)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.leading, 8)
-            }
-        }
-        .padding()
-        .background(Color.blue.opacity(0.1))
-        .cornerRadius(12)
     }
 
     // MARK: - Undo Banner
@@ -525,7 +428,13 @@ struct MonthlyExecutionView: View {
         VStack(spacing: 12) {
             if viewModel.isActive {
                 Button {
-                    showCompleteConfirmation = true
+                    if UITestFlags.isEnabled {
+                        Task {
+                            await viewModel.markComplete()
+                        }
+                    } else {
+                        showCompleteConfirmation = true
+                    }
                 } label: {
                     Label("Finish This Month", systemImage: "checkmark.circle.fill")
                         .frame(maxWidth: .infinity)
@@ -591,6 +500,12 @@ struct MonthlyExecutionView: View {
         formatter.unitsStyle = .short
         let relative = formatter.localizedString(for: date, relativeTo: Date())
         return "Rates updated \(relative)"
+    }
+
+    private func formatFocusDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
     }
 
     private func timeRemaining(until date: Date) -> String {

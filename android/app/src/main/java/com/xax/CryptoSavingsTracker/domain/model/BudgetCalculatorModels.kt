@@ -5,43 +5,7 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 /**
- * Defines what happens when a goal completes early (over-contribution)
- */
-enum class CompletionBehavior {
-    /** Keep paying the same amount, finish all goals sooner */
-    FINISH_FASTER,
-    /** Reduce monthly payment for remaining months */
-    LOWER_PAYMENTS;
-
-    val displayName: String
-        get() = when (this) {
-            FINISH_FASTER -> "Finish faster"
-            LOWER_PAYMENTS -> "Lower payments"
-        }
-
-    val description: String
-        get() = when (this) {
-            FINISH_FASTER -> "Keep paying the same amount, finish all goals sooner"
-            LOWER_PAYMENTS -> "Reduce your monthly payment, same finish dates"
-        }
-}
-
-/**
- * Planning mode selection for the Monthly Planning screen
- */
-enum class PlanningMode {
-    PER_GOAL,
-    FIXED_BUDGET;
-
-    val displayName: String
-        get() = when (this) {
-            PER_GOAL -> "Per Goal"
-            FIXED_BUDGET -> "Fixed Budget"
-        }
-}
-
-/**
- * A contribution to a single goal within a scheduled payment
+ * A contribution to a single goal within a scheduled payment.
  */
 data class GoalContribution(
     val id: String = UUID.randomUUID().toString(),
@@ -54,7 +18,7 @@ data class GoalContribution(
 )
 
 /**
- * A single payment on a specific date (may fund multiple goals)
+ * A single payment on a specific date (may fund multiple goals).
  */
 data class ScheduledPayment(
     val id: String = UUID.randomUUID().toString(),
@@ -65,19 +29,19 @@ data class ScheduledPayment(
     val totalAmount: Double
         get() = contributions.sumOf { it.amount }
 
-    /** Returns formatted payment date (e.g., "Jan 15") */
+    /** Returns formatted payment date (e.g., "Jan 15"). */
     val formattedDate: String
         get() = paymentDate.format(DateTimeFormatter.ofPattern("MMM d"))
 
-    /** Returns full formatted payment date */
+    /** Returns full formatted payment date. */
     val formattedDateFull: String
         get() = paymentDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
 }
 
 /**
- * The complete fixed budget plan with schedule
+ * The budget calculator preview plan (not persisted).
  */
-data class FixedBudgetPlan(
+data class BudgetCalculatorPlan(
     val id: String = UUID.randomUUID().toString(),
     val createdAt: Long = System.currentTimeMillis(),
     val monthlyBudget: Double,
@@ -87,25 +51,25 @@ data class FixedBudgetPlan(
     val minimumRequired: Double,
     val goalRemainingById: Map<String, Double> = emptyMap()
 ) {
-    /** Total amount across all scheduled payments */
+    /** Total amount across all scheduled payments. */
     val totalAmount: Double
         get() = schedule.sumOf { it.totalAmount }
 
-    /** Number of months in the plan */
+    /** Number of months in the plan. */
     val totalMonths: Int
         get() = schedule.size
 
-    /** First payment date */
+    /** First payment date. */
     val startDate: LocalDate?
         get() = schedule.firstOrNull()?.paymentDate
 
-    /** Last payment date */
+    /** Last payment date. */
     val endDate: LocalDate?
         get() = schedule.lastOrNull()?.paymentDate
 }
 
 /**
- * Represents a goal's period in the timeline visualization
+ * Represents a goal's period in the timeline visualization.
  */
 data class ScheduledGoalBlock(
     val id: String = UUID.randomUUID().toString(),
@@ -120,16 +84,16 @@ data class ScheduledGoalBlock(
     val paymentCount: Int,
     val isComplete: Boolean = false
 ) {
-    /** Formatted date range (e.g., "Jan 15 - Mar 15") */
+    /** Formatted date range (e.g., "Jan 2026 - Mar 2026"). */
     val dateRange: String
         get() {
-            val formatter = DateTimeFormatter.ofPattern("MMM d")
+            val formatter = DateTimeFormatter.ofPattern("MMM yyyy")
             return "${startDate.format(formatter)} - ${endDate.format(formatter)}"
         }
 }
 
 /**
- * A goal that cannot be met with the current budget
+ * A goal that cannot be met with the current budget.
  */
 data class InfeasibleGoal(
     val id: String = UUID.randomUUID().toString(),
@@ -142,7 +106,7 @@ data class InfeasibleGoal(
 )
 
 /**
- * A suggested action to resolve budget infeasibility
+ * A suggested action to resolve budget infeasibility.
  */
 sealed class FeasibilitySuggestion {
     abstract val id: String
@@ -179,6 +143,15 @@ sealed class FeasibilitySuggestion {
         override val iconName: String = "remove_circle"
     }
 
+    data class EditGoal(
+        val goalId: String,
+        val goalName: String
+    ) : FeasibilitySuggestion() {
+        override val id: String = "edit_$goalId"
+        override val title: String = "Edit $goalName..."
+        override val iconName: String = "edit"
+    }
+
     companion object {
         private fun formatCurrency(amount: Double, currency: String): String {
             return java.text.NumberFormat.getCurrencyInstance().apply {
@@ -190,7 +163,7 @@ sealed class FeasibilitySuggestion {
 }
 
 /**
- * Severity level for budget feasibility
+ * Severity level for budget feasibility.
  */
 enum class FeasibilityLevel {
     ACHIEVABLE,
@@ -206,7 +179,7 @@ enum class FeasibilityLevel {
 }
 
 /**
- * Result of checking if a budget is sufficient for all goals
+ * Result of checking if a budget is sufficient for all goals.
  */
 data class FeasibilityResult(
     val isFeasible: Boolean,
@@ -215,7 +188,6 @@ data class FeasibilityResult(
     val infeasibleGoals: List<InfeasibleGoal>,
     val suggestions: List<FeasibilitySuggestion>
 ) {
-    /** Status description for display */
     val statusDescription: String
         get() = when {
             isFeasible -> "All deadlines achievable"
@@ -223,7 +195,6 @@ data class FeasibilityResult(
             else -> "${infeasibleGoals.size} goals at risk"
         }
 
-    /** Status color indicator */
     val statusLevel: FeasibilityLevel
         get() = when {
             isFeasible -> FeasibilityLevel.ACHIEVABLE

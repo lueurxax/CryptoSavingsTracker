@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | 🔄 In Progress |
-| Last Updated | 2026-01-04 |
+| Last Updated | 2026-01-05 |
 | Platform | Android |
 | Audience | Developers |
 
@@ -62,6 +62,7 @@ This document outlines the comprehensive plan to build the Android version of Cr
 | On-Chain Balances | ✅ Full | Tatum API integration |
 | Dashboard | ✅ Full | Portfolio overview, goal summary |
 | CSV Export | ✅ Full | Matches iOS export format |
+| Budget Calculator | ✅ Full | All 10 UI/UX improvements from iOS |
 
 #### 🔄 In Progress (Untracked Files Ready for Commit)
 
@@ -117,6 +118,7 @@ This document outlines the comprehensive plan to build the Android version of Cr
 | MonthlyGoalPlan | Per-goal customization architecture |
 | Date storage | epochDay for dates, epochMillis for timestamps |
 | CSV export | 3-file format matching iOS exactly |
+| Budget Calculator UI | Full parity: 10 UI/UX fixes + payment schedule sheet |
 
 ### Remaining Work
 
@@ -375,6 +377,7 @@ fun EmojiPicker(
 
 | iOS Component | Android Status | Priority |
 |---------------|----------------|----------|
+| GoalPaymentScheduleSheet | ✅ Implemented | Done |
 | ImpactPreviewCard | Missing | P1 (for Flex UI) |
 | ExchangeRateWarningView | Missing | P2 |
 | AllocationPromptBanner | Missing | P2 |

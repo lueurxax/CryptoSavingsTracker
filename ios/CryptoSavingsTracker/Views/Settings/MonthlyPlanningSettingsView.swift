@@ -27,6 +27,7 @@ struct MonthlyPlanningSettingsView: View {
     @State private var showAdvancedOptions = false
     @State private var previewTotal: Double = 0
     @State private var isLoadingPreview = false
+    @State private var showingBudgetEditor = false
     
     // For preview calculations - simplified to avoid dependencies
     let goals: [SimpleGoal]
@@ -106,6 +107,19 @@ struct MonthlyPlanningSettingsView: View {
                 await loadPreviewTotal()
             }
         }
+        .sheet(isPresented: $showingBudgetEditor) {
+            BudgetEditorSheet(
+                currentAmount: settings.monthlyBudget,
+                currency: settings.budgetCurrency,
+                onSave: { amount, currency in
+                    settings.monthlyBudget = amount
+                    settings.budgetCurrency = currency
+                },
+                onClear: {
+                    settings.monthlyBudget = nil
+                }
+            )
+        }
     }
     
     @ViewBuilder
@@ -119,6 +133,14 @@ struct MonthlyPlanningSettingsView: View {
                 Text("Display Preferences")
             } footer: {
                 Text("Choose which currency to show your total monthly requirements in.")
+            }
+
+            Section {
+                budgetRow
+            } header: {
+                Text("Monthly Budget")
+            } footer: {
+                Text("Optional: set a monthly budget to plan contributions by a fixed amount.")
             }
             
             // Payment Cycle Section
@@ -225,6 +247,33 @@ struct MonthlyPlanningSettingsView: View {
         }
         .accessibilityLabel("Total monthly requirements preview")
         .accessibilityValue(isLoadingPreview ? "Loading" : CurrencyFormatter.format(amount: previewTotal, currency: settings.displayCurrency))
+    }
+
+    private var budgetRow: some View {
+        HStack {
+            Label("Monthly Budget", systemImage: "banknote")
+                .foregroundColor(.primary)
+
+            Spacer()
+
+            Button(action: {
+                showingBudgetEditor = true
+            }) {
+                HStack(spacing: 4) {
+                    Text(formattedBudgetLabel())
+                        .fontWeight(.medium)
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .foregroundColor(.primary)
+        }
+    }
+
+    private func formattedBudgetLabel() -> String {
+        guard let budget = settings.monthlyBudget, budget > 0 else { return "Not set" }
+        return CurrencyFormatter.format(amount: budget, currency: settings.budgetCurrency, maximumFractionDigits: 2)
     }
     
     // MARK: - Payment Cycle
@@ -483,6 +532,168 @@ struct PaymentDayPickerSheet: View {
         #if os(macOS)
         .frame(minWidth: 400, idealWidth: 500, maxWidth: 600, minHeight: 500, idealHeight: 600, maxHeight: 700)
         #endif
+    }
+}
+
+struct BudgetEditorSheet: View {
+    let currentAmount: Double?
+    let currency: String
+    let onSave: (Double?, String) -> Void
+    let onClear: () -> Void
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @State private var amountText: String
+    @State private var selectedCurrency: String
+    @State private var showingCurrencyPicker = false
+    @State private var minimumBudget: Double?
+    @State private var isCalculatingMinimum = false
+
+    init(
+        currentAmount: Double?,
+        currency: String,
+        onSave: @escaping (Double?, String) -> Void,
+        onClear: @escaping () -> Void
+    ) {
+        self.currentAmount = currentAmount
+        self.currency = currency
+        self.onSave = onSave
+        self.onClear = onClear
+        self._amountText = State(initialValue: currentAmount.map { String(format: "%.2f", $0) } ?? "")
+        self._selectedCurrency = State(initialValue: currency)
+    }
+
+    private var parsedAmount: Double? {
+        let sanitized = amountText.filter { $0.isNumber || $0 == "." }
+        return Double(sanitized)
+    }
+
+    private var formattedMinimum: String? {
+        guard let minimumBudget, minimumBudget > 0 else { return nil }
+        return CurrencyFormatter.format(amount: minimumBudget, currency: selectedCurrency, maximumFractionDigits: 2)
+    }
+
+    @ViewBuilder
+    private var amountField: some View {
+        #if os(iOS)
+        TextField("Amount", text: $amountText)
+            .keyboardType(.decimalPad)
+        #else
+        TextField("Amount", text: $amountText)
+        #endif
+    }
+
+    private func loadMinimumBudget() async {
+        isCalculatingMinimum = true
+        let descriptor = FetchDescriptor<Goal>(
+            predicate: #Predicate { goal in
+                goal.lifecycleStatusRawValue == "active"
+            }
+        )
+        let goals = (try? modelContext.fetch(descriptor)) ?? []
+        let service = DIContainer.shared.budgetCalculatorService(modelContext: modelContext)
+        let minimum = await service.calculateMinimumBudget(goals: goals, currency: selectedCurrency)
+        minimumBudget = minimum > 0 ? minimum : nil
+        isCalculatingMinimum = false
+    }
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section {
+                    HStack(spacing: 12) {
+                        Button {
+                            showingCurrencyPicker = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(selectedCurrency)
+                                    .fontWeight(.semibold)
+                                Image(systemName: "chevron.down")
+                                    .font(.caption)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.gray.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                        .buttonStyle(.plain)
+
+                        amountField
+                    }
+                }
+
+                Section {
+                    if isCalculatingMinimum {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("Calculating minimum...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    } else if let formattedMinimum {
+                        HStack {
+                            Text("Calculated minimum")
+                            Spacer()
+                            Text(formattedMinimum)
+                                .foregroundColor(.secondary)
+                        }
+                        Button("Use calculated minimum") {
+                            if let minimumBudget {
+                                amountText = String(format: "%.2f", minimumBudget)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Monthly Budget")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        onSave(parsedAmount, selectedCurrency)
+                        dismiss()
+                    }
+                    .disabled(parsedAmount == nil || parsedAmount == 0)
+                }
+                #if os(iOS)
+                ToolbarItem(placement: .bottomBar) {
+                    if currentAmount != nil {
+                        Button("Clear Budget") {
+                            onClear()
+                            dismiss()
+                        }
+                        .foregroundColor(.red)
+                    }
+                }
+                #else
+                ToolbarItem(placement: .automatic) {
+                    if currentAmount != nil {
+                        Button("Clear Budget") {
+                            onClear()
+                            dismiss()
+                        }
+                        .foregroundColor(.red)
+                    }
+                }
+                #endif
+            }
+        }
+        .sheet(isPresented: $showingCurrencyPicker) {
+            SearchableCurrencyPicker(selectedCurrency: $selectedCurrency, pickerType: .fiat)
+        }
+        .task {
+            await loadMinimumBudget()
+        }
+        .onChange(of: selectedCurrency) { _, _ in
+            Task {
+                await loadMinimumBudget()
+            }
+        }
     }
 }
 

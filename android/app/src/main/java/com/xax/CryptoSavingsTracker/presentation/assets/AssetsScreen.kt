@@ -56,7 +56,10 @@ import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import com.xax.CryptoSavingsTracker.presentation.common.EmptyState
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
 import com.xax.CryptoSavingsTracker.presentation.theme.BitcoinOrange
+import com.xax.CryptoSavingsTracker.presentation.theme.Elevation
 import com.xax.CryptoSavingsTracker.presentation.theme.EthereumBlue
+import com.xax.CryptoSavingsTracker.presentation.theme.IconSize
+import com.xax.CryptoSavingsTracker.presentation.theme.Spacing
 import com.xax.CryptoSavingsTracker.presentation.theme.StablecoinGreen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -114,8 +117,8 @@ fun AssetsScreen(
                 }
                 else -> {
                     LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        contentPadding = PaddingValues(Spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         items(
                         items = uiState.assets,
@@ -173,10 +176,10 @@ private fun AssetCard(
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = Elevation.card)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(Spacing.md)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -190,9 +193,9 @@ private fun AssetCard(
                         imageVector = Icons.Default.AccountBalance,
                         contentDescription = null,
                         tint = currencyColor,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(IconSize.large)
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(Spacing.sm))
                     Column {
                         Text(
                             text = asset.currency,
@@ -219,14 +222,14 @@ private fun AssetCard(
                             text = "Crypto",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs)
                         )
                     }
                 }
             }
 
             if (!asset.address.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Spacing.sm))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -246,21 +249,21 @@ private fun AssetCard(
                                 clipboardManager.setText(AnnotatedString(it))
                             }
                         },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(IconSize.large)
                     ) {
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
                             contentDescription = "Copy address",
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(IconSize.small)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.xs))
 
             Text(
-                text = "Balance: ${AmountFormatters.formatDisplayAmount(item.totalBalance, isCrypto = asset.isCryptoAsset)} ${asset.currency}",
+                text = "Balance: ${AmountFormatters.formatDisplayCurrencyAmount(item.totalBalance, asset.currency, isCrypto = asset.isCryptoAsset)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

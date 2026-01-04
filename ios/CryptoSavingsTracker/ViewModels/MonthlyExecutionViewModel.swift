@@ -64,28 +64,8 @@ final class MonthlyExecutionViewModel: ObservableObject {
     /// Indicates if any conversion failed and fallback currency is in use
     @Published var hasRateConversionWarning = false
 
-    // MARK: - Fixed Budget Mode Properties
-
-    /// Whether we're in fixed budget mode
-    @Published var isFixedBudgetMode = false
-
-    /// Monthly budget amount (when in fixed budget mode)
-    @Published var monthlyBudget: Double = 0
-
-    /// Budget currency
-    @Published var budgetCurrency: String = "USD"
-
-    /// Progress toward monthly budget (0-100)
-    @Published var budgetProgress: Double = 0
-
-    /// Current goal being funded according to fixed budget schedule
-    @Published var currentScheduledGoal: FixedBudgetGoalInfo?
-
-    /// Next goal in the funding queue
-    @Published var nextUpGoal: FixedBudgetGoalInfo?
-
-    /// Timeline blocks for the fixed budget schedule
-    @Published var scheduleBlocks: [ScheduledGoalBlock] = []
+    /// Current focus goal for execution (earliest deadline with remaining amount)
+    @Published var currentFocusGoal: ExecutionFocusGoal?
 
     // MARK: - Computed Properties
 
@@ -220,9 +200,7 @@ final class MonthlyExecutionViewModel: ObservableObject {
                 await loadContributedTotals(for: record)
                 await calculateProgress(for: record)
                 await refreshRemainingDisplayAmounts()
-
-                // Load fixed budget context if enabled
-                await loadFixedBudgetContext()
+                await refreshCurrentFocusGoal()
 
                 // Check undo state
                 let (shouldShowUndo, deadline) = undoState(for: record)
@@ -258,6 +236,7 @@ final class MonthlyExecutionViewModel: ObservableObject {
 
             await loadContributedTotals(for: record)
             await calculateProgress(for: record)
+            await refreshCurrentFocusGoal()
 
             isLoading = false
         } catch {
@@ -469,6 +448,7 @@ final class MonthlyExecutionViewModel: ObservableObject {
             remainingDisplayCurrencyByGoal = [:]
             hasRateConversionWarning = false
             displayRateUpdatedAt = nil
+            currentFocusGoal = nil
             return
         }
 
@@ -519,6 +499,31 @@ final class MonthlyExecutionViewModel: ObservableObject {
         hasRateConversionWarning = hadWarning
         displayRateUpdatedAt = Date()
     }
+
+    private func refreshCurrentFocusGoal() async {
+        guard executionRecord?.status == .executing else {
+            currentFocusGoal = nil
+            return
+        }
+
+        let snapshots = displayGoalSnapshots.filter { snapshot in
+            !snapshot.isSkipped && remainingToClose(for: snapshot) > 0.01
+        }
+        guard !snapshots.isEmpty else {
+            currentFocusGoal = nil
+            return
+        }
+
+        let allGoals = (try? modelContext.fetch(FetchDescriptor<Goal>())) ?? []
+        let goalsById = Dictionary(uniqueKeysWithValues: allGoals.map { ($0.id, $0) })
+
+        let candidates = snapshots.compactMap { snapshot -> ExecutionFocusGoal? in
+            guard let goal = goalsById[snapshot.goalId] else { return nil }
+            return ExecutionFocusGoal(goalName: snapshot.goalName, deadline: goal.deadline)
+        }
+
+        currentFocusGoal = candidates.min(by: { $0.deadline < $1.deadline })
+    }
 }
 
 private enum DisplayCurrencyKeys {
@@ -543,6 +548,11 @@ struct MonthlyExecutionStatistics {
         self.fulfilledCount = fulfillment.values.filter { $0 }.count
         self.remainingAmount = max(0, totalPlanned - totalContributed)
     }
+}
+
+struct ExecutionFocusGoal: Equatable {
+    let goalName: String
+    let deadline: Date
 }
 
 // MARK: - Goal Progress Helper
@@ -658,107 +668,4 @@ extension MonthlyExecutionViewModel {
         return baseline?.goalSnapshots.map { $0.goalId } ?? []
     }
 
-    // MARK: - Fixed Budget Mode Support
-
-    /// Load fixed budget context for execution display
-    func loadFixedBudgetContext() async {
-        let settings = MonthlyPlanningSettings.shared
-        isFixedBudgetMode = settings.planningMode == .fixedBudget
-
-        guard isFixedBudgetMode else {
-            clearFixedBudgetState()
-            return
-        }
-
-        monthlyBudget = settings.monthlyBudget ?? 0
-        budgetCurrency = settings.budgetCurrency
-
-        guard monthlyBudget > 0 else {
-            clearFixedBudgetState()
-            isFixedBudgetMode = true
-            return
-        }
-
-        // Fetch active goals
-        let descriptor = FetchDescriptor<Goal>(
-            predicate: #Predicate<Goal> { $0.lifecycleStatusRawValue == "active" }
-        )
-        guard let goals = try? modelContext.fetch(descriptor), !goals.isEmpty else {
-            clearFixedBudgetState()
-            isFixedBudgetMode = true
-            return
-        }
-
-        // Generate schedule using FixedBudgetPlanningService
-        let fixedBudgetService = DIContainer.shared.fixedBudgetPlanningService(modelContext: modelContext)
-
-        let plan = await fixedBudgetService.generateSchedule(
-            goals: goals,
-            budget: monthlyBudget,
-            currency: budgetCurrency
-        )
-        scheduleBlocks = await fixedBudgetService.buildTimelineBlocks(from: plan, goals: goals)
-
-        // Find current goal being funded
-        if let firstContribution = plan.schedule.first?.contributions.first {
-            if let goal = goals.first(where: { $0.id == firstContribution.goalId }) {
-                let progress: Double = goal.targetAmount > 0 ? min(100.0, firstContribution.runningTotal / goal.targetAmount * 100.0) : 0.0
-                currentScheduledGoal = FixedBudgetGoalInfo(
-                    goalId: goal.id,
-                    goalName: goal.name,
-                    emoji: goal.emoji,
-                    progress: progress,
-                    contributed: firstContribution.runningTotal,
-                    target: goal.targetAmount,
-                    paymentsRemaining: scheduleBlocks.first(where: { $0.goalId == goal.id })?.paymentCount ?? 0
-                )
-            }
-        }
-
-        // Find next-up goal
-        let nextContribution = plan.schedule.first?.contributions.dropFirst().first
-            ?? plan.schedule.dropFirst().first?.contributions.first
-        if let contribution = nextContribution,
-           contribution.goalId != currentScheduledGoal?.goalId,
-           let goal = goals.first(where: { $0.id == contribution.goalId }) {
-            let progress: Double = goal.targetAmount > 0 ? min(100.0, contribution.runningTotal / goal.targetAmount * 100.0) : 0.0
-            nextUpGoal = FixedBudgetGoalInfo(
-                goalId: goal.id,
-                goalName: goal.name,
-                emoji: goal.emoji,
-                progress: progress,
-                contributed: contribution.runningTotal,
-                target: goal.targetAmount,
-                paymentsRemaining: scheduleBlocks.first(where: { $0.goalId == goal.id })?.paymentCount ?? 0
-            )
-        }
-
-        // Calculate budget progress
-        budgetProgress = monthlyBudget > 0 ? min(100.0, totalContributed / monthlyBudget * 100.0) : 0.0
-    }
-
-    private func clearFixedBudgetState() {
-        isFixedBudgetMode = false
-        monthlyBudget = 0
-        budgetCurrency = "USD"
-        budgetProgress = 0
-        currentScheduledGoal = nil
-        nextUpGoal = nil
-        scheduleBlocks = []
-    }
-}
-
-// MARK: - Fixed Budget Goal Info
-
-/// Info about a goal in the fixed budget schedule
-struct FixedBudgetGoalInfo: Identifiable {
-    let goalId: UUID
-    let goalName: String
-    let emoji: String?
-    let progress: Double // 0-100
-    let contributed: Double
-    let target: Double
-    let paymentsRemaining: Int
-
-    var id: UUID { goalId }
 }

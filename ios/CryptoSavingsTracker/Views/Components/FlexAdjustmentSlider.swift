@@ -66,7 +66,7 @@ struct FlexAdjustmentSlider: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Flexible payment adjustment controls")
         .accessibilityHint("Adjust monthly payments across all flexible goals. Use preset buttons or slider to modify amounts")
-        .accessibilityValue("\(Int(tempAdjustment * 100)) percent of original amounts")
+        .accessibilityValue(accessibilityValueLabel)
     }
     
     // MARK: - Header Section
@@ -93,6 +93,12 @@ struct FlexAdjustmentSlider: View {
                     .fontWeight(.bold)
                     .foregroundColor(adjustmentColor)
                     .contentTransition(.numericText())
+
+                if let budgetLabel {
+                    Text("of budget \(budgetLabel)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
                 
                 if isAdjusting {
                     Text("Previewing...")
@@ -106,6 +112,23 @@ struct FlexAdjustmentSlider: View {
                 }
             }
         }
+    }
+
+    private var budgetLabel: String? {
+        guard viewModel.hasBudget else { return nil }
+        return CurrencyFormatter.format(
+            amount: viewModel.budgetAmount,
+            currency: viewModel.budgetCurrency,
+            maximumFractionDigits: 2
+        )
+    }
+
+    private var accessibilityValueLabel: String {
+        let percent = Int(tempAdjustment * 100)
+        if let budgetLabel {
+            return "\(percent) percent of budget \(budgetLabel)"
+        }
+        return "\(percent) percent of original amounts"
     }
     
     // MARK: - Slider Section

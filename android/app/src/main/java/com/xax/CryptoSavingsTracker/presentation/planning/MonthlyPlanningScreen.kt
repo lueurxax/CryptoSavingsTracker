@@ -61,11 +61,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.xax.CryptoSavingsTracker.domain.model.PlanningMode
+import com.xax.CryptoSavingsTracker.domain.model.FeasibilityResult
 import com.xax.CryptoSavingsTracker.domain.model.RequirementStatus
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
-import com.xax.CryptoSavingsTracker.presentation.planning.components.FixedBudgetIntroCard
-import com.xax.CryptoSavingsTracker.presentation.planning.components.PlanningModeSegmentedControl
+import com.xax.CryptoSavingsTracker.presentation.planning.components.BudgetCalculatorDialog
+import com.xax.CryptoSavingsTracker.presentation.planning.components.BudgetEntryCard
+import com.xax.CryptoSavingsTracker.presentation.planning.components.BudgetNoticeCard
+import com.xax.CryptoSavingsTracker.presentation.planning.components.BudgetSummaryCard
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleGreen
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleRed
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleYellow
@@ -141,65 +143,48 @@ fun MonthlyPlanningScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Fixed Budget Intro Card (show only when in Per Goal mode and not seen yet)
-            if (!uiState.hasSeenFixedBudgetIntro && uiState.planningMode == PlanningMode.PER_GOAL) {
-                FixedBudgetIntroCard(
-                    onLearnMore = { viewModel.showSettings() },
-                    onTryIt = { viewModel.tryFixedBudgetMode() },
-                    onDismiss = { viewModel.dismissFixedBudgetIntro() },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            }
-
-            // Planning Mode Segmented Control
-            PlanningModeSegmentedControl(
-                selectedMode = uiState.planningMode,
-                onModeSelected = { mode -> viewModel.setPlanningMode(mode) },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-
-            // Content based on planning mode
-            when (uiState.planningMode) {
-                PlanningMode.FIXED_BUDGET -> {
-                    FixedBudgetPlanningScreen(
-                        navController = navController,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-                PlanningMode.PER_GOAL -> {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        when {
-                            uiState.isLoading -> {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.align(Alignment.Center)
-                                )
-                            }
-                            uiState.requirements.isEmpty() -> {
-                                EmptyPlanningState(
-                                    modifier = Modifier.align(Alignment.Center)
-                                )
-                            }
-                            else -> {
-                                MonthlyPlanningContent(
-                                    requirements = uiState.requirements,
-                                    flexAdjustment = uiState.flexAdjustment,
-                                    totalRequired = uiState.totalRequired,
-                                    baseTotalRequired = uiState.baseTotalRequired,
-                                    displayCurrency = uiState.displayCurrency,
-                                    paymentDay = uiState.paymentDay,
-                                    activeExecutionMonthLabel = uiState.activeExecutionMonthLabel,
-                                    activeExecutionStartedAtMillis = uiState.activeExecutionStartedAtMillis,
-                                    onViewExecution = { navController.navigate(Screen.Execution.route) },
-                                    onGoalClick = { goalId ->
-                                        navController.navigate(Screen.GoalDetail.createRoute(goalId))
-                                    },
-                                    onFlexAdjustmentChanged = viewModel::updateFlexAdjustment,
-                                    onToggleProtected = viewModel::toggleProtected,
-                                    onToggleSkipped = viewModel::toggleSkipped,
-                                    onCustomAmountClick = { goalId -> customDialogGoalId = goalId }
-                                )
-                            }
-                        }
+            Box(modifier = Modifier.fillMaxSize()) {
+                when {
+                    uiState.isLoading -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
+                    uiState.requirements.isEmpty() -> {
+                        EmptyPlanningState(
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
+                    else -> {
+                        MonthlyPlanningContent(
+                            requirements = uiState.requirements,
+                            flexAdjustment = uiState.flexAdjustment,
+                            totalRequired = uiState.totalRequired,
+                            baseTotalRequired = uiState.baseTotalRequired,
+                            displayCurrency = uiState.displayCurrency,
+                            paymentDay = uiState.paymentDay,
+                            activeExecutionMonthLabel = uiState.activeExecutionMonthLabel,
+                            activeExecutionStartedAtMillis = uiState.activeExecutionStartedAtMillis,
+                            budgetAmount = uiState.budgetAmount,
+                            budgetCurrency = uiState.budgetCurrency,
+                            budgetFeasibility = uiState.budgetFeasibility,
+                            isBudgetApplied = uiState.isBudgetAppliedForMonth,
+                            budgetFocusGoalName = uiState.budgetFocusGoalName,
+                            budgetFocusGoalDeadline = uiState.budgetFocusGoalDeadline,
+                            showBudgetMigrationNotice = uiState.showBudgetMigrationNotice,
+                            showBudgetRecalculationPrompt = uiState.showBudgetRecalculationPrompt,
+                            onOpenBudgetSheet = viewModel::showBudgetSheet,
+                            onDismissBudgetNotice = viewModel::dismissBudgetMigrationNotice,
+                            onKeepBudgetCurrent = viewModel::acknowledgeBudgetRecalculationPrompt,
+                            onViewExecution = { navController.navigate(Screen.Execution.route) },
+                            onGoalClick = { goalId ->
+                                navController.navigate(Screen.GoalDetail.createRoute(goalId))
+                            },
+                            onFlexAdjustmentChanged = viewModel::updateFlexAdjustment,
+                            onToggleProtected = viewModel::toggleProtected,
+                            onToggleSkipped = viewModel::toggleSkipped,
+                            onCustomAmountClick = { goalId -> customDialogGoalId = goalId }
+                        )
                     }
                 }
             }
@@ -210,9 +195,41 @@ fun MonthlyPlanningScreen(
             PlanningSettingsDialog(
                 currentDay = uiState.paymentDay,
                 currentCurrency = uiState.displayCurrency,
+                currentBudget = uiState.budgetAmount,
+                currentBudgetCurrency = uiState.budgetCurrency,
+                minimumBudget = uiState.budgetMinimum,
+                isMinimumLoading = uiState.isBudgetMinimumLoading,
                 availableCurrencies = planningDisplayCurrencies,
                 onDismiss = { viewModel.dismissSettings() },
-                onConfirm = { day, currency -> viewModel.updatePlanningSettings(day, currency) }
+                onRequestMinimum = viewModel::loadBudgetMinimum,
+                onConfirm = { day, currency, budget, budgetCurrency ->
+                    viewModel.updatePlanningSettings(day, currency, budget, budgetCurrency)
+                }
+            )
+        }
+
+        if (uiState.showBudgetSheet) {
+            BudgetCalculatorDialog(
+                initialAmount = uiState.budgetAmount,
+                initialCurrency = uiState.budgetCurrency,
+                feasibility = uiState.budgetFeasibility,
+                previewPlan = uiState.budgetPreviewPlan,
+                timeline = uiState.budgetPreviewTimeline,
+                isLoading = uiState.isBudgetPreviewLoading,
+                errorMessage = uiState.budgetPreviewError,
+                availableCurrencies = planningDisplayCurrencies,
+                onDismiss = viewModel::dismissBudgetSheet,
+                onBudgetChange = viewModel::previewBudget,
+                onApply = viewModel::applyBudgetPlan,
+                onApplySuggestion = { suggestion, amount, currency ->
+                    when (suggestion) {
+                        is com.xax.CryptoSavingsTracker.domain.model.FeasibilitySuggestion.EditGoal -> {
+                            viewModel.dismissBudgetSheet()
+                            navController.navigate(Screen.EditGoal.createRoute(suggestion.goalId))
+                        }
+                        else -> viewModel.applyBudgetSuggestion(suggestion, amount, currency)
+                    }
+                }
             )
         }
 
@@ -251,6 +268,17 @@ private fun MonthlyPlanningContent(
     paymentDay: Int,
     activeExecutionMonthLabel: String?,
     activeExecutionStartedAtMillis: Long?,
+    budgetAmount: Double?,
+    budgetCurrency: String,
+    budgetFeasibility: FeasibilityResult,
+    isBudgetApplied: Boolean,
+    budgetFocusGoalName: String?,
+    budgetFocusGoalDeadline: java.time.LocalDate?,
+    showBudgetMigrationNotice: Boolean,
+    showBudgetRecalculationPrompt: Boolean,
+    onOpenBudgetSheet: () -> Unit,
+    onDismissBudgetNotice: () -> Unit,
+    onKeepBudgetCurrent: () -> Unit,
     onViewExecution: () -> Unit,
     onGoalClick: (String) -> Unit,
     onFlexAdjustmentChanged: (Double) -> Unit,
@@ -272,6 +300,48 @@ private fun MonthlyPlanningContent(
             }
         }
 
+        if (showBudgetMigrationNotice) {
+            item {
+                BudgetNoticeCard(
+                    title = "Budget Applied",
+                    message = "Your budget has been applied to this plan. You can now adjust individual goals.",
+                    primaryActionLabel = "Got it",
+                    onPrimaryAction = onDismissBudgetNotice,
+                    secondaryActionLabel = null,
+                    onSecondaryAction = null
+                )
+            }
+        }
+
+        if (showBudgetRecalculationPrompt) {
+            item {
+                BudgetNoticeCard(
+                    title = "Budget Needs Review",
+                    message = "Your goals or month changed. Recalculate budget allocations?",
+                    primaryActionLabel = "Recalculate",
+                    onPrimaryAction = onOpenBudgetSheet,
+                    secondaryActionLabel = "Keep current",
+                    onSecondaryAction = onKeepBudgetCurrent
+                )
+            }
+        }
+
+        item {
+            if (budgetAmount != null && budgetAmount > 0) {
+                BudgetSummaryCard(
+                    budgetAmount = budgetAmount,
+                    budgetCurrency = budgetCurrency,
+                    feasibility = budgetFeasibility,
+                    isApplied = isBudgetApplied,
+                    currentFocusGoal = budgetFocusGoalName,
+                    currentFocusDeadline = budgetFocusGoalDeadline,
+                    onEdit = onOpenBudgetSheet
+                )
+            } else {
+                BudgetEntryCard(onSetBudget = onOpenBudgetSheet)
+            }
+        }
+
         // Summary card
         item {
             TotalRequirementCard(
@@ -280,6 +350,8 @@ private fun MonthlyPlanningContent(
                 displayCurrency = displayCurrency,
                 paymentDay = paymentDay,
                 flexAdjustment = flexAdjustment,
+                budgetAmount = budgetAmount,
+                budgetCurrency = budgetCurrency,
                 onFlexAdjustmentChanged = onFlexAdjustmentChanged,
                 activeCount = requirements.count { it.requirement.status != RequirementStatus.COMPLETED },
                 completedCount = requirements.count { it.requirement.status == RequirementStatus.COMPLETED }
@@ -298,6 +370,7 @@ private fun MonthlyPlanningContent(
         ) { row ->
             RequirementCard(
                 row = row,
+                showBudgetIndicator = budgetAmount != null,
                 onClick = { onGoalClick(row.goalId) },
                 onToggleProtected = { onToggleProtected(row.goalId) },
                 onToggleSkipped = { onToggleSkipped(row.goalId) },
@@ -364,6 +437,8 @@ private fun TotalRequirementCard(
     displayCurrency: String,
     paymentDay: Int,
     flexAdjustment: Double,
+    budgetAmount: Double?,
+    budgetCurrency: String,
     onFlexAdjustmentChanged: (Double) -> Unit,
     activeCount: Int,
     completedCount: Int
@@ -424,8 +499,13 @@ private fun TotalRequirementCard(
             )
 
             Spacer(modifier = Modifier.height(12.dp))
+            val flexLabel = if (budgetAmount != null && budgetAmount > 0) {
+                "Flex: ${(flexAdjustment * 100).roundToInt()}% of budget (${formatBudgetAmount(budgetAmount, budgetCurrency)})"
+            } else {
+                "Flex: ${(flexAdjustment * 100).roundToInt()}%"
+            }
             Text(
-                text = "Flex: ${(flexAdjustment * 100).roundToInt()}%",
+                text = flexLabel,
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -521,6 +601,7 @@ private fun StatusChip(
 @Composable
 private fun RequirementCard(
     row: MonthlyRequirementRow,
+    showBudgetIndicator: Boolean,
     onClick: () -> Unit,
     onToggleProtected: () -> Unit,
     onToggleSkipped: () -> Unit,
@@ -590,7 +671,8 @@ private fun RequirementCard(
             LinearProgressIndicator(
                 progress = { requirement.progress.toFloat() },
                 modifier = Modifier.fillMaxWidth(),
-                color = statusColor
+                color = statusColor,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -638,11 +720,19 @@ private fun RequirementCard(
             Spacer(modifier = Modifier.height(4.dp))
 
             // Progress percentage
-            Text(
-                text = "${(requirement.progress * 100).toInt()}% complete",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                Text(
+                    text = "${(requirement.progress * 100).toInt()}% complete",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            if (row.customAmount != null && showBudgetIndicator) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "From budget",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
             Row(
@@ -784,13 +874,29 @@ private fun EmptyPlanningState(modifier: Modifier = Modifier) {
 private fun PlanningSettingsDialog(
     currentDay: Int,
     currentCurrency: String,
+    currentBudget: Double?,
+    currentBudgetCurrency: String,
+    minimumBudget: Double?,
+    isMinimumLoading: Boolean,
     availableCurrencies: List<String>,
     onDismiss: () -> Unit,
-    onConfirm: (Int, String) -> Unit
+    onRequestMinimum: (String) -> Unit,
+    onConfirm: (Int, String, Double?, String) -> Unit
 ) {
     var sliderValue by remember { mutableFloatStateOf(currentDay.toFloat()) }
     var expanded by remember { mutableStateOf(false) }
     var selectedCurrency by remember { mutableStateOf(currentCurrency) }
+    var budgetText by remember(currentBudget) {
+        mutableStateOf(currentBudget?.let { String.format("%.2f", it) } ?: "")
+    }
+    var budgetCurrencyExpanded by remember { mutableStateOf(false) }
+    var budgetCurrency by remember { mutableStateOf(currentBudgetCurrency) }
+    val parsedBudget = budgetText.toDoubleOrNull()
+    val budgetError = if (budgetText.isNotEmpty() && parsedBudget == null) "Enter a valid number" else null
+
+    LaunchedEffect(budgetCurrency) {
+        onRequestMinimum(budgetCurrency)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -855,10 +961,96 @@ private fun PlanningSettingsDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Monthly Budget",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = budgetText,
+                    onValueChange = { newValue ->
+                        val filtered = newValue.filter { it.isDigit() || it == '.' }
+                        if (filtered.count { it == '.' } <= 1) budgetText = filtered
+                    },
+                    label = { Text("Amount (optional)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    isError = budgetError != null,
+                    supportingText = budgetError?.let { { Text(it) } },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                ExposedDropdownMenuBox(
+                    expanded = budgetCurrencyExpanded,
+                    onExpandedChange = { budgetCurrencyExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = budgetCurrency,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Budget Currency") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = budgetCurrencyExpanded) },
+                        singleLine = true
+                    )
+                    ExposedDropdownMenu(
+                        expanded = budgetCurrencyExpanded,
+                        onDismissRequest = { budgetCurrencyExpanded = false }
+                    ) {
+                        availableCurrencies.forEach { currency ->
+                            DropdownMenuItem(
+                                text = { Text(currency) },
+                                onClick = {
+                                    budgetCurrency = currency
+                                    budgetCurrencyExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                if (isMinimumLoading) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Calculating minimum...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else if (minimumBudget != null && minimumBudget > 0) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Calculated minimum: ${formatBudgetAmount(minimumBudget, budgetCurrency)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    TextButton(onClick = {
+                        budgetText = String.format("%.2f", minimumBudget)
+                    }) {
+                        Text("Use calculated minimum")
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(sliderValue.roundToInt(), selectedCurrency) }) {
+            TextButton(
+                onClick = {
+                    val budgetValue = if (budgetText.isBlank()) null else parsedBudget
+                    onConfirm(sliderValue.roundToInt(), selectedCurrency, budgetValue, budgetCurrency)
+                },
+                enabled = budgetError == null
+            ) {
                 Text("Save")
             }
         },
@@ -879,4 +1071,8 @@ private fun Int.toOrdinal(): String {
         this % 100 in 11..13 -> "${this}th"
         else -> "$this${suffixes[this % 10]}"
     }
+}
+
+private fun formatBudgetAmount(amount: Double, currency: String): String {
+    return "$currency ${String.format("%,.2f", amount)}"
 }

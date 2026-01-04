@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.xax.CryptoSavingsTracker.domain.model.ReminderFrequency
+import com.xax.CryptoSavingsTracker.presentation.theme.IconSize
+import com.xax.CryptoSavingsTracker.presentation.theme.Spacing
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -88,7 +90,7 @@ fun ReminderConfiguration(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         // Enable/Disable Toggle
         Row(
@@ -109,9 +111,9 @@ fun ReminderConfiguration(
         }
 
         AnimatedVisibility(visible = state.isEnabled) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 // Frequency Selection
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
                     Text(
                         text = "Reminder Frequency",
                         style = MaterialTheme.typography.labelMedium,
@@ -138,7 +140,7 @@ fun ReminderConfiguration(
                 }
 
                 // Time Selection
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
                     Text(
                         text = "Reminder Time",
                         style = MaterialTheme.typography.labelMedium,
@@ -149,16 +151,16 @@ fun ReminderConfiguration(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { showTimePicker = true },
-                        shape = RoundedCornerShape(8.dp),
+                        shape = MaterialTheme.shapes.small,
                         color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(Spacing.md),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
@@ -173,7 +175,7 @@ fun ReminderConfiguration(
                 }
 
                 // First Reminder Date Selection
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
                     Text(
                         text = "First Reminder Date",
                         style = MaterialTheme.typography.labelMedium,
@@ -184,16 +186,16 @@ fun ReminderConfiguration(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { showDatePicker = true },
-                        shape = RoundedCornerShape(8.dp),
+                        shape = MaterialTheme.shapes.small,
                         color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(Spacing.md),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
@@ -236,22 +238,22 @@ fun ReminderConfiguration(
                 // Schedule Preview
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = MaterialTheme.shapes.small,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                 ) {
                     Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.padding(Spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
                     ) {
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 Icons.Default.CalendarMonth,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(IconSize.small)
                             )
                             Text(
                                 text = "Schedule Preview",
@@ -260,7 +262,7 @@ fun ReminderConfiguration(
                             )
                         }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween

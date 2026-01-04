@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleGreen
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleRed
+import com.xax.CryptoSavingsTracker.presentation.theme.Spacing
 import kotlin.math.roundToInt
 
 /**
@@ -97,7 +98,7 @@ fun SwipeableListItem(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(backgroundColor)
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = Spacing.lg),
                 horizontalArrangement = when (direction) {
                     SwipeToDismissBoxValue.StartToEnd -> Arrangement.Start
                     SwipeToDismissBoxValue.EndToStart -> Arrangement.End

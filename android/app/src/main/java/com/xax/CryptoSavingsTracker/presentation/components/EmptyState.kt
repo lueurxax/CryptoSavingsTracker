@@ -24,6 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleGreen
+import com.xax.CryptoSavingsTracker.presentation.theme.IconSize
+import com.xax.CryptoSavingsTracker.presentation.theme.Spacing
 
 /**
  * Action configuration for empty states
@@ -62,7 +64,7 @@ fun EmptyStateView(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -78,12 +80,12 @@ fun EmptyStateView(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(64.dp),
+                modifier = Modifier.size(IconSize.feature),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
         // Title
         Text(
@@ -93,7 +95,7 @@ fun EmptyStateView(
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Spacing.sm))
 
         // Description
         Text(
@@ -101,15 +103,15 @@ fun EmptyStateView(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            modifier = Modifier.padding(horizontal = Spacing.md)
         )
 
         // Actions
         if (primaryAction != null || secondaryAction != null) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(Spacing.lg))
 
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 primaryAction?.let { action ->
@@ -121,9 +123,9 @@ fun EmptyStateView(
                             Icon(
                                 imageVector = icon,
                                 contentDescription = null,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(IconSize.small)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(Spacing.xs))
                         }
                         Text(
                             text = action.title,
@@ -141,9 +143,9 @@ fun EmptyStateView(
                             Icon(
                                 imageVector = icon,
                                 contentDescription = null,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(IconSize.small)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(Spacing.xs))
                         }
                         Text(
                             text = action.title,
@@ -238,24 +240,24 @@ private fun EmptyStateIllustrationView(illustration: EmptyStateIllustration) {
         EmptyStateIllustration.TRANSACTION -> {
             Column(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs, Alignment.CenterVertically)
             ) {
                 repeat(3) { index ->
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(20.dp),
-                        shape = RoundedCornerShape(4.dp),
+                        shape = MaterialTheme.shapes.extraSmall,
                         color = surfaceColor
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp),
+                            modifier = Modifier.padding(horizontal = Spacing.xs),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(8.dp)
+                                    .size(Spacing.xs)
                                     .clip(CircleShape)
                                     .then(
                                         Modifier.fillMaxSize()
@@ -296,7 +298,7 @@ private fun EmptyStateIllustrationView(illustration: EmptyStateIllustration) {
             ) {
                 Surface(
                     modifier = Modifier.size(80.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = MaterialTheme.shapes.medium,
                     color = surfaceColor
                 ) {
                     Column(
@@ -306,18 +308,18 @@ private fun EmptyStateIllustrationView(illustration: EmptyStateIllustration) {
                         Icon(
                             imageVector = Icons.Default.Flag,
                             contentDescription = null,
-                            modifier = Modifier.size(32.dp),
+                            modifier = Modifier.size(IconSize.large),
                             tint = tertiaryColor
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(Spacing.xs))
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.xxs)
                         ) {
                             repeat(3) { index ->
                                 Surface(
                                     modifier = Modifier
-                                        .width(12.dp)
-                                        .height(4.dp),
+                                        .width(Spacing.sm)
+                                        .height(Spacing.xxs),
                                     shape = RoundedCornerShape(2.dp),
                                     color = if (index == 0) AccessibleGreen else tertiaryColor
                                 ) {}
@@ -338,7 +340,7 @@ private fun EmptyStateIllustrationView(illustration: EmptyStateIllustration) {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = null,
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier.size(IconSize.hero),
                         tint = tertiaryColor
                     )
                 }

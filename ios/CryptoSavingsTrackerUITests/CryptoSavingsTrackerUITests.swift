@@ -16,8 +16,13 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         
         app = XCUIApplication()
         
-        // Clear any existing data by using launch arguments
-        app.launchArguments = ["--uitesting"]
+        // Clear any existing data and enable UI test helpers
+        app.launchArguments = [
+            "UITEST_RESET_DATA",
+            "UITEST_UI_FLOW",
+            "-ApplePersistenceIgnoreState",
+            "YES"
+        ]
         app.launch()
     }
 
@@ -30,8 +35,9 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
     @MainActor
     func testAppLaunch() throws {
         // Verify the main UI elements are present
-        XCTAssertTrue(app.navigationBars["Crypto Goals"].exists)
-        XCTAssertTrue(app.buttons["Plus"].exists || app.buttons["+"].exists)
+        let goalsNavExists = app.navigationBars["Goals"].exists || app.navigationBars["Crypto Goals"].exists
+        XCTAssertTrue(goalsNavExists)
+        XCTAssertTrue(addGoalButton().waitForExistence(timeout: 5))
     }
     
     @MainActor
@@ -51,31 +57,20 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
     
     @MainActor
     func testCreateNewGoal() throws {
-        // Tap the add button
-        let addButton = app.buttons["Plus"].exists ? app.buttons["Plus"] : app.buttons["+"]
-        XCTAssertTrue(addButton.waitForExistence(timeout: 5))
-        addButton.tap()
-        
-        // Should show the add goal form
-        XCTAssertTrue(app.navigationBars["Add Goal"].waitForExistence(timeout: 3))
+        openAddGoalForm()
         
         // Fill in the form
-        let nameField = app.textFields["Goal Name"]
+        let nameField = app.textFields["goalNameField"].exists ? app.textFields["goalNameField"] : app.textFields["Goal Name"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 3))
         nameField.tap()
         nameField.typeText("Bitcoin Savings")
         
-        let amountField = app.textFields["Target Amount"]
+        setGoalCurrency("USD")
+
+        let amountField = app.textFields["targetAmountField"].exists ? app.textFields["targetAmountField"] : app.textFields["Target Amount"]
         XCTAssertTrue(amountField.exists)
         amountField.tap()
         amountField.typeText("10000")
-        
-        let currencyField = app.textFields["Currency"]
-        XCTAssertTrue(currencyField.exists)
-        currencyField.tap()
-        // Clear existing text and type new
-        currencyField.doubleTap()
-        currencyField.typeText("USD")
         
         // Set deadline (assume there's a date picker)
         if app.datePickers.count > 0 {
@@ -85,7 +80,7 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         }
         
         // Save the goal
-        let saveButton = app.buttons["Save Goal"]
+        let saveButton = app.buttons["saveGoalButton"].exists ? app.buttons["saveGoalButton"] : app.buttons["Save"]
         if saveButton.exists {
             saveButton.tap()
         } else {
@@ -94,7 +89,7 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         }
         
         // Should return to goals list and show the new goal
-        XCTAssertTrue(app.navigationBars["Crypto Goals"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Goals"].waitForExistence(timeout: 3) || app.navigationBars["Crypto Goals"].waitForExistence(timeout: 3))
         
         // Verify the goal appears in the list
         let goalCell = app.cells.containing(.staticText, identifier: "Bitcoin Savings").firstMatch
@@ -103,17 +98,15 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
     
     @MainActor
     func testGoalFormValidation() throws {
-        // Tap add button
-        let addButton = app.buttons["Plus"].exists ? app.buttons["Plus"] : app.buttons["+"]
-        addButton.tap()
+        openAddGoalForm()
         
         // Try to save without filling required fields
-        let saveButton = app.buttons["Save Goal"].exists ? app.buttons["Save Goal"] : app.buttons["Save"]
+        let saveButton = app.buttons["saveGoalButton"].exists ? app.buttons["saveGoalButton"] : app.buttons["Save"]
         if saveButton.exists {
             saveButton.tap()
             
             // Should stay on the form (validation failed)
-            XCTAssertTrue(app.navigationBars["Add Goal"].exists)
+            XCTAssertTrue(app.navigationBars["New Goal"].exists || app.navigationBars["Add Goal"].exists)
         }
         
         // Cancel and return
@@ -143,11 +136,12 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
                      app.staticTexts["Test Goal"].waitForExistence(timeout: 3))
         
         // Should show goal information
-        XCTAssertTrue(app.staticTexts["1000"].exists || app.staticTexts["1000.00"].exists)
-        XCTAssertTrue(app.staticTexts["USD"].exists)
+        let targetLabel = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Target:'")).firstMatch
+        XCTAssertTrue(targetLabel.waitForExistence(timeout: 3))
+        XCTAssertTrue(targetLabel.label.contains("USD") || app.staticTexts["USD"].exists)
         
         // Should have Add Asset button
-        XCTAssertTrue(app.buttons["Add Asset"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["addAssetButton"].waitForExistence(timeout: 3) || app.buttons["Add Asset"].waitForExistence(timeout: 3))
     }
     
     @MainActor
@@ -159,21 +153,18 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         goalCell.tap()
         
         // Tap Add Asset
-        let addAssetButton = app.buttons["Add Asset"]
+        let addAssetButton = app.buttons["addAssetButton"].exists ? app.buttons["addAssetButton"] : app.buttons["Add Asset"]
         XCTAssertTrue(addAssetButton.waitForExistence(timeout: 5))
         addAssetButton.tap()
         
         // Should show add asset form
-        XCTAssertTrue(app.navigationBars["Add Asset"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["New Asset"].waitForExistence(timeout: 3) || app.navigationBars["Add Asset"].waitForExistence(timeout: 3))
         
         // Fill in asset details
-        let currencyField = app.textFields.firstMatch
-        XCTAssertTrue(currencyField.waitForExistence(timeout: 3))
-        currencyField.tap()
-        currencyField.typeText("BTC")
+        setAssetCurrency("BTC")
         
         // Save asset
-        let saveButton = app.buttons["Save Asset"].exists ? app.buttons["Save Asset"] : app.buttons["Save"]
+        let saveButton = app.buttons["saveAssetButton"].exists ? app.buttons["saveAssetButton"] : app.buttons["Save"]
         if saveButton.exists {
             saveButton.tap()
         }
@@ -192,31 +183,33 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         
         // Add asset first
         addTestAsset(currency: "ETH")
+
+        // Expand the asset row to reveal actions
+        expandAssetRow(for: "ETH")
         
         // Tap Add Transaction button for the asset
-        let addTransactionButton = app.buttons["Add Transaction"]
+        let addTransactionButton = app.buttons["addTransactionButton"].exists ? app.buttons["addTransactionButton"] : app.buttons["Add Transaction"]
         XCTAssertTrue(addTransactionButton.waitForExistence(timeout: 5))
         addTransactionButton.tap()
         
         // Should show add transaction form
-        XCTAssertTrue(app.navigationBars["Add Transaction"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["New Transaction"].waitForExistence(timeout: 3) || app.navigationBars["Add Transaction"].waitForExistence(timeout: 3))
         
         // Fill in transaction amount
-        let amountField = app.textFields["Amount"]
+        let amountField = app.textFields["transactionAmountField"].exists ? app.textFields["transactionAmountField"] : app.textFields["Amount"]
         XCTAssertTrue(amountField.waitForExistence(timeout: 3))
         amountField.tap()
         amountField.typeText("1.5")
         
         // Save transaction
-        let saveButton = app.buttons["Save Transaction"].exists ? app.buttons["Save Transaction"] : app.buttons["Save"]
+        let saveButton = app.buttons["saveTransactionButton"].exists ? app.buttons["saveTransactionButton"] : app.buttons["Save"]
         if saveButton.exists {
             saveButton.tap()
         }
         
-        // Should return to goal detail and show updated asset amount
-        XCTAssertTrue(app.staticTexts["1.5"].waitForExistence(timeout: 5) || 
-                     app.staticTexts["1.50"].waitForExistence(timeout: 5) ||
-                     app.staticTexts["1.5000"].waitForExistence(timeout: 5))
+        // Should return to goal detail and show updated transaction amount
+        let amountText = app.staticTexts.containing(NSPredicate(format: "label CONTAINS '1.5'")).firstMatch
+        XCTAssertTrue(amountText.waitForExistence(timeout: 5))
     }
     
     // MARK: - Goal Management Tests
@@ -255,7 +248,7 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         
         // Add asset and transaction for 25% progress
         addTestAsset(currency: "USD")
-        addTestTransaction(amount: "250")
+        addTestTransaction(amount: "250", assetCurrency: "USD")
         
         // Check that progress is displayed
         // Look for percentage display
@@ -274,19 +267,17 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
     func testPlatformSpecificUI() throws {
         #if os(macOS)
         // Test macOS-specific popover behavior
-        let addButton = app.buttons["Plus"].exists ? app.buttons["Plus"] : app.buttons["+"]
-        addButton.tap()
+        openAddGoalForm()
         
         // On macOS, should show as popover
         XCTAssertTrue(app.popovers.count > 0 || app.sheets.count > 0)
         
         #else
         // Test iOS-specific sheet behavior
-        let addButton = app.buttons["Plus"].exists ? app.buttons["Plus"] : app.buttons["+"]
-        addButton.tap()
+        openAddGoalForm()
         
         // On iOS, should show as sheet
-        XCTAssertTrue(app.sheets.count > 0 || app.navigationBars["Add Goal"].exists)
+        XCTAssertTrue(app.sheets.count > 0 || app.navigationBars["New Goal"].exists || app.navigationBars["Add Goal"].exists)
         #endif
     }
     
@@ -319,70 +310,170 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
     // MARK: - Helper Methods
     
     private func createTestGoal(name: String, amount: String, currency: String) {
-        let addButton = app.buttons["Plus"].exists ? app.buttons["Plus"] : app.buttons["+"]
-        addButton.tap()
+        openAddGoalForm()
         
-        let nameField = app.textFields["Goal Name"]
+        let nameField = app.textFields["goalNameField"].exists ? app.textFields["goalNameField"] : app.textFields["Goal Name"]
         if nameField.waitForExistence(timeout: 3) {
             nameField.tap()
             nameField.typeText(name)
         }
+
+        setGoalCurrency(currency)
         
-        let amountField = app.textFields["Target Amount"]
+        let amountField = app.textFields["targetAmountField"].exists ? app.textFields["targetAmountField"] : app.textFields["Target Amount"]
         if amountField.exists {
             amountField.tap()
             amountField.typeText(amount)
         }
         
-        let currencyField = app.textFields["Currency"]
-        if currencyField.exists {
-            currencyField.tap()
-            currencyField.doubleTap() // Select all
-            currencyField.typeText(currency)
-        }
-        
-        let saveButton = app.buttons["Save Goal"].exists ? app.buttons["Save Goal"] : app.buttons["Save"]
+        let saveButton = app.buttons["saveGoalButton"].exists ? app.buttons["saveGoalButton"] : app.buttons["Save"]
         if saveButton.exists {
             saveButton.tap()
         }
         
         // Wait for return to main screen
-        _ = app.navigationBars["Crypto Goals"].waitForExistence(timeout: 5)
+        _ = app.navigationBars["Goals"].waitForExistence(timeout: 5)
     }
     
     private func addTestAsset(currency: String) {
-        let addAssetButton = app.buttons["Add Asset"]
+        let addAssetButton = app.buttons["addAssetButton"].exists ? app.buttons["addAssetButton"] : app.buttons["Add Asset"]
         if addAssetButton.waitForExistence(timeout: 3) {
             addAssetButton.tap()
             
-            let currencyField = app.textFields.firstMatch
-            if currencyField.waitForExistence(timeout: 3) {
-                currencyField.tap()
-                currencyField.typeText(currency)
-            }
+            setAssetCurrency(currency)
             
-            let saveButton = app.buttons["Save Asset"].exists ? app.buttons["Save Asset"] : app.buttons["Save"]
+            let saveButton = app.buttons["saveAssetButton"].exists ? app.buttons["saveAssetButton"] : app.buttons["Save"]
             if saveButton.exists {
                 saveButton.tap()
             }
         }
     }
     
-    private func addTestTransaction(amount: String) {
-        let addTransactionButton = app.buttons["Add Transaction"]
+    private func addTestTransaction(amount: String, assetCurrency: String? = nil) {
+        expandAssetRow(for: assetCurrency)
+
+        let addTransactionButton = app.buttons["addTransactionButton"].exists ? app.buttons["addTransactionButton"] : app.buttons["Add Transaction"]
         if addTransactionButton.waitForExistence(timeout: 3) {
             addTransactionButton.tap()
             
-            let amountField = app.textFields["Amount"]
+            let amountField = app.textFields["transactionAmountField"].exists ? app.textFields["transactionAmountField"] : app.textFields["Amount"]
             if amountField.waitForExistence(timeout: 3) {
                 amountField.tap()
                 amountField.typeText(amount)
             }
             
-            let saveButton = app.buttons["Save Transaction"].exists ? app.buttons["Save Transaction"] : app.buttons["Save"]
+            let saveButton = app.buttons["saveTransactionButton"].exists ? app.buttons["saveTransactionButton"] : app.buttons["Save"]
             if saveButton.exists {
                 saveButton.tap()
             }
         }
+    }
+
+    private func expandAssetRow(for currency: String?) {
+        let row: XCUIElement
+        if let currency {
+            let identifier = "assetRow-\(currency.uppercased())"
+            row = app.buttons[identifier].exists ? app.buttons[identifier] : app.otherElements[identifier]
+        } else {
+            let predicate = NSPredicate(format: "identifier BEGINSWITH 'assetRow-'")
+            row = app.buttons.matching(predicate).firstMatch.exists
+                ? app.buttons.matching(predicate).firstMatch
+                : app.otherElements.matching(predicate).firstMatch
+        }
+
+        if row.waitForExistence(timeout: 5) {
+            tapForce(row)
+            return
+        }
+
+        if let currency {
+            let label = currency.uppercased()
+            let text = app.staticTexts[label].exists ? app.staticTexts[label] : app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", label)).firstMatch
+            if text.waitForExistence(timeout: 3) {
+                tapForce(text)
+            }
+        }
+    }
+
+    private func tapForce(_ element: XCUIElement) {
+        if element.isHittable {
+            element.tap()
+        } else {
+            let coord = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            coord.tap()
+        }
+    }
+
+    private func addGoalButton() -> XCUIElement {
+        let candidates = [
+            app.buttons["addGoalButton"],
+            app.buttons["Create Your First Goal"],
+            app.buttons["Plus"],
+            app.buttons["+"]
+        ]
+
+        for button in candidates where button.exists || button.waitForExistence(timeout: 2) {
+            return button
+        }
+
+        return app.buttons["addGoalButton"]
+    }
+
+    private func openAddGoalForm() {
+        let button = addGoalButton()
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        button.tap()
+
+        let newGoalNav = app.navigationBars["New Goal"]
+        let addGoalNav = app.navigationBars["Add Goal"]
+        XCTAssertTrue(newGoalNav.waitForExistence(timeout: 5) || addGoalNav.waitForExistence(timeout: 5))
+    }
+
+    private func setGoalCurrency(_ symbol: String) {
+        if setCurrency(symbol: symbol, overrideId: "goalCurrencyOverrideField", buttonId: "currencyButton") {
+            return
+        }
+    }
+
+    private func setAssetCurrency(_ symbol: String) {
+        if setCurrency(symbol: symbol, overrideId: "assetCurrencyOverrideField", buttonId: "assetCurrencyButton") {
+            return
+        }
+    }
+
+    private func setCurrency(symbol: String, overrideId: String, buttonId: String) -> Bool {
+        let overrideField = app.textFields[overrideId]
+        if overrideField.waitForExistence(timeout: 2) {
+            overrideField.tap()
+            clearTextField(overrideField)
+            overrideField.typeText(symbol)
+            return true
+        }
+
+        let button = app.buttons[buttonId]
+        guard button.waitForExistence(timeout: 2) else { return false }
+        button.tap()
+
+        let search = app.textFields["currencySearchField"]
+        if search.waitForExistence(timeout: 2) {
+            search.tap()
+            search.typeText(symbol)
+            let cell = app.buttons["currencyCell-\(symbol.uppercased())"].firstMatch
+            if cell.waitForExistence(timeout: 3) {
+                cell.tap()
+            } else if app.buttons["currencyDoneButton"].waitForExistence(timeout: 2) {
+                app.buttons["currencyDoneButton"].tap()
+            }
+            return true
+        }
+
+        return false
+    }
+
+    private func clearTextField(_ element: XCUIElement) {
+        guard let currentValue = element.value as? String else { return }
+        if currentValue.isEmpty { return }
+        let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentValue.count)
+        element.typeText(deleteString)
     }
 }

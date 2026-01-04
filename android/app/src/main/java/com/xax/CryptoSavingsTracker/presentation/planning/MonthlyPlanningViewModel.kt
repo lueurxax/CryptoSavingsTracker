@@ -2,24 +2,31 @@ package com.xax.CryptoSavingsTracker.presentation.planning
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xax.CryptoSavingsTracker.domain.model.BudgetCalculatorPlan
+import com.xax.CryptoSavingsTracker.domain.model.FeasibilityResult
+import com.xax.CryptoSavingsTracker.domain.model.Goal
 import com.xax.CryptoSavingsTracker.domain.model.MonthlyPlanningSettings
 import com.xax.CryptoSavingsTracker.domain.model.MonthlyRequirement
-import com.xax.CryptoSavingsTracker.domain.model.PlanningMode
 import com.xax.CryptoSavingsTracker.domain.model.RequirementStatus
 import com.xax.CryptoSavingsTracker.domain.model.MonthlyGoalPlan
+import com.xax.CryptoSavingsTracker.domain.model.ScheduledGoalBlock
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.GetExecutionSessionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.planning.AdjustmentSimulation
+import com.xax.CryptoSavingsTracker.domain.usecase.planning.BudgetCalculatorUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.planning.MonthlyGoalPlanService
 import com.xax.CryptoSavingsTracker.domain.usecase.planning.MonthlyPlanningService
 import com.xax.CryptoSavingsTracker.domain.usecase.planning.RedistributionStrategy
+import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.util.MonthLabelUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import java.time.LocalDate
 
 data class MonthlyRequirementRow(
     val requirement: MonthlyRequirement,
@@ -39,7 +46,6 @@ data class MonthlyRequirementRow(
  * UI State for Monthly Planning screen
  */
 data class MonthlyPlanningUiState(
-    val planningMode: PlanningMode = PlanningMode.PER_GOAL,
     val monthLabel: String = "",
     val activeExecutionMonthLabel: String? = null,
     val activeExecutionStartedAtMillis: Long? = null,
@@ -52,10 +58,24 @@ data class MonthlyPlanningUiState(
     val selectedStrategy: RedistributionStrategy = RedistributionStrategy.BALANCED,
     val simulationResult: AdjustmentSimulation? = null,
     val showStrategyPicker: Boolean = false,
+    val budgetAmount: Double? = null,
+    val budgetCurrency: String = "USD",
+    val budgetFeasibility: FeasibilityResult = FeasibilityResult.EMPTY,
+    val budgetPreviewPlan: BudgetCalculatorPlan? = null,
+    val budgetPreviewTimeline: List<ScheduledGoalBlock> = emptyList(),
+    val isBudgetPreviewLoading: Boolean = false,
+    val budgetPreviewError: String? = null,
+    val budgetFocusGoalName: String? = null,
+    val budgetFocusGoalDeadline: LocalDate? = null,
+    val showBudgetSheet: Boolean = false,
+    val showBudgetMigrationNotice: Boolean = false,
+    val showBudgetRecalculationPrompt: Boolean = false,
+    val isBudgetAppliedForMonth: Boolean = false,
+    val budgetMinimum: Double? = null,
+    val isBudgetMinimumLoading: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null,
-    val showSettingsDialog: Boolean = false,
-    val hasSeenFixedBudgetIntro: Boolean = true
+    val showSettingsDialog: Boolean = false
 ) {
     val completedCount: Int
         get() = requirements.count { it.requirement.status == RequirementStatus.COMPLETED }
@@ -86,7 +106,9 @@ class MonthlyPlanningViewModel @Inject constructor(
     private val monthlyPlanningService: MonthlyPlanningService,
     private val monthlyGoalPlanService: MonthlyGoalPlanService,
     private val getExecutionSessionUseCase: GetExecutionSessionUseCase,
-    private val settings: MonthlyPlanningSettings
+    private val settings: MonthlyPlanningSettings,
+    private val budgetCalculatorUseCase: BudgetCalculatorUseCase,
+    private val goalRepository: GoalRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MonthlyPlanningUiState())
@@ -95,41 +117,12 @@ class MonthlyPlanningViewModel @Inject constructor(
     private val monthLabel: String = MonthLabelUtils.nowUtc()
     private var baseRequirements: List<MonthlyRequirement> = emptyList()
     private var plansByGoalId: Map<String, MonthlyGoalPlan> = emptyMap()
+    private var activeGoals: List<Goal> = emptyList()
+    private var isApplyingBudgetMigration = false
 
     init {
-        loadPlanningMode()
-        loadIntroState()
         observeActiveExecution()
         loadData()
-    }
-
-    private fun loadPlanningMode() {
-        _uiState.update { it.copy(planningMode = settings.planningMode) }
-    }
-
-    private fun loadIntroState() {
-        _uiState.update { it.copy(hasSeenFixedBudgetIntro = settings.hasSeenFixedBudgetIntro) }
-    }
-
-    fun dismissFixedBudgetIntro() {
-        settings.hasSeenFixedBudgetIntro = true
-        _uiState.update { it.copy(hasSeenFixedBudgetIntro = true) }
-    }
-
-    fun tryFixedBudgetMode() {
-        settings.hasSeenFixedBudgetIntro = true
-        settings.planningMode = PlanningMode.FIXED_BUDGET
-        _uiState.update {
-            it.copy(
-                hasSeenFixedBudgetIntro = true,
-                planningMode = PlanningMode.FIXED_BUDGET
-            )
-        }
-    }
-
-    fun setPlanningMode(mode: PlanningMode) {
-        settings.planningMode = mode
-        _uiState.update { it.copy(planningMode = mode) }
     }
 
     private fun observeActiveExecution() {
@@ -147,43 +140,179 @@ class MonthlyPlanningViewModel @Inject constructor(
 
     fun loadData() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            loadDataInternal()
+        }
+    }
 
-            try {
-                val displayCurrency = monthlyPlanningService.displayCurrency
-                val requirements = monthlyPlanningService.calculateMonthlyRequirements()
-                baseRequirements = requirements
+    private suspend fun loadDataInternal() {
+        _uiState.update { it.copy(isLoading = true, error = null) }
 
-                val syncedPlans = monthlyGoalPlanService.syncPlans(monthLabel, requirements)
-                plansByGoalId = syncedPlans.associateBy { it.goalId }
+        try {
+            val displayCurrency = monthlyPlanningService.displayCurrency
+            val requirements = monthlyPlanningService.calculateMonthlyRequirements()
+            baseRequirements = requirements
+            activeGoals = goalRepository.getAllGoals().first()
+                .filter { it.lifecycleStatus == com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus.ACTIVE }
 
-                val rows = buildRows(requirements, syncedPlans.associateBy { it.goalId })
-                val baseTotalRequired = calculateTotal(displayCurrency, requirements.map { it.currency to it.requiredMonthly })
-                val totalRequired = calculateTotal(
-                    displayCurrency,
-                    rows.map { it.requirement.currency to it.adjustedRequiredMonthly }
+            val syncedPlans = monthlyGoalPlanService.syncPlans(monthLabel, requirements)
+            plansByGoalId = syncedPlans.associateBy { it.goalId }
+
+            val rows = buildRows(requirements, syncedPlans.associateBy { it.goalId })
+            val baseTotalRequired = calculateTotal(displayCurrency, requirements.map { it.currency to it.requiredMonthly })
+            val totalRequired = calculateTotal(
+                displayCurrency,
+                rows.map { it.requirement.currency to it.adjustedRequiredMonthly }
+            )
+            val paymentDay = monthlyPlanningService.paymentDay
+            val skippedIds = syncedPlans.filter { it.isSkipped }.map { it.goalId }.toSet()
+            val eligibleGoals = activeGoals.filter { !skippedIds.contains(it.id) }
+            val budgetAmount = settings.monthlyBudget
+            val budgetCurrency = settings.budgetCurrency
+            val feasibility = if (budgetAmount != null && budgetAmount > 0 && eligibleGoals.isNotEmpty()) {
+                budgetCalculatorUseCase.checkFeasibility(eligibleGoals, budgetAmount, budgetCurrency)
+            } else {
+                FeasibilityResult.EMPTY
+            }
+            val budgetSignature = if (eligibleGoals.isNotEmpty()) buildBudgetSignature(eligibleGoals) else ""
+            val shouldPromptBudget = budgetAmount != null &&
+                settings.budgetAppliedMonthLabel != null &&
+                (settings.budgetAppliedMonthLabel != monthLabel ||
+                    settings.budgetAppliedSignature != budgetSignature)
+            val goalById = activeGoals.associateBy { it.id }
+            val focusGoal = if (budgetAmount != null && budgetAmount > 0) {
+                syncedPlans
+                    .filter { !it.isSkipped && (it.customAmount ?: 0.0) > 0.01 }
+                    .mapNotNull { plan -> goalById[plan.goalId] }
+                    .minByOrNull { it.deadline }
+            } else {
+                null
+            }
+
+            _uiState.update {
+                it.copy(
+                    monthLabel = monthLabel,
+                    requirements = rows,
+                    baseTotalRequired = baseTotalRequired,
+                    totalRequired = totalRequired,
+                    displayCurrency = displayCurrency,
+                    paymentDay = paymentDay,
+                    flexAdjustment = monthlyPlanningService.flexAdjustment,
+                    budgetAmount = budgetAmount,
+                    budgetCurrency = budgetCurrency,
+                    budgetFeasibility = feasibility,
+                    showBudgetRecalculationPrompt = shouldPromptBudget,
+                    isBudgetAppliedForMonth = budgetAmount != null && settings.budgetAppliedMonthLabel == monthLabel,
+                    budgetFocusGoalName = focusGoal?.name,
+                    budgetFocusGoalDeadline = focusGoal?.deadline,
+                    isLoading = false
                 )
-                val paymentDay = monthlyPlanningService.paymentDay
+            }
 
+            handleBudgetMigrationIfNeeded(budgetAmount, budgetCurrency, eligibleGoals)
+        } catch (e: Exception) {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = e.message ?: "Failed to load monthly requirements"
+                )
+            }
+        }
+    }
+
+    fun showBudgetSheet() {
+        _uiState.update { it.copy(showBudgetSheet = true) }
+    }
+
+    fun dismissBudgetSheet() {
+        _uiState.update { it.copy(showBudgetSheet = false) }
+    }
+
+    fun dismissBudgetMigrationNotice() {
+        settings.hasSeenBudgetMigrationNotice = true
+        _uiState.update { it.copy(showBudgetMigrationNotice = false) }
+    }
+
+    fun acknowledgeBudgetRecalculationPrompt() {
+        val signature = buildBudgetSignature(activeGoals)
+        settings.budgetAppliedMonthLabel = monthLabel
+        settings.budgetAppliedSignature = signature
+        _uiState.update { it.copy(showBudgetRecalculationPrompt = false) }
+    }
+
+    fun previewBudget(amount: Double, currency: String) {
+        viewModelScope.launch {
+            if (amount <= 0 || activeGoals.isEmpty()) {
                 _uiState.update {
                     it.copy(
-                        monthLabel = monthLabel,
-                        requirements = rows,
-                        baseTotalRequired = baseTotalRequired,
-                        totalRequired = totalRequired,
-                        displayCurrency = displayCurrency,
-                        paymentDay = paymentDay,
-                        flexAdjustment = monthlyPlanningService.flexAdjustment,
-                        isLoading = false
+                        budgetPreviewPlan = null,
+                        budgetPreviewTimeline = emptyList(),
+                        budgetPreviewError = null,
+                        budgetFeasibility = FeasibilityResult.EMPTY,
+                        isBudgetPreviewLoading = false
                     )
                 }
-            } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error = e.message ?: "Failed to load monthly requirements"
-                    )
+                return@launch
+            }
+
+            _uiState.update { it.copy(isBudgetPreviewLoading = true, budgetPreviewError = null) }
+            val eligibleGoals = activeGoals.filter { goal ->
+                val plan = plansByGoalId[goal.id]
+                plan?.isSkipped != true
+            }
+            val feasibility = budgetCalculatorUseCase.checkFeasibility(eligibleGoals, amount, currency)
+            val plan = budgetCalculatorUseCase.generateSchedule(eligibleGoals, amount, currency)
+            val timeline = budgetCalculatorUseCase.buildTimelineBlocks(plan, eligibleGoals)
+
+            _uiState.update {
+                it.copy(
+                    budgetFeasibility = feasibility,
+                    budgetPreviewPlan = plan,
+                    budgetPreviewTimeline = timeline,
+                    isBudgetPreviewLoading = false
+                )
+            }
+        }
+    }
+
+    fun applyBudgetPlan(amount: Double, currency: String) {
+        viewModelScope.launch {
+            if (amount <= 0 || activeGoals.isEmpty()) return@launch
+            val eligibleGoals = activeGoals.filter { goal ->
+                val plan = plansByGoalId[goal.id]
+                plan?.isSkipped != true
+            }
+            val plan = budgetCalculatorUseCase.generateSchedule(eligibleGoals, amount, currency)
+            val applied = applyBudgetPlanInternal(amount, currency, plan)
+            if (applied) {
+                dismissBudgetSheet()
+            }
+        }
+    }
+
+    fun applyBudgetSuggestion(
+        suggestion: com.xax.CryptoSavingsTracker.domain.model.FeasibilitySuggestion,
+        currentBudget: Double,
+        currency: String
+    ) {
+        viewModelScope.launch {
+            when (suggestion) {
+                is com.xax.CryptoSavingsTracker.domain.model.FeasibilitySuggestion.IncreaseBudget -> return@launch
+                is com.xax.CryptoSavingsTracker.domain.model.FeasibilitySuggestion.ExtendDeadline -> {
+                    val goal = goalRepository.getGoalById(suggestion.goalId) ?: return@launch
+                    val updated = goal.copy(deadline = goal.deadline.plusMonths(suggestion.byMonths.toLong()))
+                    goalRepository.updateGoal(updated)
                 }
+                is com.xax.CryptoSavingsTracker.domain.model.FeasibilitySuggestion.ReduceTarget -> {
+                    val goal = goalRepository.getGoalById(suggestion.goalId) ?: return@launch
+                    val updated = goal.copy(targetAmount = suggestion.to)
+                    goalRepository.updateGoal(updated)
+                }
+                is com.xax.CryptoSavingsTracker.domain.model.FeasibilitySuggestion.EditGoal -> return@launch
+            }
+
+            loadDataInternal()
+            if (currentBudget > 0) {
+                previewBudget(currentBudget, currency)
             }
         }
     }
@@ -192,12 +321,14 @@ class MonthlyPlanningViewModel @Inject constructor(
         viewModelScope.launch {
             val clamped = value.coerceIn(0.0, 1.5)
             val strategy = _uiState.value.selectedStrategy
+            val usePlanBaseline = settings.budgetAppliedMonthLabel == monthLabel && settings.monthlyBudget != null
+            val flexRequirements = if (usePlanBaseline) null else baseRequirements
             monthlyPlanningService.flexAdjustment = clamped
             val updatedPlans = monthlyGoalPlanService.applyFlexAdjustment(
                 monthLabel = monthLabel,
                 adjustment = clamped,
                 strategy = strategy,
-                requirements = baseRequirements
+                requirements = flexRequirements
             )
             plansByGoalId = updatedPlans.associateBy { it.goalId }
 
@@ -206,7 +337,7 @@ class MonthlyPlanningViewModel @Inject constructor(
                 monthLabel = monthLabel,
                 adjustment = clamped,
                 strategy = strategy,
-                requirements = baseRequirements
+                requirements = flexRequirements ?: baseRequirements
             )
             _uiState.update { it.copy(simulationResult = simulation) }
             refreshRows()
@@ -219,11 +350,13 @@ class MonthlyPlanningViewModel @Inject constructor(
             // Reapply flex adjustment with new strategy
             val adjustment = _uiState.value.flexAdjustment
             if (adjustment != 1.0) {
+                val usePlanBaseline = settings.budgetAppliedMonthLabel == monthLabel && settings.monthlyBudget != null
+                val flexRequirements = if (usePlanBaseline) null else baseRequirements
                 val updatedPlans = monthlyGoalPlanService.applyFlexAdjustment(
                     monthLabel = monthLabel,
                     adjustment = adjustment,
                     strategy = strategy,
-                    requirements = baseRequirements
+                    requirements = flexRequirements
                 )
                 plansByGoalId = updatedPlans.associateBy { it.goalId }
 
@@ -231,7 +364,7 @@ class MonthlyPlanningViewModel @Inject constructor(
                     monthLabel = monthLabel,
                     adjustment = adjustment,
                     strategy = strategy,
-                    requirements = baseRequirements
+                    requirements = flexRequirements ?: baseRequirements
                 )
                 _uiState.update { it.copy(simulationResult = simulation) }
                 refreshRows()
@@ -273,28 +406,146 @@ class MonthlyPlanningViewModel @Inject constructor(
 
     fun showSettings() {
         _uiState.update { it.copy(showSettingsDialog = true) }
+        loadBudgetMinimum(settings.budgetCurrency)
     }
 
     fun dismissSettings() {
         _uiState.update { it.copy(showSettingsDialog = false) }
     }
 
-    fun updatePaymentDay(day: Int) {
-        updatePlanningSettings(day = day, displayCurrency = _uiState.value.displayCurrency)
+    fun loadBudgetMinimum(currency: String) {
+        viewModelScope.launch {
+            val eligibleGoals = activeGoals.filter { goal ->
+                plansByGoalId[goal.id]?.isSkipped != true
+            }
+            if (eligibleGoals.isEmpty()) {
+                _uiState.update { it.copy(budgetMinimum = null, isBudgetMinimumLoading = false) }
+                return@launch
+            }
+            _uiState.update { it.copy(isBudgetMinimumLoading = true) }
+            val minimum = budgetCalculatorUseCase.calculateMinimumBudget(eligibleGoals, currency)
+            _uiState.update {
+                it.copy(
+                    budgetMinimum = if (minimum > 0) minimum else null,
+                    isBudgetMinimumLoading = false
+                )
+            }
+        }
     }
 
-    fun updatePlanningSettings(day: Int, displayCurrency: String) {
+    fun updatePaymentDay(day: Int) {
+        updatePlanningSettings(
+            day = day,
+            displayCurrency = _uiState.value.displayCurrency,
+            budgetAmount = settings.monthlyBudget,
+            budgetCurrency = settings.budgetCurrency
+        )
+    }
+
+    fun updatePlanningSettings(
+        day: Int,
+        displayCurrency: String,
+        budgetAmount: Double?,
+        budgetCurrency: String
+    ) {
         val normalizedCurrency = displayCurrency.trim().uppercase().ifBlank { "USD" }
+        val normalizedBudgetCurrency = budgetCurrency.trim().uppercase().ifBlank { "USD" }
         monthlyPlanningService.paymentDay = day
         monthlyPlanningService.displayCurrency = normalizedCurrency
+        settings.monthlyBudget = budgetAmount
+        settings.budgetCurrency = normalizedBudgetCurrency
         _uiState.update {
             it.copy(
                 paymentDay = day,
                 displayCurrency = normalizedCurrency,
+                budgetAmount = budgetAmount,
+                budgetCurrency = normalizedBudgetCurrency,
                 showSettingsDialog = false
             )
         }
         loadData()
+    }
+
+    private suspend fun handleBudgetMigrationIfNeeded(
+        budgetAmount: Double?,
+        budgetCurrency: String,
+        eligibleGoals: List<Goal>
+    ) {
+        if (budgetAmount == null || budgetAmount <= 0) return
+        if (settings.budgetAppliedMonthLabel != null) return
+        if (eligibleGoals.isEmpty()) return
+        if (isApplyingBudgetMigration) return
+
+        isApplyingBudgetMigration = true
+        val plan = budgetCalculatorUseCase.generateSchedule(eligibleGoals, budgetAmount, budgetCurrency)
+        val applied = applyBudgetPlanInternal(budgetAmount, budgetCurrency, plan)
+        if (applied && !settings.hasSeenBudgetMigrationNotice) {
+            _uiState.update { it.copy(showBudgetMigrationNotice = true) }
+        }
+        isApplyingBudgetMigration = false
+    }
+
+    private suspend fun applyBudgetPlanInternal(
+        amount: Double,
+        currency: String,
+        plan: BudgetCalculatorPlan
+    ): Boolean {
+        if (plansByGoalId.isEmpty()) return false
+
+        val contributionMap = plan.schedule.firstOrNull()?.contributions
+            ?.associate { it.goalId to it.amount }
+            ?: emptyMap()
+
+        val customAmounts = mutableMapOf<String, Double>()
+        for (planItem in plansByGoalId.values) {
+            if (planItem.isSkipped) continue
+            val plannedAmount = contributionMap[planItem.goalId] ?: 0.0
+            val converted = if (plannedAmount <= 0.0) {
+                0.0
+            } else {
+                monthlyPlanningService.convertAmount(
+                    amount = plannedAmount,
+                    fromCurrency = currency,
+                    toCurrency = planItem.currency
+                )
+            }
+            customAmounts[planItem.goalId] = converted
+        }
+
+        val updatedPlans = monthlyGoalPlanService.applyCustomAmounts(monthLabel, customAmounts)
+        plansByGoalId = updatedPlans.associateBy { it.goalId }
+
+        val goalById = activeGoals.associateBy { it.id }
+        val focusGoalName = updatedPlans
+            .filter { !it.isSkipped && (it.customAmount ?: 0.0) > 0.01 }
+            .mapNotNull { plan -> goalById[plan.goalId] }
+            .minByOrNull { it.deadline }
+            ?.name
+
+        settings.monthlyBudget = amount
+        settings.budgetCurrency = currency
+        settings.budgetAppliedMonthLabel = monthLabel
+        settings.budgetAppliedSignature = buildBudgetSignature(activeGoals)
+        monthlyPlanningService.flexAdjustment = 1.0
+
+        _uiState.update {
+            it.copy(
+                budgetAmount = amount,
+                budgetCurrency = currency,
+                isBudgetAppliedForMonth = true,
+                budgetFocusGoalName = focusGoalName
+            )
+        }
+        refreshRows()
+        return true
+    }
+
+    private fun buildBudgetSignature(goals: List<Goal>): String {
+        return goals
+            .sortedBy { it.id }
+            .joinToString(separator = ";") { goal ->
+                "${goal.id}|${goal.currency}|${goal.targetAmount}|${goal.deadline}"
+            }
     }
 
     private suspend fun refreshRows() {

@@ -59,7 +59,10 @@ private struct MonthlyPlanningContainerContent: View {
             // Also load monthly requirements after execution record is loaded
             await planningViewModel.loadMonthlyRequirements()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .monthlyExecutionCompleted)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .monthlyExecutionCompleted)) { notification in
+            if let record = notification.object as? MonthlyExecutionRecord {
+                executionRecord = record
+            }
             Task {
                 await loadExecutionRecord()
                 await planningViewModel.loadMonthlyRequirements()
@@ -200,6 +203,9 @@ private struct MonthlyPlanningContainerContent: View {
 
     private func loadExecutionRecord() async {
         isLoading = true
+        if UITestFlags.isEnabled {
+            executionRecord = nil
+        }
 
         do {
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)

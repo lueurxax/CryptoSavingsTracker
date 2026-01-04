@@ -98,6 +98,22 @@ class MonthlyGoalPlanService @Inject constructor(
     }
 
     /**
+     * Apply custom amounts to multiple plans, preserving skip state.
+     */
+    suspend fun applyCustomAmounts(
+        monthLabel: String,
+        customAmounts: Map<String, Double>
+    ): List<MonthlyGoalPlan> {
+        val plans = repository.getPlansOnce(monthLabel)
+        val updated = plans.map { plan ->
+            val amount = customAmounts[plan.goalId] ?: return@map plan
+            plan.copy(customAmount = amount)
+        }
+        repository.upsertAll(updated)
+        return updated
+    }
+
+    /**
      * Apply flex adjustment to all flexible plans (not protected, not skipped).
      * iOS parity: always writes per-plan customAmount for flexible plans.
      *
@@ -119,19 +135,21 @@ class MonthlyGoalPlanService @Inject constructor(
             throw IllegalStateException("Can only adjust draft plans")
         }
 
-        // If no adjustment needed (factor = 1.0), clear custom amounts
-        val epsilon = 0.0000001
-        if (kotlin.math.abs(clamped - 1.0) <= epsilon) {
-            val updated = plans.map { plan ->
-                if (plan.isSkipped || plan.isProtected) plan
-                else plan.copy(customAmount = null)
+        if (clamped == 1.0) {
+            val reset = plans.map { plan ->
+                when {
+                    plan.isSkipped -> plan
+                    plan.isProtected -> plan
+                    else -> plan.copy(customAmount = null)
+                }
             }
-            repository.upsertAll(updated)
-            return updated
+            repository.upsertAll(reset)
+            return reset
         }
 
         // Build requirements from plans if not provided
         val reqs = requirements ?: plans.map { plan ->
+            val baseAmount = plan.customAmount ?: plan.requiredMonthly
             MonthlyRequirement(
                 id = plan.id,
                 goalId = plan.goalId,
@@ -141,7 +159,7 @@ class MonthlyGoalPlanService @Inject constructor(
                 currentTotal = 0.0,
                 remainingAmount = plan.remainingAmount,
                 monthsRemaining = plan.monthsRemaining,
-                requiredMonthly = plan.requiredMonthly,
+                requiredMonthly = baseAmount,
                 progress = 0.0,
                 deadline = java.time.LocalDate.now().plusMonths(plan.monthsRemaining.toLong()),
                 status = plan.status
@@ -168,9 +186,13 @@ class MonthlyGoalPlanService @Inject constructor(
                 plan.isSkipped -> plan
                 plan.isProtected -> plan
                 adjusted != null -> {
-                    val newAmount = adjusted.adjustedAmount
-                    if (newAmount <= 0) plan.copy(customAmount = null)
-                    else plan.copy(customAmount = newAmount)
+                    if (clamped == 1.0) {
+                        plan.copy(customAmount = null)
+                    } else {
+                        val newAmount = adjusted.adjustedAmount
+                        if (newAmount <= 0) plan.copy(customAmount = 0.0)
+                        else plan.copy(customAmount = newAmount)
+                    }
                 }
                 else -> plan
             }

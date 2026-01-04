@@ -30,6 +30,10 @@ struct AddGoalView: View {
     @State private var showingTemplates = false
     @State private var hasAttemptedSubmit = false
     @State private var showValidationWarnings = false
+
+    private var isUITestFlow: Bool {
+        UITestFlags.isEnabled
+    }
     
     // Computed validation properties
     private var isFormValid: Bool {
@@ -170,7 +174,21 @@ struct AddGoalView: View {
                             .accessibilityValue(currency.isEmpty ? "unset" : currency.uppercased())
                         }
                         .padding(.vertical, 4)
-                        
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            showingCurrencyPicker = true
+                        }
+
+                        #if os(iOS)
+                        if isUITestFlow {
+                            TextField("Currency (Test)", text: $currency)
+                                .textInputAutocapitalization(.characters)
+                                .disableAutocorrection(true)
+                                .accessibilityIdentifier("goalCurrencyOverrideField")
+                                .padding(.vertical, 4)
+                        }
+                        #endif
+
                         TextField("Target Amount", text: $targetAmount)
                             .accessibilityIdentifier("targetAmountField")
                             .padding(.vertical, 4)
@@ -297,9 +315,21 @@ struct AddGoalView: View {
                             .accessibilityValue(currency.isEmpty ? "unset" : currency.uppercased())
                         }
                         .padding(.vertical, 4)
-                        
+
+                        #if os(iOS)
+                        if isUITestFlow {
+                            TextField("Currency (Test)", text: $currency)
+                                .textInputAutocapitalization(.characters)
+                                .disableAutocorrection(true)
+                                .accessibilityIdentifier("goalCurrencyOverrideField")
+                                .padding(.vertical, 4)
+                        }
+                        #endif
+
                         TextField("Target Amount", text: $targetAmount)
+                            #if os(iOS)
                             .keyboardType(.decimalPad)
+                            #endif
                             .padding(.vertical, 4)
                             .accessibilityIdentifier("targetAmountField")
                         
@@ -350,7 +380,24 @@ struct AddGoalView: View {
                 await currencyViewModel.fetchCoins()
             }
         }
-        .sheet(isPresented: $showingCurrencyPicker) {
+        .fullScreenCover(isPresented: Binding(
+            get: { isUITestFlow && showingCurrencyPicker },
+            set: { newValue in
+                if isUITestFlow {
+                    showingCurrencyPicker = newValue
+                }
+            }
+        )) {
+            SearchableCurrencyPicker(selectedCurrency: $currency, pickerType: .fiat)
+        }
+        .sheet(isPresented: Binding(
+            get: { !isUITestFlow && showingCurrencyPicker },
+            set: { newValue in
+                if !isUITestFlow {
+                    showingCurrencyPicker = newValue
+                }
+            }
+        )) {
             SearchableCurrencyPicker(selectedCurrency: $currency, pickerType: .fiat)
         }
         .sheet(isPresented: $showingTemplates) {

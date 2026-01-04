@@ -71,16 +71,9 @@ final class MonthlyPlanningSettings: ObservableObject {
         }
     }
 
-    // MARK: - Fixed Budget Settings
+    // MARK: - Budget Settings
 
-    /// Whether Fixed Budget mode is enabled (vs Per Goal mode)
-    @Published var isFixedBudgetEnabled: Bool {
-        didSet {
-            UserDefaults.standard.set(isFixedBudgetEnabled, forKey: Keys.isFixedBudgetEnabled)
-        }
-    }
-
-    /// User's monthly savings budget amount (nil = use calculated minimum)
+    /// User's monthly savings budget amount (nil = not set)
     @Published var monthlyBudget: Double? {
         didSet {
             if let budget = monthlyBudget {
@@ -91,31 +84,40 @@ final class MonthlyPlanningSettings: ObservableObject {
         }
     }
 
-    /// Currency for the fixed budget
+    /// Currency for the budget calculator
     @Published var budgetCurrency: String {
         didSet {
             UserDefaults.standard.set(budgetCurrency, forKey: Keys.budgetCurrency)
         }
     }
 
-    /// What happens when a goal completes early
-    @Published var completionBehavior: CompletionBehavior {
+    /// Month label where the budget was last applied (for migration/prompt logic).
+    @Published var budgetAppliedMonthLabel: String? {
         didSet {
-            UserDefaults.standard.set(completionBehavior.rawValue, forKey: Keys.completionBehavior)
+            if let label = budgetAppliedMonthLabel {
+                UserDefaults.standard.set(label, forKey: Keys.budgetAppliedMonthLabel)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Keys.budgetAppliedMonthLabel)
+            }
         }
     }
 
-    /// Whether user has completed the fixed budget onboarding flow
-    @Published var hasCompletedFixedBudgetOnboarding: Bool {
+    /// Signature of goals when budget was last applied (for recalculation prompts).
+    @Published var budgetAppliedSignature: String? {
         didSet {
-            UserDefaults.standard.set(hasCompletedFixedBudgetOnboarding, forKey: Keys.hasCompletedFixedBudgetOnboarding)
+            if let signature = budgetAppliedSignature {
+                UserDefaults.standard.set(signature, forKey: Keys.budgetAppliedSignature)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Keys.budgetAppliedSignature)
+            }
         }
     }
 
-    /// Current planning mode (convenience computed property)
-    var planningMode: PlanningMode {
-        get { isFixedBudgetEnabled ? .fixedBudget : .perGoal }
-        set { isFixedBudgetEnabled = (newValue == .fixedBudget) }
+    /// One-time migration notice flag for budget users.
+    @Published var hasSeenBudgetMigrationNotice: Bool {
+        didSet {
+            UserDefaults.standard.set(hasSeenBudgetMigrationNotice, forKey: Keys.hasSeenBudgetMigrationNotice)
+        }
     }
 
     // MARK: - Computed Properties
@@ -175,17 +177,16 @@ final class MonthlyPlanningSettings: ObservableObject {
         self.autoCompleteEnabled = UserDefaults.standard.bool(forKey: Keys.autoCompleteEnabled)
         self.undoGracePeriodHours = UserDefaults.standard.integer(forKey: Keys.undoGracePeriodHours).clamped(to: 0...168, default: 24)
 
-        // Fixed Budget settings
-        self.isFixedBudgetEnabled = UserDefaults.standard.bool(forKey: Keys.isFixedBudgetEnabled)
+        // Budget settings
         if UserDefaults.standard.object(forKey: Keys.monthlyBudget) != nil {
             self.monthlyBudget = UserDefaults.standard.double(forKey: Keys.monthlyBudget)
         } else {
             self.monthlyBudget = nil
         }
         self.budgetCurrency = UserDefaults.standard.string(forKey: Keys.budgetCurrency) ?? "USD"
-        let behaviorRaw = UserDefaults.standard.string(forKey: Keys.completionBehavior) ?? CompletionBehavior.finishFaster.rawValue
-        self.completionBehavior = CompletionBehavior(rawValue: behaviorRaw) ?? .finishFaster
-        self.hasCompletedFixedBudgetOnboarding = UserDefaults.standard.bool(forKey: Keys.hasCompletedFixedBudgetOnboarding)
+        self.budgetAppliedMonthLabel = UserDefaults.standard.string(forKey: Keys.budgetAppliedMonthLabel)
+        self.budgetAppliedSignature = UserDefaults.standard.string(forKey: Keys.budgetAppliedSignature)
+        self.hasSeenBudgetMigrationNotice = UserDefaults.standard.bool(forKey: Keys.hasSeenBudgetMigrationNotice)
     }
     
     // MARK: - Public Methods
@@ -199,12 +200,12 @@ final class MonthlyPlanningSettings: ObservableObject {
         autoStartEnabled = false
         autoCompleteEnabled = false
         undoGracePeriodHours = 24
-        // Fixed Budget settings
-        isFixedBudgetEnabled = false
+        // Budget settings
         monthlyBudget = nil
         budgetCurrency = "USD"
-        completionBehavior = .finishFaster
-        hasCompletedFixedBudgetOnboarding = false
+        budgetAppliedMonthLabel = nil
+        budgetAppliedSignature = nil
+        hasSeenBudgetMigrationNotice = false
     }
     
     /// Validate payment day for current month
@@ -244,12 +245,11 @@ private extension MonthlyPlanningSettings {
         static let autoStartEnabled = "MonthlyPlanning.AutoStartEnabled"
         static let autoCompleteEnabled = "MonthlyPlanning.AutoCompleteEnabled"
         static let undoGracePeriodHours = "MonthlyPlanning.UndoGracePeriodHours"
-        // Fixed Budget settings
-        static let isFixedBudgetEnabled = "MonthlyPlanning.FixedBudget.IsEnabled"
         static let monthlyBudget = "MonthlyPlanning.FixedBudget.MonthlyBudget"
         static let budgetCurrency = "MonthlyPlanning.FixedBudget.Currency"
-        static let completionBehavior = "MonthlyPlanning.FixedBudget.CompletionBehavior"
-        static let hasCompletedFixedBudgetOnboarding = "MonthlyPlanning.FixedBudget.HasCompletedOnboarding"
+        static let budgetAppliedMonthLabel = "MonthlyPlanning.Budget.AppliedMonthLabel"
+        static let budgetAppliedSignature = "MonthlyPlanning.Budget.AppliedSignature"
+        static let hasSeenBudgetMigrationNotice = "MonthlyPlanning.Budget.HasSeenMigrationNotice"
     }
 }
 

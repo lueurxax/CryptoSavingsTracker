@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-01-04 |
+| Last Updated | 2026-01-05 |
 | Platform | Shared |
 | Audience | Developers |
 
@@ -198,6 +198,57 @@ If the entered budget cannot meet all deadlines, the calculator displays:
   - Edit the goal directly
 
 The **Apply to Plan** button is disabled until feasibility is resolved.
+
+## Recent UI/UX Improvements (January 2026)
+
+The following improvements were made to enhance usability and fix bugs:
+
+### Bug Fixes
+
+1. **Payment Count Calculation** - Fixed timeline showing impossible payment counts (e.g., 113 payments for 5 months). Now correctly calculates from payment range.
+
+2. **Currency Consistency** - Fixed "Reduce Target" suggestions showing wrong currency symbol. Now uses display currency throughout.
+
+### UI Enhancements
+
+3. **Dialog Title** - Changed from "Budget Calculator" to "Budget Plan"
+
+4. **Date Format** - Timeline dates now include year (e.g., "Jan 2026" instead of "Jan 15")
+
+5. **Use Minimum Button** - Made prominent with filled button style and icon
+
+6. **Footer Warning** - Added info-styled notice: "Saving will update contribution amounts for all active goals"
+
+7. **Total Label** - Timeline rows show "Total:" instead of Σ symbol for accessibility
+
+8. **Quick Fix Highlighting** - "Increase Budget" suggestion uses filled button to indicate recommended action
+
+9. **Disabled Save Helper** - Shows "Resolve budget shortfall to save" when budget is infeasible
+
+10. **Button Text** - Changed from "Apply to Plan" to "Save Budget Plan"
+
+### Payment Schedule Details
+
+Tapping on a goal in the "Upcoming Schedule" timeline opens a detailed payment schedule view showing:
+
+**Summary Section:**
+- Goal name and emoji
+- Date range (e.g., "Jan 2026 - Mar 2026")
+- Total amount allocated to this goal
+- Number of monthly payments
+- Per-month payment amount
+
+**Payment Schedule Section:**
+Each payment row displays:
+- Payment date (e.g., "Jan 15, 2026")
+- Payment number (e.g., "Payment #1")
+- Amount for that payment
+- Running total after payment
+- "Complete" badge on the final payment
+
+This allows users to see exactly when and how much will be contributed each month for any specific goal.
+
+> **Available on both iOS and Android** with full feature parity.
 
 ## Recalculation
 

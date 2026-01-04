@@ -24,7 +24,7 @@ struct SearchableCurrencyPicker: View {
     #if !os(macOS)
     @FocusState private var searchFieldFocused: Bool
     @State private var autoPicked = false
-    private let isUITest = ProcessInfo.processInfo.arguments.contains("UITEST_UI_FLOW")
+    private let isUITest = UITestFlags.isEnabled
     #endif
     
     init(selectedCurrency: Binding<String>, pickerType: CurrencyPickerType = .crypto) {

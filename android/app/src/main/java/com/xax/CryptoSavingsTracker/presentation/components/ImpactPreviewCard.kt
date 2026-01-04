@@ -44,7 +44,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.xax.CryptoSavingsTracker.domain.model.GoalImpact
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleGreen
+import com.xax.CryptoSavingsTracker.presentation.theme.IconSize
 import com.xax.CryptoSavingsTracker.presentation.theme.InfoBlue
+import com.xax.CryptoSavingsTracker.presentation.theme.Motion
+import com.xax.CryptoSavingsTracker.presentation.theme.Spacing
 import com.xax.CryptoSavingsTracker.presentation.theme.WarningOrange
 import java.text.NumberFormat
 import java.util.Locale
@@ -68,14 +71,14 @@ fun ImpactPreviewCard(
         modifier = modifier
             .fillMaxWidth()
             .semantics { contentDescription = accessibilityDescription },
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             // Header
             ImpactHeader(isPositive = impact.isPositiveChange)
@@ -98,13 +101,13 @@ fun ImpactPreviewCard(
 private fun ImpactHeader(isPositive: Boolean) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
     ) {
         Icon(
             imageVector = if (isPositive) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
             contentDescription = null,
             tint = if (isPositive) AccessibleGreen else WarningOrange,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(IconSize.standard)
         )
 
         Column {
@@ -125,7 +128,7 @@ private fun ImpactHeader(isPositive: Boolean) {
 
 @Composable
 private fun ProgressComparisonRow(impact: GoalImpact) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Text(
             text = "Progress",
             style = MaterialTheme.typography.labelLarge
@@ -148,7 +151,7 @@ private fun ProgressComparisonRow(impact: GoalImpact) {
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(IconSize.standard)
             )
 
             // After
@@ -175,13 +178,13 @@ private fun ProgressIndicator(
 
     val animatedValue by animateFloatAsState(
         targetValue = animatedProgress,
-        animationSpec = tween(durationMillis = 1000),
+        animationSpec = tween(durationMillis = Motion.slow * 2),
         label = "progress"
     )
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
     ) {
         Text(
             text = label,
@@ -238,7 +241,7 @@ private fun CircularProgressIndicator(
 
 @Composable
 private fun KeyChangesSection(impact: GoalImpact, currency: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         if (abs(impact.targetAmountChange) > 0.01) {
             ChangeRow(
                 title = "Target Amount",
@@ -287,7 +290,7 @@ private fun ChangeRow(
         )
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -301,7 +304,7 @@ private fun ChangeRow(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
-                modifier = Modifier.size(12.dp),
+                modifier = Modifier.size(Spacing.sm),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
@@ -319,17 +322,17 @@ private fun SignificantChangeWarning(impact: GoalImpact) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(MaterialTheme.shapes.small)
             .background(WarningOrange.copy(alpha = 0.1f))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = Icons.Default.Warning,
             contentDescription = null,
             tint = WarningOrange,
-            modifier = Modifier.size(16.dp)
+            modifier = Modifier.size(IconSize.inline)
         )
 
         Column {
