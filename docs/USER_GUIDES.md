@@ -1,5 +1,16 @@
 # User and Developer Guides
 
+> Testing, migration, screenshot, and troubleshooting guides for developers
+
+| Metadata | Value |
+|----------|-------|
+| Status | ✅ Current |
+| Last Updated | 2026-01-04 |
+| Platform | Shared |
+| Audience | Developers |
+
+---
+
 This document provides a collection of guides for developers and contributors.
 
 ## Contents
@@ -968,10 +979,11 @@ Copy these new files to your project:
 - `Views/Components/MonthlyPlanningWidget.swift`
 - `Views/Components/FlexAdjustmentSlider.swift`
 - `Views/Planning/PlanningView.swift`
-- `Views/Planning/iOSCompactPlanningView.swift`
-- `Views/Planning/iOSRegularPlanningView.swift` 
-- `Views/Planning/macOSPlanningView.swift`
+- `Views/Planning/MonthlyPlanningContainer.swift`
+- `Views/Planning/MonthlyExecutionView.swift`
 - `Views/Planning/GoalRequirementRow.swift`
+- `Views/Planning/BudgetCalculatorSheet.swift`
+- `Views/Planning/BudgetSummaryCard.swift`
 
 ##### Utilities & Performance
 - `Utilities/PerformanceOptimizer.swift`

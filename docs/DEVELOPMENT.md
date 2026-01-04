@@ -1,5 +1,16 @@
 # Development Plans
 
+> Major development initiatives, feature roadmaps, and refactoring plans
+
+| Metadata | Value |
+|----------|-------|
+| Status | ✅ Current |
+| Last Updated | 2026-01-04 |
+| Platform | Shared |
+| Audience | Developers |
+
+---
+
 This document outlines the major development initiatives, including feature roadmaps and refactoring plans.
 
 ## Contents

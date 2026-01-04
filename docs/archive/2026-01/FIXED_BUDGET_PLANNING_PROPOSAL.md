@@ -1,19 +1,22 @@
 # Fixed Budget Planning Proposal
 
-Status: **Revision 2 - PROPOSED** (Not yet implemented)
+Status: **Revision 2 - IMPLEMENTED** (v2 complete)
 Owner: Product
 Last updated: 2026-01-04
 
-> **⚠️ IMPORTANT: Current Implementation vs This Proposal**
+> **⚠️ IMPORTANT: v2 Implementation Notes**
 >
-> This document describes a **proposed v2 redesign** that has NOT been implemented yet.
+> This document describes the **v2 Budget Calculator** that is now implemented.
 >
-> **Currently implemented (v1):** The codebase contains a separate "Fixed Budget Mode" with:
+> **Previously implemented (v1):** The codebase used a separate "Fixed Budget Mode" with:
 > - `FixedBudgetPlanningView.swift` / `FixedBudgetPlanningScreen.kt`
 > - `FixedBudgetPlanningViewModel.kt`
 > - `PlanningModeSegmentedControl` for switching between modes
 > - `CompletionBehavior` setting
 > - Separate schedule view and timeline
+>
+> **Status:** v1 components have been removed on both platforms. Budget planning now lives in
+> the calculator sheet + existing planning view (v2).
 >
 > **This proposal (v2):** Describes replacing v1 with a simpler "Budget Calculator" tool
 > that applies to the existing planning view. Implementation requires:
@@ -142,7 +145,7 @@ Tapping "Set Budget" opens a bottom sheet:
 │                                         │
 │ ┌─────────────────────────────────────┐ │
 │ │ ✓ All deadlines achievable          │ │
-│ │   Minimum required: EUR 333.33      │ │
+│ │   Minimum required: EUR 383.33      │ │
 │ └─────────────────────────────────────┘ │
 │                                         │
 │ ─────────── Preview ───────────         │
@@ -431,21 +434,20 @@ When budget is set, show percentage of budget:
 Text("\(Int(flexValue * 100))% of budget (\(formattedBudget))")
 ```
 
-## Components to Remove When Implementing v2
+## Removed v1 Components (Completed)
 
-> **Note:** These v1 components currently exist in the codebase. They should be
-> removed as part of implementing v2, after the new calculator is working and
-> user migration is complete.
+> **Note:** These v1 components have been removed as part of implementing v2,
+> after the calculator was working and migration logic was in place.
 
 The following v1 components will no longer be needed:
 
-- ❌ `PlanningModeSegmentedControl` - No mode switching
-- ❌ `FixedBudgetPlanningView` - No separate view
-- ❌ `FixedBudgetPlanningViewModel` - No separate view model
-- ❌ `FixedBudgetSetupSheet` (2-step onboarding) - Simple calculator instead
-- ❌ `ScheduleCard` with expansion - Timeline is preview-only
-- ❌ `CompletionBehavior` setting - Not needed with this approach
-- ❌ `FixedBudgetExecutionHeader` - Use existing execution view
+- ✅ `PlanningModeSegmentedControl` - No mode switching
+- ✅ `FixedBudgetPlanningView` - No separate view
+- ✅ `FixedBudgetPlanningViewModel` - No separate view model
+- ✅ `FixedBudgetSetupSheet` (2-step onboarding) - Simple calculator instead
+- ✅ `ScheduleCard` with expansion - Timeline is preview-only
+- ✅ `CompletionBehavior` setting - Not needed with this approach
+- ✅ `FixedBudgetExecutionHeader` - Use existing execution view
 
 ## Integration with Existing Features
 
@@ -609,10 +611,7 @@ For users who already used v1 Fixed Budget mode:
 | `presentation/planning/MonthlyPlanningViewModel.kt` | Add budget state, apply logic |
 | `domain/model/MonthlyPlanningSettings.kt` | Remove `isFixedBudgetEnabled`, `completionBehavior`, `hasCompletedOnboarding`; keep `monthlyBudget` |
 
-### Files to Remove (After v2 is Complete)
-
-> **Note:** These files currently exist and are in use. Only remove after v2 is
-> fully implemented and tested, and user migration is complete.
+### Removed Files (v2)
 
 - `Views/Planning/FixedBudgetPlanningView.swift`
 - `Views/Planning/FixedBudgetIntroCard.swift`

@@ -1,8 +1,17 @@
 # CryptoSavingsTracker Documentation
 
-> **A comprehensive multi-platform application for tracking cryptocurrency savings goals across iOS, macOS, visionOS, and Android.**
+> A comprehensive multi-platform application for tracking cryptocurrency savings goals across iOS, macOS, visionOS, and Android.
 
-## 🎯 Quick Start
+| Metadata | Value |
+|----------|-------|
+| Status | ✅ Current |
+| Last Updated | 2026-01-04 |
+| Platform | Shared |
+| Audience | All |
+
+---
+
+## Quick Start
 
 ### For iOS/macOS Developers
 1. Read [ARCHITECTURE.md](ARCHITECTURE.md) → Understand iOS system design
@@ -22,7 +31,7 @@
 
 ---
 
-## 📚 Documentation Index
+## Documentation Index
 
 ### Android Documentation
 
@@ -45,16 +54,22 @@
 |----------|---------|----------|
 | [API_INTEGRATIONS.md](API_INTEGRATIONS.md) | External API integration details (CoinGecko, Tatum) - used by both platforms | Developers |
 | [COMPONENT_REGISTRY.md](COMPONENT_REGISTRY.md) | iOS reusable UI component catalog | iOS Developers, Designers |
-| [CONTRIBUTION_PROCESS_PROPOSAL.md](CONTRIBUTION_PROCESS_PROPOSAL.md) | Proposed improvements for contribution UX and shared-asset workflows | Product, Developers |
+| [BUDGET_CALCULATOR.md](BUDGET_CALCULATOR.md) | Budget Calculator feature documentation for fixed monthly savings | Developers |
+| [CONTRIBUTION_PROCESS.md](CONTRIBUTION_PROCESS.md) | Contribution process UX features: "Add to Close Month" action, current goal first sorting, execution currency selector | Developers |
+| [CONTRIBUTION_FLOW.md](CONTRIBUTION_FLOW.md) | Timestamp-based execution tracking architecture and contribution derivation | Developers |
+| [CONTRIBUTION_TRACKING_REDESIGN.md](CONTRIBUTION_TRACKING_REDESIGN.md) | AllocationHistory, contribution tracking architecture decisions | Developers |
+| [CLOUDKIT_MIGRATION_PLAN.md](CLOUDKIT_MIGRATION_PLAN.md) | CloudKit/iCloud sync migration requirements and plan | Developers |
+| [STYLE_GUIDE.md](STYLE_GUIDE.md) | Documentation style standards and conventions | All |
 | [sample-data.md](sample-data.md) | Sample data for testing and development | Developers, QA |
 
 ### Historical Documentation
 
 | Directory | Contents |
 |-----------|----------|
+| [archive/2026-01/](archive/2026-01/) | Archived proposals from January 2026 (now implemented) |
 | [archive/2025-11/](archive/2025-11/) | Archived proposals, fixes, and plans from August-November 2025 |
 
-## 🏗️ Architecture Quick Reference
+## Architecture Quick Reference
 
 ### Key Technologies
 
@@ -176,7 +191,7 @@ android/
 └── app/src/main/res/           # Resources (themes, strings, drawables)
 ```
 
-## ✨ Key Features
+## Key Features
 
 ### Core Features
 - **🎯 Goal Management**: Create and track multiple cryptocurrency savings goals
@@ -196,7 +211,7 @@ android/
 - **♿ Accessibility**: WCAG 2.1 AA compliant with VoiceOver support
 - **🔔 Notifications**: Smart reminders for monthly contributions
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Android Prerequisites
 - Android Studio (latest stable)
@@ -239,7 +254,7 @@ android/
 2. **Sample Data**: Use sample-data.md for test data generation
 3. **Troubleshooting**: Reference "Troubleshooting Guide" in USER_GUIDES.md
 
-## 📖 Feature Documentation
+## Feature Documentation
 
 ### Monthly Planning Feature
 
@@ -276,7 +291,7 @@ Platform abstraction and component unification. See DEVELOPMENT.md for:
 
 **Status**: See "Architectural Refactoring Plan" in DEVELOPMENT.md
 
-## 🧪 Testing
+## Testing
 
 ### Test Coverage
 
@@ -303,7 +318,7 @@ xcodebuild test -scheme CryptoSavingsTracker -destination "platform=macOS" \
 
 **Detailed Guide**: See "Testing Guide" in USER_GUIDES.md
 
-## 🔧 Configuration
+## Configuration
 
 ### API Keys
 
@@ -320,7 +335,7 @@ Configure external API keys in `Config.plist`:
 - **Release**: Optimized, minimal logging
 - **TestFlight**: Beta distribution
 
-## 📝 Contributing
+## Contributing
 
 ### Before Starting
 
@@ -344,9 +359,14 @@ Configure external API keys in `Config.plist`:
 - [ ] Documentation updated
 - [ ] No regression in existing tests
 
-## 🗂️ Archive
+## Archive
 
 Historical documentation is preserved in `archive/` directories:
+
+- **archive/2026-01/**: Implemented proposals from January 2026
+  - Fixed Budget Planning Proposal (now BUDGET_CALCULATOR.md)
+  - Contribution Process Proposal (now CONTRIBUTION_PROCESS.md)
+  - Execution Tracking Live Sync Proposal (superseded by CONTRIBUTION_FLOW.md)
 
 - **archive/2025-11/**: Proposals and fixes from August-November 2025
   - Dashboard improvement plans
@@ -357,14 +377,14 @@ Historical documentation is preserved in `archive/` directories:
 
 These are kept for historical reference but are superseded by current documentation.
 
-## 📚 External Resources
+## External Resources
 
 - [Swift Documentation](https://swift.org/documentation/)
 - [SwiftUI Documentation](https://developer.apple.com/documentation/swiftui)
 - [SwiftData Documentation](https://developer.apple.com/documentation/swiftdata)
 - [WCAG 2.1 AA Guidelines](https://www.w3.org/WAI/WCAG21/quickref/)
 
-## 🆘 Getting Help
+## Getting Help
 
 ### Quick Solutions
 
@@ -432,26 +452,34 @@ let container = try ModelContainer(for:
 2. Check sample-data.md for test data
 3. Review test architecture in USER_GUIDES.md
 
-## 📊 Documentation Status
+## Documentation Status
 
 | Document | Last Updated | Status | Coverage |
 |----------|--------------|--------|----------|
-| README.md | November 23, 2025 | ✅ Current | Complete |
-| ARCHITECTURE.md | November 23, 2025 | ✅ Current | Complete |
-| DEVELOPMENT.md | August 2025 | ✅ Current | Complete |
-| MONTHLY_PLANNING.md | August 9, 2025 | ✅ Current | Complete |
-| USER_GUIDES.md | August 9, 2025 | ✅ Current | Complete |
-| API_INTEGRATIONS.md | August 2025 | ✅ Current | Complete |
-| COMPONENT_REGISTRY.md | August 2025 | ✅ Current | Complete |
-| sample-data.md | August 2025 | ✅ Current | Complete |
+| README.md | 2026-01-04 | ✅ Current | Complete |
+| STYLE_GUIDE.md | 2026-01-04 | ✅ Current | Complete |
+| ANDROID_DEVELOPMENT_PLAN.md | 2026-01-04 | ✅ Current | Complete |
+| ARCHITECTURE.md | 2026-01-04 | ✅ Current | Complete |
+| BUDGET_CALCULATOR.md | 2026-01-04 | ✅ Current | Complete |
+| CONTRIBUTION_PROCESS.md | 2026-01-04 | ✅ Current | Complete |
+| CONTRIBUTION_FLOW.md | 2026-01-04 | ✅ Current | Complete |
+| CONTRIBUTION_TRACKING_REDESIGN.md | 2026-01-04 | ✅ Current | Complete |
+| CLOUDKIT_MIGRATION_PLAN.md | 2026-01-04 | 📋 Planning | Complete |
+| DEVELOPMENT.md | 2026-01-04 | ✅ Current | Complete |
+| MONTHLY_PLANNING.md | 2026-01-04 | ✅ Current | Complete |
+| USER_GUIDES.md | 2026-01-04 | ✅ Current | Complete |
+| API_INTEGRATIONS.md | 2026-01-04 | ✅ Current | Complete |
+| COMPONENT_REGISTRY.md | 2026-01-04 | ✅ Current | iOS Only |
+| sample-data.md | 2026-01-04 | ✅ Current | Complete |
 
 ### Recent Updates
-- **Nov 23, 2025**: Enhanced README with architecture diagrams, quick start guide, and FAQ
-- **Nov 23, 2025**: Consolidated duplicate content from ARCHITECTURE.md
-- **Nov 23, 2025**: Archived 12 outdated proposal documents to archive/2025-11/
-- **Aug 2025**: Initial documentation structure and core guides
+- **2026-01-04**: Created STYLE_GUIDE.md and standardized all documentation
+- **2026-01-04**: Documentation cleanup - archived execution-tracking-live-sync proposal
+- **2026-01-04**: Added CONTRIBUTION_FLOW.md, CONTRIBUTION_TRACKING_REDESIGN.md to index
+- **2025-11-23**: Enhanced README with architecture diagrams, quick start guide
+- **2025-11-23**: Archived 12 outdated proposal documents to archive/2025-11/
 
-## 🔖 Version Information
+## Version Information
 
 - **App Version**: 2.1+
 - **Documentation Version**: 2.0
@@ -461,6 +489,4 @@ let container = try ModelContainer(for:
 
 ---
 
-*Last Updated: November 23, 2025*
-*Maintained by: CryptoSavingsTracker Development Team*
-*Documentation Coverage: 100%*
+*Last updated: 2026-01-04*

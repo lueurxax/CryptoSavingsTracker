@@ -1,5 +1,16 @@
 # CloudKit Migration Plan
 
+> Changes required for SwiftData models to support CloudKit iCloud sync
+
+| Metadata | Value |
+|----------|-------|
+| Status | 📋 Planning |
+| Last Updated | 2026-01-04 |
+| Platform | iOS |
+| Audience | Developers |
+
+---
+
 ## Overview
 
 This document outlines the changes required to make the SwiftData models compatible with CloudKit for iCloud sync.

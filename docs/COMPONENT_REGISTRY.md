@@ -1,5 +1,16 @@
 # Component Registry
 
+> Registry of reusable UI components in the iOS/macOS codebase
+
+| Metadata | Value |
+|----------|-------|
+| Status | ✅ Current |
+| Last Updated | 2026-01-04 |
+| Platform | iOS |
+| Audience | Developers |
+
+---
+
 This document provides a registry of all reusable UI components in the CryptoSavingsTracker project.
 
 ## Components

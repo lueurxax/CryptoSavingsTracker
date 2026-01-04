@@ -1,5 +1,16 @@
 # Contribution Flow (Timestamp-Based Execution Tracking)
 
+> How monthly plan fulfillment is tracked using timestamps and derived contributions
+
+| Metadata | Value |
+|----------|-------|
+| Status | ✅ Current |
+| Last Updated | 2026-01-04 |
+| Platform | Shared |
+| Audience | Developers |
+
+---
+
 ## Overview
 
 This project tracks monthly plan fulfillment without persisting contributions during execution.
@@ -456,5 +467,4 @@ flowchart LR
 ## Related Documentation
 
 - `CONTRIBUTION_TRACKING_REDESIGN.md` - Architecture overview and design decisions
-- `execution-tracking-live-sync.md` - Real-time sync behavior during execution
 - `CLOUDKIT_MIGRATION_PLAN.md` - CloudKit compatibility requirements

@@ -1,10 +1,21 @@
-# 🏗️ CryptoSavingsTracker Architecture Documentation
+# CryptoSavingsTracker Architecture Documentation
+
+> Multi-platform SwiftUI application architecture with SwiftData persistence
+
+| Metadata | Value |
+|----------|-------|
+| Status | ✅ Current |
+| Last Updated | 2026-01-04 |
+| Platform | iOS |
+| Audience | Developers |
+
+---
 
 ## Overview
 
 CryptoSavingsTracker is a multi-platform SwiftUI application built with SwiftData persistence, supporting iOS, macOS, and visionOS. This document provides a comprehensive guide to the application's architecture, component organization, and platform abstractions.
 
-## 📋 Table of Contents
+## Table of Contents
 
 1. [Platform Architecture](#platform-architecture)
 2. [View Component Map](#view-component-map)
@@ -59,7 +70,7 @@ enum NavigationStylePreference {
 
 ## View Component Map
 
-### 🎯 **Goal Display Components** *(Critical for Maintainability)*
+### Goal Display Components *(Critical for Maintainability)*
 
 > **⚠️ IMPORTANT**: When modifying goal display logic, you must update ALL these components
 
@@ -70,7 +81,7 @@ enum NavigationStylePreference {
 | **Shared** | `GoalRowView` (alt) | `/Views/ContentView.swift` (GoalsList) | Alternative iOS implementation |
 | **Shared** | `GoalRowView` (alt) | `/Views/Goals/GoalsListContainer.swift` | iOS container variant |
 
-#### 🔧 **Goal Component Responsibilities**
+#### Goal Component Responsibilities
 
 ```swift
 // Common functionality across ALL goal display components:
@@ -82,7 +93,7 @@ enum NavigationStylePreference {
 // ✅ Accessibility support
 ```
 
-### 📊 **Progress Calculation Architecture**
+### Progress Calculation Architecture
 
 > **🎯 KEY INSIGHT**: All goal lists must use `GoalCalculationService` for accurate progress
 

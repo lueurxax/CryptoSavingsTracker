@@ -1,5 +1,16 @@
 # Android Development Plan - CryptoSavingsTracker
 
+> Comprehensive plan for Android version with iOS feature parity
+
+| Metadata | Value |
+|----------|-------|
+| Status | 🔄 In Progress |
+| Last Updated | 2026-01-04 |
+| Platform | Android |
+| Audience | Developers |
+
+---
+
 ## Overview
 
 This document outlines the comprehensive plan to build the Android version of CryptoSavingsTracker, ensuring feature parity with the iOS/macOS app while following Android best practices and Modern Android Development (MAD) guidelines.

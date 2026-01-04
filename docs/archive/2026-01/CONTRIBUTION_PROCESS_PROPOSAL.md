@@ -1,8 +1,8 @@
 # Contribution Process Improvement Proposal
 
-Status: Draft  
-Owner: Product + iOS  
-Last updated: 2025-02-14
+Status: **IMPLEMENTED** - See [CONTRIBUTION_PROCESS.md](/docs/CONTRIBUTION_PROCESS.md)
+Owner: Product + iOS
+Last updated: 2026-01-04
 
 ## Summary
 

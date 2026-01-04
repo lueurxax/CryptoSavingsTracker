@@ -1,5 +1,16 @@
 # Monthly Planning Feature Documentation
 
+> Zero-input planning system for calculating monthly savings requirements with execution tracking
+
+| Metadata | Value |
+|----------|-------|
+| Status | ✅ Current |
+| Last Updated | 2026-01-04 |
+| Platform | Shared |
+| Audience | Developers |
+
+---
+
 ## Overview
 
 The Monthly Planning feature is a comprehensive zero-input planning system that automatically calculates monthly savings requirements across all user goals. It includes execution tracking to monitor contributions throughout the month with full undo support.

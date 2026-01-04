@@ -1,5 +1,16 @@
 # Contribution Tracking Architecture
 
+> Timestamp-based contribution tracking system for monthly execution
+
+| Metadata | Value |
+|----------|-------|
+| Status | ✅ Current |
+| Last Updated | 2026-01-04 |
+| Platform | Shared |
+| Audience | Developers |
+
+---
+
 ## Overview
 
 This document describes the timestamp-based contribution tracking system used for monthly execution tracking. The system derives contribution values dynamically from timestamps rather than maintaining separate contribution records.
@@ -407,5 +418,5 @@ class ExecutionTrackingService {
 
 ## Related Documentation
 
+- `CONTRIBUTION_FLOW.md` - Timestamp-based execution tracking flows
 - `CLOUDKIT_MIGRATION_PLAN.md` - CloudKit compatibility requirements for these models
-- `execution-tracking-live-sync.md` - Real-time sync behavior during execution

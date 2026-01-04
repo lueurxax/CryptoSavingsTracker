@@ -1,5 +1,16 @@
 # API Integrations
 
+> External APIs used for exchange rates, blockchain data, and balance fetching
+
+| Metadata | Value |
+|----------|-------|
+| Status | ✅ Current |
+| Last Updated | 2026-01-04 |
+| Platform | Shared |
+| Audience | Developers |
+
+---
+
 This document provides an overview of the external APIs used in the CryptoSavingsTracker application.
 
 ## CoinGecko API

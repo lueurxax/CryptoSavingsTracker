@@ -1,5 +1,16 @@
 # Sample Data for Screenshots
 
+> Sample goals and assets for creating professional app screenshots
+
+| Metadata | Value |
+|----------|-------|
+| Status | ✅ Current |
+| Last Updated | 2026-01-04 |
+| Platform | Shared |
+| Audience | All |
+
+---
+
 Use this data to create realistic goals and assets for professional screenshots.
 
 ## 📊 Goals to Create
