@@ -94,7 +94,7 @@ private fun UnallocatedAssetCard(
     item: UnallocatedAssetWarning,
     onClick: () -> Unit
 ) {
-    val isCryptoAsset = item.address != null
+    val isCryptoAsset = !item.address.isNullOrBlank() || !item.chainId.isNullOrBlank()
 
     Card(
         modifier = Modifier

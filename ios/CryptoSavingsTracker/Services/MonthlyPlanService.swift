@@ -27,8 +27,14 @@ final class MonthlyPlanService {
     /// This is the main entry point - ensures only one set of plans exists per month
     /// Uses AsyncSerialExecutor to prevent race conditions during concurrent access
     func getOrCreatePlansForCurrentMonth(goals: [Goal]) async throws -> [MonthlyPlan] {
+        let monthLabel = currentMonthLabel()
+        return try await getOrCreatePlans(for: monthLabel, goals: goals)
+    }
+
+    /// Get existing plans OR create new ones for a specific month (with duplicate prevention)
+    /// Uses AsyncSerialExecutor to prevent race conditions during concurrent access
+    func getOrCreatePlans(for monthLabel: String, goals: [Goal]) async throws -> [MonthlyPlan] {
         return try await Self.sharedExecutor.enqueue {
-            let monthLabel = self.currentMonthLabel()
 
             // GUARD 1: Check if ANY plans exist for this month (any state)
             let existingPlans = try self.fetchPlans(for: monthLabel, state: nil)
@@ -53,6 +59,48 @@ final class MonthlyPlanService {
 
             // Only create if NO plans exist
             return try await self.createPlansFor(goals: goals, monthLabel: monthLabel)
+        }
+    }
+
+    /// Roll forward stale draft plans to the target month when no execution is active.
+    /// Returns true if any plans were moved or merged.
+    func rollForwardDraftPlans(to targetMonthLabel: String) async throws -> Bool {
+        return try await Self.sharedExecutor.enqueue {
+            let predicate = #Predicate<MonthlyPlan> { plan in
+                plan.stateRawValue == "draft" && plan.monthLabel < targetMonthLabel
+            }
+            let stalePlans = try self.modelContext.fetch(FetchDescriptor<MonthlyPlan>(predicate: predicate))
+            guard !stalePlans.isEmpty else { return false }
+
+            let targetPlans = try self.fetchPlans(for: targetMonthLabel, state: nil)
+            var targetByGoal: [UUID: MonthlyPlan] = [:]
+            for plan in targetPlans {
+                targetByGoal[plan.goalId] = plan
+            }
+
+            var didChange = false
+            for stale in stalePlans {
+                if let target = targetByGoal[stale.goalId] {
+                    if stale.lastModifiedDate > target.lastModifiedDate {
+                        target.customAmount = stale.customAmount
+                        target.isProtected = stale.isProtected
+                        target.isSkipped = stale.isSkipped
+                        target.flexState = stale.flexState
+                    }
+                    self.modelContext.delete(stale)
+                    didChange = true
+                } else {
+                    stale.monthLabel = targetMonthLabel
+                    stale.lastModifiedDate = Date()
+                    didChange = true
+                }
+            }
+
+            if didChange {
+                try self.modelContext.save()
+            }
+
+            return didChange
         }
     }
 

@@ -70,7 +70,54 @@ final class MonthlyPlanningSettings: ObservableObject {
             UserDefaults.standard.set(undoGracePeriodHours, forKey: Keys.undoGracePeriodHours)
         }
     }
-    
+
+    // MARK: - Fixed Budget Settings
+
+    /// Whether Fixed Budget mode is enabled (vs Per Goal mode)
+    @Published var isFixedBudgetEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isFixedBudgetEnabled, forKey: Keys.isFixedBudgetEnabled)
+        }
+    }
+
+    /// User's monthly savings budget amount (nil = use calculated minimum)
+    @Published var monthlyBudget: Double? {
+        didSet {
+            if let budget = monthlyBudget {
+                UserDefaults.standard.set(budget, forKey: Keys.monthlyBudget)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Keys.monthlyBudget)
+            }
+        }
+    }
+
+    /// Currency for the fixed budget
+    @Published var budgetCurrency: String {
+        didSet {
+            UserDefaults.standard.set(budgetCurrency, forKey: Keys.budgetCurrency)
+        }
+    }
+
+    /// What happens when a goal completes early
+    @Published var completionBehavior: CompletionBehavior {
+        didSet {
+            UserDefaults.standard.set(completionBehavior.rawValue, forKey: Keys.completionBehavior)
+        }
+    }
+
+    /// Whether user has completed the fixed budget onboarding flow
+    @Published var hasCompletedFixedBudgetOnboarding: Bool {
+        didSet {
+            UserDefaults.standard.set(hasCompletedFixedBudgetOnboarding, forKey: Keys.hasCompletedFixedBudgetOnboarding)
+        }
+    }
+
+    /// Current planning mode (convenience computed property)
+    var planningMode: PlanningMode {
+        get { isFixedBudgetEnabled ? .fixedBudget : .perGoal }
+        set { isFixedBudgetEnabled = (newValue == .fixedBudget) }
+    }
+
     // MARK: - Computed Properties
     
     /// Next payment deadline based on current date and payment day
@@ -127,6 +174,18 @@ final class MonthlyPlanningSettings: ObservableObject {
         self.autoStartEnabled = UserDefaults.standard.bool(forKey: Keys.autoStartEnabled)
         self.autoCompleteEnabled = UserDefaults.standard.bool(forKey: Keys.autoCompleteEnabled)
         self.undoGracePeriodHours = UserDefaults.standard.integer(forKey: Keys.undoGracePeriodHours).clamped(to: 0...168, default: 24)
+
+        // Fixed Budget settings
+        self.isFixedBudgetEnabled = UserDefaults.standard.bool(forKey: Keys.isFixedBudgetEnabled)
+        if UserDefaults.standard.object(forKey: Keys.monthlyBudget) != nil {
+            self.monthlyBudget = UserDefaults.standard.double(forKey: Keys.monthlyBudget)
+        } else {
+            self.monthlyBudget = nil
+        }
+        self.budgetCurrency = UserDefaults.standard.string(forKey: Keys.budgetCurrency) ?? "USD"
+        let behaviorRaw = UserDefaults.standard.string(forKey: Keys.completionBehavior) ?? CompletionBehavior.finishFaster.rawValue
+        self.completionBehavior = CompletionBehavior(rawValue: behaviorRaw) ?? .finishFaster
+        self.hasCompletedFixedBudgetOnboarding = UserDefaults.standard.bool(forKey: Keys.hasCompletedFixedBudgetOnboarding)
     }
     
     // MARK: - Public Methods
@@ -140,6 +199,12 @@ final class MonthlyPlanningSettings: ObservableObject {
         autoStartEnabled = false
         autoCompleteEnabled = false
         undoGracePeriodHours = 24
+        // Fixed Budget settings
+        isFixedBudgetEnabled = false
+        monthlyBudget = nil
+        budgetCurrency = "USD"
+        completionBehavior = .finishFaster
+        hasCompletedFixedBudgetOnboarding = false
     }
     
     /// Validate payment day for current month
@@ -179,6 +244,12 @@ private extension MonthlyPlanningSettings {
         static let autoStartEnabled = "MonthlyPlanning.AutoStartEnabled"
         static let autoCompleteEnabled = "MonthlyPlanning.AutoCompleteEnabled"
         static let undoGracePeriodHours = "MonthlyPlanning.UndoGracePeriodHours"
+        // Fixed Budget settings
+        static let isFixedBudgetEnabled = "MonthlyPlanning.FixedBudget.IsEnabled"
+        static let monthlyBudget = "MonthlyPlanning.FixedBudget.MonthlyBudget"
+        static let budgetCurrency = "MonthlyPlanning.FixedBudget.Currency"
+        static let completionBehavior = "MonthlyPlanning.FixedBudget.CompletionBehavior"
+        static let hasCompletedFixedBudgetOnboarding = "MonthlyPlanning.FixedBudget.HasCompletedOnboarding"
     }
 }
 

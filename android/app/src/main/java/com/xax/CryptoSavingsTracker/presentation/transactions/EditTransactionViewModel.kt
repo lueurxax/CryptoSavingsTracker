@@ -137,10 +137,15 @@ class EditTransactionViewModel @Inject constructor(
                 } else {
                     amountValue
                 }
-                val dateMillis = currentState.date
-                    .atStartOfDay(ZoneId.systemDefault())
-                    .toInstant()
-                    .toEpochMilli()
+                // iOS parity: use current timestamp for today's date
+                val dateMillis = if (currentState.date == LocalDate.now()) {
+                    System.currentTimeMillis()
+                } else {
+                    currentState.date
+                        .atStartOfDay(ZoneId.systemDefault())
+                        .toInstant()
+                        .toEpochMilli()
+                }
 
                 val updated = original.copy(
                     amount = signedAmount,

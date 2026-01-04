@@ -142,7 +142,7 @@ class AllocationValidationService @Inject constructor(
 
     private suspend fun bestKnownBalance(asset: Asset): Double {
         val manual = transactionRepository.getManualBalanceForAsset(asset.id)
-        val hasOnChain = asset.isCryptoAsset && asset.address != null && asset.chainId != null
+        val hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
         if (!hasOnChain) return manual
 
         val onChain = runCatching {

@@ -289,7 +289,6 @@ object CsvExportFormatter {
                 ReminderFrequency.WEEKLY -> "weekly"
                 ReminderFrequency.BIWEEKLY -> "biweekly"
                 ReminderFrequency.MONTHLY -> "monthly"
-                ReminderFrequency.DAILY -> "daily"
             }
         }
 

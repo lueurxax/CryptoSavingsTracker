@@ -15,10 +15,12 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class MonthlyGoalPlanServiceTest {
+    private val flexAdjustmentService = mockk<FlexAdjustmentService>(relaxed = true)
+
     @Test
     fun syncPlans_preservesUserPreferencesWhileUpdatingCalculations() = runTest {
         val repo = mockk<MonthlyGoalPlanRepository>()
-        val service = MonthlyGoalPlanService(repo)
+        val service = MonthlyGoalPlanService(repo, flexAdjustmentService)
         val monthLabel = "2025-12"
 
         val existing = MonthlyGoalPlan(
@@ -69,7 +71,7 @@ class MonthlyGoalPlanServiceTest {
     @Test
     fun applyFlexAdjustment_setsCustomAmountForFlexiblePlans_andPreservesProtectedAndSkipped() = runTest {
         val repo = mockk<MonthlyGoalPlanRepository>()
-        val service = MonthlyGoalPlanService(repo)
+        val service = MonthlyGoalPlanService(repo, flexAdjustmentService)
         val monthLabel = "2025-12"
 
         val flexible = plan(goalId = "g1", requiredMonthly = 100.0, customAmount = null, isProtected = false, isSkipped = false)
@@ -79,6 +81,23 @@ class MonthlyGoalPlanServiceTest {
         coEvery { repo.getPlansOnce(monthLabel) } returns listOf(flexible, protected, skipped)
         val captured = slot<List<MonthlyGoalPlan>>()
         coEvery { repo.upsertAll(capture(captured)) } returns Unit
+
+        // Mock FlexAdjustmentService to return adjusted requirements
+        coEvery {
+            flexAdjustmentService.applyFlexAdjustment(
+                requirements = any(),
+                adjustment = any(),
+                protectedGoalIds = any(),
+                skippedGoalIds = any(),
+                strategy = any()
+            )
+        } answers {
+            val reqs = firstArg<List<MonthlyRequirement>>()
+            val adjustment = secondArg<Double>()
+            reqs.map { req ->
+                adjustedRequirement(req, adjustedAmount = req.requiredMonthly * adjustment)
+            }
+        }
 
         service.applyFlexAdjustment(monthLabel, adjustment = 0.5)
 
@@ -91,7 +110,7 @@ class MonthlyGoalPlanServiceTest {
     @Test
     fun applyFlexAdjustment_clearsCustomAmountForFlexiblePlansWhenResetToOne() = runTest {
         val repo = mockk<MonthlyGoalPlanRepository>()
-        val service = MonthlyGoalPlanService(repo)
+        val service = MonthlyGoalPlanService(repo, flexAdjustmentService)
         val monthLabel = "2025-12"
 
         val flexible = plan(goalId = "g1", requiredMonthly = 100.0, customAmount = 80.0, isProtected = false, isSkipped = false)
@@ -149,6 +168,27 @@ class MonthlyGoalPlanServiceTest {
             progress = 0.0,
             deadline = LocalDate.now().plusDays(30),
             status = status
+        )
+    }
+
+    private fun adjustedRequirement(
+        req: MonthlyRequirement,
+        adjustedAmount: Double
+    ): AdjustedRequirement {
+        return AdjustedRequirement(
+            requirement = req,
+            adjustedAmount = adjustedAmount,
+            adjustmentReason = "Test",
+            isProtected = false,
+            isSkipped = false,
+            adjustmentFactor = adjustedAmount / req.requiredMonthly,
+            redistributionAmount = 0.0,
+            impactAnalysis = ImpactAnalysis(
+                changeAmount = adjustedAmount - req.requiredMonthly,
+                changePercentage = (adjustedAmount - req.requiredMonthly) / req.requiredMonthly,
+                estimatedDelay = 0,
+                riskLevel = RiskLevel.LOW
+            )
         )
     }
 }

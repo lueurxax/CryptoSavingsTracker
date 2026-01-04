@@ -9,6 +9,7 @@ import com.xax.CryptoSavingsTracker.domain.model.Transaction
 import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
+import com.xax.CryptoSavingsTracker.domain.repository.OnChainTransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.DeleteAssetUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.GetAssetByIdUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.transaction.GetTransactionsUseCase
@@ -31,13 +32,16 @@ data class AssetDetailUiState(
     val currentBalanceUsd: Double? = null,
     val isUsdLoading: Boolean = false,
     val usdError: String? = null,
-    val transactionCount: Int = 0,
-    val depositCount: Int = 0,
-    val withdrawalCount: Int = 0,
-    val recentTransactions: List<Transaction> = emptyList(),
+    val manualTransactionCount: Int = 0,
+    val manualDepositCount: Int = 0,
+    val manualWithdrawalCount: Int = 0,
+    val recentManualTransactions: List<Transaction> = emptyList(),
+    val recentOnChainTransactions: List<Transaction> = emptyList(),
     val onChainBalance: OnChainBalance? = null,
     val isOnChainLoading: Boolean = false,
     val onChainError: String? = null,
+    val isOnChainTransactionsLoading: Boolean = false,
+    val onChainTransactionsError: String? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
     val showDeleteConfirmation: Boolean = false,
@@ -54,6 +58,7 @@ class AssetDetailViewModel @Inject constructor(
     private val getTransactionsUseCase: GetTransactionsUseCase,
     private val exchangeRateRepository: ExchangeRateRepository,
     private val onChainBalanceRepository: OnChainBalanceRepository,
+    private val onChainTransactionRepository: OnChainTransactionRepository,
     private val deleteAssetUseCase: DeleteAssetUseCase
 ) : ViewModel() {
 
@@ -65,6 +70,8 @@ class AssetDetailViewModel @Inject constructor(
     private val _onChainBalance = MutableStateFlow<OnChainBalance?>(null)
     private val _isOnChainLoading = MutableStateFlow(false)
     private val _onChainError = MutableStateFlow<String?>(null)
+    private val _isOnChainTransactionsLoading = MutableStateFlow(false)
+    private val _onChainTransactionsError = MutableStateFlow<String?>(null)
     private val _currentBalanceUsd = MutableStateFlow<Double?>(null)
     private val _isUsdLoading = MutableStateFlow(false)
     private val _usdError = MutableStateFlow<String?>(null)
@@ -72,6 +79,7 @@ class AssetDetailViewModel @Inject constructor(
     private var latestAsset: Asset? = null
     private var latestManualBalance: Double = 0.0
     private var latestUsdKey: String? = null
+    private var latestOnChainKey: String? = null
 
     private val assetAndTransactions = combine(
         getAssetByIdUseCase.asFlow(assetId),
@@ -88,12 +96,20 @@ class AssetDetailViewModel @Inject constructor(
                     .filter { it.source == TransactionSource.MANUAL }
                     .sumOf { it.amount }
 
-                if (asset?.isCryptoAsset == true && asset.address != null && asset.chainId != null) {
+                if (asset != null && !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()) {
+                    val onChainKey = "${asset.chainId}:${asset.address}:${asset.currency}"
+                    if (latestOnChainKey != onChainKey) {
+                        latestOnChainKey = onChainKey
+                        refreshOnChainTransactions(asset = asset, forceRefresh = false)
+                    }
                     loadOnChainBalance(asset, forceRefresh = false)
                 } else {
                     _onChainBalance.value = null
                     _onChainError.value = null
                     _isOnChainLoading.value = false
+                    _isOnChainTransactionsLoading.value = false
+                    _onChainTransactionsError.value = null
+                    latestOnChainKey = null
                 }
                 if (asset == null) {
                     _currentBalanceUsd.value = null
@@ -118,7 +134,7 @@ class AssetDetailViewModel @Inject constructor(
                 val currentBalance = AssetBalanceCalculator.totalBalance(
                     manualBalance = manualBalance,
                     onChainBalance = onChainBalance?.balance,
-                    hasOnChain = asset.isCryptoAsset && asset.address != null && asset.chainId != null
+                    hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
                 )
                 loadUsdBalanceIfNeeded(currency = asset.currency, balance = currentBalance)
             }
@@ -131,6 +147,13 @@ class AssetDetailViewModel @Inject constructor(
         _onChainError
     ) { balance, isLoading, error ->
         Triple(balance, isLoading, error)
+    }
+
+    private val onChainTransactionsState = combine(
+        _isOnChainTransactionsLoading,
+        _onChainTransactionsError
+    ) { isLoading, error ->
+        isLoading to error
     }
 
     private val usdState = combine(
@@ -152,18 +175,20 @@ class AssetDetailViewModel @Inject constructor(
     val uiState: StateFlow<AssetDetailUiState> = combine(
         assetAndTransactions,
         onChainState,
+        onChainTransactionsState,
         usdState,
         uiFlags
-    ) { (asset, transactions), (onChainBalance, isOnChainLoading, onChainError), (manualBalanceUsd, isUsdLoading, usdError), (showDelete, isDeleted, error) ->
-        val sorted = transactions.sortedByDescending { it.dateMillis }
-        val manualBalance = transactions
-            .filter { it.source == TransactionSource.MANUAL }
-            .sumOf { it.amount }
+    ) { (asset, transactions), (onChainBalance, isOnChainLoading, onChainError), (isOnChainTxLoading, onChainTxError), (manualBalanceUsd, isUsdLoading, usdError), (showDelete, isDeleted, error) ->
+        val manualTransactions = transactions.filter { it.source == TransactionSource.MANUAL }
+        val onChainTransactions = transactions.filter { it.source == TransactionSource.ON_CHAIN }
+        val manualSorted = manualTransactions.sortedByDescending { it.dateMillis }
+        val onChainSorted = onChainTransactions.sortedByDescending { it.dateMillis }
+        val manualBalance = manualTransactions.sumOf { it.amount }
         val currentBalance = if (asset != null) {
             AssetBalanceCalculator.totalBalance(
                 manualBalance = manualBalance,
                 onChainBalance = onChainBalance?.balance,
-                hasOnChain = asset.isCryptoAsset && asset.address != null && asset.chainId != null
+                hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
             )
         } else {
             0.0
@@ -175,13 +200,16 @@ class AssetDetailViewModel @Inject constructor(
             currentBalanceUsd = manualBalanceUsd,
             isUsdLoading = isUsdLoading,
             usdError = usdError,
-            transactionCount = transactions.size,
-            depositCount = transactions.count { it.isDeposit },
-            withdrawalCount = transactions.count { !it.isDeposit },
-            recentTransactions = sorted.take(5),
+            manualTransactionCount = manualTransactions.size,
+            manualDepositCount = manualTransactions.count { it.isDeposit },
+            manualWithdrawalCount = manualTransactions.count { !it.isDeposit },
+            recentManualTransactions = manualSorted.take(5),
+            recentOnChainTransactions = onChainSorted.take(5),
             onChainBalance = onChainBalance,
             isOnChainLoading = isOnChainLoading,
             onChainError = onChainError,
+            isOnChainTransactionsLoading = isOnChainTxLoading,
+            onChainTransactionsError = onChainTxError,
             isLoading = false,
             error = error,
             showDeleteConfirmation = showDelete,
@@ -195,7 +223,8 @@ class AssetDetailViewModel @Inject constructor(
 
     fun refreshOnChainBalance() {
         val asset = latestAsset ?: return
-        if (!asset.isCryptoAsset || asset.address == null || asset.chainId == null) return
+        if (asset.address.isNullOrBlank() || asset.chainId.isNullOrBlank()) return
+        refreshOnChainTransactions(asset = asset, forceRefresh = true)
         loadOnChainBalance(asset, forceRefresh = true)
     }
 
@@ -204,7 +233,7 @@ class AssetDetailViewModel @Inject constructor(
         val currentBalance = AssetBalanceCalculator.totalBalance(
             manualBalance = latestManualBalance,
             onChainBalance = _onChainBalance.value?.balance,
-            hasOnChain = asset.isCryptoAsset && asset.address != null && asset.chainId != null
+            hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
         )
         latestUsdKey = null
         loadUsdBalance(currency = asset.currency, balance = currentBalance, forceRefresh = true)
@@ -222,6 +251,22 @@ class AssetDetailViewModel @Inject constructor(
                 onFailure = { e ->
                     _onChainError.value = e.message ?: "Failed to fetch on-chain balance"
                     _isOnChainLoading.value = false
+                }
+            )
+        }
+    }
+
+    private fun refreshOnChainTransactions(asset: Asset, forceRefresh: Boolean) {
+        viewModelScope.launch {
+            _isOnChainTransactionsLoading.value = true
+            _onChainTransactionsError.value = null
+            onChainTransactionRepository.refresh(asset = asset, limit = 20, forceRefresh = forceRefresh).fold(
+                onSuccess = { _ ->
+                    _isOnChainTransactionsLoading.value = false
+                },
+                onFailure = { e ->
+                    _onChainTransactionsError.value = e.message ?: "Failed to fetch on-chain transactions"
+                    _isOnChainTransactionsLoading.value = false
                 }
             )
         }

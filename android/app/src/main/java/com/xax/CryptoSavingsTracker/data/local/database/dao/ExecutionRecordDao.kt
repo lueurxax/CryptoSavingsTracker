@@ -48,6 +48,12 @@ interface ExecutionRecordDao {
     @Query("UPDATE monthly_execution_records SET status = 'closed', closed_at_utc_millis = :closedAt, last_modified_at_utc_millis = :modifiedAt WHERE id = :id")
     suspend fun closeRecord(id: String, closedAt: Long, modifiedAt: Long)
 
-    @Query("UPDATE monthly_execution_records SET status = 'draft', started_at_utc_millis = NULL, closed_at_utc_millis = NULL, last_modified_at_utc_millis = :modifiedAt WHERE id = :id")
+    @Query("UPDATE monthly_execution_records SET status = 'draft', started_at_utc_millis = NULL, closed_at_utc_millis = NULL, can_undo_until_utc_millis = NULL, last_modified_at_utc_millis = :modifiedAt WHERE id = :id")
     suspend fun revertToDraft(id: String, modifiedAt: Long)
+
+    @Query("UPDATE monthly_execution_records SET can_undo_until_utc_millis = :canUndoUntil, last_modified_at_utc_millis = :modifiedAt WHERE id = :id")
+    suspend fun updateCanUndoUntil(id: String, canUndoUntil: Long, modifiedAt: Long)
+
+    @Query("UPDATE monthly_execution_records SET status = 'executing', closed_at_utc_millis = NULL, can_undo_until_utc_millis = NULL, last_modified_at_utc_millis = :modifiedAt WHERE id = :id")
+    suspend fun reopenRecord(id: String, modifiedAt: Long)
 }

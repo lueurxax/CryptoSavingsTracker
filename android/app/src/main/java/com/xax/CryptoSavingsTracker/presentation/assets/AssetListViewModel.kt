@@ -84,7 +84,7 @@ class AssetListViewModel @Inject constructor(
                 val onChainBalanceByAssetId = coroutineScope {
                     assets.map { asset ->
                         async {
-                            if (asset.isCryptoAsset && asset.chainId != null && asset.address != null) {
+                            if (!asset.chainId.isNullOrBlank() && !asset.address.isNullOrBlank()) {
                                 asset.id to onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance
                             } else {
                                 asset.id to null
@@ -101,7 +101,7 @@ class AssetListViewModel @Inject constructor(
                         val totalBalance = AssetBalanceCalculator.totalBalance(
                             manualBalance = manualBalance,
                             onChainBalance = onChainBalance,
-                            hasOnChain = asset.isCryptoAsset && asset.chainId != null && asset.address != null
+                            hasOnChain = !asset.chainId.isNullOrBlank() && !asset.address.isNullOrBlank()
                         )
                         val rate = ratesByCurrency[asset.currency.uppercase()]
                         val usdValue = rate?.let { totalBalance * it }

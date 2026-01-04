@@ -49,6 +49,7 @@ class StartExecutionUseCase @Inject constructor(
                 status = ExecutionStatus.EXECUTING,
                 startedAtMillis = now,
                 closedAtMillis = null,
+                canUndoUntilMillis = null,
                 createdAtMillis = now,
                 updatedAtMillis = now
             )
@@ -61,6 +62,7 @@ class StartExecutionUseCase @Inject constructor(
                 status = ExecutionStatus.EXECUTING,
                 startedAtMillis = existing.startedAtMillis ?: now,
                 closedAtMillis = null,
+                canUndoUntilMillis = null,
                 updatedAtMillis = now
             )
         }

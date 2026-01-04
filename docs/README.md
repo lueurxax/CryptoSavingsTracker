@@ -1,20 +1,19 @@
 # CryptoSavingsTracker Documentation
 
-> **A comprehensive multi-platform SwiftUI application for tracking cryptocurrency savings goals across iOS, macOS, and visionOS.**
+> **A comprehensive multi-platform application for tracking cryptocurrency savings goals across iOS, macOS, visionOS, and Android.**
 
 ## 🎯 Quick Start
 
-### For First-Time Contributors
-1. Read [ARCHITECTURE.md](ARCHITECTURE.md) → Understand system design
-2. Review [COMPONENT_REGISTRY.md](COMPONENT_REGISTRY.md) → Familiarize with UI components
+### For iOS/macOS Developers
+1. Read [ARCHITECTURE.md](ARCHITECTURE.md) → Understand iOS system design
+2. Review [COMPONENT_REGISTRY.md](COMPONENT_REGISTRY.md) → Familiarize with SwiftUI components
 3. Check [DEVELOPMENT.md](DEVELOPMENT.md) → See active development plans
 4. Run tests → See "Testing" section below
 
-### For Feature Developers
-1. Check [ARCHITECTURE.md](ARCHITECTURE.md) for design patterns
-2. Browse [COMPONENT_REGISTRY.md](COMPONENT_REGISTRY.md) before creating new UI
-3. Reference [API_INTEGRATIONS.md](API_INTEGRATIONS.md) for external services
-4. Follow testing guidelines in [USER_GUIDES.md](USER_GUIDES.md)
+### For Android Developers
+1. Read [ANDROID_DEVELOPMENT_PLAN.md](ANDROID_DEVELOPMENT_PLAN.md) → Android architecture, status, and iOS parity
+2. Review the Android codebase structure in `android/app/src/main/java/`
+3. Reference [API_INTEGRATIONS.md](API_INTEGRATIONS.md) → Same APIs used on both platforms
 
 ### For QA/Testers
 1. Use [sample-data.md](sample-data.md) for test data generation
@@ -25,21 +24,28 @@
 
 ## 📚 Documentation Index
 
-### Core Documentation
+### Android Documentation
 
 | Document | Purpose | Audience |
 |----------|---------|----------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture, design patterns, component organization | Developers |
-| [DEVELOPMENT.md](DEVELOPMENT.md) | Development plans, feature roadmaps, refactoring strategies | Developers |
+| [ANDROID_DEVELOPMENT_PLAN.md](ANDROID_DEVELOPMENT_PLAN.md) | Android implementation status, iOS parity, architecture, testing | Android Developers |
+
+### iOS/macOS Documentation
+
+| Document | Purpose | Audience |
+|----------|---------|----------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | iOS system architecture, design patterns, component organization | iOS Developers |
+| [DEVELOPMENT.md](DEVELOPMENT.md) | Development plans, feature roadmaps, refactoring strategies | iOS Developers |
 | [MONTHLY_PLANNING.md](MONTHLY_PLANNING.md) | Monthly planning feature documentation and implementation | Developers, QA |
 | [USER_GUIDES.md](USER_GUIDES.md) | Testing guide, migration guide, troubleshooting | Developers, QA |
 
-### Reference Documentation
+### Shared Reference Documentation
 
 | Document | Purpose | Audience |
 |----------|---------|----------|
-| [API_INTEGRATIONS.md](API_INTEGRATIONS.md) | External API integration details (CoinGecko, Tatum) | Developers |
-| [COMPONENT_REGISTRY.md](COMPONENT_REGISTRY.md) | Reusable UI component catalog | Developers, Designers |
+| [API_INTEGRATIONS.md](API_INTEGRATIONS.md) | External API integration details (CoinGecko, Tatum) - used by both platforms | Developers |
+| [COMPONENT_REGISTRY.md](COMPONENT_REGISTRY.md) | iOS reusable UI component catalog | iOS Developers, Designers |
+| [CONTRIBUTION_PROCESS_PROPOSAL.md](CONTRIBUTION_PROCESS_PROPOSAL.md) | Proposed improvements for contribution UX and shared-asset workflows | Product, Developers |
 | [sample-data.md](sample-data.md) | Sample data for testing and development | Developers, QA |
 
 ### Historical Documentation
@@ -51,12 +57,22 @@
 ## 🏗️ Architecture Quick Reference
 
 ### Key Technologies
+
+#### iOS/macOS
 - **UI Framework**: SwiftUI
 - **Data Persistence**: SwiftData
 - **Platforms**: iOS, macOS, visionOS
 - **Architecture Pattern**: MVVM with Service Layer
 - **Language**: Swift 5.9+
 - **Minimum Deployment**: iOS 17.0, macOS 15.0
+
+#### Android
+- **UI Framework**: Jetpack Compose
+- **Data Persistence**: Room
+- **Dependency Injection**: Hilt
+- **Architecture Pattern**: Clean Architecture (Data/Domain/Presentation layers)
+- **Language**: Kotlin
+- **Minimum SDK**: 34 (Android 14)
 
 ### High-Level Architecture
 
@@ -147,6 +163,19 @@ CryptoSavingsTracker/
     └── GoalRepository.swift
 ```
 
+Android Project Structure
+```
+android/
+├── app/src/main/java/com/xax/CryptoSavingsTracker/
+│   ├── presentation/          # Compose screens + view models
+│   ├── domain/                # Models + use cases + repositories
+│   ├── data/                  # Room + API + repository impls
+│   ├── di/                    # Hilt modules
+│   └── work/                  # WorkManager workers
+│
+└── app/src/main/res/           # Resources (themes, strings, drawables)
+```
+
 ## ✨ Key Features
 
 ### Core Features
@@ -169,13 +198,22 @@ CryptoSavingsTracker/
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### Android Prerequisites
+- Android Studio (latest stable)
+- Android SDK + emulator/device
+
+### Android Initial Setup
+1. Open the `android/` directory in Android Studio
+2. Sync Gradle
+3. Run the `app` configuration on a device or emulator
+
+### iOS/macOS Prerequisites
 - Xcode 15.0 or later
 - macOS 15.0 or later (for development)
 - CoinGecko API key (for exchange rates)
 - Tatum API key (optional, for on-chain data)
 
-### Initial Setup
+### iOS/macOS Initial Setup
 1. Clone the repository
 2. Open `CryptoSavingsTracker.xcodeproj`
 3. Configure API keys in `Config.plist`

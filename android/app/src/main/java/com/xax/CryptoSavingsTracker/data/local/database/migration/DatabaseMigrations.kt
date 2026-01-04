@@ -38,5 +38,14 @@ object DatabaseMigrations {
             )
         }
     }
+
+    val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add can_undo_until_utc_millis column to monthly_execution_records for undo grace period
+            db.execSQL(
+                "ALTER TABLE monthly_execution_records ADD COLUMN can_undo_until_utc_millis INTEGER DEFAULT NULL"
+            )
+        }
+    }
 }
 

@@ -72,7 +72,7 @@ class AddEditAssetViewModel @Inject constructor(
                         currency = asset.currency,
                         address = asset.address ?: "",
                         chainId = asset.chainId,
-                        isCryptoAsset = asset.address != null
+                        isCryptoAsset = asset.isCryptoAsset
                     )
                 }
             } else {
@@ -145,28 +145,26 @@ class AddEditAssetViewModel @Inject constructor(
             hasErrors = true
         }
 
-        if (state.isCryptoAsset && state.address.isBlank()) {
-            _uiState.update { it.copy(addressError = "Wallet address is required for crypto assets") }
-            hasErrors = true
-        }
-
         if (hasErrors) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
+            val normalizedAddress = state.address.trim().takeIf { it.isNotBlank() }
+            val normalizedChainId = state.chainId?.trim().takeIf { !it.isNullOrBlank() }
+
             val result = if (state.isEditMode && originalAsset != null) {
                 val updatedAsset = originalAsset!!.copy(
                     currency = state.currency.trim().uppercase(),
-                    address = if (state.isCryptoAsset) state.address.trim() else null,
-                    chainId = if (state.isCryptoAsset) state.chainId else null
+                    address = if (state.isCryptoAsset) normalizedAddress else null,
+                    chainId = if (state.isCryptoAsset) normalizedChainId else null
                 )
                 updateAssetUseCase(updatedAsset)
             } else {
                 addAssetUseCase(
                     currency = state.currency.trim().uppercase(),
-                    address = if (state.isCryptoAsset && state.address.isNotBlank()) state.address.trim() else null,
-                    chainId = if (state.isCryptoAsset) state.chainId else null
+                    address = if (state.isCryptoAsset) normalizedAddress else null,
+                    chainId = if (state.isCryptoAsset) normalizedChainId else null
                 )
             }
 

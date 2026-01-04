@@ -38,7 +38,7 @@ import com.xax.CryptoSavingsTracker.data.local.database.entity.TransactionEntity
         ExecutionSnapshotEntity::class,
         CompletedExecutionEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

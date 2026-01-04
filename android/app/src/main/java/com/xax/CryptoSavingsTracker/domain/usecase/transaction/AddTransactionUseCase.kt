@@ -2,7 +2,9 @@ package com.xax.CryptoSavingsTracker.domain.usecase.transaction
 
 import com.xax.CryptoSavingsTracker.domain.model.Transaction
 import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
+import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
+import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.allocation.AllocationHistoryService
 import java.util.UUID
@@ -15,7 +17,9 @@ import kotlin.math.abs
 class AddTransactionUseCase @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val allocationRepository: AllocationRepository,
-    private val allocationHistoryService: AllocationHistoryService
+    private val allocationHistoryService: AllocationHistoryService,
+    private val assetRepository: AssetRepository,
+    private val onChainBalanceRepository: OnChainBalanceRepository
 ) {
     /**
      * Add a new transaction
@@ -91,7 +95,16 @@ class AddTransactionUseCase @Inject constructor(
         assetId: String,
         transactionAmount: Double
     ): AutoAllocationCandidate? {
-        val balanceBefore = transactionRepository.getManualBalanceForAsset(assetId)
+        val asset = assetRepository.getAssetById(assetId) ?: return null
+        val manualBefore = transactionRepository.getManualBalanceForAsset(assetId)
+        val hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
+        val onChainBefore = if (!hasOnChain) {
+            0.0
+        } else {
+            runCatching { onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0 }
+                .getOrElse { 0.0 }
+        }
+        val balanceBefore = manualBefore + onChainBefore
         val allocations = allocationRepository.getAllocationsForAsset(assetId).filter { it.amount > 0.0 }
         if (allocations.size != 1) return null
 

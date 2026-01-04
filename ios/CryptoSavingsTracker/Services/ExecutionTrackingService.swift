@@ -222,6 +222,7 @@ final class ExecutionTrackingService {
         )
 
         try modelContext.save()
+        NotificationCenter.default.post(name: .monthlyExecutionCompleted, object: record)
     }
 
     /// Undo completion (within grace period)

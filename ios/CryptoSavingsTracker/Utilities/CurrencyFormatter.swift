@@ -12,16 +12,30 @@ struct CurrencyFormatter {
     
     /// Format an amount with currency symbol
     static func format(amount: Double, currency: String, maximumFractionDigits: Int = 0) -> String {
+        guard amount.isFinite else {
+            return currency.isEmpty ? "--" : "\(currency) --"
+        }
+
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         formatter.currencyCode = currency
         formatter.maximumFractionDigits = maximumFractionDigits
         
-        return formatter.string(from: NSNumber(value: amount)) ?? "\(currency) \(Int(amount))"
+        if let formatted = formatter.string(from: NSNumber(value: amount)) {
+            return formatted
+        }
+
+        let digits = max(0, maximumFractionDigits)
+        let fallback = String(format: "%.\(digits)f", amount)
+        return currency.isEmpty ? fallback : "\(currency) \(fallback)"
     }
     
     /// Format amount for accessibility (spells out currency)
     static func accessibilityFormat(amount: Double, currency: String) -> String {
+        guard amount.isFinite else {
+            return currency.isEmpty ? "Unavailable" : "Unavailable \(currency)"
+        }
+
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         formatter.currencyCode = currency
@@ -34,6 +48,7 @@ struct CurrencyFormatter {
                            .replacingOccurrences(of: "£", with: "pounds ")
         }
         
-        return "\(Int(amount)) \(currency)"
+        let fallback = String(format: "%.0f", amount)
+        return currency.isEmpty ? fallback : "\(fallback) \(currency)"
     }
 }

@@ -18,10 +18,22 @@ struct AssetSharingView: View {
     private var goals: [Goal]
     
     let asset: Asset
+    let currentGoalId: UUID?
     @State private var allocations: [UUID: Double] = [:]
     @State private var hasLoadedInitial = false
     @State private var fetchedOnChainBalance: Double? = nil
     @State private var isLoadingBalance: Bool = false
+    @State private var closeMonthSuggestions: [UUID: Double] = [:]
+    @State private var isLoadingCloseMonth = false
+    @State private var hasActiveExecution = false
+    @State private var pendingPrefillGoalId: UUID?
+    @State private var closeMonthClampWarning: String?
+
+    init(asset: Asset, currentGoalId: UUID? = nil, prefillCloseMonthGoalId: UUID? = nil) {
+        self.asset = asset
+        self.currentGoalId = currentGoalId
+        _pendingPrefillGoalId = State(initialValue: prefillCloseMonthGoalId)
+    }
 
     private var hasOnChainAddress: Bool {
         guard
@@ -51,7 +63,7 @@ struct AssetSharingView: View {
     }
     
     var allocationData: [(goal: Goal, amount: Double)] {
-        goals.compactMap { goal in
+        orderedGoals.compactMap { goal in
             let amount = allocations[goal.id] ?? 0
             return amount > 0 ? (goal, amount) : nil
         }
@@ -72,102 +84,13 @@ struct AssetSharingView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Asset info card
-                    VStack(spacing: 12) {
-                        Text(asset.currency)
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                        
-                        if let address = asset.address {
-                            Text(address)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .monospaced()
-                        }
-                        
-                        // Allocation status (amount-based pie)
-                        SimplePieChart(
-                            allocations: pieData.allocations,
-                            unallocatedPercentage: pieData.unallocated
-                        )
-                    }
-                    .padding()
-                    .background(Color.gray.opacity(0.05))
-                    .cornerRadius(15)
-                    
-                    // Instructions
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("How to share this asset:", systemImage: "info.circle.fill")
-                            .font(.headline)
-                            .foregroundColor(.blue)
-                        
-                        Text("Enter fixed amounts (in \(asset.currency)) to allocate to each goal. Total cannot exceed your asset balance.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.blue.opacity(0.05))
-                    .cornerRadius(10)
-                    
-                    // Goals allocation section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Allocate to Goals")
-                            .font(.headline)
-                        
-                        if goals.isEmpty {
-                            Text("No goals available. Create goals first to share this asset.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .italic()
-                                .padding()
-                                .frame(maxWidth: .infinity)
-                                .background(Color.gray.opacity(0.05))
-                                .cornerRadius(10)
-                        } else {
-                            ForEach(goals) { goal in
-                                GoalAllocationCard(
-                                    goal: goal,
-                                    allocation: Binding(
-                                        get: { allocations[goal.id] ?? 0 },
-                                        set: { allocations[goal.id] = $0 }
-                                    ),
-                                    assetCurrency: asset.currency,
-                                    assetBalance: bestKnownBalance,
-                                    remainingAmount: remainingAmount,
-                                    onAllocateRemaining: {
-                                        let epsilon = 0.0000001
-                                        let remaining = remainingAmount
-                                        guard remaining > epsilon else { return }
-                                        allocations[goal.id] = (allocations[goal.id] ?? 0) + remaining
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-                    
-                    // Quick actions
-                    VStack(spacing: 12) {
-                        Button(action: clearAll) {
-                            Label("Clear All Allocations", systemImage: "xmark.circle")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.red)
-                    }
-                    .padding(.horizontal)
-                    
+                    assetInfoCard
+                    instructionsCard
+                    goalsAllocationSection
+                    closeMonthClampWarningView
+                    quickActionsSection
                     if isOverAllocated {
-                        Label("Allocated amount exceeds balance. Please reduce allocations.", systemImage: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .foregroundColor(.red)
-                            .padding()
-                            .background(Color.red.opacity(0.1))
-                            .cornerRadius(10)
-                            .padding(.horizontal)
+                        overAllocationWarning
                     }
                 }
                 .padding(.vertical)
@@ -198,8 +121,14 @@ struct AssetSharingView: View {
                 loadExistingAllocations()
                 Task {
                     await refreshOnChainBalanceIfNeeded()
+                    await loadCloseMonthSuggestionsIfNeeded()
                 }
                 hasLoadedInitial = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .monthlyPlanningAssetUpdated)) { _ in
+            Task {
+                await loadCloseMonthSuggestionsIfNeeded()
             }
         }
     }
@@ -212,9 +141,188 @@ struct AssetSharingView: View {
             }
         }
     }
+
+    private var assetInfoCard: some View {
+        VStack(spacing: 12) {
+            Text(asset.currency)
+                .font(.largeTitle)
+                .fontWeight(.bold)
+
+            if let address = asset.address {
+                Text(address)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .monospaced()
+            }
+
+            SimplePieChart(
+                allocations: pieData.allocations,
+                unallocatedPercentage: pieData.unallocated
+            )
+        }
+        .padding()
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(15)
+    }
+
+    private var instructionsCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("How to share this asset:", systemImage: "info.circle.fill")
+                .font(.headline)
+                .foregroundColor(.blue)
+
+            Text("Enter fixed amounts (in \(asset.currency)) to allocate to each goal. Total cannot exceed your asset balance.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.blue.opacity(0.05))
+        .cornerRadius(10)
+    }
+
+    private var goalsAllocationSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Allocate to Goals")
+                .font(.headline)
+
+            if hasActiveExecution {
+                HStack(spacing: 6) {
+                    if isLoadingCloseMonth {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "target")
+                    }
+                    Text("Quick add: close current month")
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+            }
+
+            if orderedGoals.isEmpty {
+                Text("No goals available. Create goals first to share this asset.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .italic()
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.gray.opacity(0.05))
+                    .cornerRadius(10)
+            } else {
+                ForEach(orderedGoals) { goal in
+                    GoalAllocationCard(
+                        goal: goal,
+                        allocation: allocationBinding(for: goal),
+                        assetCurrency: asset.currency,
+                        assetBalance: bestKnownBalance,
+                        remainingAmount: remainingAmount,
+                        onAllocateRemaining: { allocateRemaining(to: goal) },
+                        closeMonthAmount: closeMonthAmount(for: goal),
+                        onAddToCloseMonth: closeMonthAction(for: goal)
+                    )
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    private var quickActionsSection: some View {
+        VStack(spacing: 12) {
+            Button(action: clearAll) {
+                Label("Clear All Allocations", systemImage: "xmark.circle")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(.red)
+        }
+        .padding(.horizontal)
+    }
+
+    private var closeMonthClampWarningView: some View {
+        Group {
+            if let closeMonthClampWarning {
+                Label(closeMonthClampWarning, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+                    .accessibilityIdentifier("closeMonthClampWarning")
+            }
+        }
+    }
+
+    private var overAllocationWarning: some View {
+        Label("Allocated amount exceeds balance. Please reduce allocations.", systemImage: "exclamationmark.triangle.fill")
+            .font(.caption)
+            .foregroundColor(.red)
+            .padding()
+            .background(Color.red.opacity(0.1))
+            .cornerRadius(10)
+            .padding(.horizontal)
+    }
+
+    private var orderedGoals: [Goal] {
+        guard let currentGoalId else { return goals }
+        if let currentGoal = goals.first(where: { $0.id == currentGoalId }) {
+            let remaining = goals.filter { $0.id != currentGoalId }
+            return [currentGoal] + remaining
+        }
+        return goals
+    }
     
     private func clearAll() {
         allocations.removeAll()
+        closeMonthClampWarning = nil
+    }
+
+    private func allocationBinding(for goal: Goal) -> Binding<Double> {
+        Binding(
+            get: { allocations[goal.id] ?? 0 },
+            set: { allocations[goal.id] = $0 }
+        )
+    }
+
+    private func allocateRemaining(to goal: Goal) {
+        let epsilon = 0.0000001
+        let remaining = remainingAmount
+        guard remaining > epsilon else { return }
+        allocations[goal.id] = (allocations[goal.id] ?? 0) + remaining
+    }
+
+    private func closeMonthAmount(for goal: Goal) -> Double? {
+        hasActiveExecution ? closeMonthSuggestions[goal.id] : nil
+    }
+
+    private func closeMonthAction(for goal: Goal) -> (() -> Void)? {
+        guard hasActiveExecution else { return nil }
+        return { addCloseMonthAllocation(for: goal) }
+    }
+
+    private func addCloseMonthAllocation(for goal: Goal) {
+        let epsilon = 0.0000001
+        guard let suggestion = closeMonthSuggestions[goal.id], suggestion > epsilon else { return }
+        let available = max(0, remainingAmount)
+        let toAllocate = min(suggestion, available)
+        guard toAllocate > epsilon else {
+            closeMonthClampWarning = "No unallocated balance available to add for \(goal.name)."
+            return
+        }
+        allocations[goal.id] = (allocations[goal.id] ?? 0) + toAllocate
+        if suggestion > available + epsilon {
+            closeMonthClampWarning = "Only \(formatAmount(toAllocate)) \(asset.currency) available to add for \(goal.name)."
+        } else {
+            closeMonthClampWarning = nil
+        }
+    }
+
+    private func formatAmount(_ amount: Double) -> String {
+        String(format: "%.4f", amount)
     }
     
     private func saveAllocations() {
@@ -231,6 +339,64 @@ struct AssetSharingView: View {
         } catch {
             // Error handling would go here
         }
+    }
+
+    @MainActor
+    private func loadCloseMonthSuggestionsIfNeeded() async {
+        guard !isLoadingCloseMonth else { return }
+        isLoadingCloseMonth = true
+        defer { isLoadingCloseMonth = false }
+
+        let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
+        do {
+            guard let record = try executionService.getActiveRecord() else {
+                hasActiveExecution = false
+                closeMonthSuggestions = [:]
+                pendingPrefillGoalId = nil
+                return
+            }
+
+            hasActiveExecution = true
+
+            let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
+            let plans = try planService.fetchPlans(for: record.monthLabel)
+            let trackedIds = Set(record.goalIds)
+            let trackedPlans = plans.filter { trackedIds.contains($0.goalId) }
+            let contributions = try await executionService.getContributionTotals(for: record)
+            let calculator = ExecutionContributionCalculator(exchangeRateService: DIContainer.shared.exchangeRateService)
+
+            var suggestions: [UUID: Double] = [:]
+            for plan in trackedPlans {
+                let planned = plan.effectiveAmount
+                guard planned > 0 else { continue }
+
+                let contributed = contributions[plan.goalId] ?? 0
+                let remaining = max(0, planned - contributed)
+                guard remaining > 0 else { continue }
+
+                if let converted = await calculator.convertAmount(
+                    remaining,
+                    from: plan.currency,
+                    to: asset.currency
+                ), converted > 0 {
+                    suggestions[plan.goalId] = converted
+                }
+            }
+
+            closeMonthSuggestions = suggestions
+            applyPendingPrefillIfNeeded()
+        } catch {
+            hasActiveExecution = false
+            closeMonthSuggestions = [:]
+            pendingPrefillGoalId = nil
+        }
+    }
+
+    private func applyPendingPrefillIfNeeded() {
+        guard let goalId = pendingPrefillGoalId else { return }
+        guard let goal = goals.first(where: { $0.id == goalId }) else { return }
+        addCloseMonthAllocation(for: goal)
+        pendingPrefillGoalId = nil
     }
 
     private func cacheFetchedBalanceIfNeeded() {

@@ -123,7 +123,7 @@ class AllocationListViewModel @Inject constructor(
                     val asset = assetRepository.getAssetById(allocation.assetId)
                     val manualBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
                     val onChainBalance = runCatching {
-                        if (asset?.isCryptoAsset == true && asset.address != null && asset.chainId != null) {
+                        if (asset != null && !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()) {
                             onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0
                         } else {
                             0.0

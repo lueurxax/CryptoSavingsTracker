@@ -29,6 +29,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -50,6 +51,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
+import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,6 +121,7 @@ fun AssetSharingScreen(
                         onEditAllocation = { goalId, allocationId ->
                             navController.navigate(Screen.EditAllocation.createRoute(goalId, allocationId))
                         },
+                        onAddCloseMonth = viewModel::addCloseMonthAllocation,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -142,10 +145,12 @@ fun AssetSharingScreen(
 private fun AssetSharingContent(
     uiState: AssetSharingUiState,
     onEditAllocation: (goalId: String, allocationId: String) -> Unit,
+    onAddCloseMonth: (goalId: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val asset = uiState.asset ?: return
     val isCrypto = asset.isCryptoAsset
+    val allocatedGoalIds = uiState.allocations.map { it.goalId }.toSet()
 
     LazyColumn(
         modifier = modifier.padding(16.dp),
@@ -197,6 +202,78 @@ private fun AssetSharingContent(
             }
         }
 
+        if (uiState.conversionWarning != null) {
+            item {
+                Text(
+                    text = uiState.conversionWarning ?: "",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+
+        if (uiState.closeMonthWarning != null) {
+            item {
+                Text(
+                    text = uiState.closeMonthWarning ?: "",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+
+        val suggestedGoals = uiState.activeGoals.filter { goal ->
+            val suggestion = uiState.closeMonthSuggestions[goal.id]
+            suggestion != null && suggestion > 0 && !allocatedGoalIds.contains(goal.id)
+        }
+
+        if (suggestedGoals.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Close Month Suggestions",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+            items(suggestedGoals, key = { it.id }) { goal ->
+                val suggestion = uiState.closeMonthSuggestions[goal.id] ?: 0.0
+                val appliedAmount = min(suggestion, uiState.unallocatedAmount)
+                if (appliedAmount > 0) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = goal.name, style = MaterialTheme.typography.titleMedium)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Suggested: " +
+                                        AmountFormatters.formatDisplayCurrencyAmount(
+                                            appliedAmount,
+                                            asset.currency,
+                                            isCrypto = isCrypto
+                                        ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            TextButton(
+                                onClick = { onAddCloseMonth(goal.id) },
+                                enabled = !uiState.isSaving
+                            ) {
+                                Text("Add to Close Month")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         item {
             Text(
                 text = "Allocations",
@@ -234,6 +311,24 @@ private fun AssetSharingContent(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            val suggestion = uiState.closeMonthSuggestions[row.goalId]
+                            val appliedAmount = suggestion?.let { min(it, uiState.unallocatedAmount) }
+                            if (appliedAmount != null && appliedAmount > 0) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                TextButton(
+                                    onClick = { onAddCloseMonth(row.goalId) },
+                                    enabled = !uiState.isSaving
+                                ) {
+                                    Text(
+                                        text = "Add to Close Month • " +
+                                            AmountFormatters.formatDisplayCurrencyAmount(
+                                                appliedAmount,
+                                                asset.currency,
+                                                isCrypto = isCrypto
+                                            )
+                                    )
+                                }
+                            }
                         }
                         IconButton(onClick = { onEditAllocation(row.goalId, row.allocationId) }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit Allocation")
@@ -276,7 +371,7 @@ private fun AddAllocationDialog(
                         label = { Text("Goal") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isExpanded) },
                         modifier = Modifier
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
                             .fillMaxWidth()
                             .testTag("assetSharingGoalPicker")
                     )
@@ -330,4 +425,3 @@ private fun AddAllocationDialog(
         }
     )
 }
-

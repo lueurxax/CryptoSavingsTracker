@@ -138,7 +138,7 @@ class DashboardViewModel @Inject constructor(
         val onChainByAssetId = assets
             .map { asset ->
                 async {
-                    val hasOnChain = asset.isCryptoAsset && asset.address != null && asset.chainId != null
+                    val hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
                     val balance = if (!hasOnChain) {
                         0.0
                     } else {

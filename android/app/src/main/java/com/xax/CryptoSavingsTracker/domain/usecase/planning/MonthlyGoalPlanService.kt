@@ -16,7 +16,8 @@ import kotlin.math.min
  */
 @Singleton
 class MonthlyGoalPlanService @Inject constructor(
-    private val repository: MonthlyGoalPlanRepository
+    private val repository: MonthlyGoalPlanRepository,
+    private val flexAdjustmentService: FlexAdjustmentService
 ) {
     suspend fun syncPlans(
         monthLabel: String,
@@ -99,8 +100,18 @@ class MonthlyGoalPlanService @Inject constructor(
     /**
      * Apply flex adjustment to all flexible plans (not protected, not skipped).
      * iOS parity: always writes per-plan customAmount for flexible plans.
+     *
+     * @param monthLabel Current month label
+     * @param adjustment Flex adjustment factor (0.0-1.5)
+     * @param strategy Redistribution strategy for excess funds
+     * @param requirements Original requirements for calculation
      */
-    suspend fun applyFlexAdjustment(monthLabel: String, adjustment: Double): List<MonthlyGoalPlan> {
+    suspend fun applyFlexAdjustment(
+        monthLabel: String,
+        adjustment: Double,
+        strategy: RedistributionStrategy = RedistributionStrategy.BALANCED,
+        requirements: List<MonthlyRequirement>? = null
+    ): List<MonthlyGoalPlan> {
         val clamped = min(1.5, max(0.0, adjustment))
         val plans = repository.getPlansOnce(monthLabel)
         val nonDraft = plans.filter { it.state != MonthlyGoalPlanState.DRAFT }
@@ -108,25 +119,87 @@ class MonthlyGoalPlanService @Inject constructor(
             throw IllegalStateException("Can only adjust draft plans")
         }
 
+        // If no adjustment needed (factor = 1.0), clear custom amounts
+        val epsilon = 0.0000001
+        if (kotlin.math.abs(clamped - 1.0) <= epsilon) {
+            val updated = plans.map { plan ->
+                if (plan.isSkipped || plan.isProtected) plan
+                else plan.copy(customAmount = null)
+            }
+            repository.upsertAll(updated)
+            return updated
+        }
+
+        // Build requirements from plans if not provided
+        val reqs = requirements ?: plans.map { plan ->
+            MonthlyRequirement(
+                id = plan.id,
+                goalId = plan.goalId,
+                goalName = plan.goalId,
+                currency = plan.currency,
+                targetAmount = 0.0,
+                currentTotal = 0.0,
+                remainingAmount = plan.remainingAmount,
+                monthsRemaining = plan.monthsRemaining,
+                requiredMonthly = plan.requiredMonthly,
+                progress = 0.0,
+                deadline = java.time.LocalDate.now().plusMonths(plan.monthsRemaining.toLong()),
+                status = plan.status
+            )
+        }
+
+        val protectedIds = plans.filter { it.isProtected }.map { it.goalId }.toSet()
+        val skippedIds = plans.filter { it.isSkipped }.map { it.goalId }.toSet()
+
+        // Use FlexAdjustmentService for redistribution
+        val adjustedRequirements = flexAdjustmentService.applyFlexAdjustment(
+            requirements = reqs,
+            adjustment = clamped,
+            protectedGoalIds = protectedIds,
+            skippedGoalIds = skippedIds,
+            strategy = strategy
+        )
+
+        // Map adjusted amounts back to plans
+        val adjustmentsByGoalId = adjustedRequirements.associateBy { it.requirement.goalId }
         val updated = plans.map { plan ->
+            val adjusted = adjustmentsByGoalId[plan.goalId]
             when {
                 plan.isSkipped -> plan
                 plan.isProtected -> plan
-                else -> {
-                    val epsilon = 0.0000001
-                    if (kotlin.math.abs(clamped - 1.0) <= epsilon) {
-                        plan.copy(customAmount = null)
-                    } else {
-                        val adjustedAmount = plan.requiredMonthly * clamped
-                        if (adjustedAmount <= 0) {
-                            throw IllegalStateException("Adjusted amount must be positive")
-                        }
-                        plan.copy(customAmount = adjustedAmount)
-                    }
+                adjusted != null -> {
+                    val newAmount = adjusted.adjustedAmount
+                    if (newAmount <= 0) plan.copy(customAmount = null)
+                    else plan.copy(customAmount = newAmount)
                 }
+                else -> plan
             }
         }
+
         repository.upsertAll(updated)
         return updated
+    }
+
+    /**
+     * Simulate flex adjustment without persisting changes.
+     * Returns impact analysis for preview in UI.
+     */
+    suspend fun simulateFlexAdjustment(
+        monthLabel: String,
+        adjustment: Double,
+        strategy: RedistributionStrategy,
+        requirements: List<MonthlyRequirement>
+    ): AdjustmentSimulation {
+        val plans = repository.getPlansOnce(monthLabel)
+        val protectedIds = plans.filter { it.isProtected }.map { it.goalId }.toSet()
+        val skippedIds = plans.filter { it.isSkipped }.map { it.goalId }.toSet()
+
+        return flexAdjustmentService.simulateAdjustment(
+            requirements = requirements,
+            adjustment = adjustment,
+            protectedGoalIds = protectedIds,
+            skippedGoalIds = skippedIds,
+            strategy = strategy
+        )
     }
 }

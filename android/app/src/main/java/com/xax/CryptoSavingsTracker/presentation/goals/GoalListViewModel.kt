@@ -33,14 +33,14 @@ data class GoalListUiState(
 )
 
 /**
- * Filter options for goals (matches iOS GoalLifecycleStatus)
+ * Filter options for goals - user-selectable filters only
+ * Note: DELETED is not exposed to users (soft-deleted goals are hidden)
  */
 enum class GoalFilter {
     ALL,
     ACTIVE,
     FINISHED,
-    CANCELLED,
-    DELETED
+    CANCELLED
 }
 
 /**
@@ -84,12 +84,13 @@ class GoalListViewModel @Inject constructor(
         _error,
         _showDeleteConfirmation
     ) { goalsWithProgress, unallocatedAssets, filter, error, deleteConfirmation ->
+        // Always exclude soft-deleted goals from all filters
+        val nonDeletedGoals = goalsWithProgress.filter { it.goal.lifecycleStatus != GoalLifecycleStatus.DELETED }
         val filteredGoals = when (filter) {
-            GoalFilter.ALL -> goalsWithProgress.filter { it.goal.lifecycleStatus != GoalLifecycleStatus.DELETED }
-            GoalFilter.ACTIVE -> goalsWithProgress.filter { it.goal.lifecycleStatus == GoalLifecycleStatus.ACTIVE }
-            GoalFilter.FINISHED -> goalsWithProgress.filter { it.goal.lifecycleStatus == GoalLifecycleStatus.FINISHED }
-            GoalFilter.CANCELLED -> goalsWithProgress.filter { it.goal.lifecycleStatus == GoalLifecycleStatus.CANCELLED }
-            GoalFilter.DELETED -> goalsWithProgress.filter { it.goal.lifecycleStatus == GoalLifecycleStatus.DELETED }
+            GoalFilter.ALL -> nonDeletedGoals
+            GoalFilter.ACTIVE -> nonDeletedGoals.filter { it.goal.lifecycleStatus == GoalLifecycleStatus.ACTIVE }
+            GoalFilter.FINISHED -> nonDeletedGoals.filter { it.goal.lifecycleStatus == GoalLifecycleStatus.FINISHED }
+            GoalFilter.CANCELLED -> nonDeletedGoals.filter { it.goal.lifecycleStatus == GoalLifecycleStatus.CANCELLED }
         }
 
         GoalListUiState(

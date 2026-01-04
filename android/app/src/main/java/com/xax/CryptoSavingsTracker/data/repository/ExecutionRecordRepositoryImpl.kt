@@ -48,20 +48,17 @@ class ExecutionRecordRepositoryImpl @Inject constructor(
     }
 
     override suspend fun reopen(recordId: String) {
-        val record = executionRecordDao.getRecordById(recordId) ?: return
         val now = System.currentTimeMillis()
-        executionRecordDao.insert(
-            record.copy(
-                status = "executing",
-                startedAtUtcMillis = record.startedAtUtcMillis ?: now,
-                closedAtUtcMillis = null,
-                lastModifiedAtUtcMillis = now
-            )
-        )
+        executionRecordDao.reopenRecord(recordId, now)
     }
 
     override suspend fun revertToDraft(recordId: String) {
         val now = System.currentTimeMillis()
         executionRecordDao.revertToDraft(recordId, now)
+    }
+
+    override suspend fun updateCanUndoUntil(recordId: String, canUndoUntilMillis: Long) {
+        val now = System.currentTimeMillis()
+        executionRecordDao.updateCanUndoUntil(recordId, canUndoUntilMillis, now)
     }
 }

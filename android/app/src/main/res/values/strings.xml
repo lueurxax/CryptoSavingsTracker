@@ -1,3 +1,65 @@
 <resources>
     <string name="app_name">CryptoSavingsTracker</string>
+
+    <!-- Onboarding Welcome -->
+    <string name="onboarding_welcome_title">Welcome to Crypto Savings Tracker</string>
+    <string name="onboarding_welcome_description">Track your cryptocurrency savings goals, monitor your portfolio, and stay on track to reach your financial targets.</string>
+    <string name="onboarding_feature_track_goals_title">Track Goals</string>
+    <string name="onboarding_feature_track_goals_desc">Set savings targets and monitor your progress</string>
+    <string name="onboarding_feature_multiple_assets_title">Multiple Assets</string>
+    <string name="onboarding_feature_multiple_assets_desc">Support for various cryptocurrencies and fiat</string>
+    <string name="onboarding_feature_smart_reminders_title">Smart Reminders</string>
+    <string name="onboarding_feature_smart_reminders_desc">Stay on track with customizable notifications</string>
+
+    <!-- Onboarding Profile -->
+    <string name="onboarding_profile_title">Tell us about yourself</string>
+    <string name="onboarding_profile_subtitle">This helps us customize your experience</string>
+    <string name="onboarding_profile_experience_label">Experience Level</string>
+    <string name="experience_beginner_title">Beginner</string>
+    <string name="experience_beginner_desc">New to crypto savings, want guided experience</string>
+    <string name="experience_intermediate_title">Intermediate</string>
+    <string name="experience_intermediate_desc">Some experience with crypto and savings goals</string>
+    <string name="experience_expert_title">Expert</string>
+    <string name="experience_expert_desc">Experienced investor, prefer advanced features</string>
+
+    <!-- Onboarding Goals -->
+    <string name="onboarding_goals_title">Choose a savings goal</string>
+    <string name="onboarding_goals_subtitle">Select a template to get started quickly</string>
+    <string name="goal_template_target">Target: %1$s %2$s</string>
+    <string name="goal_template_duration">%1$d months</string>
+    
+    <string name="goal_emergency_fund_title">Emergency Fund</string>
+    <string name="goal_emergency_fund_desc">Build a safety net for unexpected expenses</string>
+    <string name="goal_vacation_title">Dream Vacation</string>
+    <string name="goal_vacation_desc">Save for your next adventure</string>
+    <string name="goal_new_car_title">New Car</string>
+    <string name="goal_new_car_desc">Drive towards your dream vehicle</string>
+    <string name="goal_home_title">Home Down Payment</string>
+    <string name="goal_home_desc">Build equity for your future home</string>
+    <string name="goal_retirement_title">Retirement Savings</string>
+    <string name="goal_retirement_desc">Secure your financial future</string>
+    <string name="goal_custom_title">Custom Goal</string>
+    <string name="goal_custom_desc">Create your own savings target</string>
+
+    <!-- Onboarding Assets -->
+    <string name="onboarding_assets_title">Select your assets</string>
+    <string name="onboarding_assets_subtitle">Choose cryptocurrencies you want to track</string>
+
+    <!-- Onboarding Completion -->
+    <string name="onboarding_complete_title">You\'re all set!</string>
+    <string name="onboarding_complete_description">Your savings goal is ready. Start tracking your progress and reach your financial targets.</string>
+    <string name="onboarding_complete_duration_label">Duration: %1$s</string>
+
+    <!-- Onboarding Navigation -->
+    <string name="onboarding_step_progress">%1$d of %2$d</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_continue">Continue</string>
+    <string name="onboarding_start_saving">Start Saving</string>
+    <string name="onboarding_skip">Skip setup and explore</string>
+    
+    <string name="onboarding_step_welcome">Welcome</string>
+    <string name="onboarding_step_profile">Your Profile</string>
+    <string name="onboarding_step_goal">Choose a Goal</string>
+    <string name="onboarding_step_assets">Select Assets</string>
+    <string name="onboarding_step_ready">You\'re Ready!</string>
 </resources>

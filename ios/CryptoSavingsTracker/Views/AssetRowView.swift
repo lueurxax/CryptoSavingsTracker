@@ -469,7 +469,7 @@ struct AssetRowView: View {
             AddTransactionView(asset: asset)
         }
         .sheet(isPresented: $showingAllocationView) {
-            AssetSharingView(asset: asset)
+            AssetSharingView(asset: asset, currentGoalId: goal?.id)
         }
     }
 

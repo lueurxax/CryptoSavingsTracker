@@ -26,11 +26,15 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -57,12 +61,31 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.xax.CryptoSavingsTracker.domain.model.PlanningMode
 import com.xax.CryptoSavingsTracker.domain.model.RequirementStatus
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
+import com.xax.CryptoSavingsTracker.presentation.planning.components.FixedBudgetIntroCard
+import com.xax.CryptoSavingsTracker.presentation.planning.components.PlanningModeSegmentedControl
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleGreen
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleRed
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleYellow
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
+
+private val planningDisplayCurrencies = listOf(
+    "USD",
+    "EUR",
+    "GBP",
+    "JPY",
+    "CHF",
+    "CAD",
+    "AUD",
+    "CNY",
+    "INR",
+    "KRW"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,7 +111,16 @@ fun MonthlyPlanningScreen(
                 title = { Text("Monthly Planning") },
                 actions = {
                     IconButton(onClick = { navController.navigate(Screen.Execution.route) }) {
-                        Icon(Icons.Default.Flag, contentDescription = "Execution")
+                        val hasActiveExecution = uiState.activeExecutionMonthLabel != null
+                        Icon(
+                            Icons.Default.Flag,
+                            contentDescription = if (hasActiveExecution) "Execution (Active)" else "Execution",
+                            tint = if (hasActiveExecution) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
                     }
                     IconButton(onClick = { navController.navigate(Screen.PlanHistory.route) }) {
                         Icon(Icons.Default.CalendarMonth, contentDescription = "History")
@@ -104,48 +136,83 @@ fun MonthlyPlanningScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            when {
-                uiState.isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
+            // Fixed Budget Intro Card (show only when in Per Goal mode and not seen yet)
+            if (!uiState.hasSeenFixedBudgetIntro && uiState.planningMode == PlanningMode.PER_GOAL) {
+                FixedBudgetIntroCard(
+                    onLearnMore = { viewModel.showSettings() },
+                    onTryIt = { viewModel.tryFixedBudgetMode() },
+                    onDismiss = { viewModel.dismissFixedBudgetIntro() },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            // Planning Mode Segmented Control
+            PlanningModeSegmentedControl(
+                selectedMode = uiState.planningMode,
+                onModeSelected = { mode -> viewModel.setPlanningMode(mode) },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            // Content based on planning mode
+            when (uiState.planningMode) {
+                PlanningMode.FIXED_BUDGET -> {
+                    FixedBudgetPlanningScreen(
+                        navController = navController,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
-                uiState.requirements.isEmpty() -> {
-                    EmptyPlanningState(
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
-                else -> {
-                    MonthlyPlanningContent(
-                        requirements = uiState.requirements,
-                        flexAdjustment = uiState.flexAdjustment,
-                        totalRequired = uiState.totalRequired,
-                        baseTotalRequired = uiState.baseTotalRequired,
-                        displayCurrency = uiState.displayCurrency,
-                        paymentDay = uiState.paymentDay,
-                        onGoalClick = { goalId ->
-                            navController.navigate(Screen.GoalDetail.createRoute(goalId))
-                        },
-                        onFlexAdjustmentChanged = viewModel::updateFlexAdjustment,
-                        onToggleProtected = viewModel::toggleProtected,
-                        onToggleSkipped = viewModel::toggleSkipped,
-                        onCustomAmountClick = { goalId -> customDialogGoalId = goalId }
-                    )
+                PlanningMode.PER_GOAL -> {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        when {
+                            uiState.isLoading -> {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.align(Alignment.Center)
+                                )
+                            }
+                            uiState.requirements.isEmpty() -> {
+                                EmptyPlanningState(
+                                    modifier = Modifier.align(Alignment.Center)
+                                )
+                            }
+                            else -> {
+                                MonthlyPlanningContent(
+                                    requirements = uiState.requirements,
+                                    flexAdjustment = uiState.flexAdjustment,
+                                    totalRequired = uiState.totalRequired,
+                                    baseTotalRequired = uiState.baseTotalRequired,
+                                    displayCurrency = uiState.displayCurrency,
+                                    paymentDay = uiState.paymentDay,
+                                    activeExecutionMonthLabel = uiState.activeExecutionMonthLabel,
+                                    activeExecutionStartedAtMillis = uiState.activeExecutionStartedAtMillis,
+                                    onViewExecution = { navController.navigate(Screen.Execution.route) },
+                                    onGoalClick = { goalId ->
+                                        navController.navigate(Screen.GoalDetail.createRoute(goalId))
+                                    },
+                                    onFlexAdjustmentChanged = viewModel::updateFlexAdjustment,
+                                    onToggleProtected = viewModel::toggleProtected,
+                                    onToggleSkipped = viewModel::toggleSkipped,
+                                    onCustomAmountClick = { goalId -> customDialogGoalId = goalId }
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
 
         // Settings dialog
         if (uiState.showSettingsDialog) {
-            PaymentDaySettingsDialog(
+            PlanningSettingsDialog(
                 currentDay = uiState.paymentDay,
+                currentCurrency = uiState.displayCurrency,
+                availableCurrencies = planningDisplayCurrencies,
                 onDismiss = { viewModel.dismissSettings() },
-                onConfirm = { day -> viewModel.updatePaymentDay(day) }
+                onConfirm = { day, currency -> viewModel.updatePlanningSettings(day, currency) }
             )
         }
 
@@ -182,6 +249,9 @@ private fun MonthlyPlanningContent(
     baseTotalRequired: Double,
     displayCurrency: String,
     paymentDay: Int,
+    activeExecutionMonthLabel: String?,
+    activeExecutionStartedAtMillis: Long?,
+    onViewExecution: () -> Unit,
     onGoalClick: (String) -> Unit,
     onFlexAdjustmentChanged: (Double) -> Unit,
     onToggleProtected: (String) -> Unit,
@@ -192,6 +262,16 @@ private fun MonthlyPlanningContent(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        if (activeExecutionMonthLabel != null && activeExecutionStartedAtMillis != null) {
+            item {
+                TrackingModeBanner(
+                    monthLabel = activeExecutionMonthLabel,
+                    startedAtMillis = activeExecutionStartedAtMillis,
+                    onViewExecution = onViewExecution
+                )
+            }
+        }
+
         // Summary card
         item {
             TotalRequirementCard(
@@ -223,6 +303,56 @@ private fun MonthlyPlanningContent(
                 onToggleSkipped = { onToggleSkipped(row.goalId) },
                 onCustomAmountClick = { onCustomAmountClick(row.goalId) }
             )
+        }
+    }
+}
+
+@Composable
+private fun TrackingModeBanner(
+    monthLabel: String,
+    startedAtMillis: Long,
+    onViewExecution: () -> Unit
+) {
+    val startedAtText = remember(startedAtMillis) {
+        DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a")
+            .withZone(ZoneId.systemDefault())
+            .format(Instant.ofEpochMilli(startedAtMillis))
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Tracking Mode",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Recording contributions for $monthLabel",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                )
+                Text(
+                    text = "Started: $startedAtText",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            TextButton(onClick = onViewExecution) {
+                Text("View")
+            }
         }
     }
 }
@@ -649,23 +779,65 @@ private fun EmptyPlanningState(modifier: Modifier = Modifier) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PaymentDaySettingsDialog(
+private fun PlanningSettingsDialog(
     currentDay: Int,
+    currentCurrency: String,
+    availableCurrencies: List<String>,
     onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit
+    onConfirm: (Int, String) -> Unit
 ) {
     var sliderValue by remember { mutableFloatStateOf(currentDay.toFloat()) }
+    var expanded by remember { mutableStateOf(false) }
+    var selectedCurrency by remember { mutableStateOf(currentCurrency) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Payment Day") },
+        title = { Text("Planning Settings") },
         text = {
             Column {
                 Text(
-                    text = "Set the day of each month when you make your savings deposits.",
+                    text = "Choose the display currency and payment schedule for your monthly requirements.",
                     style = MaterialTheme.typography.bodyMedium
                 )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Display Currency",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedCurrency,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Currency") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        singleLine = true
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        availableCurrencies.forEach { currency ->
+                            DropdownMenuItem(
+                                text = { Text(currency) },
+                                onClick = {
+                                    selectedCurrency = currency
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "Day: ${sliderValue.roundToInt().toOrdinal()}",
@@ -686,7 +858,7 @@ private fun PaymentDaySettingsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(sliderValue.roundToInt()) }) {
+            TextButton(onClick = { onConfirm(sliderValue.roundToInt(), selectedCurrency) }) {
                 Text("Save")
             }
         },

@@ -14,20 +14,24 @@ class UpdateAssetUseCase @Inject constructor(
      * Update an asset with new values
      */
     suspend operator fun invoke(asset: Asset): Result<Asset> {
+        val normalizedAsset = asset.copy(
+            address = asset.address?.trim()?.takeIf { it.isNotBlank() },
+            chainId = asset.chainId?.trim()?.takeIf { it.isNotBlank() }
+        )
         // Validation
-        if (asset.currency.isBlank()) {
+        if (normalizedAsset.currency.isBlank()) {
             return Result.failure(IllegalArgumentException("Currency cannot be empty"))
         }
 
         // Check for duplicate address if changed
-        if (asset.address != null) {
-            val existingAsset = repository.getAssetByAddress(asset.address)
-            if (existingAsset != null && existingAsset.id != asset.id) {
+        if (normalizedAsset.address != null) {
+            val existingAsset = repository.getAssetByAddress(normalizedAsset.address)
+            if (existingAsset != null && existingAsset.id != normalizedAsset.id) {
                 return Result.failure(IllegalArgumentException("An asset with this address already exists"))
             }
         }
 
-        val updatedAsset = asset.copy(updatedAt = System.currentTimeMillis())
+        val updatedAsset = normalizedAsset.copy(updatedAt = System.currentTimeMillis())
 
         return try {
             repository.updateAsset(updatedAsset)

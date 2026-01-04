@@ -99,7 +99,6 @@ fun SettingsScreen(
             onSave = viewModel::save,
             onClearCaches = viewModel::clearCaches,
             onExportCsv = viewModel::exportCsv,
-            onImportData = { /* TODO: Implement import */ },
             onTapVersion = { developerTapCount.intValue += 1 },
             isDeveloperModeEnabled = developerTapCount.intValue >= 7,
             versionLabel = BuildConfig.VERSION_NAME,
@@ -117,7 +116,6 @@ internal fun SettingsContent(
     onSave: () -> Unit,
     onClearCaches: () -> Unit,
     onExportCsv: () -> Unit,
-    onImportData: () -> Unit,
     onTapVersion: () -> Unit,
     isDeveloperModeEnabled: Boolean,
     versionLabel: String,
@@ -149,16 +147,6 @@ internal fun SettingsContent(
             } else {
                 Text("Export Data (CSV)")
             }
-        }
-
-        Button(
-            onClick = onImportData,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("settingsImportButton"),
-            enabled = false
-        ) {
-            Text("Import Data (Coming Soon)")
         }
 
         if (uiState.exportMessage != null) {

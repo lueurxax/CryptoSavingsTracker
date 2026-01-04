@@ -107,25 +107,24 @@ enum class GoalLifecycleStatus(val rawValue: String) {
 }
 
 /**
- * Reminder frequency options matching iOS ReminderFrequency
+ * Reminder frequency options matching iOS ReminderFrequency exactly.
+ * iOS only has: weekly, biweekly, monthly (no daily option).
  */
-enum class ReminderFrequency {
-    DAILY,
-    WEEKLY,
-    BIWEEKLY,
-    MONTHLY;
+enum class ReminderFrequency(val rawValue: String) {
+    WEEKLY("weekly"),
+    BIWEEKLY("biweekly"),
+    MONTHLY("monthly");
 
     companion object {
         fun fromString(value: String?): ReminderFrequency? {
             if (value == null) return null
-            return entries.find { it.name.equals(value, ignoreCase = true) }
+            return entries.find { it.rawValue.equals(value, ignoreCase = true) || it.name.equals(value, ignoreCase = true) }
         }
     }
 
     fun displayName(): String = when (this) {
-        DAILY -> "Daily"
         WEEKLY -> "Weekly"
-        BIWEEKLY -> "Every 2 Weeks"
+        BIWEEKLY -> "Bi-weekly"
         MONTHLY -> "Monthly"
     }
 }

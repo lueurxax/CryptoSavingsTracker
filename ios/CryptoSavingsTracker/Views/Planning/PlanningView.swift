@@ -18,15 +18,9 @@ struct PlanningView: View {
 
     // Get stale draft plans (past months that are still in draft state)
     private var staleDrafts: [MonthlyPlan] {
-        let currentMonth = currentMonthLabel()
+        let currentMonth = viewModel.planningMonthLabel
         return allPlans.filter { $0.monthLabel < currentMonth && $0.state == .draft }
             .sorted { $0.monthLabel > $1.monthLabel } // Most recent first
-    }
-
-    private func currentMonthLabel() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        return formatter.string(from: Date())
     }
 
     var body: some View {
@@ -61,8 +55,94 @@ struct iOSCompactPlanningView: View {
     let staleDrafts: [MonthlyPlan]
     @Environment(\.modelContext) private var modelContext
     @State private var selectedTab = 0
+    @AppStorage("MonthlyPlanning.FixedBudget.IsEnabled") private var isFixedBudgetMode = false
+    @AppStorage("FixedBudget.HasSeenIntro") private var hasSeenIntro = false
+    @State private var planningMode: PlanningMode = .perGoal
+    @State private var showHelpSheet = false
+    @State private var fixedBudgetViewModel: FixedBudgetPlanningViewModel?
 
     var body: some View {
+        VStack(spacing: 0) {
+            // Fixed Budget Intro Card (show only when in Per Goal mode and not seen yet)
+            if !hasSeenIntro && planningMode == .perGoal {
+                FixedBudgetIntroCard(
+                    onLearnMore: { showHelpSheet = true },
+                    onTryIt: {
+                        hasSeenIntro = true
+                        planningMode = .fixedBudget
+                        isFixedBudgetMode = true
+                    },
+                    onDismiss: { hasSeenIntro = true }
+                )
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+            }
+
+            // Planning Mode Segmented Control
+            HStack {
+                PlanningModeSegmentedControl(selectedMode: $planningMode)
+
+                Button {
+                    showHelpSheet = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .onChange(of: planningMode) { _, newValue in
+                isFixedBudgetMode = (newValue == .fixedBudget)
+            }
+
+            if planningMode == .fixedBudget {
+                // Fixed Budget Mode
+                if let fbViewModel = fixedBudgetViewModel {
+                    FixedBudgetPlanningView(viewModel: fbViewModel)
+                } else {
+                    ProgressView("Loading...")
+                        .onAppear {
+                            createFixedBudgetViewModel()
+                        }
+                }
+            } else {
+                // Per Goal Mode (original view)
+                perGoalContent
+            }
+        }
+        .background(.regularMaterial)
+        .onAppear {
+            planningMode = isFixedBudgetMode ? .fixedBudget : .perGoal
+            if planningMode == .fixedBudget && fixedBudgetViewModel == nil {
+                createFixedBudgetViewModel()
+            }
+        }
+        .onReceive(viewModel.$goals) { goals in
+            guard let fixedBudgetViewModel else { return }
+            Task {
+                await fixedBudgetViewModel.loadGoals(goals)
+            }
+        }
+        .sheet(isPresented: $showHelpSheet) {
+            PlanningModeHelpView()
+        }
+    }
+
+    private func createFixedBudgetViewModel() {
+        let service = DIContainer.shared.fixedBudgetPlanningService(modelContext: modelContext)
+        let newViewModel = FixedBudgetPlanningViewModel(service: service, settings: .shared)
+        fixedBudgetViewModel = newViewModel
+        let goals = viewModel.goals
+        if !goals.isEmpty {
+            Task {
+                await newViewModel.loadGoals(goals)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var perGoalContent: some View {
         VStack(spacing: 0) {
             // Stale Draft Banner (if any)
             if !staleDrafts.isEmpty {
@@ -112,7 +192,6 @@ struct iOSCompactPlanningView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             #endif
         }
-        .background(.regularMaterial)
     }
 
     // MARK: - Improved Tab Selector

@@ -13,8 +13,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -23,6 +25,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.xax.CryptoSavingsTracker.presentation.onboarding.ONBOARDING_COMPLETED_KEY
+import com.xax.CryptoSavingsTracker.presentation.onboarding.ONBOARDING_PREFS_NAME
+import com.xax.CryptoSavingsTracker.presentation.onboarding.OnboardingScreen
 import com.xax.CryptoSavingsTracker.presentation.assets.AddEditAssetScreen
 import com.xax.CryptoSavingsTracker.presentation.assets.AssetDetailScreen
 import com.xax.CryptoSavingsTracker.presentation.assets.AssetSharingScreen
@@ -61,6 +66,12 @@ fun AppNavHost() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    val context = LocalContext.current
+    val onboardingCompleted = remember {
+        context.getSharedPreferences(ONBOARDING_PREFS_NAME, android.content.Context.MODE_PRIVATE)
+            .getBoolean(ONBOARDING_COMPLETED_KEY, false)
+    }
+    val startDestination = if (onboardingCompleted) Screen.Dashboard.route else Screen.Onboarding.route
 
     // Determine if we should show bottom nav (only on main tabs)
     val showBottomNav = bottomNavItems.any { item ->
@@ -93,9 +104,12 @@ fun AppNavHost() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Dashboard.route,
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding)
         ) {
+            composable(Screen.Onboarding.route) {
+                OnboardingScreen(navController = navController)
+            }
             // Main tabs
             composable(Screen.Dashboard.route) {
                 DashboardScreen(navController = navController)
@@ -159,7 +173,16 @@ fun AppNavHost() {
             composable(
                 route = Screen.AssetSharing.route,
                 arguments = listOf(
-                    navArgument("assetId") { type = NavType.StringType }
+                    navArgument("assetId") { type = NavType.StringType },
+                    navArgument("goalId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("prefillCloseMonth") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
                 )
             ) {
                 AssetSharingScreen(navController = navController)
@@ -169,7 +192,12 @@ fun AppNavHost() {
             composable(
                 route = Screen.AddTransaction.route,
                 arguments = listOf(
-                    navArgument("assetId") { type = NavType.StringType }
+                    navArgument("assetId") { type = NavType.StringType },
+                    navArgument("prefillAmount") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
                 )
             ) {
                 AddTransactionScreen(navController = navController)

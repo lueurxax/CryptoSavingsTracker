@@ -121,7 +121,7 @@ class GetGoalProgressUseCase @Inject constructor(
 
             val assetManualBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
             val onChainBalance = runCatching {
-                if (asset?.isCryptoAsset == true && asset.address != null && asset.chainId != null) {
+                if (asset != null && !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()) {
                     onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0
                 } else {
                     0.0

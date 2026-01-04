@@ -25,7 +25,6 @@ private struct MonthlyPlanningContainerContent: View {
     @State private var isLoading = true
     @State private var showStartTrackingConfirmation = false
     @State private var showReturnToPlanningConfirmation = false
-    @State private var showFullResetConfirmation = false
     @StateObject private var planningViewModel: MonthlyPlanningViewModel
 
     init(modelContext: ModelContext) {
@@ -37,13 +36,13 @@ private struct MonthlyPlanningContainerContent: View {
         VStack(spacing: 0) {
             // State indicator banner
             if let record = executionRecord {
-                stateIndicatorBanner(for: record)
+                stateIndicatorBanner(for: record, planningMonthLabel: planningViewModel.planningMonthLabel)
             }
 
             Group {
                 if isLoading {
                     ProgressView("Loading...")
-                } else if let record = executionRecord, record.status == .executing || record.status == .closed {
+                } else if let record = executionRecord, record.status == .executing {
                     // Show execution view
                     MonthlyExecutionView(modelContext: modelContext)
                 } else {
@@ -60,6 +59,12 @@ private struct MonthlyPlanningContainerContent: View {
             // Also load monthly requirements after execution record is loaded
             await planningViewModel.loadMonthlyRequirements()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .monthlyExecutionCompleted)) { _ in
+            Task {
+                await loadExecutionRecord()
+                await planningViewModel.loadMonthlyRequirements()
+            }
+        }
         .alert("Return to Planning Mode?", isPresented: $showReturnToPlanningConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Return to Planning") {
@@ -69,16 +74,6 @@ private struct MonthlyPlanningContainerContent: View {
             }
         } message: {
             Text("This will move this month back to planning mode and stop execution tracking. You can start tracking again later.")
-        }
-        .alert("Reset Tracking & Planning?", isPresented: $showFullResetConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Reset", role: .destructive) {
-                Task {
-                    await resetTrackingAndPlanning()
-                }
-            }
-        } message: {
-            Text("Deletes the current execution record and resets monthly plans to draft. Contributions stay recorded but will be unlinked from tracking.")
         }
     }
 
@@ -142,53 +137,41 @@ private struct MonthlyPlanningContainerContent: View {
     // MARK: - State Indicator Banner
 
     @ViewBuilder
-    private func stateIndicatorBanner(for record: MonthlyExecutionRecord) -> some View {
-        let isTracking = record.status == .executing || record.status == .closed
+    private func stateIndicatorBanner(for record: MonthlyExecutionRecord, planningMonthLabel: String) -> some View {
+        let isTracking = record.status == .executing
+        let isClosed = record.status == .closed
+        let planningLabel = formatMonthLabel(planningMonthLabel)
+        let trackingLabel = formatMonthLabel(record.monthLabel)
 
         VStack(spacing: 12) {
             // Top row: Status info
             HStack(spacing: 12) {
                 Image(systemName: isTracking ? "chart.line.uptrend.xyaxis" : "doc.text")
                     .font(.title3)
-                    .foregroundColor(isTracking ? .blue : .secondary)
+                    .foregroundColor(isTracking ? .blue : (isClosed ? .green : .secondary))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(isTracking ? "Tracking Mode" : "Planning Mode")
+                    Text(isTracking ? "Tracking Mode" : (isClosed ? "Month Complete" : "Planning Mode"))
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
-                    Text(isTracking ? "Recording contributions for \(formatMonthLabel(record.monthLabel))" : "Planning for \(formatMonthLabel(record.monthLabel))")
+                    Text(isTracking ? "Recording contributions for \(trackingLabel)" : "Planning for \(planningLabel)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
                 Spacer()
 
-                if record.status == .closed {
+                if isClosed {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.green)
                         .font(.title3)
                 }
 
-                // Overflow menu for destructive action
-                if record.status == .executing || record.status == .closed {
-                    Menu {
-                        Button(role: .destructive) {
-                            showFullResetConfirmation = true
-                        } label: {
-                            Label("Reset Month", systemImage: "exclamationmark.triangle")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.title3)
-                            .foregroundColor(.secondary)
-                    }
-                    .accessibilityIdentifier("moreOptionsMenu")
-                }
             }
 
             // Bottom row: Primary action button (full width)
-            if record.status == .executing || record.status == .closed {
+            if record.status == .executing {
                 Button {
                     showReturnToPlanningConfirmation = true
                 } label: {
@@ -220,11 +203,16 @@ private struct MonthlyPlanningContainerContent: View {
 
         do {
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
-            executionRecord = try executionService.getCurrentMonthRecord()
+            if let activeRecord = try executionService.getActiveRecord() {
+                executionRecord = activeRecord
+            } else {
+                executionRecord = try executionService.getCurrentMonthRecord()
+            }
         } catch {
             print("Error loading execution record: \(error)")
         }
 
+        updatePlanningMonthLabel()
         isLoading = false
     }
 
@@ -239,9 +227,12 @@ private struct MonthlyPlanningContainerContent: View {
             let goals = try modelContext.fetch(descriptor)
             // 2. Get MonthlyPlanService through DI
             let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
+            let monthLabel = planningViewModel.planningMonthLabel.isEmpty
+                ? planService.currentMonthLabel()
+                : planningViewModel.planningMonthLabel
 
             // 3. Get or create plans (serialized via AsyncSerialExecutor)
-            let plans = try await planService.getOrCreatePlansForCurrentMonth(goals: goals)
+            let plans = try await planService.getOrCreatePlans(for: monthLabel, goals: goals)
             // 3.5. Check if plans are already in non-draft state and reset if needed
             let nonDraftPlans = plans.filter { $0.state != .draft }
             if !nonDraftPlans.isEmpty {
@@ -268,7 +259,6 @@ private struct MonthlyPlanningContainerContent: View {
 
             // 7. Create execution record with snapshot
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
-            let monthLabel = MonthlyExecutionRecord.monthLabel(from: Date())
 
             let record = try executionService.startTracking(
                 for: monthLabel,
@@ -303,45 +293,42 @@ private struct MonthlyPlanningContainerContent: View {
 
             // Refresh state and planning data
             executionRecord = record
-            await planningViewModel.loadMonthlyRequirements()
-            // Refresh execution record to reflect removal
             await loadExecutionRecord()
+            await planningViewModel.loadMonthlyRequirements()
         } catch {
         }
 
         isLoading = false
     }
 
-    /// Hard reset: delete execution record, unlink contributions, and reset plans to draft.
-    private func resetTrackingAndPlanning() async {
-        guard let record = executionRecord else { return }
-        isLoading = true
 
-        do {
-            let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
-            let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
+    private func updatePlanningMonthLabel() {
+        let fallbackLabel = monthLabel(from: Date())
+        guard let record = executionRecord else {
+            planningViewModel.planningMonthLabel = fallbackLabel
+            return
+        }
 
-            // Reset plans for this month back to draft/default state
-            let plans = try planService.fetchPlans(for: record.monthLabel)
-            for plan in plans {
-                plan.state = .draft
-                plan.customAmount = nil
-                plan.isProtected = false
-                plan.isSkipped = false
-                plan.flexState = .flexible
-            }
+        if record.status == .closed {
+            planningViewModel.planningMonthLabel = nextMonthLabel(from: record.monthLabel) ?? fallbackLabel
+        } else {
+            planningViewModel.planningMonthLabel = fallbackLabel
+        }
+    }
 
-            // Remove execution record entirely (force reset)
-            try executionService.deleteRecord(record)
+    private func nextMonthLabel(from monthLabel: String) -> String? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        guard let date = formatter.date(from: monthLabel),
+              let nextDate = Calendar.current.date(byAdding: .month, value: 1, to: date) else {
+            return nil
+        }
+        return formatter.string(from: nextDate)
+    }
 
-            try modelContext.save()
-
-            // Refresh UI
-            executionRecord = nil
-            await planningViewModel.loadMonthlyRequirements()
-            await loadExecutionRecord()
-        } catch { }
-
-        isLoading = false
+    private func monthLabel(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        return formatter.string(from: date)
     }
 }

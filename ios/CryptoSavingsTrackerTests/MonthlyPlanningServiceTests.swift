@@ -25,16 +25,27 @@ struct MonthlyPlanningServiceTests {
     }
 
     /// Creates a deadline that reliably gives the expected months remaining.
-    /// Use the start of the target month to ensure full month counting.
+    /// Accounts for the payment day counting logic in MonthlyPlanningService.
     private func deadlineForMonths(_ months: Int) -> Date {
         let calendar = Calendar.current
-        // Get first day of current month, then add months + go to last day
+        let paymentDay = MonthlyPlanningSettings.shared.paymentDay
+
+        // Get the next payment date from today
         var components = calendar.dateComponents([.year, .month], from: Date())
-        components.day = 1
-        let startOfCurrentMonth = calendar.date(from: components)!
-        // Add months and set to end of that month to ensure we're past the boundary
-        let targetMonth = calendar.date(byAdding: .month, value: months, to: startOfCurrentMonth)!
-        return calendar.date(byAdding: .day, value: 28, to: targetMonth)!
+        components.day = paymentDay
+        var nextPaymentDate = calendar.date(from: components)!
+
+        // If payment date this month has passed, start from next month
+        if nextPaymentDate <= Date() {
+            nextPaymentDate = calendar.date(byAdding: .month, value: 1, to: nextPaymentDate)!
+        }
+
+        // Add the requested number of payment periods
+        let targetPaymentDate = calendar.date(byAdding: .month, value: months - 1, to: nextPaymentDate)!
+
+        // Return a date after the last payment but before the next one
+        // This ensures exactly 'months' payment periods are counted
+        return calendar.date(byAdding: .day, value: 15, to: targetPaymentDate)!
     }
     
     // MARK: - Basic Calculation Tests

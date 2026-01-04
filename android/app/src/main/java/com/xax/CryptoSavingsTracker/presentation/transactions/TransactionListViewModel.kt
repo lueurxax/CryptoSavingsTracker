@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.domain.model.Transaction
+import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
+import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.GetAssetByIdUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.transaction.DeleteTransactionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.transaction.GetTransactionsUseCase
@@ -20,6 +22,7 @@ data class TransactionListState(
     val assetCurrency: String = "",
     val assetName: String = "",
     val isCryptoAsset: Boolean = false,
+    val cachedOnChainBalance: Double = 0.0,
     val isLoading: Boolean = true,
     val error: String? = null,
     val totalBalance: Double = 0.0,
@@ -32,7 +35,8 @@ class TransactionListViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getTransactionsUseCase: GetTransactionsUseCase,
     private val getAssetByIdUseCase: GetAssetByIdUseCase,
-    private val deleteTransactionUseCase: DeleteTransactionUseCase
+    private val deleteTransactionUseCase: DeleteTransactionUseCase,
+    private val onChainBalanceRepository: OnChainBalanceRepository
 ) : ViewModel() {
 
     private val assetId: String = checkNotNull(savedStateHandle["assetId"])
@@ -50,10 +54,22 @@ class TransactionListViewModel @Inject constructor(
             try {
                 val asset = getAssetByIdUseCase(assetId)
                 if (asset != null) {
+                    val hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
+                    val cachedOnChain = if (!hasOnChain) {
+                        0.0
+                    } else {
+                        runCatching { onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0 }
+                            .getOrElse { 0.0 }
+                    }
+                    val existingManual = _state.value.transactions
+                        .filter { it.source == TransactionSource.MANUAL }
+                        .sumOf { it.amount }
                     _state.update { it.copy(
                         assetCurrency = asset.currency,
                         assetName = asset.displayName(),
-                        isCryptoAsset = asset.isCryptoAsset
+                        isCryptoAsset = asset.isCryptoAsset,
+                        cachedOnChainBalance = cachedOnChain,
+                        totalBalance = existingManual + cachedOnChain
                     )}
                 }
             } catch (e: Exception) {
@@ -66,7 +82,10 @@ class TransactionListViewModel @Inject constructor(
         viewModelScope.launch {
             getTransactionsUseCase(assetId).collect { transactions ->
                 val sortedTransactions = transactions.sortedByDescending { it.dateMillis }
-                val totalBalance = transactions.sumOf { it.amount }
+                val manualBalance = transactions
+                    .filter { it.source == TransactionSource.MANUAL }
+                    .sumOf { it.amount }
+                val totalBalance = manualBalance + _state.value.cachedOnChainBalance
                 val depositCount = transactions.count { it.isDeposit }
                 val withdrawalCount = transactions.count { !it.isDeposit }
 

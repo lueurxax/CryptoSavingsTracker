@@ -1,0 +1,372 @@
+//
+//  FixedBudgetModels.swift
+//  CryptoSavingsTracker
+//
+//  Created by Claude on 03/01/2026.
+//
+
+import Foundation
+
+// MARK: - Completion Behavior
+
+/// Defines what happens when a goal completes early (over-contribution)
+enum CompletionBehavior: String, Codable, CaseIterable {
+    /// Keep paying the same amount, finish all goals sooner
+    case finishFaster
+    /// Reduce monthly payment for remaining months
+    case lowerPayments
+
+    var displayName: String {
+        switch self {
+        case .finishFaster: return "Finish faster"
+        case .lowerPayments: return "Lower payments"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .finishFaster:
+            return "Keep paying the same amount, finish all goals sooner"
+        case .lowerPayments:
+            return "Reduce your monthly payment, same finish dates"
+        }
+    }
+}
+
+// MARK: - Planning Mode
+
+/// Planning mode selection for the Monthly Planning view
+enum PlanningMode: String, Codable, CaseIterable {
+    case perGoal
+    case fixedBudget
+
+    var displayName: String {
+        switch self {
+        case .perGoal: return "Per Goal"
+        case .fixedBudget: return "Fixed Budget"
+        }
+    }
+}
+
+// MARK: - Goal Contribution
+
+/// A contribution to a single goal within a scheduled payment
+struct GoalContribution: Identifiable, Codable, Equatable {
+    let id: UUID
+    let goalId: UUID
+    let goalName: String
+    let amount: Double
+    let isGoalStart: Bool
+    let isGoalComplete: Bool
+    let runningTotal: Double
+
+    init(
+        id: UUID = UUID(),
+        goalId: UUID,
+        goalName: String,
+        amount: Double,
+        isGoalStart: Bool = false,
+        isGoalComplete: Bool = false,
+        runningTotal: Double
+    ) {
+        self.id = id
+        self.goalId = goalId
+        self.goalName = goalName
+        self.amount = amount
+        self.isGoalStart = isGoalStart
+        self.isGoalComplete = isGoalComplete
+        self.runningTotal = runningTotal
+    }
+}
+
+// MARK: - Scheduled Payment
+
+/// A single payment on a specific date (may fund multiple goals)
+struct ScheduledPayment: Identifiable, Codable, Equatable {
+    let id: UUID
+    let paymentDate: Date
+    let paymentNumber: Int
+    let contributions: [GoalContribution]
+
+    var totalAmount: Double {
+        contributions.reduce(0) { $0 + $1.amount }
+    }
+
+    /// Returns formatted payment date
+    var formattedDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: paymentDate)
+    }
+
+    /// Returns full formatted payment date
+    var formattedDateFull: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: paymentDate)
+    }
+
+    init(
+        id: UUID = UUID(),
+        paymentDate: Date,
+        paymentNumber: Int,
+        contributions: [GoalContribution]
+    ) {
+        self.id = id
+        self.paymentDate = paymentDate
+        self.paymentNumber = paymentNumber
+        self.contributions = contributions
+    }
+}
+
+// MARK: - Fixed Budget Plan
+
+/// The complete fixed budget plan with schedule
+struct FixedBudgetPlan: Identifiable, Codable, Equatable {
+    let id: UUID
+    let createdAt: Date
+    let monthlyBudget: Double
+    let currency: String
+    let schedule: [ScheduledPayment]
+    let isLeveled: Bool
+    let minimumRequired: Double
+    let goalRemainingById: [UUID: Double]
+
+    /// Total amount across all scheduled payments
+    var totalAmount: Double {
+        schedule.reduce(0) { $0 + $1.totalAmount }
+    }
+
+    /// Number of months in the plan
+    var totalMonths: Int {
+        schedule.count
+    }
+
+    /// First payment date
+    var startDate: Date? {
+        schedule.first?.paymentDate
+    }
+
+    /// Last payment date
+    var endDate: Date? {
+        schedule.last?.paymentDate
+    }
+
+    init(
+        id: UUID = UUID(),
+        createdAt: Date = Date(),
+        monthlyBudget: Double,
+        currency: String,
+        schedule: [ScheduledPayment],
+        isLeveled: Bool,
+        minimumRequired: Double,
+        goalRemainingById: [UUID: Double] = [:]
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.monthlyBudget = monthlyBudget
+        self.currency = currency
+        self.schedule = schedule
+        self.isLeveled = isLeveled
+        self.minimumRequired = minimumRequired
+        self.goalRemainingById = goalRemainingById
+    }
+}
+
+// MARK: - Scheduled Goal Block (for Timeline)
+
+/// Represents a goal's period in the timeline visualization
+struct ScheduledGoalBlock: Identifiable, Equatable {
+    let id: UUID
+    let goalId: UUID
+    let goalName: String
+    let emoji: String?
+    let startPaymentNumber: Int
+    let endPaymentNumber: Int
+    let startDate: Date
+    let endDate: Date
+    let totalAmount: Double
+    let paymentCount: Int
+    let isComplete: Bool
+
+    init(
+        id: UUID = UUID(),
+        goalId: UUID,
+        goalName: String,
+        emoji: String?,
+        paymentCount: Int,
+        estimatedStart: Date,
+        estimatedEnd: Date,
+        isComplete: Bool = false
+    ) {
+        self.id = id
+        self.goalId = goalId
+        self.goalName = goalName
+        self.emoji = emoji
+        self.startPaymentNumber = 1
+        self.endPaymentNumber = paymentCount
+        self.startDate = estimatedStart
+        self.endDate = estimatedEnd
+        self.totalAmount = 0
+        self.paymentCount = paymentCount
+        self.isComplete = isComplete
+    }
+
+    init(
+        id: UUID = UUID(),
+        goalId: UUID,
+        goalName: String,
+        emoji: String?,
+        startPaymentNumber: Int,
+        endPaymentNumber: Int,
+        startDate: Date,
+        endDate: Date,
+        totalAmount: Double,
+        paymentCount: Int,
+        isComplete: Bool = false
+    ) {
+        self.id = id
+        self.goalId = goalId
+        self.goalName = goalName
+        self.emoji = emoji
+        self.startPaymentNumber = startPaymentNumber
+        self.endPaymentNumber = endPaymentNumber
+        self.startDate = startDate
+        self.endDate = endDate
+        self.totalAmount = totalAmount
+        self.paymentCount = paymentCount
+        self.isComplete = isComplete
+    }
+
+    /// Formatted date range (e.g., "Jan 15 - Mar 15")
+    var dateRange: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return "\(formatter.string(from: startDate)) - \(formatter.string(from: endDate))"
+    }
+}
+
+// MARK: - Infeasible Goal
+
+/// A goal that cannot be met with the current budget
+struct InfeasibleGoal: Identifiable, Equatable {
+    let id: UUID
+    let goalId: UUID
+    let goalName: String
+    let deadline: Date
+    let requiredMonthly: Double
+    let shortfall: Double
+    let currency: String
+
+    /// Formatted shortfall amount
+    var formattedShortfall: String {
+        CurrencyFormatter.format(amount: shortfall, currency: currency)
+    }
+
+    /// Formatted required amount
+    var formattedRequired: String {
+        CurrencyFormatter.format(amount: requiredMonthly, currency: currency)
+    }
+}
+
+// MARK: - Feasibility Suggestion
+
+/// A suggested action to resolve budget infeasibility
+enum FeasibilitySuggestion: Identifiable, Equatable {
+    case increaseBudget(to: Double, currency: String)
+    case extendDeadline(goalId: UUID, goalName: String, byMonths: Int)
+    case reduceTarget(goalId: UUID, goalName: String, to: Double, currency: String)
+
+    var id: String {
+        switch self {
+        case .increaseBudget(let to, _):
+            return "increase_\(to)"
+        case .extendDeadline(let goalId, _, let months):
+            return "extend_\(goalId)_\(months)"
+        case .reduceTarget(let goalId, _, let to, _):
+            return "reduce_\(goalId)_\(to)"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .increaseBudget(let to, let currency):
+            return "Increase budget to \(CurrencyFormatter.format(amount: to, currency: currency))/mo"
+        case .extendDeadline(_, let goalName, let months):
+            return "Extend \(goalName) by \(months) month\(months == 1 ? "" : "s")"
+        case .reduceTarget(_, let goalName, let to, let currency):
+            return "Reduce \(goalName) target to \(CurrencyFormatter.format(amount: to, currency: currency))"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .increaseBudget: return "arrow.up.circle"
+        case .extendDeadline: return "calendar.badge.plus"
+        case .reduceTarget: return "minus.circle"
+        }
+    }
+}
+
+// MARK: - Feasibility Result
+
+/// Result of checking if a budget is sufficient for all goals
+struct FeasibilityResult: Equatable {
+    let isFeasible: Bool
+    let minimumRequired: Double
+    let currency: String
+    let infeasibleGoals: [InfeasibleGoal]
+    let suggestions: [FeasibilitySuggestion]
+
+    /// Formatted minimum required amount
+    var formattedMinimum: String {
+        CurrencyFormatter.format(amount: minimumRequired, currency: currency)
+    }
+
+    /// Status description for display
+    var statusDescription: String {
+        if isFeasible {
+            return "All deadlines achievable"
+        } else if infeasibleGoals.count == 1 {
+            return "1 goal at risk"
+        } else {
+            return "\(infeasibleGoals.count) goals at risk"
+        }
+    }
+
+    /// Status color indicator
+    var statusLevel: FeasibilityLevel {
+        if isFeasible {
+            return .achievable
+        } else if infeasibleGoals.count == 1 {
+            return .atRisk
+        } else {
+            return .critical
+        }
+    }
+
+    static let empty = FeasibilityResult(
+        isFeasible: true,
+        minimumRequired: 0,
+        currency: "USD",
+        infeasibleGoals: [],
+        suggestions: []
+    )
+}
+
+// MARK: - Feasibility Level
+
+/// Severity level for budget feasibility
+enum FeasibilityLevel {
+    case achievable
+    case atRisk
+    case critical
+
+    var iconName: String {
+        switch self {
+        case .achievable: return "checkmark.circle.fill"
+        case .atRisk: return "exclamationmark.triangle.fill"
+        case .critical: return "xmark.circle.fill"
+        }
+    }
+}

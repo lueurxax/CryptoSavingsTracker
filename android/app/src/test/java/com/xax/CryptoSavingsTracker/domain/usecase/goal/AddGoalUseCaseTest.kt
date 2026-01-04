@@ -29,7 +29,7 @@ class AddGoalUseCaseTest {
             currency = "USD",
             targetAmount = 100.0,
             deadline = deadline,
-            reminderFrequency = ReminderFrequency.DAILY,
+            reminderFrequency = ReminderFrequency.WEEKLY,
             reminderTimeMillis = null,
             firstReminderDate = null
         )
@@ -39,7 +39,7 @@ class AddGoalUseCaseTest {
         assertThat(repo.insertedGoals).hasSize(1)
         assertThat(scheduler.scheduledGoals).hasSize(1)
         assertThat(goal.reminderTimeMillis).isNotNull()
-        assertThat(goal.reminderFrequency).isEqualTo(ReminderFrequency.DAILY)
+        assertThat(goal.reminderFrequency).isEqualTo(ReminderFrequency.WEEKLY)
 
         val time = Instant.ofEpochMilli(goal.reminderTimeMillis!!).atZone(ZoneId.systemDefault()).toLocalTime()
         assertThat(time.hour).isEqualTo(LocalTime.of(9, 0).hour)

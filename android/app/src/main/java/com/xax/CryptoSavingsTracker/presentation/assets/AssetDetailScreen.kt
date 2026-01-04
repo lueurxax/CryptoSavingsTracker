@@ -54,6 +54,7 @@ import com.xax.CryptoSavingsTracker.domain.model.Asset
 import com.xax.CryptoSavingsTracker.domain.model.ChainIds
 import com.xax.CryptoSavingsTracker.domain.model.OnChainBalance
 import com.xax.CryptoSavingsTracker.domain.model.Transaction
+import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
 import com.xax.CryptoSavingsTracker.presentation.theme.BitcoinOrange
 import com.xax.CryptoSavingsTracker.presentation.theme.EthereumBlue
 import com.xax.CryptoSavingsTracker.presentation.theme.WithdrawalRed
@@ -146,10 +147,13 @@ fun AssetDetailScreen(
                         isUsdLoading = uiState.isUsdLoading,
                         usdError = uiState.usdError,
                         onRefreshUsdBalance = viewModel::refreshUsdBalance,
-                        recentTransactions = uiState.recentTransactions,
+                        recentManualTransactions = uiState.recentManualTransactions,
+                        recentOnChainTransactions = uiState.recentOnChainTransactions,
                         onChainBalance = uiState.onChainBalance,
                         isOnChainLoading = uiState.isOnChainLoading,
                         onChainError = uiState.onChainError,
+                        isOnChainTransactionsLoading = uiState.isOnChainTransactionsLoading,
+                        onChainTransactionsError = uiState.onChainTransactionsError,
                         onRefreshOnChainBalance = viewModel::refreshOnChainBalance,
                         onAddTransaction = {
                             navController.navigate(
@@ -199,10 +203,13 @@ internal fun AssetDetailContent(
     isUsdLoading: Boolean,
     usdError: String?,
     onRefreshUsdBalance: () -> Unit,
-    recentTransactions: List<Transaction>,
+    recentManualTransactions: List<Transaction>,
+    recentOnChainTransactions: List<Transaction>,
     onChainBalance: OnChainBalance?,
     isOnChainLoading: Boolean,
     onChainError: String?,
+    isOnChainTransactionsLoading: Boolean,
+    onChainTransactionsError: String?,
     onRefreshOnChainBalance: () -> Unit,
     onAddTransaction: () -> Unit,
     onViewTransactions: () -> Unit
@@ -213,7 +220,7 @@ internal fun AssetDetailContent(
             .withZone(ZoneId.systemDefault())
     }
     val currencyColor = getCurrencyColor(asset.currency)
-    val hasOnChain = asset.isCryptoAsset && asset.address != null && asset.chainId != null
+    val hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
 
     Column(
         modifier = Modifier
@@ -239,7 +246,7 @@ internal fun AssetDetailContent(
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
-                if (asset.chainId != null) {
+                if (!asset.chainId.isNullOrBlank()) {
                     Text(
                         text = ChainIds.displayName(asset.chainId),
                         style = MaterialTheme.typography.bodyMedium,
@@ -333,11 +340,7 @@ internal fun AssetDetailContent(
                         val chainPart = String.format("%,.6f", onChainBalance.balance)
                         val manualPart = String.format("%,.6f", manualBalance)
                         Text(
-                            text = if (manualBalance != 0.0) {
-                                "Chain: $chainPart • Manual: $manualPart"
-                            } else {
-                                "Chain: $chainPart"
-                            },
+                            text = "Chain: $chainPart • Manual: $manualPart",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -373,7 +376,7 @@ internal fun AssetDetailContent(
         }
 
         // Address section (if crypto)
-        if (asset.address != null) {
+        if (!asset.address.isNullOrBlank()) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(16.dp)
@@ -425,7 +428,7 @@ internal fun AssetDetailContent(
                 DetailRow("Type", if (asset.isCryptoAsset) "Cryptocurrency" else "Fiat Account")
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                if (asset.chainId != null) {
+                if (!asset.chainId.isNullOrBlank()) {
                     DetailRow("Network", ChainIds.displayName(asset.chainId))
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 }
@@ -448,7 +451,13 @@ internal fun AssetDetailContent(
             }
         }
 
-        // Transaction history section
+        // Recent Transactions section (matches iOS - combined list)
+        val recentTransactions = remember(recentManualTransactions, recentOnChainTransactions) {
+            (recentManualTransactions + recentOnChainTransactions)
+                .sortedByDescending { it.dateMillis }
+                .take(3)
+        }
+
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(16.dp)
@@ -459,12 +468,23 @@ internal fun AssetDetailContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Transaction History",
+                        text = "Recent Transactions",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
-                    TextButton(onClick = onViewTransactions) {
-                        Text("View All")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (hasOnChain) {
+                            IconButton(onClick = onRefreshOnChainBalance) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Refresh on-chain data",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        TextButton(onClick = onViewTransactions) {
+                            Text("View All")
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -474,10 +494,34 @@ internal fun AssetDetailContent(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "No transactions yet",
+                            text = if (hasOnChain) {
+                                "No transactions yet. Tap refresh to load on-chain history or add a manual transaction."
+                            } else {
+                                "No transactions yet"
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (hasOnChain && isOnChainTransactionsLoading) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Fetching on-chain transactions…",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (hasOnChain && onChainTransactionsError != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = onChainTransactionsError,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
                         Spacer(modifier = Modifier.height(8.dp))
                         TextButton(onClick = onAddTransaction) {
                             Text("Add Transaction")
@@ -522,6 +566,20 @@ private fun TransactionPreviewRow(
                 text = transaction.formattedDate(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            val sourceLabel = when (transaction.source) {
+                TransactionSource.MANUAL -> "Manual"
+                TransactionSource.ON_CHAIN -> "On-chain"
+                TransactionSource.IMPORT -> "Imported"
+            }
+            Text(
+                text = sourceLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (transaction.source == TransactionSource.ON_CHAIN) {
+                    MaterialTheme.colorScheme.tertiary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
             )
         }
         val sign = if (transaction.isDeposit) "+" else "-"

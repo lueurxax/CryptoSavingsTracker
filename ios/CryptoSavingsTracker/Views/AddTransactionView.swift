@@ -16,9 +16,18 @@ struct AddTransactionView: View {
     @Environment(\.dismiss) private var dismiss
     
     let asset: Asset
+    let autoAllocateGoalId: UUID?
     
     @State private var amount = ""
     @State private var comment = ""
+
+    init(asset: Asset, prefillAmount: Double? = nil, autoAllocateGoalId: UUID? = nil) {
+        self.asset = asset
+        self.autoAllocateGoalId = autoAllocateGoalId
+        if let prefillAmount {
+            _amount = State(initialValue: Self.formatAmount(prefillAmount))
+        }
+    }
     
     var body: some View {
 #if os(macOS)
@@ -149,9 +158,11 @@ struct AddTransactionView: View {
 
         modelContext.insert(newTransaction)
 
-        // Auto-allocation rule: if the asset was fully allocated to exactly one goal,
-        // keep it fully allocated after the deposit by increasing its allocation target.
-        if preIsFullyAllocated, preWasDedicatedToSingleGoal, let allocation = singleAllocation, let goal = allocation.goal {
+        if let autoAllocateGoalId {
+            applyContributionAllocation(goalId: autoAllocateGoalId, depositAmount: depositAmount, timestamp: newTransaction.date)
+        } else if preIsFullyAllocated, preWasDedicatedToSingleGoal, let allocation = singleAllocation, let goal = allocation.goal {
+            // Auto-allocation rule: if the asset was fully allocated to exactly one goal,
+            // keep it fully allocated after the deposit by increasing its allocation target.
             let newTarget = max(0, preBalance + depositAmount)
             if abs(newTarget - allocation.amountValue) > epsilon {
                 allocation.updateAmount(newTarget)
@@ -191,6 +202,35 @@ struct AddTransactionView: View {
             }
         }
         dismiss()
+    }
+
+    private func applyContributionAllocation(goalId: UUID, depositAmount: Double, timestamp: Date) {
+        guard depositAmount > 0.0000001 else { return }
+
+        if let allocation = asset.allocations.first(where: { $0.goal?.id == goalId }),
+           let goal = allocation.goal {
+            let newTarget = max(0, allocation.amountValue + depositAmount)
+            allocation.updateAmount(newTarget)
+            modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: newTarget, timestamp: timestamp))
+            return
+        }
+
+        let predicate = #Predicate<Goal> { goal in
+            goal.id == goalId
+        }
+        if let goal = try? modelContext.fetch(FetchDescriptor<Goal>(predicate: predicate)).first {
+            let allocation = AssetAllocation(asset: asset, goal: goal, amount: depositAmount)
+            modelContext.insert(allocation)
+            modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: depositAmount, timestamp: timestamp))
+        }
+    }
+
+    private static func formatAmount(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 8
+        formatter.minimumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: amount)) ?? "\(amount)"
     }
 }
 

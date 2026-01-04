@@ -3,7 +3,6 @@ package com.xax.CryptoSavingsTracker.presentation.assets
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.xax.CryptoSavingsTracker.domain.model.Allocation
 import com.xax.CryptoSavingsTracker.domain.model.Asset
 import com.xax.CryptoSavingsTracker.domain.model.Goal
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
@@ -11,6 +10,10 @@ import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.allocation.AddAllocationUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.allocation.AllocationValidationService
+import com.xax.CryptoSavingsTracker.domain.usecase.allocation.UpdateAllocationUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionContributionCalculatorUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionSession
+import com.xax.CryptoSavingsTracker.domain.usecase.execution.GetExecutionSessionUseCase
 import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +40,10 @@ data class AssetSharingUiState(
     val isOverAllocated: Boolean = false,
     val allocations: List<AssetSharingAllocationRow> = emptyList(),
     val activeGoals: List<Goal> = emptyList(),
+    val currentGoalId: String? = null,
+    val closeMonthSuggestions: Map<String, Double> = emptyMap(),
+    val conversionWarning: String? = null,
+    val closeMonthWarning: String? = null,
     val error: String? = null,
     val showAddAllocationDialog: Boolean = false,
     val selectedGoalId: String? = null,
@@ -52,10 +59,17 @@ class AssetSharingViewModel @Inject constructor(
     private val goalRepository: GoalRepository,
     private val allocationRepository: AllocationRepository,
     private val allocationValidationService: AllocationValidationService,
-    private val addAllocationUseCase: AddAllocationUseCase
+    private val addAllocationUseCase: AddAllocationUseCase,
+    private val updateAllocationUseCase: UpdateAllocationUseCase,
+    private val executionSessionUseCase: GetExecutionSessionUseCase,
+    private val executionContributionCalculator: ExecutionContributionCalculatorUseCase
 ) : ViewModel() {
 
     private val assetId: String = checkNotNull(savedStateHandle["assetId"])
+    private val currentGoalId: String? = savedStateHandle.get<String>("goalId")
+    private val shouldPrefillCloseMonth: Boolean = savedStateHandle.get<Boolean>("prefillCloseMonth") ?: false
+    private var hasAppliedPrefill = false
+    private var pendingCloseMonthWarning: String? = null
 
     private val _uiState = MutableStateFlow(AssetSharingUiState())
     val uiState: StateFlow<AssetSharingUiState> = _uiState.asStateFlow()
@@ -73,6 +87,10 @@ class AssetSharingViewModel @Inject constructor(
                 val allocations = allocationRepository.getAllocationsForAsset(assetId)
                 val allGoals = goalRepository.getAllGoals().first()
                 val activeGoals = allGoals.filter { it.lifecycleStatus.rawValue == "active" }
+                val sortedActiveGoals = activeGoals.sortedWith(
+                    compareBy<Goal> { if (it.id == currentGoalId) 0 else 1 }
+                        .thenBy { it.name.lowercase() }
+                )
 
                 val goalNameById = allGoals.associate { it.id to it.name }
                 val allocationRows = allocations
@@ -84,7 +102,13 @@ class AssetSharingViewModel @Inject constructor(
                             amount = allocation.amount
                         )
                     }
-                    .sortedBy { it.goalName.lowercase() }
+                    .sortedWith(
+                        compareBy<AssetSharingAllocationRow> { if (it.goalId == currentGoalId) 0 else 1 }
+                            .thenBy { it.goalName.lowercase() }
+                    )
+
+                val session = executionSessionUseCase.currentExecuting().first()
+                val (closeMonthSuggestions, hasConversionWarning) = buildCloseMonthSuggestions(session, asset)
 
                 AssetSharingUiState(
                     isLoading = false,
@@ -94,7 +118,15 @@ class AssetSharingViewModel @Inject constructor(
                     unallocatedAmount = status?.unallocatedAmount ?: 0.0,
                     isOverAllocated = status?.isOverAllocated ?: false,
                     allocations = allocationRows,
-                    activeGoals = activeGoals,
+                    activeGoals = sortedActiveGoals,
+                    currentGoalId = currentGoalId,
+                    closeMonthSuggestions = closeMonthSuggestions,
+                    conversionWarning = if (hasConversionWarning) {
+                        "Some goals could not be converted with the current exchange rates."
+                    } else {
+                        null
+                    },
+                    closeMonthWarning = pendingCloseMonthWarning,
                     error = null,
                     showAddAllocationDialog = false,
                     selectedGoalId = null,
@@ -103,7 +135,12 @@ class AssetSharingViewModel @Inject constructor(
                     isSaving = false
                 )
             }.onSuccess { newState ->
+                pendingCloseMonthWarning = null
                 _uiState.value = newState
+                if (shouldPrefillCloseMonth && !hasAppliedPrefill && currentGoalId != null && newState.asset != null) {
+                    hasAppliedPrefill = true
+                    addCloseMonthAllocation(currentGoalId)
+                }
             }.onFailure { e ->
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to load") }
             }
@@ -112,7 +149,7 @@ class AssetSharingViewModel @Inject constructor(
 
     fun showAddAllocation() {
         val state = _uiState.value
-        val defaultGoalId = state.activeGoals.firstOrNull()?.id
+        val defaultGoalId = state.currentGoalId ?: state.activeGoals.firstOrNull()?.id
         _uiState.update {
             it.copy(
                 showAddAllocationDialog = true,
@@ -166,5 +203,97 @@ class AssetSharingViewModel @Inject constructor(
                     _uiState.update { it.copy(isSaving = false, amountError = e.message ?: "Failed to save") }
                 }
         }
+    }
+
+    fun addCloseMonthAllocation(goalId: String) {
+        val suggestion = _uiState.value.closeMonthSuggestions[goalId]
+        if (suggestion == null || suggestion <= 0.0) {
+            val warning = if (_uiState.value.conversionWarning != null) {
+                "Unable to convert close-month amount for this goal."
+            } else {
+                "No remaining amount to close for this goal."
+            }
+            _uiState.update { it.copy(closeMonthWarning = warning) }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true, closeMonthWarning = null) }
+
+            val status = allocationValidationService.getAssetAllocationStatus(assetId)
+            val available = status?.unallocatedAmount ?: 0.0
+            if (available <= 0.0) {
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        closeMonthWarning = "No available balance to allocate."
+                    )
+                }
+                return@launch
+            }
+
+            val existing = allocationRepository.getAllocationByAssetAndGoal(assetId, goalId)
+            val increment = suggestion.coerceAtMost(available)
+            if (increment <= 0.0) {
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        closeMonthWarning = "No available balance to allocate."
+                    )
+                }
+                return@launch
+            }
+
+            val newAmount = (existing?.amount ?: 0.0) + increment
+            val result = if (existing != null) {
+                updateAllocationUseCase(existing.copy(amount = newAmount))
+            } else {
+                addAllocationUseCase(assetId = assetId, goalId = goalId, amount = newAmount)
+            }
+
+            result.onSuccess {
+                if (increment < suggestion) {
+                    pendingCloseMonthWarning = "Allocation was limited by available balance."
+                }
+                _uiState.update { it.copy(isSaving = false) }
+                refresh()
+            }.onFailure { e ->
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        closeMonthWarning = e.message ?: "Failed to update allocation."
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun buildCloseMonthSuggestions(
+        session: ExecutionSession?,
+        asset: Asset?
+    ): Pair<Map<String, Double>, Boolean> {
+        if (session == null || asset == null) return emptyMap<String, Double>() to false
+
+        val suggestions = mutableMapOf<String, Double>()
+        var hasWarning = false
+
+        for (goal in session.goals) {
+            val remaining = executionContributionCalculator.remainingToClose(goal)
+            if (remaining <= 0.0) continue
+
+            val converted = executionContributionCalculator.convertAmount(
+                amount = remaining,
+                from = goal.snapshot.currency,
+                to = asset.currency
+            )
+
+            if (converted != null && converted > 0.0) {
+                suggestions[goal.snapshot.goalId] = converted
+            } else {
+                hasWarning = true
+            }
+        }
+
+        return suggestions to hasWarning
     }
 }

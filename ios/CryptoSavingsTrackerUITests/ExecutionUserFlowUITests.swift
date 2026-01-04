@@ -441,6 +441,141 @@ final class ExecutionUserFlowUITests: XCTestCase {
         XCTAssertTrue(goalACard.exists, "Goal A card should still be visible after BTC transaction")
     }
 
+    func testAddToCloseMonthSharedAssetPrefillShowsWarning() throws {
+#if os(macOS)
+        throw XCTSkip("Flow is automated on iOS simulator.")
+#endif
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "UITEST_RESET_DATA",
+            "UITEST_UI_FLOW",
+            "-ApplePersistenceIgnoreState",
+            "YES",
+            "-ApplePersistenceDisableAutosave",
+            "YES"
+        ]
+        app.launch()
+        dismissMonthlyPlanningSettingsIfPresent(app)
+
+        addGoal(app, name: "Goal A", target: "800")
+        addGoal(app, name: "Goal B", target: "600")
+
+        startTrackingIfNeeded(app)
+
+        XCTAssertTrue(tapWithScroll(app: app, element: app.buttons["goalRow-Goal A"], maxSwipes: 10), "Unable to open Goal A row")
+        if app.tabBars.buttons["Details"].waitForExistence(timeout: 2) {
+            app.tabBars.buttons["Details"].tap()
+        }
+        dismissMonthlyPlanningSettingsIfPresent(app)
+
+        let addAssetButton = app.buttons["addAssetButton"]
+        XCTAssertTrue(tapWithScroll(app: app, element: addAssetButton, maxSwipes: 10), "Unable to find/tap addAssetButton")
+        pickCurrency(app, symbol: "USD", buttonId: "assetCurrencyButton")
+        XCTAssertTrue(app.buttons["saveAssetButton"].waitForExistence(timeout: 2))
+        app.buttons["saveAssetButton"].tap()
+        XCTAssertTrue(app.buttons["saveAssetButton"].waitForNonExistence(timeout: 8))
+
+        var assetRow = app.buttons.matching(NSPredicate(format: "identifier CONTAINS[c] %@", "assetRow-USD")).firstMatch
+        if !assetRow.exists {
+            assetRow = app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", "assetRow-USD")).firstMatch
+        }
+        XCTAssertTrue(
+            waitForExistenceWithScroll(app: app, element: assetRow, maxSwipes: 10, perAttemptTimeout: 1.0),
+            "Asset row not found after saving asset"
+        )
+        tapForce(assetRow)
+
+        let addTransactionButton = app.descendants(matching: .any)["addTransactionButton"]
+        if !addTransactionButton.waitForExistence(timeout: 1) {
+            tapForce(assetRow)
+        }
+        XCTAssertTrue(addTransactionButton.waitForExistence(timeout: 6))
+        tapForce(addTransactionButton)
+        XCTAssertTrue(app.textFields["transactionAmountField"].waitForExistence(timeout: 2))
+        app.textFields["transactionAmountField"].tap()
+        app.textFields["transactionAmountField"].typeText("10")
+        app.buttons["saveTransactionButton"].tap()
+
+        var assetRowForShare = app.buttons.matching(NSPredicate(format: "identifier CONTAINS[c] %@", "assetRow-USD")).firstMatch
+        if !assetRowForShare.exists {
+            assetRowForShare = app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", "assetRow-USD")).firstMatch
+        }
+        XCTAssertTrue(waitForExistenceWithScroll(app: app, element: assetRowForShare, maxSwipes: 10, perAttemptTimeout: 1.0), "Asset row not found for sharing")
+        tapForce(assetRowForShare)
+
+        let shareButton = app.descendants(matching: .any)["shareAssetButton"]
+        if !shareButton.waitForExistence(timeout: 2) {
+            tapForce(assetRowForShare)
+        }
+        XCTAssertTrue(shareButton.waitForExistence(timeout: 6))
+        tapForce(shareButton)
+
+        let allocFields = app.textFields.matching(NSPredicate(format: "identifier BEGINSWITH 'allocGoalAmountField-'"))
+        XCTAssertTrue(allocFields.element(boundBy: 0).waitForExistence(timeout: 6))
+        XCTAssertEqual(allocFields.element(boundBy: 0).identifier, "allocGoalAmountField-Goal A")
+        XCTAssertEqual(allocFields.element(boundBy: 1).identifier, "allocGoalAmountField-Goal B")
+
+        let allocA = app.textFields["allocGoalAmountField-Goal A"]
+        let allocB = app.textFields["allocGoalAmountField-Goal B"]
+        allocA.tap()
+        clearTextField(allocA)
+        allocA.typeText("5")
+        allocB.tap()
+        clearTextField(allocB)
+        allocB.typeText("1")
+        app.buttons["saveAllocationsButton"].tap()
+        XCTAssertTrue(app.buttons["saveAllocationsButton"].waitForNonExistence(timeout: 8))
+
+        navigateBackToGoalsList(app)
+        dismissMonthlyPlanningSettingsIfPresent(app)
+
+        openMonthlyPlan(app)
+
+        let addToClose = app.buttons["addToCloseMonthButton-Goal A"]
+        XCTAssertTrue(addToClose.waitForExistence(timeout: 6), "Add to Close Month button not found")
+        tapForce(addToClose)
+
+        let assetCell = app.buttons.matching(NSPredicate(format: "label == %@", "USD")).firstMatch
+        XCTAssertTrue(assetCell.waitForExistence(timeout: 6), "Asset picker did not appear")
+        tapForce(assetCell)
+
+        XCTAssertTrue(app.navigationBars["Share Asset"].waitForExistence(timeout: 6))
+        let clampWarning = app.otherElements["closeMonthClampWarning"]
+        XCTAssertTrue(clampWarning.waitForExistence(timeout: 6), "Clamp warning not shown after Add to Close Month prefill")
+    }
+
+    func testExecutionDisplayCurrencyPersists() throws {
+#if os(macOS)
+        throw XCTSkip("Flow is automated on iOS simulator.")
+#endif
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "UITEST_RESET_DATA",
+            "UITEST_UI_FLOW",
+            "-ApplePersistenceIgnoreState",
+            "YES",
+            "-ApplePersistenceDisableAutosave",
+            "YES"
+        ]
+        app.launch()
+        dismissMonthlyPlanningSettingsIfPresent(app)
+
+        addGoal(app, name: "Goal A", target: "800")
+        startTrackingIfNeeded(app)
+
+        openMonthlyPlan(app)
+
+        pickCurrency(app, symbol: "EUR", buttonId: "executionDisplayCurrencyButton")
+
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        openMonthlyPlan(app)
+
+        let currencyButton = app.buttons["executionDisplayCurrencyButton"]
+        XCTAssertTrue(currencyButton.waitForExistence(timeout: 4))
+        let label = currencyButton.label.uppercased()
+        XCTAssertTrue(label.contains("EUR"), "Expected display currency to persist as EUR, got \(currencyButton.label)")
+    }
+
     // MARK: - Helpers
 
     /// Logs the current state of the execution view for debugging.

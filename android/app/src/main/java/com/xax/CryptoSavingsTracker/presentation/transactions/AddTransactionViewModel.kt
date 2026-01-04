@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.GetAssetByIdUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.transaction.AddTransactionUseCase
+import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -55,6 +56,7 @@ class AddTransactionViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val assetId: String = checkNotNull(savedStateHandle["assetId"])
+    private val prefillAmount: Double? = savedStateHandle.get<String>("prefillAmount")?.toDoubleOrNull()
 
     private val _state = MutableStateFlow(AddTransactionState(assetId = assetId))
     val state: StateFlow<AddTransactionState> = _state.asStateFlow()
@@ -68,10 +70,20 @@ class AddTransactionViewModel @Inject constructor(
             try {
                 val asset = getAssetByIdUseCase(assetId)
                 if (asset != null) {
-                    _state.update { it.copy(
-                        assetCurrency = asset.currency,
-                        assetName = asset.displayName()
-                    )}
+                    val prefillValue = prefillAmount?.let {
+                        AmountFormatters.formatInputAmount(it, isCrypto = asset.isCryptoAsset)
+                    }
+                    _state.update { current ->
+                        current.copy(
+                            assetCurrency = asset.currency,
+                            assetName = asset.displayName(),
+                            amount = if (current.amount.isBlank() && !prefillValue.isNullOrBlank()) {
+                                prefillValue
+                            } else {
+                                current.amount
+                            }
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(error = "Failed to load asset: ${e.message}") }
@@ -118,10 +130,17 @@ class AddTransactionViewModel @Inject constructor(
                     amountValue
                 }
 
-                val dateMillis = currentState.date
-                    .atStartOfDay(ZoneId.systemDefault())
-                    .toInstant()
-                    .toEpochMilli()
+                // iOS parity: use current timestamp for today's date to ensure
+                // transactions fall within the execution window (which starts at a specific time).
+                // For past dates, use start of day.
+                val dateMillis = if (currentState.date == LocalDate.now()) {
+                    System.currentTimeMillis()
+                } else {
+                    currentState.date
+                        .atStartOfDay(ZoneId.systemDefault())
+                        .toInstant()
+                        .toEpochMilli()
+                }
 
                 addTransactionUseCase.create(
                     assetId = currentState.assetId,

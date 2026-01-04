@@ -5,11 +5,12 @@ import androidx.navigation.NavController
 
 /**
  * Main Planning tab screen.
- * Delegates to MonthlyPlanningScreen for the actual implementation.
+ * Uses MonthlyPlanningContainer to automatically switch between
+ * planning and execution views based on current state.
  */
 @Composable
 fun PlanningScreen(
     navController: NavController
 ) {
-    MonthlyPlanningScreen(navController = navController)
+    MonthlyPlanningContainer(navController = navController)
 }

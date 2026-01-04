@@ -22,6 +22,7 @@ import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.repository.MonthlyGoalPlanRepository
 import com.xax.CryptoSavingsTracker.domain.repository.MonthlyPlanRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
+import com.xax.CryptoSavingsTracker.domain.repository.OnChainTransactionRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import dagger.Module
 import dagger.Provides
@@ -68,5 +69,15 @@ object TestRepositoryModule {
             override suspend fun clearCache() = Unit
         }
     }
-}
 
+    @Provides
+    @Singleton
+    fun provideOnChainTransactionRepository(): OnChainTransactionRepository {
+        return object : OnChainTransactionRepository {
+            override suspend fun refresh(asset: Asset, limit: Int, forceRefresh: Boolean): Result<Int> {
+                // No-op for tests by default; individual tests can seed ON_CHAIN transactions via DAO if needed.
+                return Result.success(0)
+            }
+        }
+    }
+}

@@ -103,6 +103,7 @@ android/.idea/assetWizardSettings.xml
 ## Signing keys
 android/*.keystore
 android/*.jks
+android/keystore.properties
 
 # =============================================================================
 # Shared / IDE

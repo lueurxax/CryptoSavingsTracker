@@ -19,14 +19,17 @@ class AddAssetUseCase @Inject constructor(
         address: String? = null,
         chainId: String? = null
     ): Result<Asset> {
+        val normalizedAddress = address?.trim()?.takeIf { it.isNotBlank() }
+        val normalizedChainId = chainId?.trim()?.takeIf { it.isNotBlank() }
+
         // Validation
         if (currency.isBlank()) {
             return Result.failure(IllegalArgumentException("Currency cannot be empty"))
         }
 
         // Check for duplicate address if provided
-        if (address != null) {
-            val existingAsset = repository.getAssetByAddress(address)
+        if (normalizedAddress != null) {
+            val existingAsset = repository.getAssetByAddress(normalizedAddress)
             if (existingAsset != null) {
                 return Result.failure(IllegalArgumentException("An asset with this address already exists"))
             }
@@ -36,8 +39,8 @@ class AddAssetUseCase @Inject constructor(
         val asset = Asset(
             id = UUID.randomUUID().toString(),
             currency = currency.uppercase().trim(),
-            address = address?.trim(),
-            chainId = chainId,
+            address = normalizedAddress,
+            chainId = normalizedChainId,
             createdAt = now,
             updatedAt = now
         )

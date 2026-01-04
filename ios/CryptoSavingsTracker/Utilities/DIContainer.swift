@@ -293,6 +293,13 @@ class DIContainer: ObservableObject {
     func makeFlexAdjustmentService(modelContext: ModelContext) -> FlexAdjustmentService {
         return FlexAdjustmentService(exchangeRateService: exchangeRateService, modelContext: modelContext)
     }
+
+    // MARK: - Fixed Budget Planning Service Factory
+    func fixedBudgetPlanningService(modelContext: ModelContext) -> FixedBudgetPlanningService {
+        return FixedBudgetPlanningService(
+            exchangeRateService: exchangeRateService
+        )
+    }
     
     // MARK: - ViewModel Factories with Error Recovery
     func makeGoalViewModel(for goal: Goal) -> GoalViewModel {

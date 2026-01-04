@@ -10,6 +10,7 @@ import com.xax.CryptoSavingsTracker.data.repository.GoalRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.MonthlyGoalPlanRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.MonthlyPlanRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.OnChainBalanceRepositoryImpl
+import com.xax.CryptoSavingsTracker.data.repository.OnChainTransactionRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.TransactionRepositoryImpl
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationHistoryRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
@@ -21,6 +22,7 @@ import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.repository.MonthlyGoalPlanRepository
 import com.xax.CryptoSavingsTracker.domain.repository.MonthlyPlanRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
+import com.xax.CryptoSavingsTracker.domain.repository.OnChainTransactionRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import dagger.Binds
 import dagger.Module
@@ -100,4 +102,10 @@ abstract class RepositoryModule {
     abstract fun bindOnChainBalanceRepository(
         impl: OnChainBalanceRepositoryImpl
     ): OnChainBalanceRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindOnChainTransactionRepository(
+        impl: OnChainTransactionRepositoryImpl
+    ): OnChainTransactionRepository
 }

@@ -95,7 +95,6 @@ class GoalReminderSchedulerImpl @Inject constructor(
     }
 
     private fun ReminderFrequency.periodDays(): Int = when (this) {
-        ReminderFrequency.DAILY -> 1
         ReminderFrequency.WEEKLY -> 7
         ReminderFrequency.BIWEEKLY -> 14
         ReminderFrequency.MONTHLY -> 30

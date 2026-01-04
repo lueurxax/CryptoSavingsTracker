@@ -25,6 +25,7 @@ class UndoStartExecutionUseCaseTest {
             status = ExecutionStatus.EXECUTING,
             startedAtMillis = startedAt,
             closedAtMillis = null,
+            canUndoUntilMillis = null,
             createdAtMillis = startedAt,
             updatedAtMillis = startedAt
         )
@@ -57,6 +58,7 @@ class UndoStartExecutionUseCaseTest {
             status = ExecutionStatus.EXECUTING,
             startedAtMillis = startedAt,
             closedAtMillis = null,
+            canUndoUntilMillis = null,
             createdAtMillis = startedAt,
             updatedAtMillis = startedAt
         )

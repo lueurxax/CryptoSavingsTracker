@@ -137,7 +137,7 @@ fun AddEditAssetScreen(
                 // Chain selection (only for crypto)
                 if (uiState.isCryptoAsset) {
                     // Show auto-detected indicator
-                    val isAutoDetected = uiState.chainId != null &&
+                    val isAutoDetected = !uiState.chainId.isNullOrBlank() &&
                         ChainIds.predictChain(uiState.currency) == uiState.chainId
 
                     ChainDropdown(
@@ -154,7 +154,8 @@ fun AddEditAssetScreen(
                         placeholder = { Text("0x...") },
                         modifier = Modifier.fillMaxWidth(),
                         isError = uiState.addressError != null,
-                        supportingText = uiState.addressError?.let { { Text(it) } },
+                        supportingText = uiState.addressError?.let { { Text(it) } }
+                            ?: { Text("Optional — add to enable on-chain balance tracking") },
                         singleLine = true
                     )
                 }

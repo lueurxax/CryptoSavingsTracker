@@ -198,7 +198,6 @@ private fun GoalFilter.displayName(): String = when (this) {
     GoalFilter.ACTIVE -> "Active"
     GoalFilter.FINISHED -> "Finished"
     GoalFilter.CANCELLED -> "Cancelled"
-    GoalFilter.DELETED -> "Deleted"
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)

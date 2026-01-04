@@ -57,16 +57,21 @@ data class Transaction(
 }
 
 /**
- * Source of the transaction
+ * Source of the transaction.
+ * iOS has: manual, onChain
+ * Android extends with: import (for CSV import feature)
  */
-enum class TransactionSource {
-    MANUAL,
-    ON_CHAIN,
-    IMPORT;
+enum class TransactionSource(val rawValue: String) {
+    MANUAL("manual"),
+    ON_CHAIN("onChain"),
+    IMPORT("import");  // Android extension - not in iOS
 
     companion object {
         fun fromString(value: String): TransactionSource {
-            return entries.find { it.name.equals(value, ignoreCase = true) } ?: MANUAL
+            return entries.find {
+                it.rawValue.equals(value, ignoreCase = true) ||
+                it.name.equals(value, ignoreCase = true)
+            } ?: MANUAL
         }
     }
 

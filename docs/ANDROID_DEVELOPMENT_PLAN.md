@@ -6,6 +6,717 @@ This document outlines the comprehensive plan to build the Android version of Cr
 
 ---
 
+## Implementation Status (Updated: December 21, 2025)
+
+### Phase Completion Summary
+
+| Phase | Description | Status | Completion |
+|-------|-------------|--------|------------|
+| **Phase 1** | Foundation (Room, Hilt, Compose) | ✅ Complete | 100% |
+| **Phase 2** | Goal Management CRUD | ✅ Complete | 100% |
+| **Phase 3** | Asset Management | ✅ Complete | 100% |
+| **Phase 4** | Transaction Management | ✅ Complete | 100% |
+| **Phase 5** | Allocation System | ✅ Complete | 100% |
+| **Phase 6** | Monthly Planning & Exchange Rates | ✅ Complete | 100% |
+| **Phase 7** | Execution Tracking & Dashboard | ✅ Complete | 100% |
+| **Phase 8** | Testing & Polish | 🔄 In Progress | ~70% |
+
+### Codebase Statistics
+
+| Metric | Count |
+|--------|-------|
+| Total Kotlin files | 179 |
+| Domain models | 14 |
+| Use cases/services | 57+ |
+| Repository interfaces | 13 |
+| Repository implementations | 21 |
+| Room entities | 10 |
+| DAOs | 10 |
+| UI screens | 50+ |
+| DAO test coverage | 100% |
+
+### Feature Status
+
+#### ✅ Fully Implemented
+
+| Feature | iOS Parity | Notes |
+|---------|------------|-------|
+| Goal CRUD | ✅ Full | Lifecycle statuses match iOS exactly |
+| Asset CRUD | ✅ Full | Chain auto-detection from currency symbols |
+| Transaction CRUD | ✅ Full | Manual + on-chain source tracking |
+| Allocations | ✅ Full | Over-allocation detection, history tracking |
+| Monthly Planning | ✅ Full | Per-goal customization, flex percentage |
+| Execution Tracking | ✅ Full | 24-hour undo window, progress calculation |
+| Exchange Rates | ✅ Full | CoinGecko API with rate limiting |
+| On-Chain Balances | ✅ Full | Tatum API integration |
+| Dashboard | ✅ Full | Portfolio overview, goal summary |
+| CSV Export | ✅ Full | Matches iOS export format |
+
+#### 🔄 In Progress (Untracked Files Ready for Commit)
+
+| Feature | Files | Status |
+|---------|-------|--------|
+| **Charts** | 4 files in `presentation/charts/` | Implementation complete, needs integration |
+| | - ProgressRingChart.kt | Animated progress visualization (0-150%) |
+| | - ForecastChart.kt | Projection visualization |
+| | - HeatmapCalendar.kt | Activity calendar view |
+| | - SparklineChart.kt | Inline sparkline charts |
+| **UI Components** | 5 files in `presentation/components/` | Ready for use |
+| | - EmptyState.kt | Empty state UI patterns |
+| | - HelpTooltip.kt | Contextual help tooltips |
+| | - PullToRefresh.kt | Pull-to-refresh gesture |
+| | - ReminderConfiguration.kt | Reminder settings UI |
+| | - SwipeActions.kt | Swipe-to-delete gestures |
+| **Onboarding** | 2 files in `presentation/onboarding/` | Feature complete |
+| | - OnboardingScreen.kt | Multi-step intro flow |
+| | - OnboardingViewModel.kt | Onboarding state |
+| **What-If Simulator** | 1 file in `presentation/whatif/` | Feature complete |
+| | - WhatIfSimulator.kt | Scenario projection tool |
+| **On-Chain Transactions** | 2 files | Ready for integration |
+| | - OnChainTransactionRepository.kt | Domain interface |
+| | - OnChainTransactionRepositoryImpl.kt | Tatum implementation |
+
+#### 📋 Modified Files (Staged Changes)
+
+35 files have modifications for iOS parity fixes and enhancements:
+- ViewModels updated for latest features
+- Screen components refactored
+- Repository implementations enhanced
+- Use case services improved
+- Test files added
+
+### Recent Commits
+
+| Commit | Description |
+|--------|-------------|
+| `01732ab` | Chain auto-detection and iOS parity fixes |
+| `a8a7d48` | Phases 5-7: execution tracking, API integration, dashboard |
+| `7b10ded` | Exchange Rate and Monthly Planning services |
+| `b7d30ff` | Phase 2 allocation system with iOS parity |
+| `234da65` | Phase 2 fixes: progress and navigation |
+
+### iOS Parity Achieved
+
+| Feature | Implementation |
+|---------|---------------|
+| GoalLifecycleStatus enum | Matches iOS: `active`, `cancelled`, `finished`, `deleted` |
+| Chain auto-detection | 14+ chains with currency-based prediction |
+| Progress calculation | `min(allocation.amount, assetManualBalance)` formula |
+| Allocation validation | Over-allocation detection matches iOS behavior |
+| MonthlyGoalPlan | Per-goal customization architecture |
+| Date storage | epochDay for dates, epochMillis for timestamps |
+| CSV export | 3-file format matching iOS exactly |
+
+### Remaining Work
+
+| Task | Priority | Estimate |
+|------|----------|----------|
+| **Fix execution progress tracking bug** | P0 | 1 day |
+| Commit untracked features (charts, onboarding, what-if) | P0 | Ready |
+| Fix iOS parity gaps (see below) | P1 | 3-5 days |
+| Integration tests for new components | P1 | 1-2 days |
+| UI polish and edge case handling | P1 | 2-3 days |
+| Accessibility audit (TalkBack) | P1 | 1 day |
+| Performance optimization | P2 | 1-2 days |
+| Play Store preparation | P2 | 2-3 days |
+
+---
+
+## Critical Bug Fixes & iOS Parity Gaps (December 21, 2025)
+
+### 🔴 BUG: Execution Progress Shows 0% (CRITICAL) - ✅ FIXED
+
+**Symptom**: Monthly execution screen shows 0% progress even when transactions have been added.
+
+**Root Cause**: Transaction timestamp handling difference between iOS and Android.
+
+| Platform | Transaction Date Handling |
+|----------|---------------------------|
+| **iOS** | `Date()` = current instant with exact time (e.g., 12:45:32 PM) |
+| **Android (broken)** | `LocalDate.now().atStartOfDay()` = midnight (00:00:00) |
+
+**The Problem**:
+1. Execution starts at 12:32 PM → `startedAtMillis` = 12:32 PM timestamp
+2. User adds transaction with date = "today"
+3. Android converts to **midnight** (00:00:00)
+4. Midnight < 12:32 PM → transaction is **BEFORE** execution window
+5. Filter excludes it: `.filter { it.dateMillis in startedAtMillis..nowMillis }`
+6. Result: 0% progress
+
+**Fix Applied** (December 21, 2025):
+
+Files modified:
+- `presentation/transactions/AddTransactionViewModel.kt`
+- `presentation/transactions/EditTransactionViewModel.kt`
+
+```kotlin
+// Before (broken):
+val dateMillis = currentState.date
+    .atStartOfDay(ZoneId.systemDefault())
+    .toInstant()
+    .toEpochMilli()
+
+// After (iOS parity):
+val dateMillis = if (currentState.date == LocalDate.now()) {
+    System.currentTimeMillis()  // Use actual current time for today
+} else {
+    currentState.date
+        .atStartOfDay(ZoneId.systemDefault())
+        .toInstant()
+        .toEpochMilli()
+}
+```
+
+**Lesson Learned**: Always compare iOS and Android implementations for timestamp/date handling - iOS uses `Date()` (instant), Android often uses `LocalDate` (date only).
+
+---
+
+### 🔴 BUG: ReminderFrequency Enum Mismatch - ✅ FIXED
+
+**Symptom**: Android had a `DAILY` reminder frequency option that doesn't exist in iOS.
+
+**Root Cause**: Android added an extra enum value not present in iOS.
+
+| Platform | ReminderFrequency Options |
+|----------|---------------------------|
+| **iOS** | `weekly`, `biweekly`, `monthly` (3 options) |
+| **Android (broken)** | `DAILY`, `WEEKLY`, `BIWEEKLY`, `MONTHLY` (4 options) |
+
+**The Problem**:
+1. iOS app creates goals with only 3 reminder frequency options
+2. Android allows selecting `DAILY` which iOS can't parse
+3. Data sync between platforms would cause inconsistencies
+4. Also: iOS uses `DateComponents(month: 1)` for monthly (actual calendar month), Android used fixed 30 days
+
+**Fix Applied** (December 21, 2025):
+
+Files modified:
+- `domain/model/Goal.kt` - Removed DAILY enum value, added rawValue for DB compatibility
+- `presentation/components/ReminderConfiguration.kt` - Import domain enum, use `plusFrequency()` for accurate date calculation
+- `data/local/reminders/GoalReminderSchedulerImpl.kt` - Removed DAILY case
+- `data/export/CsvExportFormatter.kt` - Removed DAILY case
+- `test/.../AddGoalUseCaseTest.kt` - Updated test to use WEEKLY instead of DAILY
+
+```kotlin
+// Before (broken - 4 options):
+enum class ReminderFrequency {
+    DAILY, WEEKLY, BIWEEKLY, MONTHLY
+}
+
+// After (iOS parity - 3 options with rawValue):
+enum class ReminderFrequency(val rawValue: String) {
+    WEEKLY("weekly"),
+    BIWEEKLY("biweekly"),
+    MONTHLY("monthly");
+}
+
+// Also added proper calendar month handling:
+fun LocalDate.plusFrequency(frequency: ReminderFrequency): LocalDate = when (frequency) {
+    ReminderFrequency.WEEKLY -> this.plusDays(7)
+    ReminderFrequency.BIWEEKLY -> this.plusDays(14)
+    ReminderFrequency.MONTHLY -> this.plusMonths(1)  // Actual calendar month
+}
+```
+
+**Lesson Learned**: Always compare enums/constants between platforms to ensure exact parity. iOS is the source of truth.
+
+---
+
+### 🟠 iOS Parity Gaps (Missing Features)
+
+#### Gap 1: AutomationScheduler (HIGH PRIORITY)
+
+**iOS Has**: `AutomationScheduler.swift` for auto-start/auto-complete monthly executions
+- Auto-start tracking on 1st of month
+- Auto-complete on last day of month
+- Configurable grace period (24h, 48h, 168h, or disabled)
+- Background task scheduling
+
+**Android Missing**: No equivalent background automation
+
+**Fix Required**:
+```kotlin
+// New files needed:
+// 1. domain/usecase/automation/AutomationScheduler.kt
+// 2. work/MonthlyExecutionWorker.kt (WorkManager)
+// 3. Models: AutomationSettings.kt
+
+class MonthlyExecutionWorker(
+    context: Context,
+    params: WorkerParameters,
+    private val startExecutionUseCase: StartExecutionUseCase,
+    private val completeExecutionUseCase: CompleteExecutionUseCase
+) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val dayOfMonth = LocalDate.now().dayOfMonth
+        val settings = // load from DataStore
+
+        if (dayOfMonth == 1 && settings.autoStartEnabled) {
+            startExecutionUseCase()
+        }
+        if (dayOfMonth == LocalDate.now().lengthOfMonth() && settings.autoCompleteEnabled) {
+            // complete if grace period allows
+        }
+        return Result.success()
+    }
+}
+```
+
+---
+
+#### Gap 2: MonthlyPlanningSettings Model (HIGH PRIORITY)
+
+**iOS Has**: `MonthlyPlanningSettings.swift` with:
+- Payment day (1-28)
+- Notification enable/disable
+- Notification days before deadline
+- Auto-start/auto-complete toggles
+- Undo grace period enum
+
+**Android Missing**: No settings model for planning preferences
+
+**Fix Required**:
+```kotlin
+// New file: domain/model/MonthlyPlanningSettings.kt
+data class MonthlyPlanningSettings(
+    val paymentDay: Int = 1, // 1-28
+    val notificationsEnabled: Boolean = true,
+    val notificationDaysBefore: Int = 3,
+    val autoStartEnabled: Boolean = false,
+    val autoCompleteEnabled: Boolean = false,
+    val undoGracePeriod: UndoGracePeriod = UndoGracePeriod.HOURS_24
+)
+
+enum class UndoGracePeriod(val hours: Long) {
+    NONE(0), HOURS_24(24), HOURS_48(48), HOURS_168(168)
+}
+
+// Store in DataStore Preferences
+```
+
+---
+
+#### Gap 3: FlexAdjustment UI (MEDIUM PRIORITY)
+
+**iOS Has**:
+- `FlexAdjustmentView.swift` - Full screen for flex adjustments
+- `FlexAdjustmentSlider.swift` - Interactive slider with presets
+- 4 redistribution strategies: Balanced, Urgent First, Largest First, Minimize Risk
+- Impact preview showing delay/risk for each goal
+
+**Android Has**: Backend (`MonthlyGoalPlanService.applyFlexAdjustment`) but NO UI
+
+**Fix Required**:
+```kotlin
+// New files:
+// 1. presentation/planning/FlexAdjustmentScreen.kt
+// 2. presentation/planning/FlexAdjustmentViewModel.kt
+// 3. presentation/planning/components/FlexSlider.kt
+// 4. presentation/planning/components/ImpactPreviewCard.kt
+```
+
+---
+
+#### Gap 4: Emoji Picker (MEDIUM PRIORITY)
+
+**iOS Has**: `EmojiPickerView.swift` with:
+- 10 categories: Popular, Finance, Home, Transport, Education, Tech, Health, Events, Nature, Food
+- Search functionality
+- Category tabs
+
+**Android Missing**: Uses plain text input for emojis
+
+**Fix Required**:
+```kotlin
+// New file: presentation/components/EmojiPicker.kt
+@Composable
+fun EmojiPicker(
+    onEmojiSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    // Category tabs + LazyVerticalGrid of emojis
+}
+```
+
+---
+
+#### Gap 5: Missing Chart Types (MEDIUM PRIORITY)
+
+**iOS Has** (10 charts):
+- EnhancedLineChartView ❌
+- ForecastChartView ✅
+- HeatmapCalendarView ✅
+- ProgressRingView ✅
+- SimpleLineChartView ❌
+- SimpleStackedBarView ❌
+- SparklineChartView ✅
+- StackedBarChartView ❌
+- LineChartView ❌
+- ChartSkeletonView ❌
+
+**Android Has** (4 charts): ForecastChart, HeatmapCalendar, ProgressRingChart, SparklineChart
+
+**Fix Required**: Add 6 missing chart types for feature parity
+
+---
+
+#### Gap 6: Missing UI Components (LOW PRIORITY)
+
+| iOS Component | Android Status | Priority |
+|---------------|----------------|----------|
+| ImpactPreviewCard | Missing | P1 (for Flex UI) |
+| ExchangeRateWarningView | Missing | P2 |
+| AllocationPromptBanner | Missing | P2 |
+| SimplePieChart | Missing | P2 |
+| DashboardMetricsGrid | Missing | P2 |
+| GoalSwitcherBar | Missing | P3 |
+| HeroProgressView | Missing | P3 |
+| SharedAssetIndicator | Missing | P3 |
+| MonthlyPlanningWidget | Missing | P2 |
+
+---
+
+#### Gap 7: Utility Services (LOW PRIORITY)
+
+| iOS Utility | Android Status | Priority |
+|-------------|----------------|----------|
+| KeychainManager (secure storage) | Missing - use EncryptedSharedPreferences | P1 |
+| HapticManager | Missing | P3 |
+| AccessibilityManager | Basic (Material 3 handles most) | P2 |
+| PerformanceOptimizer | Missing | P3 |
+| NotificationNames | Using sealed classes instead | N/A |
+
+---
+
+### Fix Implementation Order
+
+**Phase 1 - Critical Bug (Day 1)** ✅ DONE
+1. ~~Fix transaction timestamp handling~~ ✅ Fixed
+2. Test execution progress with new transactions
+3. Verify allocations are created on asset-goal linking
+
+**Phase 2 - High Priority Gaps (Days 2-4)**
+1. Add `MonthlyPlanningSettings` model + DataStore persistence
+2. Implement `AutomationScheduler` with WorkManager
+3. Add settings UI for payment day, notifications, automation
+
+**Phase 3 - Medium Priority Gaps (Days 5-7)**
+1. Build `FlexAdjustmentScreen` and `FlexSlider` components
+2. Implement `EmojiPicker` composable
+3. Add missing chart types (Line, StackedBar, etc.)
+
+**Phase 4 - Polish (Days 8-10)**
+1. Add missing UI components (ImpactPreviewCard, etc.)
+2. Implement secure storage with EncryptedSharedPreferences
+3. Add haptic feedback
+4. Accessibility audit
+
+---
+
+## Systematic iOS Parity Testing Plan
+
+### How to Find Parity Issues
+
+#### Preparation (Before Any Parity Pass)
+
+- Use the same timezone and locale on both devices.
+- Set display currency to a known value (default: USD) and note it in the log.
+- Clear caches (exchange rates + on-chain balances) before each run.
+- Disable network for deterministic tests; only enable for API-specific flows.
+- Keep API keys out of screenshots/logs (use placeholders when sharing).
+
+#### Baseline Test Data Pack (Deterministic)
+
+Use this minimal dataset for parity checks that must be deterministic (no FX):
+
+| Entity | Values | Notes |
+|--------|--------|-------|
+| Goal A | Name: Emergency Fund, Currency: USD, Target: 12000, Deadline: +12 months | Single-currency goal |
+| Goal B | Name: Vacation, Currency: USD, Target: 3000, Deadline: +6 months | Single-currency goal |
+| Asset 1 | Currency: USDC, Address: empty | Avoids FX conversions |
+| Transactions | USDC: +1000 (today), +250 (today) | Manual only |
+| Allocations | Allocate USDC 1000 to Goal A, USDC 250 to Goal B | Matches balances |
+
+Expected outcomes (baseline):
+- Goal A funded: 1000 USD, Goal B funded: 250 USD.
+- Progress: Goal A 8.33%, Goal B 8.33%.
+- No FX conversion required.
+
+For FX parity, run a second pass with BTC/ETH assets and record the CoinGecko rates used
+in both apps (same timestamp window) before comparing totals.
+
+#### FX Rate Capture Strategy for Live Parity Runs
+
+When testing features that involve exchange rate conversions (portfolio totals, multi-currency goals, etc.):
+
+**Option 1: Deterministic Mock Rates (Recommended for CI)**
+```kotlin
+// Android: Create FakeExchangeRateRepository for tests
+class FakeExchangeRateRepository : ExchangeRateRepository {
+    override suspend fun fetchRate(from: String, to: String): Double {
+        return when {
+            from == "BTC" && to == "USD" -> 100000.0  // Fixed test rate
+            from == "ETH" && to == "USD" -> 4000.0   // Fixed test rate
+            else -> 1.0
+        }
+    }
+}
+
+// iOS: Create MockExchangeRateService
+class MockExchangeRateService: ExchangeRateServiceProtocol {
+    func getRate(from: String, to: String) async throws -> Double {
+        // Return same fixed rates as Android
+    }
+}
+```
+
+**Option 2: Snapshot Recording (For Live API Testing)**
+
+Both platforms should log the CoinGecko response with timestamp:
+
+```
+[FX_SNAPSHOT] 2025-12-21T14:32:15Z
+BTC/USD: 100234.56 (source: coingecko, market_cap_rank: 1)
+ETH/USD: 3892.12 (source: coingecko, market_cap_rank: 2)
+Cache TTL: 300s
+```
+
+**Parity Check Protocol:**
+1. Clear FX caches on both devices (Settings → Clear Exchange Rate Cache)
+2. Ensure same network connectivity (both online or both use mock)
+3. Trigger FX fetch within 30-second window on both devices
+4. Log the rates used for each calculation
+5. Compare portfolio totals using **Comparison Criteria & Tolerances** below
+6. Acceptable delta: |iOS_total - Android_total| < 0.01% of portfolio value
+
+**Test Data for FX Parity:**
+| Asset | Amount | Mock Rate (USD) | Expected Value |
+|-------|--------|-----------------|----------------|
+| BTC | 0.5 | 100000.0 | 50000.00 |
+| ETH | 2.0 | 4000.0 | 8000.00 |
+| USDC | 1000 | 1.0 | 1000.00 |
+| **Total** | | | **59000.00** |
+
+#### Method 1: Happy Path Testing (Most Effective)
+
+Test each user flow end-to-end on both platforms simultaneously:
+
+| Flow | iOS Steps | Android Steps | Check Points |
+|------|-----------|---------------|--------------|
+| **Goal Creation** | Create goal → Set deadline → Add reminder | Same | Data saved correctly, reminder scheduled |
+| **Asset Addition** | Add asset → Set chain → Enter address | Same | Chain auto-detected, address validated |
+| **Transaction** | Add transaction → Check balance | Same | Balance updates, progress recalculates |
+| **Allocation** | Allocate asset to goal → Check progress | Same | Progress %, over-allocation warning |
+| **Execution** | Start → Add transaction → Check progress → Complete | Same | Progress tracks, undo works |
+| **Planning** | Create plan → Adjust flex → Start execution | Same | Amounts calculate correctly |
+| **Settings** | Update API keys → Clear caches → Export CSV | Same | Values saved, export produced |
+| **Onboarding** | Complete onboarding → Create template goal | Same | Goal created and marked complete |
+
+#### Method 2: Code Comparison Checklist
+
+For each feature, compare these aspects:
+
+```
+□ Data Types
+  - iOS Date vs Android Long (millis) vs LocalDate
+  - iOS UUID vs Android String
+  - iOS Double precision vs Android Double
+
+□ Default Values
+  - iOS: Check init() parameters
+  - Android: Check data class defaults
+
+□ Timestamp Handling
+  - Creation timestamps: Date() vs System.currentTimeMillis()
+  - User-selected dates: Date components vs LocalDate conversion
+  - Time zone handling
+
+□ Business Logic
+  - Formulas (progress calculation, allocations)
+  - Filters (date ranges, status filters)
+  - Sorting order
+
+□ Reactive Updates
+  - iOS: @Published, NotificationCenter, SwiftData relationships
+  - Android: Flow, StateFlow, Room DAO queries
+
+□ Error Handling
+  - Validation rules
+  - Error messages
+  - Edge cases (empty lists, zero values, null)
+```
+
+#### Method 3: Automated Comparison Script
+
+Run this to find structural differences:
+
+```bash
+# Compare model properties
+diff <(rg --no-heading -g "*.swift" "\\b(var|let) " ios/CryptoSavingsTracker/Models | sort) \
+     <(rg --no-heading -g "*.kt" "\\bval " android/app/src/main/java/com/xax/CryptoSavingsTracker/domain/model | sort)
+
+# Compare service/use case methods
+diff <(rg --no-heading -g "*.swift" "\\bfunc " ios/CryptoSavingsTracker/Services | sort) \
+     <(rg --no-heading -g "*.kt" "\\b(suspend\\s+)?fun " android/app/src/main/java/com/xax/CryptoSavingsTracker/domain/usecase | sort)
+
+# Find iOS notification-based refresh triggers
+rg -n "NotificationCenter\\.default\\.post" ios/CryptoSavingsTracker
+```
+
+### Common Parity Pitfalls
+
+| Category | iOS Pattern | Android Pitfall | Fix |
+|----------|-------------|-----------------|-----|
+| **Timestamps** | `Date()` (instant) | `LocalDate.now()` (date only) | Use `System.currentTimeMillis()` |
+| **Date Storage** | `Date` (full timestamp) | `Long` (millis) | Ensure millis, not seconds |
+| **Notifications** | `NotificationCenter` | Flow doesn't auto-refresh | Check Flow combines re-trigger |
+| **Relationships** | SwiftData auto-updates | Room requires explicit queries | Use proper Flow observation |
+| **Defaults** | Swift optionals with defaults | Kotlin nullability | Match default values exactly |
+| **Enums** | String raw values | Enum classes | Match raw value storage |
+| **UUIDs** | `UUID` type | `String` | Use consistent format |
+
+### Comparison Criteria & Tolerances
+
+- **Fiat amounts**: within 0.01 (cent-level) after rounding.
+- **Crypto amounts**: within 1e-8 after rounding.
+- **Percentages**: within 0.1% of iOS.
+- **Dates**: same local date; timestamps within 1 second when created side-by-side.
+- **Sorting**: identical primary sort; define secondary tie-breakers when equal.
+
+### Parity Run Log (Copy/Paste)
+
+```
+Run Date/Time:
+Tester:
+Devices (iOS/Android):
+Timezone/Locale:
+Display Currency:
+Network (on/off):
+API Keys (set/empty):
+Seed Data Pack: Baseline / FX
+
+Findings:
+- Feature:
+  iOS:
+  Android:
+  Delta:
+  Screenshots/Logs:
+```
+
+### Parity Testing Checklist by Feature
+
+#### Execution Tracking (High Risk)
+
+**Basic Checks:**
+- [ ] Start execution → timestamp stored correctly
+- [ ] Add transaction same day → falls within execution window
+- [ ] Add transaction past date → handled correctly
+- [ ] Progress updates in real-time
+- [ ] Undo within 24h works
+- [ ] Complete execution → data frozen correctly
+
+**Time-Window Edge Cases (Critical):**
+- [ ] **End of Day**: Start execution at 11:55 PM, add transaction at 11:58 PM → included in window
+- [ ] **Midnight Crossing**: Start at 11:55 PM Day 1, add transaction at 12:05 AM Day 2 → included
+- [ ] **Timezone Change**: Device timezone changes mid-execution → progress still calculated correctly
+- [ ] **Daylight Savings (Spring Forward)**: Execution spans 2 AM → 3 AM skip → no lost transactions
+- [ ] **Daylight Savings (Fall Back)**: Execution spans 2 AM → 1 AM repeat → no duplicate counting
+- [ ] **Past Date Selection**: User selects yesterday's date → transaction excluded from current execution window
+- [ ] **Future Date Selection**: User selects tomorrow → should be rejected or handled gracefully
+- [ ] **Boundary Exact**: Transaction timestamp == execution startedAtMillis → INCLUDED
+- [ ] **Boundary Off-by-One**: Transaction timestamp == startedAtMillis - 1ms → EXCLUDED
+
+**Test Mapping:**
+| Check | Android Test File | Status |
+|-------|-------------------|--------|
+| Timestamp stored | `ExecutionRecordDaoTest.kt` | ✅ Exists |
+| Window filtering | `ExecutionProgressCalculatorTest.kt` | ✅ Created (12 tests) |
+| Undo within 24h | `UndoExecutionUseCaseTest.kt` | ✅ Exists |
+| Undo start execution | `UndoStartExecutionUseCaseTest.kt` | ✅ Exists |
+| Complete execution | `CompleteExecutionUseCaseTest.kt` | ✅ Exists |
+| Timezone edge cases | `ExecutionProgressCalculatorTest.kt` | ⚠️ Partial (boundary tests) |
+| DST edge cases | `ExecutionDSTTest.kt` | ❌ TODO |
+
+#### Monthly Planning (Medium Risk)
+
+**Checks:**
+- [ ] Requirements calculated same as iOS
+- [ ] Flex adjustment produces same results
+- [ ] Skip/protect goals behaves identically
+- [ ] Payment day affects calculations correctly
+- [ ] Multi-currency totals match iOS (with same FX rates)
+
+**Test Mapping:**
+| Check | Android Test File | Status |
+|-------|-------------------|--------|
+| Plan sync | `MonthlyGoalPlanServiceTest.kt` | ✅ Exists (3 tests) |
+| Flex adjustment | `MonthlyGoalPlanServiceTest.kt` | ✅ Exists (2 tests) |
+| Requirement calculation | `MonthlyPlanningServiceTest.kt` | ❌ TODO (needs DI mocks) |
+| Payment day logic | `MonthlyPlanningServiceTest.kt` | ❌ TODO (needs DI mocks) |
+| FX conversion | `ExchangeRateRepositoryTest.kt` | ❌ TODO |
+
+#### Asset Management (Medium Risk)
+
+**Checks:**
+- [ ] Chain auto-detection matches iOS mappings
+- [ ] On-chain balance fetches correctly
+- [ ] Transaction import deduplicates properly
+- [ ] Balance cache respects TTL
+
+**Test Mapping:**
+| Check | Android Test File | Status |
+|-------|-------------------|--------|
+| Chain auto-detection | `AssetTest.kt` (unit) | ✅ Exists |
+| DAO operations | `AssetDaoTest.kt` | ✅ Exists |
+| Tatum API parsing | `TatumClientTest.kt` | ❌ TODO |
+| Balance caching | `BalanceCacheTest.kt` | ❌ TODO |
+
+#### Goal Management (Low Risk)
+
+**Checks:**
+- [ ] Lifecycle status transitions work
+- [ ] Progress calculation formula matches
+- [ ] Reminder scheduling works
+- [ ] All enum values match iOS (GoalLifecycleStatus, ReminderFrequency)
+
+**Test Mapping:**
+| Check | Android Test File | Status |
+|-------|-------------------|--------|
+| DAO operations | `GoalDaoTest.kt` | ✅ 25 tests |
+| Add goal flow | `AddGoalUseCaseTest.kt` | ✅ Exists |
+| Progress calculation | `GetGoalProgressUseCaseTest.kt` | ✅ Exists (FX + on-chain) |
+| Goal progress | `GoalProgressTest.kt` | ✅ Exists |
+| Reminder scheduling | `GoalReminderSchedulerTest.kt` | ❌ TODO |
+
+### When Adding New Features
+
+Before implementing any new Android feature:
+
+1. **Read the iOS code first** - Understand the exact behavior
+2. **Document the data flow** - Inputs → Processing → Outputs
+3. **Note all timestamps** - How dates are created, stored, compared
+4. **Check notifications** - What triggers refreshes in iOS
+5. **Test the happy path** - Run both platforms side-by-side
+6. **Test edge cases** - Empty data, zero values, boundaries
+
+### Issue Tracking Template
+
+When finding a parity issue, document it as:
+
+```markdown
+## [PARITY] Feature Name - Brief Description
+
+**Symptom**: What user sees
+**iOS Behavior**: Expected behavior (with code reference)
+**Android Behavior**: Current (wrong) behavior
+**Root Cause**: Technical reason for difference
+**Fix**: Code changes needed
+**Files**: List of files to modify
+**Test**: How to verify the fix
+```
+
+---
+
 ## Table of Contents
 
 1. [Scope & Parity Definition](#1-scope--parity-definition)

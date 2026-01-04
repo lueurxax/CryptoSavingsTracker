@@ -199,7 +199,7 @@ private fun AssetCard(
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
-                        if (asset.chainId != null) {
+                        if (!asset.chainId.isNullOrBlank()) {
                             Text(
                                 text = ChainIds.displayName(asset.chainId),
                                 style = MaterialTheme.typography.bodySmall,
@@ -225,7 +225,7 @@ private fun AssetCard(
                 }
             }
 
-            if (asset.address != null) {
+            if (!asset.address.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),

@@ -4,6 +4,9 @@ package com.xax.CryptoSavingsTracker.presentation.navigation
  * Navigation routes for the app.
  */
 sealed class Screen(val route: String) {
+    // Onboarding
+    data object Onboarding : Screen("onboarding")
+
     // Main tabs
     data object Dashboard : Screen("dashboard")
     data object Goals : Screen("goals")
@@ -28,13 +31,33 @@ sealed class Screen(val route: String) {
         fun createRoute(assetId: String) = "asset/$assetId/edit"
     }
 
-    data object AssetSharing : Screen("asset/{assetId}/sharing") {
-        fun createRoute(assetId: String) = "asset/$assetId/sharing"
+    data object AssetSharing : Screen("asset/{assetId}/sharing?goalId={goalId}&prefillCloseMonth={prefillCloseMonth}") {
+        fun createRoute(
+            assetId: String,
+            goalId: String? = null,
+            prefillCloseMonth: Boolean = false
+        ): String {
+            val params = buildList {
+                if (!goalId.isNullOrBlank()) add("goalId=$goalId")
+                if (prefillCloseMonth) add("prefillCloseMonth=true")
+            }
+            return if (params.isEmpty()) {
+                "asset/$assetId/sharing"
+            } else {
+                "asset/$assetId/sharing?${params.joinToString("&")}"
+            }
+        }
     }
 
     // Transaction screens
-    data object AddTransaction : Screen("asset/{assetId}/transaction/add") {
-        fun createRoute(assetId: String) = "asset/$assetId/transaction/add"
+    data object AddTransaction : Screen("asset/{assetId}/transaction/add?prefillAmount={prefillAmount}") {
+        fun createRoute(assetId: String, prefillAmount: Double? = null): String {
+            return if (prefillAmount == null) {
+                "asset/$assetId/transaction/add"
+            } else {
+                "asset/$assetId/transaction/add?prefillAmount=${prefillAmount}"
+            }
+        }
     }
     data object TransactionHistory : Screen("asset/{assetId}/transactions") {
         fun createRoute(assetId: String) = "asset/$assetId/transactions"

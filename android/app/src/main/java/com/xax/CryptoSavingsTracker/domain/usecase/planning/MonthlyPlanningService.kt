@@ -58,6 +58,16 @@ class MonthlyPlanningService @Inject constructor(
         set(value) = prefs.edit().putFloat("flex_adjustment", value.toFloat().coerceIn(0.0f, 1.5f)).apply()
 
     /**
+     * Display currency for totals in monthly planning.
+     */
+    var displayCurrency: String
+        get() = prefs.getString("display_currency", "USD")?.trim()?.uppercase().orEmpty().ifBlank { "USD" }
+        set(value) {
+            val normalized = value.trim().uppercase().ifBlank { "USD" }
+            prefs.edit().putString("display_currency", normalized).apply()
+        }
+
+    /**
      * Calculate monthly requirements for all active goals.
      */
     suspend fun calculateMonthlyRequirements(): List<MonthlyRequirement> {
@@ -161,7 +171,7 @@ class MonthlyPlanningService @Inject constructor(
 
             val manualBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
             val onChainBalance = runCatching {
-                if (asset?.isCryptoAsset == true && asset.address != null && asset.chainId != null) {
+                if (asset != null && !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()) {
                     onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0
                 } else {
                     0.0

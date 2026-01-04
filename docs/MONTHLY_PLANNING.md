@@ -1,21 +1,19 @@
-# Required Monthly Feature Documentation
+# Monthly Planning Feature Documentation
 
 ## Overview
 
-The Required Monthly feature is a comprehensive zero-input planning system that automatically calculates monthly savings requirements across all user goals. This feature transforms the CryptoSavingsTracker from a passive tracking tool into an active financial planning assistant.
+The Monthly Planning feature is a comprehensive zero-input planning system that automatically calculates monthly savings requirements across all user goals. It includes execution tracking to monitor contributions throughout the month with full undo support.
 
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)
-2. [Core Components](#core-components)
-3. [Implementation Guide](#implementation-guide)
-4. [API Reference](#api-reference)
-5. [Testing Strategy](#testing-strategy)
-6. [Migration Guide](#migration-guide)
-7. [Performance Optimization](#performance-optimization)
-8. [Accessibility Compliance](#accessibility-compliance)
-9. [Troubleshooting](#troubleshooting)
-10. [Future Enhancements](#future-enhancements)
+2. [Data Models](#data-models)
+3. [Services](#services)
+4. [ViewModels](#viewmodels)
+5. [Execution Tracking](#execution-tracking)
+6. [Automation](#automation)
+7. [API Reference](#api-reference)
+8. [File Locations](#file-locations)
 
 ---
 
@@ -23,55 +21,360 @@ The Required Monthly feature is a comprehensive zero-input planning system that 
 
 ### System Design Principles
 
-The Required Monthly feature is built on four core architectural principles:
-
-1. **Zero-Input Planning**: Automatic calculation without user intervention
-2. **Reactive Updates**: Real-time recalculation when data changes
-3. **Performance-First**: Aggressive caching and background processing
-4. **Accessibility-Compliant**: WCAG 2.1 AA standards throughout
+1. **Zero-Input Planning**: Automatic calculation based on goal deadlines and allocated asset totals
+2. **Asset-Based Progress**: Progress tracks allocated assets, not manual contributions
+3. **Immutable History**: Completed executions freeze exchange rates and contribution snapshots
+4. **Undo Grace Period**: Configurable window (24h-7d) to undo state transitions
+5. **Duplicate Prevention**: `AsyncSerialExecutor` ensures only one set of plans per month
 
 ### High-Level Architecture
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   UI Layer      │    │  Service Layer   │    │  Data Layer     │
-├─────────────────┤    ├──────────────────┤    ├─────────────────┤
-│ PlanningView    │◄──►│ MonthlyPlanning  │◄──►│ SwiftData       │
-│ PlanningWidget  │    │ Service          │    │ Models          │
-│ FlexSlider      │    │                  │    │                 │
-├─────────────────┤    ├──────────────────┤    ├─────────────────┤
-│ ViewModels      │◄──►│ FlexAdjustment   │◄──►│ Goal            │
-│ - Planning      │    │ Service          │    │ Asset           │
-│ - Dashboard     │    │                  │    │ Transaction     │
-├─────────────────┤    ├──────────────────┤    │ MonthlyPlan     │
-│ Accessibility   │◄──►│ ExchangeRate     │    │                 │
-│ Manager         │    │ Service          │    │                 │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              VIEWS                                       │
+│  MonthlyPlanningContainer → MonthlyPlanningView / MonthlyExecutionView  │
+└─────────────────────────────────┬───────────────────────────────────────┘
+                                  │
+┌─────────────────────────────────▼───────────────────────────────────────┐
+│                           VIEWMODELS                                     │
+│         MonthlyPlanningViewModel          MonthlyExecutionViewModel      │
+└──────────────┬─────────────────────────────────────┬────────────────────┘
+               │                                     │
+┌──────────────▼─────────────────────────────────────▼────────────────────┐
+│                            SERVICES                                      │
+│  ┌─────────────────────┐  ┌─────────────────────┐  ┌──────────────────┐ │
+│  │ MonthlyPlanService  │  │ ExecutionTracking   │  │ FlexAdjustment   │ │
+│  │ (Plan CRUD & state) │  │ Service (lifecycle) │  │ Service          │ │
+│  └─────────┬───────────┘  └──────────┬──────────┘  └──────────────────┘ │
+│            │              ┌──────────┴──────────┐                       │
+│  ┌─────────▼───────────┐  │ ExecutionProgress   │  ┌──────────────────┐ │
+│  │ MonthlyPlanning     │  │ Calculator          │  │ Automation       │ │
+│  │ Service (calculate) │  │ (contributions)     │  │ Scheduler        │ │
+│  └─────────────────────┘  └─────────────────────┘  └──────────────────┘ │
+└──────────────┬─────────────────────────────────────┬────────────────────┘
+               │                                     │
+┌──────────────▼─────────────────────────────────────▼────────────────────┐
+│                         SWIFTDATA MODELS                                 │
+│  MonthlyPlan    MonthlyExecutionRecord    ExecutionSnapshot              │
+│  CompletedExecution    AllocationHistory                                 │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Key Dependencies:**
+- `MonthlyPlanningService` → `GoalCalculationService`, `ExchangeRateService`
+- `ExecutionProgressCalculator` → `AllocationHistory`, `ExchangeRateService`
 
 ### Data Flow
 
-1. **Goal Creation/Update** → Triggers calculation update
-2. **MonthlyPlanningService** → Calculates requirements in batches
-3. **PerformanceOptimizer** → Caches results for 5 minutes
-4. **MonthlyPlanningViewModel** → Publishes updates to UI
-5. **UI Components** → React to changes automatically
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  1. PLANNING PHASE                                                      │
+│                                                                         │
+│  Goals ──→ MonthlyPlanningService ──→ MonthlyRequirement                │
+│                    │                          │                         │
+│                    ▼                          ▼                         │
+│            GoalCalculationService      MonthlyPlanService               │
+│            ExchangeRateService               │                          │
+│                                              ▼                          │
+│                                     MonthlyPlan (state: draft)          │
+└─────────────────────────────────────────────┬───────────────────────────┘
+                                              │
+┌─────────────────────────────────────────────▼───────────────────────────┐
+│  2. FLEX ADJUSTMENT (optional)                                          │
+│                                                                         │
+│  MonthlyPlan ──→ FlexAdjustmentService ──→ Adjusted amounts             │
+│                  (redistribute savings)     (protected/flexible/skipped)│
+└─────────────────────────────────────────────┬───────────────────────────┘
+                                              │
+┌─────────────────────────────────────────────▼───────────────────────────┐
+│  3. EXECUTION PHASE                                                     │
+│                                                                         │
+│  Start Tracking ──→ MonthlyExecutionRecord (state: executing)          │
+│                            │                                            │
+│                            ├──→ ExecutionSnapshot (captures plan state) │
+│                            └──→ AllocationHistory (seeds baseline)      │
+└─────────────────────────────────────────────┬───────────────────────────┘
+                                              │
+┌─────────────────────────────────────────────▼───────────────────────────┐
+│  4. COMPLETION                                                          │
+│                                                                         │
+│  Mark Complete ──→ CompletedExecution                                   │
+│                         │                                               │
+│                         ├──→ Exchange rates (frozen)                    │
+│                         └──→ Contribution snapshots (immutable)         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Monthly Planning Sequence
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as MonthlyPlanningContainer
+    participant VM as MonthlyPlanningViewModel
+    participant PlanSvc as MonthlyPlanService
+    participant ExecSvc as ExecutionTrackingService
+    participant Auto as AutomationScheduler
+
+    User->>UI: Open Monthly Planning
+    UI->>ExecSvc: getActiveRecord / getCurrentMonthRecord
+    alt Record is executing
+        ExecSvc-->>UI: MonthlyExecutionRecord
+        UI-->>User: Show execution view
+    else Record is closed
+        ExecSvc-->>UI: MonthlyExecutionRecord
+        UI->>VM: loadMonthlyRequirements (next month)
+        VM-->>UI: requirements and stats
+        UI-->>User: Show planning view (current month)
+    else No record or draft
+        ExecSvc-->>UI: nil or draft record
+        UI->>VM: loadMonthlyRequirements
+        VM-->>UI: requirements and stats
+        UI-->>User: Show planning view
+        User->>UI: Adjust flex or custom amounts
+        User->>UI: Lock plan and Start Tracking
+        UI->>PlanSvc: getOrCreatePlans (planning month)
+        UI->>PlanSvc: applyBulkFlexAdjustment
+        UI->>PlanSvc: validatePlansForExecution
+        UI->>PlanSvc: startExecution
+        UI->>ExecSvc: startTracking
+        ExecSvc-->>UI: execution record with snapshot
+        UI-->>User: Show execution view
+    end
+
+    Note over Auto,ExecSvc: Auto start on 1st, auto complete on last day when enabled
+    Auto->>ExecSvc: markComplete when enabled
+    ExecSvc-->>UI: record status closed
+    UI-->>User: Show planning view for next month
+
+    User->>UI: Return to planning
+    UI->>PlanSvc: reset plans to draft for month
+    UI->>ExecSvc: undoStartTracking
+    UI-->>User: Show planning view
+```
+
+Notes:
+- When a month is closed, the UI switches to planning for the next month while the closed record remains available in history.
+
+### Monthly Execution Finish Sequence
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant ExecView as MonthlyExecutionView
+    participant ExecVM as MonthlyExecutionViewModel
+    participant ExecSvc as ExecutionTrackingService
+    participant Auto as AutomationScheduler
+    participant UI as MonthlyPlanningContainer
+
+    User->>ExecView: Tap Complete Month
+    ExecView->>ExecVM: markComplete()
+    ExecVM->>ExecSvc: markComplete(record)
+    ExecSvc->>ExecSvc: record.markComplete and snapshot contributions
+    ExecSvc-->>ExecVM: record status closed
+    ExecVM->>ExecVM: loadCurrentMonth()
+    ExecVM-->>ExecView: Updated closed state
+    ExecView-->>User: Show closed status and undo option
+
+    Note over Auto,ExecSvc: Auto complete runs on last day when enabled
+    Auto->>ExecSvc: markComplete(record)
+    ExecSvc-->>UI: record status closed
+    UI-->>User: Show planning view for next month
+```
+
+### Monthly Planning Cycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Planning
+    Planning --> Executing: Start tracking (current or next month)
+    Executing --> Planning: Finish month - next month planning
+    Executing --> Planning: Undo start tracking - return to current month planning
+```
 
 ---
 
-## Core Components
+## Data Models
 
-### 1. MonthlyPlanningService
+### MonthlyPlan
 
-**Location**: `CryptoSavingsTracker/Services/MonthlyPlanningService.swift`
+**Location**: `ios/CryptoSavingsTracker/Models/MonthlyPlan.swift`
 
-The heart of the system, responsible for:
-- Batch calculation of monthly requirements
-- Currency conversion with batched API calls
-- Intelligent caching with PerformanceOptimizer integration
-- Real-time progress tracking
+Persistent SwiftData model for monthly savings plans.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `UUID` | Unique identifier |
+| `goalId` | `UUID` | Associated goal |
+| `monthLabel` | `String` | Format: "yyyy-MM" |
+| `requiredMonthly` | `Double` | Calculated requirement |
+| `remainingAmount` | `Double` | Amount remaining to target |
+| `monthsRemaining` | `Int` | Payment periods until deadline |
+| `currency` | `String` | Goal currency |
+| `customAmount` | `Double?` | User override |
+| `state` | `PlanState` | draft / executing / completed |
+| `flexState` | `FlexState` | protected / flexible / skipped |
+| `isProtected` | `Bool` | Cannot be reduced in flex |
+| `isSkipped` | `Bool` | Excluded from this month |
+
+**Computed Properties**:
+- `effectiveAmount` - Returns `customAmount ?? requiredMonthly` (or 0 if skipped)
+- `isActionable` - Not skipped AND remaining > 0 AND effectiveAmount > 0
+- `needsRecalculation` - True if calculated > 1 hour ago
+
+**State Enums**:
+
+```swift
+enum PlanState: String {
+    case draft      // Planning phase, editable
+    case executing  // Tracking contributions
+    case completed  // Month closed
+}
+
+enum FlexState: String {
+    case protected  // Cannot be reduced
+    case flexible   // Can be adjusted
+    case skipped    // Temporarily excluded
+}
+```
+
+### MonthlyExecutionRecord
+
+**Location**: `ios/CryptoSavingsTracker/Models/MonthlyExecutionRecord.swift`
+
+Tracks monthly execution lifecycle with undo support.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `UUID` | Unique identifier |
+| `monthLabel` | `String` | Format: "yyyy-MM" |
+| `status` | `ExecutionStatus` | draft / executing / closed |
+| `startedAt` | `Date?` | When tracking started |
+| `completedAt` | `Date?` | When marked complete |
+| `canUndoUntil` | `Date?` | Undo grace period expiry |
+| `trackedGoalIds` | `Data` | Encoded UUID array |
+| `snapshot` | `ExecutionSnapshot?` | Captured plan states |
+| `completedExecution` | `CompletedExecution?` | Frozen completion data |
+
+**Status Enum**:
+
+```swift
+enum ExecutionStatus: String {
+    case draft      // Planning phase
+    case executing  // Active tracking
+    case closed     // Completed/archived
+}
+```
+
+### ExecutionSnapshot
+
+**Location**: `ios/CryptoSavingsTracker/Models/ExecutionSnapshot.swift`
+
+Captures MonthlyPlan states when execution starts for immutability.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `capturedAt` | `Date` | Snapshot timestamp |
+| `totalPlanned` | `Double` | Sum of planned amounts |
+| `snapshotData` | `Data` | Encoded goal snapshots |
+
+**ExecutionGoalSnapshot** (Codable):
+```swift
+struct ExecutionGoalSnapshot: Codable {
+    let goalId: UUID
+    let goalName: String
+    let plannedAmount: Double  // plan.effectiveAmount at capture
+    let currency: String
+    let flexState: String
+    let isSkipped: Bool
+    let isProtected: Bool
+}
+```
+
+### CompletedExecution
+
+**Location**: `ios/CryptoSavingsTracker/Models/CompletedExecution.swift`
+
+Frozen snapshot at completion time for history immutability.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `completedAt` | `Date` | Completion timestamp |
+| `exchangeRatesSnapshotData` | `Data?` | Frozen exchange rates |
+| `goalSnapshotsData` | `Data?` | Frozen goal states |
+| `contributionSnapshotsData` | `Data?` | Contribution records |
+
+**CompletedExecutionContributionSnapshot**:
+```swift
+struct CompletedExecutionContributionSnapshot: Codable {
+    let timestamp: Date
+    let source: ContributionSource
+    let assetId: UUID
+    let assetCurrency: String
+    let goalId: UUID
+    let goalCurrency: String
+    let assetAmount: Double
+    let amountInGoalCurrency: Double
+    let exchangeRateUsed: Double
+}
+```
+
+### Component Relationships
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            MonthlyPlan                                  │
+│─────────────────────────────────────────────────────────────────────────│
+│  id: UUID                     state: PlanState (draft/executing/done)   │
+│  goalId: UUID                 flexState: FlexState                      │
+│  monthLabel: String           customAmount: Double?                     │
+│  requiredMonthly: Double      isProtected / isSkipped: Bool             │
+│─────────────────────────────────────────────────────────────────────────│
+│  effectiveAmount() → customAmount ?? requiredMonthly (or 0 if skipped)  │
+└─────────────────────────────────────────────────────────────────────────┘
+        │
+        │ many plans tracked by one record
+        ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       MonthlyExecutionRecord                            │
+│─────────────────────────────────────────────────────────────────────────│
+│  id: UUID                     status: ExecutionStatus                   │
+│  monthLabel: String           startedAt / completedAt: Date?            │
+│  trackedGoalIds: [UUID]       canUndoUntil: Date?                       │
+└───────────────┬─────────────────────────────────┬───────────────────────┘
+                │                                 │
+                │ 0..1                            │ 0..1
+                ▼                                 ▼
+┌───────────────────────────────┐   ┌─────────────────────────────────────┐
+│      ExecutionSnapshot        │   │        CompletedExecution           │
+│───────────────────────────────│   │─────────────────────────────────────│
+│  capturedAt: Date             │   │  completedAt: Date                  │
+│  totalPlanned: Double         │   │  exchangeRatesSnapshot: [String: D] │
+│  goalSnapshots:               │   │  contributionSnapshots:             │
+│    [ExecutionGoalSnapshot]    │   │    [ContributionSnapshot]           │
+│    - goalId, goalName         │   │    - assetId, goalId                │
+│    - plannedAmount, currency  │   │    - amount, exchangeRateUsed       │
+│    - flexState, isSkipped     │   │                                     │
+└───────────────────────────────┘   └─────────────────────────────────────┘
+```
+
+**Relationships:**
+- `MonthlyPlan` ← many-to-one → `MonthlyExecutionRecord` (via trackedGoalIds)
+- `MonthlyExecutionRecord` → `ExecutionSnapshot` (created on start tracking)
+- `MonthlyExecutionRecord` → `CompletedExecution` (created on mark complete)
+
+---
+
+## Services
+
+### MonthlyPlanningService
+
+**Location**: `ios/CryptoSavingsTracker/Services/MonthlyPlanningService.swift`
+
+High-level service for calculating monthly savings requirements.
 
 **Key Methods**:
+
 ```swift
 // Calculate requirements for all goals
 func calculateMonthlyRequirements(for goals: [Goal]) async -> [MonthlyRequirement]
@@ -79,263 +382,287 @@ func calculateMonthlyRequirements(for goals: [Goal]) async -> [MonthlyRequiremen
 // Calculate total in display currency
 func calculateTotalRequired(for goals: [Goal], displayCurrency: String) async -> Double
 
-// Get requirement for single goal
+// Single goal calculation
 func getMonthlyRequirement(for goal: Goal) async -> MonthlyRequirement?
 ```
 
-### 2. MonthlyPlanningViewModel
+**Calculation Logic**:
+1. Get current total from `GoalCalculationService` (asset allocations only)
+2. Calculate remaining: `max(0, targetAmount - currentTotal)`
+3. Calculate payment periods remaining using `MonthlyPlanningSettings.paymentDay`
+4. Divide remaining by periods: `requiredMonthly = remaining / monthsLeft`
+5. Determine status based on thresholds
 
-**Location**: `CryptoSavingsTracker/ViewModels/MonthlyPlanningViewModel.swift`
+**Payment Period Calculation**:
+- Uses configurable payment day (1-28)
+- Counts from next payment date until past goal deadline
 
-MVVM coordinator managing:
-- Reactive UI state with `@Published` properties
-- Flex adjustment preview calculations
-- User preference persistence
-- Cross-tab state synchronization
+### MonthlyPlanService
 
-**Key Properties**:
+**Location**: `ios/CryptoSavingsTracker/Services/MonthlyPlanService.swift`
+
+Single source of truth for persisted MonthlyPlan objects with duplicate prevention.
+
+**Key Methods**:
+
 ```swift
-@Published var monthlyRequirements: [MonthlyRequirement] = []
-@Published var flexAdjustment: Double = 1.0
-@Published var adjustmentPreview: [UUID: Double] = [:]
-@Published var statistics: PlanningStatistics = .empty
+// Main entry point - ensures one set of plans per month
+func getOrCreatePlansForCurrentMonth(goals: [Goal]) async throws -> [MonthlyPlan]
+
+// Fetch plans by month and optional state
+func fetchPlans(for monthLabel: String, state: MonthlyPlan.PlanState?) -> [MonthlyPlan]
+
+// User customization
+func setCustomAmount(_ amount: Double?, for plan: MonthlyPlan)
+func toggleProtection(for plan: MonthlyPlan)
+func skipPlan(_ plan: MonthlyPlan, skip: Bool)
+
+// Bulk flex adjustment (draft plans only)
+func applyBulkFlexAdjustment(
+    plans: [MonthlyPlan],
+    adjustment: Double,
+    protectedGoalIds: Set<UUID>,
+    skippedGoalIds: Set<UUID>
+) async throws
+
+// State transitions
+func startExecution(for plans: [MonthlyPlan])
+func completePlans(for plans: [MonthlyPlan])
 ```
 
-### 3. FlexAdjustmentService
+**Duplicate Prevention**: Uses `AsyncSerialExecutor` to serialize critical sections.
 
-**Location**: `CryptoSavingsTracker/Services/FlexAdjustmentService.swift`
+### ExecutionTrackingService
 
-Advanced redistribution engine featuring:
-- Multiple redistribution strategies (balanced, urgent, largest, risk-minimizing)
-- Protected goal handling (skip critical goals)
-- Impact analysis with risk assessment
-- Preview mode for real-time feedback
+**Location**: `ios/CryptoSavingsTracker/Services/ExecutionTrackingService.swift`
 
-**Core Algorithm**:
+Manages monthly execution lifecycle and contribution tracking.
+
+**Key Methods**:
+
+```swift
+// Record management
+func getCurrentMonthRecord() -> MonthlyExecutionRecord?
+func getActiveRecord() -> MonthlyExecutionRecord?
+func getCompletedRecords(limit: Int, offset: Int) -> [MonthlyExecutionRecord]
+
+// Lifecycle operations
+func startTracking(
+    for monthLabel: String,
+    from plans: [MonthlyPlan],
+    goals: [Goal]
+) async throws -> MonthlyExecutionRecord
+
+func markComplete(_ record: MonthlyExecutionRecord) async throws
+
+// Undo operations (within grace period)
+func undoCompletion(_ record: MonthlyExecutionRecord) throws
+func undoStartTracking(_ record: MonthlyExecutionRecord) throws
+
+// Contribution calculations
+func getContributionTotals(for record: MonthlyExecutionRecord) async -> [UUID: Double]
+func calculateProgress(for record: MonthlyExecutionRecord) async -> Double
+```
+
+**AllocationHistory Seeding**: When execution starts, seeds baseline allocation snapshots for accurate contribution derivation.
+
+### ExecutionProgressCalculator
+
+**Location**: `ios/CryptoSavingsTracker/Services/ExecutionProgressCalculator.swift`
+
+Derives execution contributions from transactions and allocation history.
+
+**Key Method**:
+
+```swift
+func derivedEvents(
+    for record: MonthlyExecutionRecord,
+    end: Date
+) async -> [DerivedEvent]
+
+struct DerivedEvent {
+    let timestamp: Date
+    let source: ContributionSource  // .manualDeposit or .assetReallocation
+    let assetId: UUID
+    let assetCurrency: String
+    let goalId: UUID
+    let goalCurrency: String
+    let assetDelta: Double
+}
+```
+
+**Algorithm**:
+1. For each tracked asset, compute balance at execution start
+2. Build target allocations from AllocationHistory baseline
+3. Process transactions and allocation updates chronologically
+4. Compute funded amounts using pro-rata allocation when balance < targets
+5. Generate events for deltas exceeding epsilon
+
+### FlexAdjustmentService
+
+**Location**: `ios/CryptoSavingsTracker/Services/FlexAdjustmentService.swift`
+
+Intelligent redistribution engine for flexible payment adjustments.
+
+**Key Methods**:
+
 ```swift
 func applyFlexAdjustment(
     requirements: [MonthlyRequirement],
     adjustment: Double,
     protectedGoalIds: Set<UUID>,
     skippedGoalIds: Set<UUID>,
-    strategy: RedistributionStrategy = .balanced
+    strategy: RedistributionStrategy
 ) async -> [AdjustedRequirement]
+
+func simulateAdjustment(
+    requirements: [MonthlyRequirement],
+    adjustment: Double,
+    protectedGoalIds: Set<UUID>,
+    skippedGoalIds: Set<UUID>
+) async -> AdjustmentSimulation
 ```
 
-### 4. MonthlyPlanningWidget
+**Redistribution Strategies**:
 
-**Location**: `CryptoSavingsTracker/Views/Components/MonthlyPlanningWidget.swift`
-
-Dashboard widget with:
-- Expandable/collapsible interface
-- Performance-optimized rendering
-- Quick action buttons
-- Comprehensive accessibility support
-
-### 5. Platform-Specific Planning Views
-
-**Locations**:
-- `CryptoSavingsTracker/Views/Planning/PlanningView.swift`
-- `CryptoSavingsTracker/Views/Planning/iOSCompactPlanningView.swift`
-- `CryptoSavingsTracker/Views/Planning/iOSRegularPlanningView.swift`
-- `CryptoSavingsTracker/Views/Planning/macOSPlanningView.swift`
-
-Adaptive UI supporting:
-- iOS compact (iPhone)
-- iOS regular (iPad)
-- macOS with HSplitView architecture
+| Strategy | Description |
+|----------|-------------|
+| `balanced` | Equal distribution to eligible goals (capped at 150%) |
+| `prioritizeUrgent` | Focus on shortest deadlines first |
+| `prioritizeLargest` | Allocate proportionally to goal size |
+| `minimizeRisk` | Prioritize high-risk goals for funding |
 
 ---
 
-## Implementation Guide
+## ViewModels
 
-### Phase 1: Core Infrastructure (Week 1)
+### MonthlyPlanningViewModel
 
-#### Step 1: Install Core Services
-
-1. Add `MonthlyPlanningService.swift` to your Services folder
-2. Add `MonthlyPlan.swift` SwiftData model to Models folder
-3. Update `DIContainer.swift` to inject the new service
-4. Run unit tests to verify calculations
-
-```swift
-// DIContainer.swift integration
-func makeMonthlyPlanningService() -> MonthlyPlanningService {
-    return MonthlyPlanningService(exchangeRateService: exchangeRateService)
-}
-```
-
-#### Step 2: Update Data Models
-
-Add the `MonthlyPlan` SwiftData model alongside existing models:
-
-```swift
-@Model
-final class MonthlyPlan: @unchecked Sendable {
-    var goalId: UUID
-    var flexStateRawValue: String = "flexible"
-    var customAmount: Double?
-    // ... additional properties
-}
-```
-
-#### Step 3: Configure Model Container
-
-Update your model container to include the new model:
-
-```swift
-let container = try ModelContainer(for: 
-    Goal.self, 
-    Asset.self, 
-    Transaction.self, 
-    MonthlyPlan.self  // Add this
-)
-```
-
-### Phase 2: UI Integration (Week 2)
-
-#### Step 1: Create ViewModel
-
-Implement the `MonthlyPlanningViewModel` with reactive properties:
+**Location**: `ios/CryptoSavingsTracker/ViewModels/MonthlyPlanningViewModel.swift`
 
 ```swift
 @MainActor
 final class MonthlyPlanningViewModel: ObservableObject {
-    @Published var monthlyRequirements: [MonthlyRequirement] = []
-    @Published var totalRequired: Double = 0.0
-    @Published var statistics: PlanningStatistics = .empty
-    
-    private let modelContext: ModelContext
-    private let planningService: MonthlyPlanningService
-    
-    init(modelContext: ModelContext) {
-        self.modelContext = modelContext
-        self.planningService = DIContainer.shared.monthlyPlanningService
-    }
+    @Published var monthlyRequirements: [MonthlyRequirement]
+    @Published var goals: [Goal]
+    @Published var totalRequired: Double
+    @Published var displayCurrency: String
+    @Published var planningMonthLabel: String
+    @Published var flexAdjustment: Double  // 0.0-1.5
+    @Published var protectedGoalIds: Set<UUID>
+    @Published var skippedGoalIds: Set<UUID>
+    @Published var isLoading: Bool
+    @Published var error: Error?
+
+    func loadMonthlyRequirements(for monthLabel: String?) async
+    func applyFlexAdjustment(_ percentage: Double) async
+    func toggleProtection(for goalId: UUID)
+    func toggleSkip(for goalId: UUID)
+    func updateDisplayCurrency(_ currency: String)
 }
 ```
 
-#### Step 2: Dashboard Widget
+### MonthlyExecutionViewModel
 
-Add the `MonthlyPlanningWidget` to your dashboard:
-
-```swift
-// In your dashboard view
-MonthlyPlanningWidget(viewModel: monthlyPlanningViewModel)
-    .padding()
-```
-
-#### Step 3: Navigation Setup
-
-Add Planning tab to your main navigation:
+**Location**: `ios/CryptoSavingsTracker/ViewModels/MonthlyExecutionViewModel.swift`
 
 ```swift
-TabView {
-    // Existing tabs...
-    
-    NavigationView {
-        PlanningView(viewModel: monthlyPlanningViewModel)
-    }
-    .tabItem {
-        Image(systemName: "calendar.badge.clock")
-        Text("Planning")
-    }
+@MainActor
+final class MonthlyExecutionViewModel: ObservableObject {
+    @Published var executionRecord: MonthlyExecutionRecord?
+    @Published var snapshot: ExecutionSnapshot?
+    @Published var contributedTotals: [UUID: Double]
+    @Published var fulfillmentStatus: [UUID: Bool]
+    @Published var overallProgress: Double
+    @Published var showUndoBanner: Bool
+    @Published var undoExpiresAt: Date?
+    @Published var isLoading: Bool
+    @Published var error: Error?
+
+    // Computed for active months (live) vs closed months (frozen)
+    var displayGoalSnapshots: [ExecutionGoalSnapshot]
+    var displayTotalPlanned: Double
+    var canUndo: Bool
+
+    func loadCurrentMonth() async
+    func startTracking(plans: [MonthlyPlan], goals: [Goal]) async
+    func markComplete() async
+    func undoStateChange() async
+    func refresh() async
 }
 ```
 
-### Phase 3: Advanced Features (Week 3)
+---
 
-#### Step 1: Flex Adjustment Controls
+## Execution Tracking
 
-Implement the interactive slider:
+### Undo Grace Period
 
-```swift
-FlexAdjustmentSlider(viewModel: monthlyPlanningViewModel)
-    .padding()
+The system provides a configurable undo grace period (default 24 hours) for:
+- Undoing "Start Tracking" (executing -> draft)
+- Undoing "Complete Month" (closed -> executing)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft: Create plans
+    Draft --> Executing: Start Tracking
+    Executing --> Draft: Undo Start (within grace)
+    Executing --> Closed: Complete Month
+    Closed --> Executing: Undo Complete (within grace)
+    Closed --> [*]: Grace period expired
 ```
 
-#### Step 2: Notification Integration
+### Contribution Calculation
 
-Enhanced monthly payment reminders:
+For **active months**: Uses `ExecutionProgressCalculator` with current exchange rates
+For **closed months**: Returns immutable values from `CompletedExecution` snapshot
 
-```swift
-// In your notification setup
-await NotificationManager.shared.scheduleMonthlyPaymentReminders(
-    requirements: viewModel.monthlyRequirements,
-    modelContext: modelContext
-)
-```
+Progress is calculated as: `sum(contributedTotals) / sum(plannedAmounts)`
 
-#### Step 3: UI Testing
+---
 
-Comprehensive test coverage:
+## Automation
 
-```swift
-func testMonthlyPlanningWidgetInteraction() throws {
-    let widget = app.scrollViews.otherElements
-        .containing(.staticText, identifier: "Required This Month").element
-    
-    let expandButton = widget.buttons["Show more"]
-    expandButton.tap()
-    
-    // Verify expanded content
-    let goalBreakdown = widget.staticTexts["Goal Breakdown"]
-    XCTAssertTrue(goalBreakdown.waitForExistence(timeout: 2))
-}
-```
+### AutomationScheduler
 
-### Phase 4: Performance & Accessibility (Week 4)
+**Location**: `ios/CryptoSavingsTracker/Services/AutomationScheduler.swift`
 
-#### Step 1: Performance Optimization
+Manages automated monthly planning transitions.
 
-Implement `PerformanceOptimizer` integration:
+**Settings** (via `MonthlyPlanningSettings`):
+- `autoStartEnabled` - Auto-start tracking on 1st of month
+- `autoCompleteEnabled` - Auto-complete on last day of month
+- `undoGracePeriodHours` - 0, 24, 48, or 168 hours
 
-```swift
-// In MonthlyPlanningService
-private let performanceOptimizer = PerformanceOptimizer.shared
+**Automation Flow**:
 
-func calculateMonthlyRequirements(for goals: [Goal]) async -> [MonthlyRequirement] {
-    let cacheKey = "monthly_requirements_\(goals.map { $0.id.uuidString }.joined(separator: "_"))"
-    
-    if let cached: [MonthlyRequirement] = await performanceOptimizer.retrieve(
-        [MonthlyRequirement].self, 
-        forKey: cacheKey, 
-        category: .monthlyRequirements
-    ) {
-        return cached
-    }
-    
-    // Calculate and cache results...
-}
-```
+```mermaid
+flowchart TD
+    A[App Launch / Daily Check] --> B{Day of Month?}
+    B -->|1st| C{autoStartEnabled?}
+    B -->|Last day| D{autoCompleteEnabled?}
+    B -->|Other| E[No action]
 
-#### Step 2: Accessibility Enhancement
+    C -->|Yes| F[attemptAutoStart]
+    C -->|No| E
 
-Apply accessibility modifiers:
+    D -->|Yes| G[attemptAutoComplete]
+    D -->|No| E
 
-```swift
-// Enhanced button accessibility
-Button("Add Goal") { }
-    .accessibleButton(
-        title: "Add new savings goal",
-        hint: "Opens the goal creation form",
-        action: .addGoal
-    )
+    F --> H[draft -> executing]
+    G --> I[executing -> closed]
 
-// Enhanced currency display
-Text("$1,250.50")
-    .accessibleCurrency(
-        amount: 1250.50,
-        currency: "USD",
-        context: "Monthly requirement"
-    )
+    H --> J[Set undo grace period]
+    I --> J
+
+    J --> K[Post notification for UI update]
 ```
 
 ---
 
 ## API Reference
 
-### MonthlyRequirement Model
+### MonthlyRequirement
 
 ```swift
 struct MonthlyRequirement: Identifiable, Sendable, Codable {
@@ -344,722 +671,104 @@ struct MonthlyRequirement: Identifiable, Sendable, Codable {
     let goalName: String
     let currency: String
     let targetAmount: Double
-    let currentTotal: Double
+    let currentTotal: Double      // From allocated assets
     let remainingAmount: Double
-    let monthsRemaining: Int
+    let monthsRemaining: Int      // Payment periods
     let requiredMonthly: Double
-    let progress: Double
+    let progress: Double          // 0.0-1.0
     let deadline: Date
     let status: RequirementStatus
-    
-    // Computed properties for formatting
-    var formattedRequiredMonthly: String { }
-    var formattedRemainingAmount: String { }
-    var timeRemainingDescription: String { }
 }
 ```
 
-### RequirementStatus Enum
+### RequirementStatus
 
 ```swift
-enum RequirementStatus: String, Sendable, Codable {
-    case completed = "completed"
-    case onTrack = "on_track" 
-    case attention = "attention"
-    case critical = "critical"
-    
-    var displayName: String { }
-    var systemImageName: String { }
+enum RequirementStatus: String, Codable {
+    case completed  // remainingAmount <= 0
+    case onTrack    // Normal progress
+    case attention  // requiredMonthly > 5000 OR monthsRemaining <= 1
+    case critical   // requiredMonthly > 10000
 }
 ```
 
-### FlexAdjustmentService API
+### AdjustedRequirement
 
 ```swift
-// Redistribution strategies
-enum RedistributionStrategy {
-    case balanced      // Equal distribution
-    case urgent        // Prioritize urgent goals
-    case largest       // Reduce largest amounts first  
-    case riskMinimizing // Minimize risk to all goals
-}
-
-// Impact analysis
-struct ImpactAnalysis {
-    let changeAmount: Double
-    let changePercentage: Double
-    let estimatedDelay: Int // days
-    let riskLevel: RiskLevel
-}
-
-// Adjustment result
 struct AdjustedRequirement {
     let requirement: MonthlyRequirement
     let adjustedAmount: Double
+    let adjustmentReason: String
+    let isProtected: Bool
+    let isSkipped: Bool
     let adjustmentFactor: Double
     let redistributionAmount: Double
     let impactAnalysis: ImpactAnalysis
 }
 ```
 
-### Notification API
+### ImpactAnalysis
 
 ```swift
-// Monthly reminder settings
-struct MonthlyReminderSettings {
-    let dayOfMonth: Int      // 1st of month
-    let hour: Int           // 9 AM
-    let minute: Int         // 0 minutes
-    let displayCurrency: String // "USD"
-    
-    static let `default`: MonthlyReminderSettings
+struct ImpactAnalysis {
+    let changeAmount: Double
+    let changePercentage: Double
+    let estimatedDelay: Int  // Months to recover
+    let riskLevel: RiskLevel
 }
 
-// Schedule reminders
-func scheduleMonthlyPaymentReminders(
-    requirements: [MonthlyRequirement],
-    modelContext: ModelContext,
-    settings: MonthlyReminderSettings = .default
-) async
-```
-
----
-
-## Testing Strategy
-
-### Unit Tests (25 test cases)
-
-**Financial Calculations**:
-```swift
-@Test("Basic monthly requirement calculation")
-func testMonthlyRequirementCalculation() {
-    let requirement = MonthlyRequirement(
-        targetAmount: 12000,
-        currentTotal: 2000, 
-        monthsRemaining: 10
-    )
-    
-    #expect(requirement.requiredMonthly == 1000.0)
-    #expect(requirement.remainingAmount == 10000.0)
-    #expect(requirement.progress == 1.0/6.0)
+enum RiskLevel {
+    case low     // reduction < 25% AND months > 4
+    case medium  // reduction 25-50% OR months 2-4
+    case high    // reduction > 50% OR months <= 2
 }
 ```
 
-**Flex Adjustment Logic**:
+### MonthlyPlanningSettings
+
+**Location**: `ios/CryptoSavingsTracker/Models/MonthlyPlanningSettings.swift`
+
 ```swift
-@Test("Flex adjustment redistribution")  
-func testFlexAdjustmentRedistribution() async {
-    let service = FlexAdjustmentService()
-    let requirements = createTestRequirements()
-    
-    let adjusted = await service.applyFlexAdjustment(
-        requirements: requirements,
-        adjustment: 0.5, // 50% reduction
-        protectedGoalIds: [],
-        skippedGoalIds: [],
-        strategy: .balanced
-    )
-    
-    let totalReduction = adjusted.reduce(0) { $0 + $1.redistributionAmount }
-    #expect(totalReduction > 0, "Should redistribute excess savings")
-}
-```
+class MonthlyPlanningSettings: ObservableObject {
+    @Published var displayCurrency: String      // Default: "USD"
+    @Published var paymentDay: Int              // 1-28
+    @Published var notificationsEnabled: Bool
+    @Published var autoStartEnabled: Bool       // Default: false
+    @Published var autoCompleteEnabled: Bool    // Default: false
+    @Published var undoGracePeriodHours: Int    // 0, 24, 48, or 168
 
-### Integration Tests (15 test cases)
-
-**Service Coordination**:
-```swift
-@Test("End-to-end monthly planning workflow")
-func testMonthlyPlanningWorkflow() async {
-    let goals = await createTestGoals()
-    let planningService = MonthlyPlanningService(exchangeRateService: mockExchangeService)
-    
-    let requirements = await planningService.calculateMonthlyRequirements(for: goals)
-    
-    #expect(requirements.count == goals.count)
-    #expect(requirements.allSatisfy { $0.requiredMonthly >= 0 })
-}
-```
-
-### UI Tests (20 test cases)
-
-**Widget Interaction**:
-```swift
-func testMonthlyPlanningWidgetExpansion() throws {
-    let widget = app.scrollViews.otherElements
-        .containing(.staticText, identifier: "Required This Month").element
-    
-    let expandButton = widget.buttons["Show more"]
-    XCTAssertTrue(expandButton.exists)
-    expandButton.tap()
-    
-    let goalBreakdown = widget.staticTexts["Goal Breakdown"]
-    XCTAssertTrue(goalBreakdown.waitForExistence(timeout: 2))
-}
-```
-
-### Accessibility Tests (30 test cases)
-
-**WCAG Compliance**:
-```swift
-@Test("Color contrast compliance")
-func testColorContrastRatios() {
-    let primaryOnWhite = AccessibleColors.contrastRatio(
-        foreground: AccessibleColors.primaryInteractive,
-        background: .white
-    )
-    #expect(primaryOnWhite >= 4.5, "Must meet WCAG AA standards")
+    var nextPaymentDate: Date { get }
+    var daysUntilPayment: Int { get }
 }
 ```
 
 ---
 
-## Migration Guide
+## File Locations
 
-### From Version 1.x to 2.x
-
-#### Breaking Changes
-
-1. **SwiftData Model Addition**: New `MonthlyPlan` model requires migration
-2. **DIContainer Updates**: New service injection patterns
-3. **Navigation Changes**: New Planning tab in main interface
-
-#### Migration Steps
-
-##### Step 1: Update Model Container (Required)
-
-```swift
-// Before (Version 1.x)
-let container = try ModelContainer(for: Goal.self, Asset.self, Transaction.self)
-
-// After (Version 2.x)
-let container = try ModelContainer(for: 
-    Goal.self, 
-    Asset.self, 
-    Transaction.self,
-    MonthlyPlan.self  // Add this new model
-)
-```
-
-##### Step 2: Update DIContainer (Required)
-
-```swift
-// Add to DIContainer class
-private lazy var _monthlyPlanningService = MonthlyPlanningService(
-    exchangeRateService: exchangeRateService
-)
-
-var monthlyPlanningService: MonthlyPlanningService {
-    return _monthlyPlanningService
-}
-
-func makeFlexAdjustmentService(modelContext: ModelContext) -> FlexAdjustmentService {
-    return FlexAdjustmentService(
-        planningService: monthlyPlanningService,
-        modelContext: modelContext
-    )
-}
-```
-
-##### Step 3: Navigation Integration (Optional)
-
-```swift
-// Add Planning tab to existing TabView
-TabView {
-    // Your existing tabs...
-    
-    NavigationView {
-        PlanningView(viewModel: MonthlyPlanningViewModel(modelContext: modelContext))
-    }
-    .tabItem {
-        Image(systemName: "calendar.badge.clock")
-        Text("Planning")
-    }
-    .tag(4) // Adjust tag number as needed
-}
-```
-
-##### Step 4: Dashboard Widget Integration (Optional)
-
-```swift
-// Add to your dashboard view
-VStack(spacing: 16) {
-    // Existing dashboard components...
-    
-    MonthlyPlanningWidget(
-        viewModel: MonthlyPlanningViewModel(modelContext: modelContext)
-    )
-}
-```
-
-#### Data Migration
-
-The system automatically handles data migration:
-
-1. **Existing Goals**: Automatically included in monthly calculations
-2. **New MonthlyPlan Entries**: Created on-demand for flex adjustments
-3. **Preferences**: Stored in UserDefaults, no migration needed
-
-#### Backward Compatibility
-
-- ✅ All existing Goal, Asset, and Transaction data preserved
-- ✅ Existing views and functionality unchanged
-- ✅ Optional integration - app works without new features
-- ✅ Gradual adoption possible
+| Component | Path |
+|-----------|------|
+| **Models** | |
+| MonthlyPlan | `ios/CryptoSavingsTracker/Models/MonthlyPlan.swift` |
+| MonthlyExecutionRecord | `ios/CryptoSavingsTracker/Models/MonthlyExecutionRecord.swift` |
+| ExecutionSnapshot | `ios/CryptoSavingsTracker/Models/ExecutionSnapshot.swift` |
+| CompletedExecution | `ios/CryptoSavingsTracker/Models/CompletedExecution.swift` |
+| MonthlyPlanningSettings | `ios/CryptoSavingsTracker/Models/MonthlyPlanningSettings.swift` |
+| **Services** | |
+| MonthlyPlanningService | `ios/CryptoSavingsTracker/Services/MonthlyPlanningService.swift` |
+| MonthlyPlanService | `ios/CryptoSavingsTracker/Services/MonthlyPlanService.swift` |
+| ExecutionTrackingService | `ios/CryptoSavingsTracker/Services/ExecutionTrackingService.swift` |
+| ExecutionProgressCalculator | `ios/CryptoSavingsTracker/Services/ExecutionProgressCalculator.swift` |
+| FlexAdjustmentService | `ios/CryptoSavingsTracker/Services/FlexAdjustmentService.swift` |
+| AutomationScheduler | `ios/CryptoSavingsTracker/Services/AutomationScheduler.swift` |
+| **ViewModels** | |
+| MonthlyPlanningViewModel | `ios/CryptoSavingsTracker/ViewModels/MonthlyPlanningViewModel.swift` |
+| MonthlyExecutionViewModel | `ios/CryptoSavingsTracker/ViewModels/MonthlyExecutionViewModel.swift` |
+| **Views** | |
+| MonthlyPlanningView | `ios/CryptoSavingsTracker/Views/Planning/MonthlyPlanningView.swift` |
+| MonthlyExecutionView | `ios/CryptoSavingsTracker/Views/Planning/MonthlyExecutionView.swift` |
+| MonthlyPlanningContainer | `ios/CryptoSavingsTracker/Views/Planning/MonthlyPlanningContainer.swift` |
 
 ---
 
-## Performance Optimization
-
-### Caching Strategy
-
-The system implements multi-level caching:
-
-#### Level 1: Memory Cache (NSCache)
-- **Duration**: 5 minutes
-- **Scope**: Individual goal calculations
-- **Size Limit**: 50MB
-- **Eviction**: LRU-based
-
-```swift
-private var planCache: [UUID: CachedPlan] = [:]
-private let cacheExpiration: TimeInterval = 300 // 5 minutes
-```
-
-#### Level 2: PerformanceOptimizer Cache
-- **Duration**: Configurable (default 5 minutes)
-- **Scope**: Batch calculations and complex operations
-- **Storage**: Memory + Disk persistence
-- **Categories**: `.monthlyRequirements`, `.calculations`, `.exchangeRates`
-
-```swift
-await performanceOptimizer.cache(
-    sortedRequirements, 
-    forKey: cacheKey, 
-    category: .monthlyRequirements, 
-    ttl: 300
-)
-```
-
-#### Level 3: Exchange Rate Caching
-- **Duration**: 5 minutes for rates, 1 hour for preloaded rates
-- **Batching**: Up to 50 currency pairs per API call
-- **Rate Limiting**: 10 requests per minute with exponential backoff
-
-### Background Processing
-
-#### TaskGroup Parallelization
-```swift
-await withTaskGroup(of: MonthlyRequirement.self) { group in
-    for goal in goals {
-        group.addTask {
-            await self.calculateRequirementForGoal(goal)
-        }
-    }
-    // Collect results...
-}
-```
-
-#### Background Queue Processing
-```swift
-private let backgroundQueue = DispatchQueue(
-    label: "com.cryptosavingstracker.background",
-    qos: .utility,
-    attributes: .concurrent
-)
-```
-
-### Memory Management
-
-#### Automatic Cache Cleanup
-```swift
-Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
-    Task { @MainActor [weak self] in
-        self?.clearExpiredCache()
-    }
-}
-```
-
-#### Memory Pressure Handling
-```swift
-func handleMemoryPressure() async {
-    // Remove 50% of LRU items
-    let keysToRemove = keys.prefix(keys.count / 2)
-    for key in keysToRemove {
-        memoryCache.removeObject(forKey: NSString(string: key))
-    }
-}
-```
-
-### Performance Metrics
-
-Expected performance benchmarks:
-
-- **Single Goal Calculation**: < 10ms
-- **Batch Calculation (10 goals)**: < 100ms  
-- **Currency Conversion (batch)**: < 500ms
-- **UI Update Latency**: < 16ms (60fps)
-- **Memory Usage**: < 50MB for cache
-- **Cold Start**: < 2 seconds
-
----
-
-## Accessibility Compliance
-
-### WCAG 2.1 AA Standards
-
-#### Visual Design
-- ✅ **4.5:1 Contrast Ratio**: All text and interactive elements
-- ✅ **Color Independence**: No information conveyed by color alone
-- ✅ **Scalable Text**: Supports 200% zoom without horizontal scrolling
-- ✅ **Focus Indicators**: 2px visible focus rings
-
-#### Keyboard Navigation
-- ✅ **Full Keyboard Access**: All functionality available via keyboard
-- ✅ **Logical Tab Order**: Sequential focus movement
-- ✅ **Skip Links**: Bypass repetitive navigation elements
-- ✅ **No Keyboard Traps**: Users can navigate away from any element
-
-#### Screen Reader Support
-- ✅ **Semantic Markup**: Proper roles, states, and properties
-- ✅ **Alternative Text**: Descriptive text for all images and charts
-- ✅ **Live Regions**: Dynamic content updates announced
-- ✅ **Form Labels**: All inputs properly labeled and described
-
-### Implementation Examples
-
-#### VoiceOver Currency Descriptions
-```swift
-// Input: 1250.50, "USD"
-// Output: "One thousand two hundred fifty dollars and fifty cents"
-let description = AccessibilityManager.shared.voiceOverDescription(
-    for: 1250.50,
-    currency: "USD"
-)
-```
-
-#### Chart Accessibility
-```swift
-let chartLabel = accessibilityManager.chartAccessibilityLabel(
-    title: "Savings Progress",
-    dataPoints: [("Jan", 1000), ("Feb", 1250), ("Mar", 1100)],
-    unit: "USD"
-)
-// Output: "Savings Progress chart. 3 data points. Range from 1000 USD to 1250 USD..."
-```
-
-#### Haptic Feedback
-```swift
-AccessibilityManager.shared.performHapticFeedback(.success) // Goal completed
-AccessibilityManager.shared.performHapticFeedback(.selection) // Button tapped  
-AccessibilityManager.shared.performHapticFeedback(.warning) // Validation error
-```
-
-### Testing Accessibility
-
-#### Automated Testing
-```swift
-@Test("VoiceOver currency descriptions")
-func testVoiceOverCurrencyDescriptions() {
-    let description = AccessibilityManager.shared.voiceOverDescription(
-        for: 1250.50,
-        currency: "USD"
-    )
-    #expect(description.contains("1250.50"))
-    #expect(description.contains("USD") || description.contains("dollar"))
-}
-```
-
-#### Manual Testing Checklist
-
-- [ ] VoiceOver navigation flows naturally
-- [ ] All interactive elements have accessible names
-- [ ] Currency amounts are properly announced
-- [ ] Charts provide meaningful summaries
-- [ ] Form validation errors are announced
-- [ ] Dynamic content updates are announced
-- [ ] Focus management works correctly
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-#### 1. Missing MonthlyPlan Model Error
-
-**Error**: `Cannot find 'MonthlyPlan' in scope`
-
-**Solution**: Add MonthlyPlan to your ModelContainer:
-```swift
-let container = try ModelContainer(for: 
-    Goal.self, 
-    Asset.self, 
-    Transaction.self,
-    MonthlyPlan.self  // Add this
-)
-```
-
-#### 2. DIContainer Service Not Found
-
-**Error**: `Value of type 'DIContainer' has no member 'monthlyPlanningService'`
-
-**Solution**: Update DIContainer.swift with new service:
-```swift
-private lazy var _monthlyPlanningService = MonthlyPlanningService(
-    exchangeRateService: exchangeRateService
-)
-
-var monthlyPlanningService: MonthlyPlanningService {
-    return _monthlyPlanningService
-}
-```
-
-#### 3. Currency Conversion Failures
-
-**Symptoms**: Exchange rates showing as 0.0 or 1.0
-
-**Debugging**:
-```swift
-// Check API key configuration
-print("API Key configured: \(!apiKey.isEmpty && apiKey != "YOUR_COINGECKO_API_KEY")")
-
-// Monitor rate limit status  
-print("Rate limit status: \(exchangeRateService.getRateLimitStatus())")
-
-// Enable debug logging
-exchangeRateService.enableDebugLogging = true
-```
-
-**Solutions**:
-- Verify CoinGecko API key in Config.plist
-- Check network connectivity
-- Monitor API rate limits (10 requests/minute)
-- Use batch fetching for multiple currencies
-
-#### 4. Performance Issues
-
-**Symptoms**: Slow calculation, UI freezing
-
-**Debugging**:
-```swift
-// Monitor cache hit rates
-let stats = PerformanceOptimizer.shared.getCacheStatistics()
-print("Cache hit rate: \(stats.hitRate)")
-
-// Check calculation times
-let startTime = Date()
-let requirements = await planningService.calculateMonthlyRequirements(for: goals)
-let duration = Date().timeIntervalSince(startTime)
-print("Calculation took: \(duration)s")
-```
-
-**Solutions**:
-- Enable aggressive caching
-- Reduce batch sizes for large goal lists
-- Use background processing for heavy calculations
-- Implement progressive loading
-
-#### 5. Accessibility Issues
-
-**Symptoms**: VoiceOver not working correctly
-
-**Debugging**:
-```swift
-// Test accessibility descriptions
-let manager = AccessibilityManager.shared
-let description = manager.voiceOverDescription(for: 1000, currency: "USD")
-print("VoiceOver says: \(description)")
-
-// Check system accessibility settings
-print("VoiceOver enabled: \(UIAccessibility.isVoiceOverRunning)")
-print("Reduce motion: \(UIAccessibility.isReduceMotionEnabled)")
-```
-
-**Solutions**:
-- Verify accessibility modifiers are applied
-- Test with VoiceOver enabled on device/simulator
-- Check that accessibility labels are meaningful
-- Ensure proper heading hierarchy
-
-### Debug Tools
-
-#### Performance Monitoring
-```swift
-#if DEBUG
-extension MonthlyPlanningService {
-    func debugPerformance() async {
-        let report = PerformanceOptimizer.shared.generatePerformanceReport()
-        print("Performance Report:")
-        print("- Cache hit rate: \(report.cacheStats.hitRate * 100)%")
-        print("- Memory usage: \(report.cacheStats.memoryUsage) MB")
-        print("- Background tasks: \(report.cacheStats.backgroundTasks)")
-        
-        for recommendation in report.recommendations {
-            print("⚠️ \(recommendation)")
-        }
-    }
-}
-#endif
-```
-
-#### Accessibility Auditing
-```swift
-#if DEBUG
-let auditReport = AccessibilityManager.shared.auditCurrentScreen()
-print("Accessibility Score: \(auditReport.overallScore)/100")
-
-for issue in auditReport.criticalIssues {
-    print("🚨 CRITICAL: \(issue.title)")
-    print("   Fix: \(issue.suggestedFix)")
-}
-```
-
----
-
-## Future Enhancements
-
-### Planned Features (v2.1)
-
-#### 1. Goal Templates
-Pre-configured savings goals with typical monthly requirements:
-- Emergency fund (6 months expenses)
-- Vacation savings (destination-based)
-- Retirement contributions (age-based)
-- Home down payment (location-based)
-
-#### 2. Seasonal Adjustments
-Automatic adjustment based on calendar:
-- Holiday spending increases
-- Tax season considerations
-- Summer vacation savings
-- Back-to-school expenses
-
-#### 3. Income-Based Planning
-Integration with income tracking:
-- Percentage-based savings recommendations
-- Variable income smoothing
-- Bonus/windfall allocation suggestions
-- Debt-to-savings ratio optimization
-
-#### 4. Advanced Analytics
-Enhanced reporting and insights:
-- Savings velocity tracking
-- Goal completion probability
-- Risk assessment scoring  
-- Comparative analysis with benchmarks
-
-### Technical Roadmap
-
-#### v2.1: Enhanced Intelligence
-- Machine learning for spending pattern prediction
-- Smart goal prioritization based on user behavior
-- Automated category detection for transactions
-- Predictive cash flow analysis
-
-#### v2.2: Social Features
-- Goal sharing and collaboration
-- Family/household planning
-- Community challenges and benchmarks
-- Expert advisor integration
-
-#### v2.3: Advanced Integrations
-- Bank account synchronization
-- Investment portfolio integration
-- Cryptocurrency wallet connections
-- Tax software integration
-
-### Architecture Evolution
-
-#### Microservices Migration
-```
-Current: Monolithic SwiftUI App
-Future: Microservices + SwiftUI Frontend
-
-┌─────────────────┐    ┌──────────────────┐
-│   SwiftUI App   │◄──►│  Planning Service│
-│                 │    │  (Server-side)   │
-├─────────────────┤    ├──────────────────┤
-│ Local Storage   │◄──►│ Analytics Service│
-│ (SwiftData)     │    │ (ML/AI)          │
-└─────────────────┘    └──────────────────┘
-```
-
-#### Advanced Caching
-```swift
-// Multi-tier caching strategy
-enum CacheLevel {
-    case memory(duration: TimeInterval)
-    case disk(duration: TimeInterval) 
-    case network(cdn: Bool)
-    case distributed(redis: Bool)
-}
-```
-
-#### Real-time Synchronization
-```swift
-// WebSocket-based real-time updates
-actor RealtimeSyncManager {
-    func subscribeToGoalUpdates(userId: UUID) async throws
-    func broadcastRequirementChanges(_ requirements: [MonthlyRequirement]) async
-}
-```
-
----
-
-## Contributing
-
-### Development Setup
-
-1. Clone the repository
-2. Open `CryptoSavingsTracker.xcodeproj`
-3. Copy `Config.example.plist` to `Config.plist`
-4. Add your CoinGecko API key
-5. Build and run tests
-
-### Code Style
-
-- Follow Swift API Design Guidelines
-- Use SwiftLint for style enforcement
-- Write comprehensive tests for all features
-- Document public APIs with Swift DocC
-
-### Testing Requirements
-
-All contributions must include:
-- Unit tests (>90% coverage)
-- Integration tests for service interactions  
-- UI tests for user flows
-- Accessibility tests for WCAG compliance
-- Performance tests for critical paths
-
-### Review Process
-
-1. Create feature branch from `main`
-2. Implement feature with tests
-3. Run full test suite
-4. Submit pull request with description
-5. Address review feedback
-6. Merge after approval
-
----
-
-## License
-
-This documentation is part of the CryptoSavingsTracker project and follows the same license terms as the main project.
-
----
-
-## Support
-
-For questions or issues:
-1. Check this documentation first
-2. Search existing GitHub issues
-3. Create new issue with reproduction steps
-4. For urgent issues, contact the development team
-
----
-
-*Last updated: August 9, 2025*  
-*Version: 2.0.0*  
-*Author: CryptoSavingsTracker Development Team*
+*Last updated: December 2025*

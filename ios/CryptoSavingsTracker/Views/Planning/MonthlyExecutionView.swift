@@ -15,6 +15,14 @@ struct MonthlyExecutionView: View {
 
     @State private var showCompleteConfirmation = false
     @State private var showCompletedSection = true
+    @State private var showingCurrencyPicker = false
+    @State private var showingAssetPicker = false
+    @State private var showingAllocationSheet = false
+    @State private var selectedGoalSnapshot: ExecutionGoalSnapshot?
+    @State private var selectedAsset: Asset?
+    @State private var selectedAllocationAsset: Asset?
+    @State private var suggestedAmount: Double?
+    @State private var isComputingSuggestion = false
 
     init(modelContext: ModelContext) {
         _viewModel = StateObject(wrappedValue: MonthlyExecutionViewModel(modelContext: modelContext))
@@ -25,6 +33,11 @@ struct MonthlyExecutionView: View {
             VStack(spacing: 20) {
                 // Combined Progress Header
                 progressHeaderSection
+
+                // Fixed Budget Mode Header (if enabled)
+                if viewModel.isFixedBudgetMode && viewModel.monthlyBudget > 0 {
+                    fixedBudgetExecutionHeader
+                }
 
                 // Undo Banner
                 if viewModel.showUndoBanner {
@@ -59,9 +72,83 @@ struct MonthlyExecutionView: View {
         } message: {
             Text(completeConfirmationMessage)
         }
+        .sheet(isPresented: $showingCurrencyPicker) {
+            SearchableCurrencyPicker(
+                selectedCurrency: $viewModel.displayCurrency,
+                pickerType: .fiat
+            )
+        }
+        .sheet(isPresented: $showingAssetPicker) {
+            if let goalSnapshot = selectedGoalSnapshot {
+                let assets = viewModel.assetsForContribution(goalId: goalSnapshot.goalId)
+                NavigationView {
+                    Group {
+                        if assets.isEmpty {
+                            Text("No assets available. Add an asset first.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        } else {
+                            List(assets, id: \.id) { asset in
+                                Button {
+                                    showingAssetPicker = false
+                                    if asset.allocations.count > 1 {
+                                        selectedAllocationAsset = asset
+                                        showingAllocationSheet = true
+                                    } else {
+                                        beginSuggestedContribution(for: goalSnapshot, asset: asset)
+                                    }
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "bitcoinsign.circle")
+                                        Text(asset.currency)
+                                        Spacer()
+                                        if asset.allocations.count > 1 {
+                                            Image(systemName: "chart.pie.fill")
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .navigationTitle("Select Asset")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { showingAssetPicker = false }
+                        }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { selectedAsset != nil },
+            set: { if !$0 { selectedAsset = nil } }
+        )) {
+            if let asset = selectedAsset, let goalSnapshot = selectedGoalSnapshot {
+                AddTransactionView(
+                    asset: asset,
+                    prefillAmount: suggestedAmount,
+                    autoAllocateGoalId: goalSnapshot.goalId
+                )
+            }
+        }
+        .sheet(isPresented: $showingAllocationSheet, onDismiss: {
+            selectedAllocationAsset = nil
+        }) {
+            if let asset = selectedAllocationAsset, let goalSnapshot = selectedGoalSnapshot {
+                AssetSharingView(
+                    asset: asset,
+                    currentGoalId: goalSnapshot.goalId,
+                    prefillCloseMonthGoalId: goalSnapshot.goalId
+                )
+            }
+        }
         .overlay {
             if viewModel.isLoading {
                 ProgressView()
+            } else if isComputingSuggestion {
+                ProgressView("Calculating...")
             }
         }
     }
@@ -93,6 +180,38 @@ struct MonthlyExecutionView: View {
             ProgressView(value: pct, total: 100)
                 .tint(.green)
                 .scaleEffect(y: 1.5)
+
+            HStack {
+                Text("Display Currency")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    showingCurrencyPicker = true
+                } label: {
+                    Text(viewModel.displayCurrency)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("executionDisplayCurrencyButton")
+            }
+
+            if let updatedAt = viewModel.displayRateUpdatedAt {
+                Text(rateUpdateLabel(updatedAt))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            if viewModel.hasRateConversionWarning {
+                Label("Some rates unavailable. Showing goal currency for those goals.", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
 
             // Stats row
             HStack {
@@ -135,6 +254,16 @@ struct MonthlyExecutionView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            if let totalRemaining = viewModel.displayTotalRemaining {
+                Text("Remaining this month: \(formatCurrency(totalRemaining, currency: viewModel.displayCurrency))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if viewModel.hasRateConversionWarning {
+                Text("Remaining this month: unavailable (rate missing)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding()
         #if os(macOS)
@@ -144,6 +273,104 @@ struct MonthlyExecutionView: View {
         #endif
         .cornerRadius(12)
         .shadow(radius: 2)
+    }
+
+    // MARK: - Fixed Budget Execution Header
+
+    private var fixedBudgetExecutionHeader: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header with mode indicator
+            HStack {
+                Image(systemName: "play.fill")
+                    .font(.caption)
+                    .foregroundStyle(.blue)
+                Text("Fixed Budget Mode")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.blue)
+
+                Spacer()
+
+                Text(formatCurrency(viewModel.monthlyBudget, currency: viewModel.budgetCurrency))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            }
+
+            // Budget progress bar
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Budget Progress")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(Int(viewModel.budgetProgress))%")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(viewModel.budgetProgress >= 100 ? .green : .primary)
+                }
+
+                ProgressView(value: min(max(viewModel.budgetProgress, 0), 100), total: 100)
+                    .tint(viewModel.budgetProgress >= 100 ? .green : .blue)
+                    .scaleEffect(y: 1.2)
+            }
+
+            // Current goal being funded
+            if let currentGoal = viewModel.currentScheduledGoal {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Currently Funding")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 4) {
+                            if let emoji = currentGoal.emoji {
+                                Text(emoji)
+                                    .font(.subheadline)
+                            }
+                            Text(currentGoal.goalName)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(Int(currentGoal.progress))%")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        if currentGoal.paymentsRemaining > 0 {
+                            Text("\(currentGoal.paymentsRemaining) payment\(currentGoal.paymentsRemaining > 1 ? "s" : "") left")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+
+            // Next-up goal preview
+            if let nextUpGoal = viewModel.nextUpGoal,
+               nextUpGoal.goalId != viewModel.currentScheduledGoal?.goalId {
+                HStack(spacing: 8) {
+                    Text("→")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Next:")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    if let emoji = nextUpGoal.emoji {
+                        Text(emoji)
+                            .font(.caption)
+                    }
+                    Text(nextUpGoal.goalName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.leading, 8)
+            }
+        }
+        .padding()
+        .background(Color.blue.opacity(0.1))
+        .cornerRadius(12)
     }
 
     // MARK: - Undo Banner
@@ -219,12 +446,19 @@ struct MonthlyExecutionView: View {
                 }
             } else {
                 ForEach(viewModel.activeGoals, id: \.goalId) { goalSnapshot in
+                    let remainingToClose = viewModel.remainingToClose(for: goalSnapshot)
                     GoalProgressCard(
                         goalSnapshot: goalSnapshot,
                         contributed: viewModel.contributedTotals[goalSnapshot.goalId] ?? 0,
                         isFulfilled: false,
+                        isClosedForGoal: remainingToClose <= 0,
+                        remainingDisplayAmount: viewModel.remainingDisplayAmount(for: goalSnapshot),
+                        displayCurrency: viewModel.remainingDisplayCurrency(for: goalSnapshot),
                         viewModel: viewModel,
-                        onAddContribution: nil
+                        onAddContribution: (viewModel.isActive && remainingToClose > 0) ? {
+                            selectedGoalSnapshot = goalSnapshot
+                            showingAssetPicker = true
+                        } : nil
                     )
                 }
             }
@@ -264,10 +498,13 @@ struct MonthlyExecutionView: View {
                                 goalSnapshot: goalSnapshot,
                                 contributed: viewModel.contributedTotals[goalSnapshot.goalId] ?? 0,
                                 isFulfilled: true,
+                                isClosedForGoal: true,
+                                remainingDisplayAmount: viewModel.remainingDisplayAmount(for: goalSnapshot),
+                                displayCurrency: viewModel.remainingDisplayCurrency(for: goalSnapshot),
                                 viewModel: viewModel,
                                 onAddContribution: nil // No button for completed goals
                             )
-                        }
+                    }
                     }
                 }
                 .padding()
@@ -341,6 +578,21 @@ struct MonthlyExecutionView: View {
         return formatter.string(from: NSNumber(value: amount)) ?? "$\(amount)"
     }
 
+    private func formatCurrency(_ amount: Double, currency: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = currency
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: amount)) ?? "\(currency) \(amount)"
+    }
+
+    private func rateUpdateLabel(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        let relative = formatter.localizedString(for: date, relativeTo: Date())
+        return "Rates updated \(relative)"
+    }
+
     private func timeRemaining(until date: Date) -> String {
         let interval = date.timeIntervalSinceNow
         let hours = Int(interval / 3600)
@@ -352,6 +604,19 @@ struct MonthlyExecutionView: View {
             return "\(minutes)m"
         }
     }
+
+    private func beginSuggestedContribution(for goalSnapshot: ExecutionGoalSnapshot, asset: Asset) {
+        isComputingSuggestion = true
+        Task {
+            let suggestion = await viewModel.suggestedDepositAmount(
+                for: asset.currency,
+                goalSnapshot: goalSnapshot
+            )
+            suggestedAmount = suggestion
+            selectedAsset = asset
+            isComputingSuggestion = false
+        }
+    }
 }
 
 // MARK: - Goal Progress Card
@@ -360,6 +625,9 @@ struct GoalProgressCard: View {
     let goalSnapshot: ExecutionGoalSnapshot
     let contributed: Double
     let isFulfilled: Bool
+    let isClosedForGoal: Bool
+    let remainingDisplayAmount: Double?
+    let displayCurrency: String
     let viewModel: MonthlyExecutionViewModel
     let onAddContribution: (() -> Void)?
 
@@ -401,6 +669,30 @@ struct GoalProgressCard: View {
             Text("\(formatCurrency(contributed, currency: goalSnapshot.currency)) / \(formatCurrency(goalSnapshot.plannedAmount, currency: goalSnapshot.currency))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            if let remainingDisplayAmount, remainingDisplayAmount > 0 {
+                Text("Remaining to close: \(formatCurrency(remainingDisplayAmount, currency: displayCurrency))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            if isClosedForGoal && !isFulfilled {
+                Text("Month already closed for this goal")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("goalClosedMessage-\(goalSnapshot.goalId.uuidString)")
+            }
+
+            if let onAddContribution, !isFulfilled {
+                Button(action: onAddContribution) {
+                    Text("Add to Close Month")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("addToCloseMonthButton-\(goalSnapshot.goalName)")
+            }
         }
         .padding()
         #if os(macOS)

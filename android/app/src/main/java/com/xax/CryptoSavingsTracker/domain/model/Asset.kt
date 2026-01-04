@@ -12,17 +12,21 @@ data class Asset(
     val updatedAt: Long
 ) {
     /**
-     * Check if this is a crypto asset (has an address)
+     * Check if this is a crypto asset.
+     *
+     * iOS allows wallet address to be optional; we still treat the asset as "crypto" for formatting/UI
+     * if either an address or a network (chainId) is present.
      */
     val isCryptoAsset: Boolean
-        get() = address != null
+        get() = !address.isNullOrBlank() || !chainId.isNullOrBlank()
 
     /**
      * Get display name for the asset
      */
     fun displayName(): String {
-        return if (address != null) {
-            "${currency} (${address.take(6)}...${address.takeLast(4)})"
+        val normalizedAddress = address?.trim().orEmpty()
+        return if (normalizedAddress.isNotEmpty()) {
+            "${currency} (${normalizedAddress.take(6)}...${normalizedAddress.takeLast(4)})"
         } else {
             currency
         }
@@ -32,7 +36,8 @@ data class Asset(
      * Get shortened address for display
      */
     fun shortAddress(): String? {
-        return address?.let {
+        val normalizedAddress = address?.trim().orEmpty()
+        return normalizedAddress.takeIf { it.isNotEmpty() }?.let {
             if (it.length > 12) {
                 "${it.take(6)}...${it.takeLast(4)}"
             } else {

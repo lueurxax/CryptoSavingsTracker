@@ -113,9 +113,11 @@ class GoalDetailViewModel @Inject constructor(
             updateGoalUseCase.updateStatus(goalId, status).fold(
                 onSuccess = {
                     _showStatusMenu.value = false
+                    _showDeleteConfirmation.value = false
                 },
                 onFailure = { e ->
                     _error.value = e.message ?: "Failed to update status"
+                    _showDeleteConfirmation.value = false
                 }
             )
         }

@@ -13,6 +13,28 @@ struct GoalAllocationCard: View {
     let assetBalance: Double
     let remainingAmount: Double
     let onAllocateRemaining: (() -> Void)?
+    let closeMonthAmount: Double?
+    let onAddToCloseMonth: (() -> Void)?
+
+    init(
+        goal: Goal,
+        allocation: Binding<Double>,
+        assetCurrency: String,
+        assetBalance: Double,
+        remainingAmount: Double,
+        onAllocateRemaining: (() -> Void)?,
+        closeMonthAmount: Double? = nil,
+        onAddToCloseMonth: (() -> Void)? = nil
+    ) {
+        self.goal = goal
+        self._allocation = allocation
+        self.assetCurrency = assetCurrency
+        self.assetBalance = assetBalance
+        self.remainingAmount = remainingAmount
+        self.onAllocateRemaining = onAllocateRemaining
+        self.closeMonthAmount = closeMonthAmount
+        self.onAddToCloseMonth = onAddToCloseMonth
+    }
     
     var body: some View {
         VStack(spacing: 12) {
@@ -68,6 +90,22 @@ struct GoalAllocationCard: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .accessibilityIdentifier("allocateRemaining-\(goal.name)")
+            }
+
+            if let closeMonthAmount, let onAddToCloseMonth {
+                let appliedCloseAmount = min(closeMonthAmount, remainingAmount)
+                if appliedCloseAmount > epsilon {
+                    Button(action: onAddToCloseMonth) {
+                        Label(
+                            "Add to Close Month (+\(appliedCloseAmount, specifier: "%.4f") \(assetCurrency))",
+                            systemImage: "target"
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .accessibilityIdentifier("closeMonthAllocation-\(goal.name)")
+                }
             }
         }
         .padding()

@@ -15,7 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MoreVert
@@ -109,23 +109,15 @@ fun GoalDetailScreen(
                                 onDismissRequest = { showMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Change Status") },
-                                    onClick = {
-                                        showMenu = false
-                                        viewModel.showStatusMenu()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                    text = { Text("Archive Goal") },
                                     onClick = {
                                         showMenu = false
                                         viewModel.showDeleteConfirmation()
                                     },
                                     leadingIcon = {
                                         Icon(
-                                            Icons.Default.Delete,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.error
+                                            Icons.Default.Archive,
+                                            contentDescription = null
                                         )
                                     }
                                 )
@@ -170,55 +162,52 @@ fun GoalDetailScreen(
             }
         }
 
-        // Delete confirmation dialog
+        // Archive goal dialog - matches iOS behavior with clear action choices
         if (uiState.showDeleteConfirmation) {
             AlertDialog(
                 onDismissRequest = viewModel::dismissDeleteConfirmation,
-                title = { Text("Delete Goal") },
+                title = { Text("Archive Goal?") },
                 text = {
-                    Text("Are you sure you want to delete \"${uiState.goal?.name}\"? This action cannot be undone.")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Choose how to archive \"${uiState.goal?.name}\":",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            "Finished goals keep allocations (treated as spent). Cancelled goals free allocations back to unallocated.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 },
                 confirmButton = {
-                    TextButton(onClick = viewModel::confirmDelete) {
-                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        TextButton(
+                            onClick = { viewModel.updateStatus(GoalLifecycleStatus.FINISHED) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Mark Finished (keep allocations)")
+                        }
+                        TextButton(
+                            onClick = { viewModel.updateStatus(GoalLifecycleStatus.CANCELLED) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Cancel Goal (free allocations)", color = MaterialTheme.colorScheme.error)
+                        }
+                        TextButton(
+                            onClick = viewModel::confirmDelete,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Delete Permanently", color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = viewModel::dismissDeleteConfirmation) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
-
-        // Status change dialog
-        if (uiState.showStatusMenu) {
-            AlertDialog(
-                onDismissRequest = viewModel::dismissStatusMenu,
-                title = { Text("Change Status") },
-                text = {
-                    Column {
-                        GoalLifecycleStatus.entries.forEach { status ->
-                            TextButton(
-                                onClick = { viewModel.updateStatus(status) },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = status.displayName(),
-                                    color = if (status == uiState.goal?.lifecycleStatus) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    }
-                                )
-                            }
-                        }
-                    }
-                },
-                confirmButton = {},
-                dismissButton = {
-                    TextButton(onClick = viewModel::dismissStatusMenu) {
-                        Text("Cancel")
+                        Text("Back")
                     }
                 }
             )

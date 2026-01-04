@@ -30,6 +30,9 @@ final class MonthlyPlanningViewModel: ObservableObject {
     
     /// Display currency for total calculations (derived from settings)
     @Published var displayCurrency: String = "USD"
+
+    /// Month label the planning UI is currently targeting
+    @Published var planningMonthLabel: String = ""
     
     /// Access to settings for UI components
     var planningSettings: MonthlyPlanningSettings {
@@ -123,6 +126,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
         self.planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
         self.exchangeRateService = DIContainer.shared.exchangeRateService
         self.flexService = DIContainer.shared.makeFlexAdjustmentService(modelContext: modelContext)
+        self.planningMonthLabel = planService.currentMonthLabel()
         
         // Initialize display currency from settings
         self.displayCurrency = settings.displayCurrency
@@ -134,10 +138,12 @@ final class MonthlyPlanningViewModel: ObservableObject {
     
     // MARK: - Public Methods
     
-    /// Load monthly requirements for all active goals
-    func loadMonthlyRequirements() async {
+    /// Load monthly requirements for all active goals in the selected planning month
+    func loadMonthlyRequirements(for monthLabel: String? = nil) async {
         isLoading = true
         error = nil
+        let targetMonthLabel = resolvePlanningMonthLabel(preferred: monthLabel)
+        planningMonthLabel = targetMonthLabel
         
         do {
             // Fetch all active goals
@@ -152,8 +158,16 @@ final class MonthlyPlanningViewModel: ObservableObject {
             for _ in goals {
             }
 
-            // Get or create persisted plans for the current month
-            let plans = try await planService.getOrCreatePlansForCurrentMonth(goals: goals)
+            let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
+            let hasActiveExecution = (try? executionService.getActiveRecord()) != nil
+            if !hasActiveExecution {
+                _ = try await planService.rollForwardDraftPlans(to: targetMonthLabel)
+            }
+
+            // Get or create persisted plans for the selected month
+            let plans = try await planService.getOrCreatePlans(for: targetMonthLabel, goals: goals)
+
+            await refreshDraftPlans(plans, goals: goals)
 
             self.currentPlans = plans
 
@@ -338,6 +352,14 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .monthlyExecutionCompleted)
+            .sink { [weak self] _ in
+                Task { [weak self] in
+                    await self?.loadMonthlyRequirements()
+                }
+            }
+            .store(in: &cancellables)
     }
     
     /// Setup observation of settings changes
@@ -390,8 +412,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
     private func persistUpdatedPlans() async {
         do {
             // Use current month label and persisted plans as the source of truth
-            let monthLabel = planService.currentMonthLabel()
-            let plans = try planService.fetchPlans(for: monthLabel, state: nil)
+            let plans = try planService.fetchPlans(for: planningMonthLabel, state: nil)
 
             // Recalculate and update each plan using the latest goal data
             for plan in plans {
@@ -449,6 +470,49 @@ final class MonthlyPlanningViewModel: ObservableObject {
             deadline: goal.deadline,
             status: plan.status
         )
+    }
+
+    private func resolvePlanningMonthLabel(preferred: String?) -> String {
+        if let preferred, !preferred.isEmpty {
+            return preferred
+        }
+
+        let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
+        if let record = try? executionService.getCurrentMonthRecord(), record.status == .closed {
+            if let nextMonth = nextMonthLabel(from: record.monthLabel) {
+                return nextMonth
+            }
+        }
+
+        let currentMonth = planService.currentMonthLabel()
+        if planningMonthLabel.isEmpty {
+            return currentMonth
+        }
+        if planningMonthLabel < currentMonth {
+            return currentMonth
+        }
+        return planningMonthLabel
+    }
+
+    private func nextMonthLabel(from monthLabel: String) -> String? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        guard let date = formatter.date(from: monthLabel),
+              let nextDate = Calendar.current.date(byAdding: .month, value: 1, to: date) else {
+            return nil
+        }
+        return formatter.string(from: nextDate)
+    }
+
+    private func refreshDraftPlans(_ plans: [MonthlyPlan], goals: [Goal]) async {
+        do {
+            for plan in plans where plan.state == .draft {
+                guard let goal = goals.first(where: { $0.id == plan.goalId }) else { continue }
+                try await planService.updatePlan(plan, withGoal: goal)
+            }
+        } catch {
+            AppLog.error("Failed to refresh draft plans: \(error)", category: .monthlyPlanning)
+        }
     }
 
     /// Calculate total required using plan effective amounts with currency conversion

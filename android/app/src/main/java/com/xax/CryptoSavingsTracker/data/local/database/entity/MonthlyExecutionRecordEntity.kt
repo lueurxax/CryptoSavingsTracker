@@ -46,6 +46,9 @@ data class MonthlyExecutionRecordEntity(
     @ColumnInfo(name = "closed_at_utc_millis")
     val closedAtUtcMillis: Long? = null,
 
+    @ColumnInfo(name = "can_undo_until_utc_millis")
+    val canUndoUntilUtcMillis: Long? = null,
+
     @ColumnInfo(name = "created_at_utc_millis")
     val createdAtUtcMillis: Long = System.currentTimeMillis(),
 

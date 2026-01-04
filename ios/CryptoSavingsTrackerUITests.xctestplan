@@ -18,7 +18,6 @@
   },
   "testTargets" : [
     {
-      "parallelizable" : false,
       "target" : {
         "containerPath" : "container:CryptoSavingsTracker.xcodeproj",
         "identifier" : "CEF7B1FA2E33FAB600FB26B3",

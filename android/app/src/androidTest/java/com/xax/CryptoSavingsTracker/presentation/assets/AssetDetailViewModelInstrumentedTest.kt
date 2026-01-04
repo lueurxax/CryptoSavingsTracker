@@ -9,6 +9,7 @@ import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
 import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
+import com.xax.CryptoSavingsTracker.domain.repository.OnChainTransactionRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.DeleteAssetUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.GetAssetByIdUseCase
@@ -41,6 +42,7 @@ class AssetDetailViewModelInstrumentedTest {
         val transactionRepository = TestTransactionRepository()
         val exchangeRateRepository = TestExchangeRateRepository(rate = 100_000.0)
         val onChainBalanceRepository = TestOnChainBalanceRepository(balance = 0.004106)
+        val onChainTransactionRepository = TestOnChainTransactionRepository()
 
         val viewModel = AssetDetailViewModel(
             savedStateHandle = SavedStateHandle(mapOf("assetId" to asset.id)),
@@ -48,6 +50,7 @@ class AssetDetailViewModelInstrumentedTest {
             getTransactionsUseCase = GetTransactionsUseCase(transactionRepository),
             exchangeRateRepository = exchangeRateRepository,
             onChainBalanceRepository = onChainBalanceRepository,
+            onChainTransactionRepository = onChainTransactionRepository,
             deleteAssetUseCase = DeleteAssetUseCase(assetRepository)
         )
 
@@ -96,6 +99,7 @@ class AssetDetailViewModelInstrumentedTest {
             getTransactionsUseCase = GetTransactionsUseCase(transactionRepository),
             exchangeRateRepository = TestExchangeRateRepository(rate = 1.0),
             onChainBalanceRepository = TestOnChainBalanceRepository(balance = 2.0),
+            onChainTransactionRepository = TestOnChainTransactionRepository(),
             deleteAssetUseCase = DeleteAssetUseCase(assetRepository)
         )
 
@@ -216,10 +220,15 @@ class AssetDetailViewModelInstrumentedTest {
         override suspend fun clearCache() = Unit
     }
 
+    private class TestOnChainTransactionRepository : OnChainTransactionRepository {
+        override suspend fun refresh(asset: Asset, limit: Int, forceRefresh: Boolean): Result<Int> {
+            return Result.success(0)
+        }
+    }
+
     private class TestExchangeRateRepository(private val rate: Double) : ExchangeRateRepository {
         override suspend fun fetchRate(from: String, to: String): Double = rate
         override fun hasValidConfiguration(): Boolean = true
         override suspend fun clearCache() = Unit
     }
 }
-

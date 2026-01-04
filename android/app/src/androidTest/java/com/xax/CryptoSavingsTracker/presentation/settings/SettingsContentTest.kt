@@ -26,7 +26,6 @@ class SettingsContentTest {
                 onSave = {},
                 onClearCaches = {},
                 onExportCsv = { exportClicks += 1 },
-                onImportData = {},
                 onTapVersion = {},
                 isDeveloperModeEnabled = false,
                 versionLabel = "1.0.0"
@@ -47,7 +46,6 @@ class SettingsContentTest {
                 onSave = {},
                 onClearCaches = {},
                 onExportCsv = {},
-                onImportData = {},
                 onTapVersion = {},
                 isDeveloperModeEnabled = false,
                 versionLabel = "1.0.0"
@@ -65,7 +63,6 @@ class SettingsContentTest {
                 onSave = {},
                 onClearCaches = {},
                 onExportCsv = {},
-                onImportData = {},
                 onTapVersion = {},
                 isDeveloperModeEnabled = true,
                 versionLabel = "1.0.0"

@@ -43,7 +43,7 @@ class CompleteExecutionUseCase @Inject constructor(
 
         val completed = progress.map { item ->
             val snapshot = item.snapshot
-            val actual = item.deltaSinceStart
+            val actual = item.contributed
 
             CompletedExecution(
                 id = UUID.randomUUID().toString(),

@@ -241,4 +241,5 @@ final class AutomationScheduler {
 extension Notification.Name {
     static let monthlyExecutionAutoStarted = Notification.Name("monthlyExecutionAutoStarted")
     static let monthlyExecutionAutoCompleted = Notification.Name("monthlyExecutionAutoCompleted")
+    static let monthlyExecutionCompleted = Notification.Name("monthlyExecutionCompleted")
 }

@@ -25,6 +25,18 @@ interface TatumApi {
         @Query("tokenTypes") tokenTypes: String
     ): TatumV4PortfolioResponse
 
+    /**
+     * Get transaction history (v4 API).
+     * Used for EVM chains supported by v4.
+     */
+    @GET("v4/data/transaction/history")
+    suspend fun getTransactionHistoryV4(
+        @Query("chain") chain: String,
+        @Query("addresses") addresses: String,
+        @Query("sort") sort: String = "DESC",
+        @Query("pageSize") pageSize: Int = 20
+    ): TatumV4TransactionResponse
+
     // ==================== V3 Legacy API ====================
 
     /**
@@ -50,6 +62,42 @@ interface TatumApi {
      */
     @GET("v3/dogecoin/address/balance/{address}")
     suspend fun getDogecoinBalance(@Path("address") address: String): TatumUTXOBalance
+
+    /**
+     * Get Bitcoin transaction history for an address.
+     */
+    @GET("v3/bitcoin/transaction/address/{address}")
+    suspend fun getBitcoinTransactions(
+        @Path("address") address: String,
+        @Query("pageSize") pageSize: Int = 20
+    ): List<TatumUTXOTransaction>
+
+    /**
+     * Get Litecoin transaction history for an address.
+     */
+    @GET("v3/litecoin/transaction/address/{address}")
+    suspend fun getLitecoinTransactions(
+        @Path("address") address: String,
+        @Query("pageSize") pageSize: Int = 20
+    ): List<TatumUTXOTransaction>
+
+    /**
+     * Get Bitcoin Cash transaction history for an address.
+     */
+    @GET("v3/bcash/transaction/address/{address}")
+    suspend fun getBitcoinCashTransactions(
+        @Path("address") address: String,
+        @Query("pageSize") pageSize: Int = 20
+    ): List<TatumUTXOTransaction>
+
+    /**
+     * Get Dogecoin transaction history for an address.
+     */
+    @GET("v3/dogecoin/transaction/address/{address}")
+    suspend fun getDogecoinTransactions(
+        @Path("address") address: String,
+        @Query("pageSize") pageSize: Int = 20
+    ): List<TatumUTXOTransaction>
 
     /**
      * Get XRP account balance.
@@ -83,6 +131,16 @@ interface TatumApi {
         @Path("chain") chain: String,
         @Path("address") address: String
     ): TatumEvmBalanceResponse
+
+    /**
+     * Legacy (v3) EVM transaction history.
+     */
+    @GET("v3/blockchain/transaction/address/{address}")
+    suspend fun getEvmTransactionsLegacy(
+        @Path("address") address: String,
+        @Query("chain") chain: String,
+        @Query("pageSize") pageSize: Int = 20
+    ): List<TatumTransactionDto>
 }
 
 // ==================== V4 Response Models ====================
@@ -117,6 +175,83 @@ data class TatumV4BalanceItem(
         }
     }
 }
+
+// ==================== Transaction Response Models ====================
+
+@Serializable
+data class TatumV4TransactionResponse(
+    val result: List<TatumTransactionDto> = emptyList(),
+    val prevPage: String? = null,
+    val nextPage: String? = null
+)
+
+@Serializable
+data class TatumTransactionDto(
+    val hash: String,
+    val blockNumber: Long? = null,
+    val timestamp: Long? = null,
+    val from: String? = null,
+    val to: String? = null,
+    val value: String? = null,
+    val gasUsed: String? = null,
+    val gasPrice: String? = null,
+    val chain: String? = null,
+    val address: String? = null,
+    val transactionType: String? = null,
+    val transactionSubtype: String? = null,
+    val amount: String? = null,
+    val counterAddress: String? = null,
+    val tokenTransfers: List<TatumTokenTransferDto>? = null
+)
+
+@Serializable
+data class TatumTokenTransferDto(
+    val from: String? = null,
+    val to: String? = null,
+    val value: String? = null,
+    val tokenAddress: String? = null,
+    val tokenSymbol: String? = null,
+    val tokenName: String? = null,
+    val tokenDecimals: Int? = null
+)
+
+// ==================== UTXO Transaction Models ====================
+
+@Serializable
+data class TatumUTXOTransaction(
+    val hash: String,
+    val time: Long? = null,
+    val inputs: List<TatumUTXOInput>? = null,
+    val outputs: List<TatumUTXOOutput>? = null
+)
+
+@Serializable
+data class TatumUTXOInput(
+    val prevout: TatumUTXOPrevout? = null
+)
+
+@Serializable
+data class TatumUTXOOutput(
+    @SerialName("value")
+    val valueNumber: Double? = null,
+    val address: String? = null,
+    val scriptPubKey: TatumScriptPubKey? = null
+) {
+    val humanReadableValue: Double
+        get() = (valueNumber ?: 0.0) / 100_000_000.0
+}
+
+@Serializable
+data class TatumUTXOPrevout(
+    @SerialName("value")
+    val valueNumber: Double? = null,
+    val scriptPubKey: TatumScriptPubKey? = null
+)
+
+@Serializable
+data class TatumScriptPubKey(
+    val addresses: List<String>? = null
+)
 
 // ==================== V3 Response Models ====================
 

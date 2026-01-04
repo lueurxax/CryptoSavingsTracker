@@ -12,6 +12,7 @@ object ExecutionRecordMapper {
         status = ExecutionStatus.fromString(status),
         startedAtMillis = startedAtUtcMillis,
         closedAtMillis = closedAtUtcMillis,
+        canUndoUntilMillis = canUndoUntilUtcMillis,
         createdAtMillis = createdAtUtcMillis,
         updatedAtMillis = lastModifiedAtUtcMillis
     )
@@ -23,6 +24,7 @@ object ExecutionRecordMapper {
         status = status.rawValue,
         startedAtUtcMillis = startedAtMillis,
         closedAtUtcMillis = closedAtMillis,
+        canUndoUntilUtcMillis = canUndoUntilMillis,
         createdAtUtcMillis = createdAtMillis,
         lastModifiedAtUtcMillis = updatedAtMillis
     )
