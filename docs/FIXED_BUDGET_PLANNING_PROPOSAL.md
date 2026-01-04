@@ -249,16 +249,27 @@ The algorithm uses sequential contribution to earliest deadline first:
 1. For each goal, calculate:
    - remainingAmount = targetAmount - currentProgress
    - monthsUntilDeadline = months between now and deadline
-   - goalMinimum = remainingAmount / monthsUntilDeadline
 
 2. Sort goals by deadline (earliest first)
 
-3. Calculate minimum required budget:
-   - minimumBudget = MAX(all goalMinimum values)
+3. Calculate minimum required budget using CUMULATIVE method:
+   - At each deadline D[i], calculate total remaining across all goals with deadline <= D[i]
+   - cumulativeRemaining[i] = sum of remaining for goals 1..i
+   - monthsToDeadline[i] = months until D[i]
+   - minimumForDeadline[i] = cumulativeRemaining[i] / monthsToDeadline[i]
+   - minimumBudget = MAX(minimumForDeadline[1..n])
+
+   Example with overlapping deadlines:
+   - Goal B: €1,000, 3 months → at month 3: need €1,000/3 = €333/mo
+   - Goal C: €600, 6 months  → at month 6: need (€1,000+€600)/6 = €267/mo
+   - Goal A: €3,000, 12 months → at month 12: need (€1,000+€600+€3,000)/12 = €383/mo
+   - minimumBudget = MAX(333, 267, 383) = €383/mo
+
+   This correctly accounts for cumulative obligations at each deadline.
 
 4. Check feasibility:
    - If userBudget >= minimumBudget: feasible
-   - If userBudget < minimumBudget: show warnings, suggest fixes
+   - If userBudget < minimumBudget: show warnings, identify binding constraint
 
 5. Generate current month's allocation:
    - Allocate full budget to earliest-deadline goal
@@ -266,7 +277,8 @@ The algorithm uses sequential contribution to earliest deadline first:
    - Return per-goal amounts for this month only
 
 6. Generate timeline preview:
-   - Calculate when each goal starts/completes at this budget
+   - Simulate sequential allocation at given budget
+   - Calculate when each goal starts/completes
    - Show as visual timeline in calculator
 ```
 
@@ -312,12 +324,28 @@ struct MonthlyGoalPlan {
     var isSkipped: Bool
 }
 
-// New: Budget context stored in settings
+// Settings: REUSE existing v1 properties (no rename needed)
 extension MonthlyPlanningSettings {
-    var budgetAmount: Double?      // User's monthly budget (nil = not using budget mode)
-    var budgetCurrency: String
+    // These already exist in v1 - keep using them:
+    var monthlyBudget: Double?     // User's monthly budget (nil = not using budget mode)
+    var budgetCurrency: String     // Currency for the budget
+
+    // REMOVE in v2 (no longer needed):
+    // var isFixedBudgetEnabled: Bool  -- v2 uses monthlyBudget != nil instead
+    // var completionBehavior: CompletionBehavior  -- not needed
+    // var hasCompletedFixedBudgetOnboarding: Bool  -- simpler flow doesn't need this
 }
 ```
+
+### Migration Strategy
+
+During v2 implementation:
+1. **Keep using `monthlyBudget`** - no rename to `budgetAmount`
+2. **Read existing value** - if user had v1 budget set, it's preserved
+3. **Remove mode flag** - `isFixedBudgetEnabled` becomes redundant;
+   budget mode is active when `monthlyBudget != nil`
+4. **First launch after v2** - if `monthlyBudget` is set, show one-time
+   message explaining the new calculator approach
 
 ### Timeline Preview (Calculator Only)
 
@@ -444,7 +472,23 @@ No changes - continues showing:
 
 ### Execution Tracking
 
-No changes - tracks contributions against the per-goal amounts (which happen to come from budget calculation).
+Works the same as Per-Goal mode because v2 stores amounts in `MonthlyGoalPlan.customAmount`:
+
+**How execution works in v2:**
+1. User applies budget calculator → per-goal `customAmount` values are set
+2. Execution reads from `MonthlyGoalPlan` (same as Per-Goal mode)
+3. Tracks contributions against each goal's `customAmount`
+4. No stored schedule needed - execution only cares about current month's targets
+
+**"Current Focus" in execution:**
+- Shows goal with highest remaining amount this month
+- Derived from `MonthlyGoalPlan` data, not from a stored schedule
+- If user wants to see future months, they re-open the budget calculator
+
+**Key difference from v1:**
+- v1 stored a full `FixedBudgetPlan` with multi-month schedule
+- v2 only stores current month's per-goal amounts (via `customAmount`)
+- Timeline preview is ephemeral (generated on-demand in calculator)
 
 ## Recalculation
 
@@ -550,7 +594,7 @@ For users who already used v1 Fixed Budget mode:
 | `Views/Planning/BudgetSummaryCard.swift` | NEW - Budget display |
 | `Views/Planning/MonthlyPlanningView.swift` | Add entry point, summary card |
 | `ViewModels/MonthlyPlanningViewModel.swift` | Add budget state, apply logic |
-| `Models/MonthlyPlanningSettings.swift` | Add `budgetAmount`, `budgetCurrency` |
+| `Models/MonthlyPlanningSettings.swift` | Remove `isFixedBudgetEnabled`, `completionBehavior`, `hasCompletedOnboarding`; keep `monthlyBudget` |
 
 ### Android
 
@@ -561,7 +605,7 @@ For users who already used v1 Fixed Budget mode:
 | `presentation/planning/components/BudgetSummaryCard.kt` | NEW - Budget display |
 | `presentation/planning/MonthlyPlanningScreen.kt` | Add entry point, summary card |
 | `presentation/planning/MonthlyPlanningViewModel.kt` | Add budget state, apply logic |
-| `domain/model/MonthlyPlanningSettings.kt` | Add `budgetAmount`, `budgetCurrency` |
+| `domain/model/MonthlyPlanningSettings.kt` | Remove `isFixedBudgetEnabled`, `completionBehavior`, `hasCompletedOnboarding`; keep `monthlyBudget` |
 
 ### Files to Remove (After v2 is Complete)
 

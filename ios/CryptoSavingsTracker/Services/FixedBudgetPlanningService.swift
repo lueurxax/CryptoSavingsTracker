@@ -261,50 +261,23 @@ final class FixedBudgetPlanningService: ObservableObject {
             safetyCounter += 1
             let startTotals = goalRunningTotals
             var paymentAllocations: [UUID: Double] = [:]
-
-            var minimums: [UUID: Double] = [:]
-            var totalMinimum: Double = 0
+            var remainingBudget = budget
 
             for goal in activeGoals {
                 guard paymentDate <= goal.deadline else { continue }
                 let remaining = remainingByGoal[goal.id] ?? 0
                 guard remaining > 0.01 else { continue }
-                let monthsRemaining = max(1, calculateMonthsRemaining(from: paymentDate, to: goal.deadline))
-                let minimum = remaining / Double(monthsRemaining)
-                minimums[goal.id] = minimum
-                totalMinimum += minimum
-            }
-
-            if totalMinimum <= 0 {
-                break
-            }
-
-            let scale = totalMinimum > budget ? (budget / totalMinimum) : 1.0
-            var remainingBudget = budget
-
-            for goal in activeGoals {
-                guard let minimum = minimums[goal.id] else { continue }
-                let amount = min(remainingBudget, minimum * scale)
+                let amount = min(remainingBudget, remaining)
                 guard amount > 0.01 else { continue }
                 paymentAllocations[goal.id, default: 0] += amount
                 goalRunningTotals[goal.id, default: 0] += amount
-                remainingByGoal[goal.id, default: 0] = max(0, (remainingByGoal[goal.id] ?? 0) - amount)
+                remainingByGoal[goal.id, default: 0] = max(0, remaining - amount)
                 remainingBudget -= amount
+                if remainingBudget <= 0.01 { break }
             }
 
-            if remainingBudget > 0.01 {
-                for goal in activeGoals {
-                    guard paymentDate <= goal.deadline else { continue }
-                    let remaining = remainingByGoal[goal.id] ?? 0
-                    guard remaining > 0.01 else { continue }
-                    let extra = min(remainingBudget, remaining)
-                    guard extra > 0.01 else { continue }
-                    paymentAllocations[goal.id, default: 0] += extra
-                    goalRunningTotals[goal.id, default: 0] += extra
-                    remainingByGoal[goal.id, default: 0] = max(0, remaining - extra)
-                    remainingBudget -= extra
-                    if remainingBudget <= 0.01 { break }
-                }
+            if paymentAllocations.isEmpty {
+                break
             }
 
             let contributions = activeGoals.compactMap { goal -> GoalContribution? in

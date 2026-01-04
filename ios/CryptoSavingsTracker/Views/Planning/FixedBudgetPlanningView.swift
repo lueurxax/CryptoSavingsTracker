@@ -133,7 +133,7 @@ struct BudgetSummaryCard: View {
                     .font(.subheadline)
             }
 
-            Text(CurrencyFormatter.format(amount: monthlyBudget, currency: currency))
+            Text(CurrencyFormatter.format(amount: monthlyBudget, currency: currency, maximumFractionDigits: 2))
                 .font(.system(size: 32, weight: .bold, design: .rounded))
 
             // Feasibility status
@@ -288,9 +288,9 @@ struct CurrentFocusCard: View {
                 .tint(.blue)
 
             HStack {
-                Text(CurrencyFormatter.format(amount: contributed, currency: currency))
+                Text(CurrencyFormatter.format(amount: contributed, currency: currency, maximumFractionDigits: 2))
                     .font(.subheadline)
-                Text("of \(CurrencyFormatter.format(amount: target, currency: currency))")
+                Text("of \(CurrencyFormatter.format(amount: target, currency: currency, maximumFractionDigits: 2))")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -412,11 +412,11 @@ struct ScheduleBlockCard: View {
             }
 
             if let remainingAmount {
-                Text("Planned: \(CurrencyFormatter.format(amount: block.totalAmount, currency: currency)) of \(CurrencyFormatter.format(amount: remainingAmount, currency: currency))")
+                Text("Planned: \(CurrencyFormatter.format(amount: block.totalAmount, currency: currency, maximumFractionDigits: 2)) of \(CurrencyFormatter.format(amount: remainingAmount, currency: currency, maximumFractionDigits: 2))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                Text(CurrencyFormatter.format(amount: block.totalAmount, currency: currency) + " total")
+                Text(CurrencyFormatter.format(amount: block.totalAmount, currency: currency, maximumFractionDigits: 2) + " total")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -424,7 +424,7 @@ struct ScheduleBlockCard: View {
             if let remainingAmount {
                 let shortfall = max(remainingAmount - block.totalAmount, 0)
                 if shortfall > 0.01 {
-                    Text("Shortfall: \(CurrencyFormatter.format(amount: shortfall, currency: currency))")
+                    Text("Shortfall: \(CurrencyFormatter.format(amount: shortfall, currency: currency, maximumFractionDigits: 2))")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
@@ -447,7 +447,7 @@ struct ScheduleBlockCard: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text(CurrencyFormatter.format(amount: detail.amount, currency: currency))
+                            Text(CurrencyFormatter.format(amount: detail.amount, currency: currency, maximumFractionDigits: 2))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -455,7 +455,7 @@ struct ScheduleBlockCard: View {
                     if let remainingAmount {
                         let shortfall = max(remainingAmount - block.totalAmount, 0)
                         if shortfall > 0.01 {
-                            Text("Remaining after schedule: \(CurrencyFormatter.format(amount: shortfall, currency: currency))")
+                            Text("Remaining after schedule: \(CurrencyFormatter.format(amount: shortfall, currency: currency, maximumFractionDigits: 2))")
                                 .font(.caption)
                                 .foregroundStyle(.orange)
                         }
@@ -536,7 +536,7 @@ struct BudgetEditorSheet: View {
                 } header: {
                     Text("Monthly Savings Amount")
                 } footer: {
-                    Text("Minimum required: \(CurrencyFormatter.format(amount: minimumRequired, currency: currency))")
+                    Text("Minimum required: \(CurrencyFormatter.format(amount: minimumRequired, currency: currency, maximumFractionDigits: 2))")
                 }
             }
             .navigationTitle("Edit Budget")
@@ -632,7 +632,7 @@ struct SetupStep1View: View {
                         }
                     }
             } footer: {
-                Text("Suggested minimum: \(CurrencyFormatter.format(amount: minimumRequired, currency: currency))")
+                Text("Suggested minimum: \(CurrencyFormatter.format(amount: minimumRequired, currency: currency, maximumFractionDigits: 2))")
             }
 
             Section {
@@ -716,7 +716,7 @@ struct PendingQuickFix: Identifiable {
         case .extendDeadline(_, _, let months):
             return "Extend \(goalName) by \(months) month\(months == 1 ? "" : "s")"
         case .reduceTarget(_, _, let to, let currency):
-            return "Reduce \(goalName) target to \(CurrencyFormatter.format(amount: to, currency: currency))"
+            return "Reduce \(goalName) target to \(CurrencyFormatter.format(amount: to, currency: currency, maximumFractionDigits: 2))"
         case .increaseBudget:
             return suggestion.title
         }
@@ -727,9 +727,9 @@ struct PendingQuickFix: Identifiable {
         case .extendDeadline(_, _, let months):
             return "This will move the deadline forward by \(months) month\(months == 1 ? "" : "s"), giving you more time to reach this goal."
         case .reduceTarget(_, _, let to, let currency):
-            return "This will lower the target amount to \(CurrencyFormatter.format(amount: to, currency: currency)), making the goal achievable with your current budget."
+            return "This will lower the target amount to \(CurrencyFormatter.format(amount: to, currency: currency, maximumFractionDigits: 2)), making the goal achievable with your current budget."
         case .increaseBudget(let to, let currency):
-            return "This will increase your monthly budget to \(CurrencyFormatter.format(amount: to, currency: currency))."
+            return "This will increase your monthly budget to \(CurrencyFormatter.format(amount: to, currency: currency, maximumFractionDigits: 2))."
         }
     }
 

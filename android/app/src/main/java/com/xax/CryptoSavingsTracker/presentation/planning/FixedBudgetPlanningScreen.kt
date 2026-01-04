@@ -1260,10 +1260,10 @@ private fun formatCurrency(amount: Double, currency: String): String {
     return try {
         val format = NumberFormat.getCurrencyInstance()
         format.currency = Currency.getInstance(currency)
-        format.maximumFractionDigits = 0
+        format.maximumFractionDigits = 2
         format.format(amount)
     } catch (e: Exception) {
-        "$${String.format("%.0f", amount)}"
+        "$${String.format("%.2f", amount)}"
     }
 }
 

@@ -272,49 +272,23 @@ class FixedBudgetPlanningUseCase @Inject constructor(
             safetyCounter++
             val startTotals = goalRunningTotals.toMap()
             val paymentAllocations = mutableMapOf<String, Double>()
-            val minimums = mutableMapOf<String, Double>()
+            var remainingBudget = budget
 
-            var totalMinimum = 0.0
             for (goal in activeGoals) {
                 if (paymentDate.isAfter(goal.deadline)) continue
                 val remaining = remainingByGoal[goal.id] ?: 0.0
                 if (remaining <= 0.01) continue
-                val monthsRemaining = max(1, calculateMonthsRemaining(paymentDate, goal.deadline))
-                val minimum = remaining / monthsRemaining.toDouble()
-                minimums[goal.id] = minimum
-                totalMinimum += minimum
-            }
-
-            if (totalMinimum <= 0) break
-
-            val scale = if (totalMinimum > budget) budget / totalMinimum else 1.0
-            var remainingBudget = budget
-
-            for (goal in activeGoals) {
-                val minimum = minimums[goal.id] ?: continue
-                val amount = min(remainingBudget, minimum * scale)
+                val amount = min(remainingBudget, remaining)
                 if (amount <= 0.01) continue
 
                 paymentAllocations[goal.id] = (paymentAllocations[goal.id] ?: 0.0) + amount
                 goalRunningTotals[goal.id] = (goalRunningTotals[goal.id] ?: 0.0) + amount
-                remainingByGoal[goal.id] = max(0.0, (remainingByGoal[goal.id] ?: 0.0) - amount)
+                remainingByGoal[goal.id] = max(0.0, remaining - amount)
                 remainingBudget -= amount
+                if (remainingBudget <= 0.01) break
             }
 
-            if (remainingBudget > 0.01) {
-                for (goal in activeGoals) {
-                    if (paymentDate.isAfter(goal.deadline)) continue
-                    val remaining = remainingByGoal[goal.id] ?: 0.0
-                    if (remaining <= 0.01) continue
-                    val extra = min(remainingBudget, remaining)
-                    if (extra <= 0.01) continue
-                    paymentAllocations[goal.id] = (paymentAllocations[goal.id] ?: 0.0) + extra
-                    goalRunningTotals[goal.id] = (goalRunningTotals[goal.id] ?: 0.0) + extra
-                    remainingByGoal[goal.id] = max(0.0, remaining - extra)
-                    remainingBudget -= extra
-                    if (remainingBudget <= 0.01) break
-                }
-            }
+            if (paymentAllocations.isEmpty()) break
 
             val contributions = activeGoals.mapNotNull { goal ->
                 val amount = paymentAllocations[goal.id] ?: 0.0
