@@ -228,9 +228,9 @@ When user taps "Apply to Plan":
 
 ## Algorithm
 
-> **Note:** This describes the v2 simplified algorithm. The current v1 implementation uses
-> a more complex weighted allocation approach in `FixedBudgetPlanningUseCase.kt`.
-> The v2 algorithm prioritizes simplicity for the "calculator tool" approach.
+> **Note:** This algorithm is the same as v1 (earliest-deadline-first sequential allocation).
+> The v1 implementation in `FixedBudgetPlanningUseCase.kt` uses this EDF approach.
+> v2 reuses the same core algorithm but in a simpler "calculator tool" context.
 
 The algorithm uses sequential contribution to earliest deadline first:
 
@@ -414,7 +414,7 @@ Add visual indicator when amount comes from budget calculation:
 
 ```swift
 // Existing goal card, add:
-if plan.customAmount != nil && settings.budgetAmount != nil {
+if plan.customAmount != nil && settings.monthlyBudget != nil {
     Label("From budget", systemImage: "calculator")
         .font(.caption)
         .foregroundStyle(.secondary)
