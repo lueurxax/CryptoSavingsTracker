@@ -37,7 +37,7 @@ class SettingsContentTest {
     }
 
     @Test
-    fun apiKeys_areHiddenUntilDeveloperModeEnabled() {
+    fun apiKeys_areHidden_whenDeveloperModeDisabled() {
         composeTestRule.setContent {
             SettingsContent(
                 uiState = SettingsUiState(),
@@ -54,7 +54,10 @@ class SettingsContentTest {
 
         composeTestRule.onAllNodesWithTag("settingsCoinGeckoKey").assertCountEquals(0)
         composeTestRule.onAllNodesWithTag("settingsTatumKey").assertCountEquals(0)
+    }
 
+    @Test
+    fun apiKeys_areVisible_whenDeveloperModeEnabled() {
         composeTestRule.setContent {
             SettingsContent(
                 uiState = SettingsUiState(),

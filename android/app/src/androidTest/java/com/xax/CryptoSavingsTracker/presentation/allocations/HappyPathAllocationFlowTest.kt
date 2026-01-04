@@ -1,5 +1,6 @@
 package com.xax.CryptoSavingsTracker.presentation.allocations
 
+import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
@@ -9,12 +10,15 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.xax.CryptoSavingsTracker.MainActivity
 import com.xax.CryptoSavingsTracker.data.local.database.dao.AllocationDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.AssetDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.GoalDao
 import com.xax.CryptoSavingsTracker.data.local.database.entity.AssetEntity
 import com.xax.CryptoSavingsTracker.data.local.database.entity.GoalEntity
+import com.xax.CryptoSavingsTracker.presentation.onboarding.ONBOARDING_COMPLETED_KEY
+import com.xax.CryptoSavingsTracker.presentation.onboarding.ONBOARDING_PREFS_NAME
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
@@ -26,6 +30,19 @@ import org.junit.runner.RunWith
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
 class HappyPathAllocationFlowTest {
+
+    companion object {
+        @JvmStatic
+        @org.junit.BeforeClass
+        fun setUpClass() {
+            // Skip onboarding before activity launches
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            context.getSharedPreferences(ONBOARDING_PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(ONBOARDING_COMPLETED_KEY, true)
+                .commit()
+        }
+    }
 
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
@@ -48,6 +65,14 @@ class HappyPathAllocationFlowTest {
 
     @Test
     fun addAllocation_fromOnChainBalance_updatesGoalProgressAndAllocationSummary() {
+        // App starts at Dashboard, navigate to Goals tab
+        // Use hasClickAction to distinguish the tab from any text labels
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Goals").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNode(hasText("Goals") and hasClickAction()).performClick()
+
+        // Wait for Goal A to appear
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("Goal A").fetchSemanticsNodes().isNotEmpty()
         }
