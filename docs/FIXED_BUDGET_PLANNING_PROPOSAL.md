@@ -271,9 +271,10 @@ The algorithm uses sequential contribution to earliest deadline first:
    - If userBudget >= minimumBudget: feasible
    - If userBudget < minimumBudget: show warnings, identify binding constraint
 
-5. Generate current month's allocation:
-   - Allocate full budget to earliest-deadline goal
-   - If goal completes mid-month, allocate remainder to next goal
+5. Generate current month's allocation (single-goal-focus EDF):
+   - Allocate full budget to the ONE goal with earliest deadline
+   - If that goal completes mid-month, allocate remainder to next-earliest goal
+   - This is NOT proportional spread; it's concentrated funding to finish goals faster
    - Return per-goal amounts for this month only
 
 6. Generate timeline preview:
@@ -481,7 +482,8 @@ Works the same as Per-Goal mode because v2 stores amounts in `MonthlyGoalPlan.cu
 4. No stored schedule needed - execution only cares about current month's targets
 
 **"Current Focus" in execution:**
-- Shows goal with highest remaining amount this month
+- Shows goal with earliest deadline that still has remaining amount this month
+- Matches EDF priority: earliest deadline first, not highest amount
 - Derived from `MonthlyGoalPlan` data, not from a stored schedule
 - If user wants to see future months, they re-open the budget calculator
 
