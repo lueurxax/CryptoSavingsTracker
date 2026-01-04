@@ -238,7 +238,7 @@ class FixedBudgetPlanningUseCase @Inject constructor(
                 schedule = emptyList(),
                 isLeveled = false,
                 minimumRequired = minimumRequired,
-                goalRemainingById = goalRemaining
+                goalRemainingById = emptyMap()
             )
         }
 

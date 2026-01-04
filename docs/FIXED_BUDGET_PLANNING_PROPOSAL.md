@@ -1,8 +1,25 @@
 # Fixed Budget Planning Proposal
 
-Status: **Revision 2** (Updated approach)
+Status: **Revision 2 - PROPOSED** (Not yet implemented)
 Owner: Product
 Last updated: 2026-01-04
+
+> **⚠️ IMPORTANT: Current Implementation vs This Proposal**
+>
+> This document describes a **proposed v2 redesign** that has NOT been implemented yet.
+>
+> **Currently implemented (v1):** The codebase contains a separate "Fixed Budget Mode" with:
+> - `FixedBudgetPlanningView.swift` / `FixedBudgetPlanningScreen.kt`
+> - `FixedBudgetPlanningViewModel.kt`
+> - `PlanningModeSegmentedControl` for switching between modes
+> - `CompletionBehavior` setting
+> - Separate schedule view and timeline
+>
+> **This proposal (v2):** Describes replacing v1 with a simpler "Budget Calculator" tool
+> that applies to the existing planning view. Implementation requires:
+> 1. Building new calculator sheet UI
+> 2. Migrating existing v1 users
+> 3. Removing v1 components (listed in "Files to Remove" section)
 
 ## Summary
 
@@ -211,7 +228,11 @@ When user taps "Apply to Plan":
 
 ## Algorithm
 
-The algorithm remains the same as v1 - sequential contribution to earliest deadline first:
+> **Note:** This describes the v2 simplified algorithm. The current v1 implementation uses
+> a more complex weighted allocation approach in `FixedBudgetPlanningUseCase.kt`.
+> The v2 algorithm prioritizes simplicity for the "calculator tool" approach.
+
+The algorithm uses sequential contribution to earliest deadline first:
 
 ### Input
 - List of active goals with: `targetAmount`, `currentProgress`, `deadline`, `currency`
@@ -271,7 +292,11 @@ Months 4-5:  Goal C receives €383/mo → completes
 Months 6-12: Goal A receives €383/mo → completes
 ```
 
-## Data Model Changes
+## Data Model Changes (Proposed)
+
+> **Note:** These are proposed changes for v2. The current v1 implementation stores
+> full schedules in `FixedBudgetPlan` and uses `monthlyBudget`/`budgetCurrency`
+> settings. The v2 simplification below reuses `customAmount` in `MonthlyGoalPlan`.
 
 ### Simplification from v1
 
@@ -377,9 +402,13 @@ When budget is set, show percentage of budget:
 Text("\(Int(flexValue * 100))% of budget (\(formattedBudget))")
 ```
 
-## Removed from v1
+## Components to Remove When Implementing v2
 
-The following v1 components are no longer needed:
+> **Note:** These v1 components currently exist in the codebase. They should be
+> removed as part of implementing v2, after the new calculator is working and
+> user migration is complete.
+
+The following v1 components will no longer be needed:
 
 - ❌ `PlanningModeSegmentedControl` - No mode switching
 - ❌ `FixedBudgetPlanningView` - No separate view
@@ -432,7 +461,12 @@ When goals change (added/removed/edited):
 
 ## Feasibility Handling
 
-Same as v1, but shown in calculator sheet:
+> **Note:** The current v1 implementation allows proceeding with infeasible schedules
+> while showing warnings. The v2 approach below is stricter, requiring resolution
+> before applying. This is a proposed change to prevent users from applying
+> unrealistic plans.
+
+In the v2 calculator sheet:
 
 ```
 ┌─────────────────────────────────────────┐
@@ -529,14 +563,23 @@ For users who already used v1 Fixed Budget mode:
 | `presentation/planning/MonthlyPlanningViewModel.kt` | Add budget state, apply logic |
 | `domain/model/MonthlyPlanningSettings.kt` | Add `budgetAmount`, `budgetCurrency` |
 
-### Files to Remove (v1 cleanup)
+### Files to Remove (After v2 is Complete)
+
+> **Note:** These files currently exist and are in use. Only remove after v2 is
+> fully implemented and tested, and user migration is complete.
 
 - `Views/Planning/FixedBudgetPlanningView.swift`
 - `Views/Planning/FixedBudgetIntroCard.swift`
 - `Views/Planning/PlanningModeSegmentedControl.swift`
+- `Views/Planning/TimelineStepperView.swift`
+- `Services/FixedBudgetPlanningService.swift`
+- `Models/FixedBudgetModels.swift`
 - `presentation/planning/FixedBudgetPlanningScreen.kt`
 - `presentation/planning/FixedBudgetPlanningViewModel.kt`
 - `presentation/planning/components/FixedBudgetIntroCard.kt`
+- `presentation/planning/components/TimelineStepper.kt`
+- `domain/usecase/planning/FixedBudgetPlanningUseCase.kt`
+- `domain/model/FixedBudgetModels.kt`
 
 ## Summary of Changes from v1
 
