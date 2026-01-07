@@ -543,11 +543,13 @@ struct BudgetEditorSheet: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @State private var amountText: String
+    @State private var inputText: String  // Immediate text for TextField
+    @State private var amountText: String // Debounced value for validation
     @State private var selectedCurrency: String
     @State private var showingCurrencyPicker = false
     @State private var minimumBudget: Double?
     @State private var isCalculatingMinimum = false
+    @State private var debounceTask: Task<Void, Never>?
 
     init(
         currentAmount: Double?,
@@ -559,7 +561,9 @@ struct BudgetEditorSheet: View {
         self.currency = currency
         self.onSave = onSave
         self.onClear = onClear
-        self._amountText = State(initialValue: currentAmount.map { String(format: "%.2f", $0) } ?? "")
+        let initialText = currentAmount.map { String(format: "%.2f", $0) } ?? ""
+        self._inputText = State(initialValue: initialText)
+        self._amountText = State(initialValue: initialText)
         self._selectedCurrency = State(initialValue: currency)
     }
 
@@ -576,8 +580,20 @@ struct BudgetEditorSheet: View {
     @ViewBuilder
     private var amountField: some View {
         #if os(iOS)
-        TextField("Amount", text: $amountText)
+        TextField("Amount", text: $inputText)
             .keyboardType(.decimalPad)
+            .onChange(of: inputText) { _, newValue in
+                // Debounce: cancel previous task and schedule new one
+                debounceTask?.cancel()
+                debounceTask = Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    if !Task.isCancelled {
+                        await MainActor.run {
+                            amountText = newValue
+                        }
+                    }
+                }
+            }
         #else
         TextField("Amount", text: $amountText)
         #endif
@@ -639,7 +655,9 @@ struct BudgetEditorSheet: View {
                         }
                         Button("Use calculated minimum") {
                             if let minimumBudget {
-                                amountText = String(format: "%.2f", minimumBudget)
+                                let formatted = String(format: "%.2f", minimumBudget)
+                                inputText = formatted
+                                amountText = formatted
                             }
                         }
                     }

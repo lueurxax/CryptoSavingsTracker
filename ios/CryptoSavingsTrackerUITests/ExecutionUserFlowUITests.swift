@@ -532,10 +532,9 @@ final class ExecutionUserFlowUITests: XCTestCase {
         openMonthlyPlan(app)
 
         let addToClose = app.buttons["addToCloseMonthButton-Goal A"]
-        XCTAssertTrue(addToClose.waitForExistence(timeout: 6), "Add to Close Month button not found")
-        tapForce(addToClose)
+        XCTAssertTrue(tapWithScroll(app: app, element: addToClose, maxSwipes: 5), "Add to Close Month button not found or not tappable")
 
-        let assetCell = app.buttons.matching(NSPredicate(format: "label == %@", "USD")).firstMatch
+        let assetCell = app.buttons["assetPickerCell-USD"]
         XCTAssertTrue(assetCell.waitForExistence(timeout: 6), "Asset picker did not appear")
         tapForce(assetCell)
 
@@ -709,17 +708,53 @@ final class ExecutionUserFlowUITests: XCTestCase {
 
         let targetField = app.textFields["targetAmountField"].exists ? app.textFields["targetAmountField"] : (app.textFields["Target Amount"].exists ? app.textFields["Target Amount"] : app.textFields.element(boundBy: 0))
         XCTAssertTrue(targetField.waitForExistence(timeout: 5))
+
+        // Scroll to make the field visible and hittable
         if !targetField.isHittable {
             app.swipeUp()
-            app.swipeUp()
+            sleep(1) // Allow UI to settle after scroll
         }
-        tapForce(targetField)
-        if !targetField.hasKeyboardFocus {
-            tapForce(targetField)
+
+        // Wait for the field to become hittable
+        _ = targetField.waitForExistence(timeout: 3)
+
+        // Try multiple strategies to get focus on the text field
+        var focusAcquired = false
+
+        // Strategy 1: Direct tap
+        if targetField.isHittable {
+            targetField.tap()
+            if app.keyboards.element.waitForExistence(timeout: 2) {
+                focusAcquired = true
+            }
         }
-        if !app.keyboards.element.exists {
-            tapForce(targetField)
+
+        // Strategy 2: Press and hold to force focus
+        if !focusAcquired {
+            targetField.press(forDuration: 0.5)
+            if app.keyboards.element.waitForExistence(timeout: 2) {
+                focusAcquired = true
+            }
         }
+
+        // Strategy 3: Double tap to select and focus
+        if !focusAcquired {
+            targetField.doubleTap()
+            if app.keyboards.element.waitForExistence(timeout: 2) {
+                focusAcquired = true
+            }
+        }
+
+        // Strategy 4: Coordinate tap in the center
+        if !focusAcquired {
+            let coordinate = targetField.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            coordinate.tap()
+            coordinate.tap() // Double coordinate tap
+            _ = app.keyboards.element.waitForExistence(timeout: 2)
+        }
+
+        // On simulator with hardware keyboard, software keyboard may not appear
+        // but typeText should still work - try it anyway
         targetField.typeText(target)
 
         let saveButton = app.buttons["saveGoalButton"].firstMatch
@@ -804,10 +839,15 @@ final class ExecutionUserFlowUITests: XCTestCase {
         let selectedButton = app.buttons[buttonId]
         XCTAssertTrue(selectedButton.waitForExistence(timeout: 3), "Expected currency button not found after picker dismissed (\(buttonId))")
 
+        // Wait for the label to update with the selected currency (SwiftUI accessibility updates can be delayed)
+        let predicate = NSPredicate(format: "label CONTAINS[c] %@ OR value CONTAINS[c] %@", symbolUpper, symbolUpper)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: selectedButton)
+        let result = XCTWaiter.wait(for: [expectation], timeout: 5)
+
         let labelUpper = selectedButton.label.uppercased()
         let valueUpper = ((selectedButton.value as? String) ?? "").uppercased()
         XCTAssertTrue(
-            labelUpper.contains(symbolUpper) || valueUpper.contains(symbolUpper),
+            result == .completed || labelUpper.contains(symbolUpper) || valueUpper.contains(symbolUpper),
             "Currency selection not reflected in UI (buttonId=\(buttonId), label=\(selectedButton.label), value=\(String(describing: selectedButton.value)))"
         )
     }

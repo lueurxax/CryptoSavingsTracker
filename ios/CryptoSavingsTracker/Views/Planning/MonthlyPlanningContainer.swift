@@ -25,6 +25,7 @@ private struct MonthlyPlanningContainerContent: View {
     @State private var isLoading = true
     @State private var showStartTrackingConfirmation = false
     @State private var showReturnToPlanningConfirmation = false
+    @State private var hasInitiallyLoaded = false
     @StateObject private var planningViewModel: MonthlyPlanningViewModel
 
     init(modelContext: ModelContext) {
@@ -157,10 +158,12 @@ private struct MonthlyPlanningContainerContent: View {
                     Text(isTracking ? "Tracking Mode" : (isClosed ? "Month Complete" : "Planning Mode"))
                         .font(.subheadline)
                         .fontWeight(.semibold)
+                        .accessibilityIdentifier("executionStatusLabel")
 
                     Text(isTracking ? "Recording contributions for \(trackingLabel)" : "Planning for \(planningLabel)")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .accessibilityIdentifier("planningMonthLabel")
                 }
 
                 Spacer()
@@ -203,8 +206,10 @@ private struct MonthlyPlanningContainerContent: View {
 
     private func loadExecutionRecord() async {
         isLoading = true
-        if UITestFlags.isEnabled {
+        // Only reset on initial load in UI tests, not on reloads after state changes
+        if UITestFlags.isEnabled && !hasInitiallyLoaded {
             executionRecord = nil
+            hasInitiallyLoaded = true
         }
 
         do {

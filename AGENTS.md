@@ -27,6 +27,7 @@
 - Write unit tests for Services, Models, and ViewModels; add UI tests for critical flows.
 - Coverage target: prioritize logic-heavy modules (planning, exchange rates, allocations).
 - Run locally with the xcodebuild command above; keep tests deterministic (no network—use fixtures/mocks).
+- **NEVER disable, skip, or comment out failing tests.** Tests protect the app from shipping broken code to App Store/Google Play. Always fix the underlying issue - either in the test code or the app code.
 
 ## Commit & Pull Requests
 - Commits: imperative mood, scoped when helpful (e.g., `feat: add MonthlyPlanningWidget preview`).

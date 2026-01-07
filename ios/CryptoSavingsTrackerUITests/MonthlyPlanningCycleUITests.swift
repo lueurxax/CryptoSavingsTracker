@@ -105,7 +105,12 @@ private func finishMonth(_ app: XCUIApplication) {
         }
     }
 
-    // Allow the caller to assert the post-completion state, since UI tests bypass the confirmation alert.
+    // Wait for UI to transition back to planning mode
+    // The startTrackingButton should appear after finishing the month
+    _ = app.buttons["startTrackingButton"].waitForExistence(timeout: 10)
+
+    // Allow extra time for banner text to update
+    sleep(1)
 }
 
 private func returnToPlanning(_ app: XCUIApplication) {
@@ -127,7 +132,15 @@ private func returnToPlanning(_ app: XCUIApplication) {
 private func bannerMonthLabel(_ app: XCUIApplication, prefix: String) -> String {
     let predicate = NSPredicate(format: "label BEGINSWITH %@", prefix)
     let label = app.staticTexts.matching(predicate).firstMatch
-    XCTAssertTrue(label.waitForExistence(timeout: 10))
+
+    // Give the UI time to settle and update the banner
+    if !label.waitForExistence(timeout: 15) {
+        // Try scrolling to find the label
+        app.swipeDown()
+        _ = label.waitForExistence(timeout: 5)
+    }
+
+    XCTAssertTrue(label.exists, "Expected to find label with prefix: '\(prefix)'")
 
     let raw = label.label
     let stripped = raw.replacingOccurrences(of: prefix, with: "")

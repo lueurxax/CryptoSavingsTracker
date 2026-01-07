@@ -103,7 +103,9 @@ struct MonthlyExecutionView: View {
                                                 .foregroundColor(.secondary)
                                         }
                                     }
+                                    .contentShape(Rectangle())
                                 }
+                                .accessibilityIdentifier("assetPickerCell-\(asset.currency)")
                             }
                         }
                     }
@@ -599,13 +601,16 @@ struct GoalProgressCard: View {
             }
 
             if let onAddContribution, !isFulfilled {
-                Button(action: onAddContribution) {
+                Button {
+                    onAddContribution()
+                } label: {
                     Text("Add to Close Month")
                         .font(.caption)
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
                 .accessibilityIdentifier("addToCloseMonthButton-\(goalSnapshot.goalName)")
             }
         }

@@ -259,6 +259,7 @@ struct SearchableCurrencyPicker: View {
                                             .foregroundColor(.green)
                                     }
                                 }
+                                .contentShape(Rectangle())
                                 .padding(.horizontal)
                                 .padding(.vertical, 8)
                             }
@@ -336,6 +337,7 @@ struct SearchableCurrencyPicker: View {
                                             .foregroundColor(.green)
                                     }
                                 }
+                                .contentShape(Rectangle())
                             }
                             .accessibilityIdentifier("currencyCell-\(coin.symbol.uppercased())")
                             .buttonStyle(.plain)
