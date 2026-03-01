@@ -69,6 +69,9 @@ private struct MonthlyPlanningContainerContent: View {
             }
         }
         .navigationTitle("Monthly Planning")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
         .onChange(of: executionCoordinator.isExecuting) { _, newValue in
             // Sync local @State from coordinator changes
             isExecuting = newValue

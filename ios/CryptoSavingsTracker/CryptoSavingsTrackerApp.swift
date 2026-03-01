@@ -20,7 +20,8 @@ struct CryptoSavingsTrackerApp: App {
         let args = ProcessInfo.processInfo.arguments
         let isXCTestRun = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         let isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
-        let isTestRun = isXCTestRun || isUITestRun
+        let isPreviewRun = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        let isTestRun = isXCTestRun || isUITestRun || isPreviewRun
 
         let schema = Schema([
             Goal.self,
@@ -130,7 +131,8 @@ struct CryptoSavingsTrackerApp: App {
             let args = ProcessInfo.processInfo.arguments
             let isXCTestRun = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
             let isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
-            let isTestRun = isXCTestRun || isUITestRun
+            let isPreviewRun = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+            let isTestRun = isXCTestRun || isUITestRun || isPreviewRun
 
             if !isTestRun {
                 _ = await NotificationManager.shared.requestPermission()
@@ -150,7 +152,8 @@ struct CryptoSavingsTrackerApp: App {
         let args = ProcessInfo.processInfo.arguments
         let isXCTestRun = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         let isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
-        if isXCTestRun || isUITestRun { return }
+        let isPreviewRun = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        if isXCTestRun || isUITestRun || isPreviewRun { return }
 
         let scheduler = AutomationScheduler(modelContext: CryptoSavingsTrackerApp.sharedModelContainer.mainContext)
 

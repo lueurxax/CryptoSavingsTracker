@@ -35,10 +35,6 @@ struct PlanningView: View {
             macOSPlanningView(viewModel: viewModel, staleDrafts: staleDrafts)
             #endif
         }
-        .navigationTitle("Monthly Planning")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
-        #endif
         .onAppear {
         }
         .id(viewId)
@@ -66,6 +62,7 @@ struct iOSCompactPlanningView: View {
     @State private var selectedTab = 0
     @State private var showingBudgetSheet = false
     @State private var tabScrollOffset: CGFloat = 0
+    @State private var initialTabScrollOffset: CGFloat?
     @State private var isCollapsedHeaderVisible = false
 
     private let collapseDistance: CGFloat = 160
@@ -97,6 +94,13 @@ struct iOSCompactPlanningView: View {
         .background(.regularMaterial)
         .sheet(isPresented: $showingBudgetSheet) {
             BudgetCalculatorSheet(viewModel: viewModel)
+        }
+        .onChange(of: showingBudgetSheet) { _, isPresented in
+            guard !isPresented else { return }
+            // Re-anchor scroll offset after sheet dismissal to avoid collapsed header glitches.
+            initialTabScrollOffset = nil
+            tabScrollOffset = 0
+            isCollapsedHeaderVisible = false
         }
     }
 
@@ -146,6 +150,7 @@ struct iOSCompactPlanningView: View {
         }
         .onChange(of: selectedTab) { _, _ in
             tabScrollOffset = 0
+            initialTabScrollOffset = nil
             isCollapsedHeaderVisible = false
         }
     }
@@ -452,8 +457,9 @@ struct iOSCompactPlanningView: View {
         }
         .coordinateSpace(name: "compactPlanningTabScroll")
         .onPreferenceChange(CompactPlanningScrollOffsetPreferenceKey.self) { newValue in
-            tabScrollOffset = newValue
-            updateCollapsedHeaderVisibility(for: newValue)
+            let normalizedOffset = normalizeScrollOffset(from: newValue)
+            tabScrollOffset = normalizedOffset
+            updateCollapsedHeaderVisibility(for: normalizedOffset)
         }
         .refreshable {
             await viewModel.refreshCalculations()
@@ -560,8 +566,9 @@ struct iOSCompactPlanningView: View {
         }
         .coordinateSpace(name: "compactPlanningTabScroll")
         .onPreferenceChange(CompactPlanningScrollOffsetPreferenceKey.self) { newValue in
-            tabScrollOffset = newValue
-            updateCollapsedHeaderVisibility(for: newValue)
+            let normalizedOffset = normalizeScrollOffset(from: newValue)
+            tabScrollOffset = normalizedOffset
+            updateCollapsedHeaderVisibility(for: normalizedOffset)
         }
     }
     
@@ -589,8 +596,9 @@ struct iOSCompactPlanningView: View {
         }
         .coordinateSpace(name: "compactPlanningTabScroll")
         .onPreferenceChange(CompactPlanningScrollOffsetPreferenceKey.self) { newValue in
-            tabScrollOffset = newValue
-            updateCollapsedHeaderVisibility(for: newValue)
+            let normalizedOffset = normalizeScrollOffset(from: newValue)
+            tabScrollOffset = normalizedOffset
+            updateCollapsedHeaderVisibility(for: normalizedOffset)
         }
     }
     
@@ -783,6 +791,14 @@ struct iOSCompactPlanningView: View {
         withAnimation(.easeInOut(duration: 0.2)) {
             isCollapsedHeaderVisible = true
         }
+    }
+
+    private func normalizeScrollOffset(from rawOffset: CGFloat) -> CGFloat {
+        if initialTabScrollOffset == nil {
+            initialTabScrollOffset = rawOffset
+            return 0
+        }
+        return rawOffset - (initialTabScrollOffset ?? rawOffset)
     }
     
     private var groupedGoals: [RequirementStatus: [MonthlyRequirement]] {
@@ -1301,14 +1317,24 @@ struct macOSControlsPanel: View {
 // MARK: - Preview
 
 #Preview("iOS Compact") {
+    let modelContext = CryptoSavingsTrackerApp.sharedModelContainer.mainContext
     NavigationView {
-        iOSCompactPlanningView(viewModel: MonthlyPlanningViewModel(modelContext: ModelContext(try! ModelContainer(for: Goal.self))), staleDrafts: [])
+        iOSCompactPlanningView(
+            viewModel: MonthlyPlanningViewModel(modelContext: modelContext),
+            staleDrafts: []
+        )
     }
+    .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
 }
 
 #Preview("macOS") {
+    let modelContext = CryptoSavingsTrackerApp.sharedModelContainer.mainContext
     NavigationView {
-        macOSPlanningView(viewModel: MonthlyPlanningViewModel(modelContext: ModelContext(try! ModelContainer(for: Goal.self))), staleDrafts: [])
+        macOSPlanningView(
+            viewModel: MonthlyPlanningViewModel(modelContext: modelContext),
+            staleDrafts: []
+        )
     }
+    .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
     .frame(width: 800, height: 600)
 }

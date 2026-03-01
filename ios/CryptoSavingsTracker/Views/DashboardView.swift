@@ -763,17 +763,10 @@ struct DashboardCustomizationView: View {
 }
 
 #Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config)
-    
-        // Create sample data
-    let goal = Goal(name: "Crypto Portfolio", currency: "USD", targetAmount: 50000, deadline: Date().addingTimeInterval(86400 * 90))
-    container.mainContext.insert(goal)
-    
     return NavigationView {
         DashboardView()
     }
-    .modelContainer(container)
+    .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
 }
 
     // MARK: - Mobile Components (moved from ImprovedDashboardView)

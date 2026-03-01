@@ -154,10 +154,44 @@ struct SearchableCurrencyPicker: View {
     private var filteredCoins: [CoinInfo] {
         Array(filteredAll.prefix(visibleCount))
     }
+
+    private var hasAvailableCurrencies: Bool {
+        pickerType == .fiat ? !fiatCurrencyInfos.isEmpty : !currencyViewModel.coinInfos.isEmpty
+    }
     
     private func loadMore() {
         guard visibleCount < filteredAll.count else { return }
         visibleCount = min(visibleCount + 100, filteredAll.count)
+    }
+
+    private func reloadCurrencies() {
+        Task {
+            if pickerType == .fiat {
+                await currencyViewModel.fetchSupportedCurrencies()
+            } else {
+                await currencyViewModel.fetchCoins()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var unavailableCurrenciesState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+            Text("Couldn't load currencies")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+            Text("Check your connection and try again.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button("Retry", action: reloadCurrencies)
+                .buttonStyle(.bordered)
+        }
+        .frame(maxWidth: .infinity, minHeight: 160)
+        .padding(.vertical, 8)
     }
     
     var body: some View {
@@ -245,48 +279,65 @@ struct SearchableCurrencyPicker: View {
                         .padding(.horizontal)
                         .padding(.top, 8)
                     LazyVStack(spacing: 0) {
-                        ForEach(filteredCoins, id: \.id) { coin in
-                            Button {
-                                selectedCurrency = coin.symbol.uppercased()
-                                #if !os(macOS)
-                                searchFieldFocused = false
-                                DispatchQueue.main.async {
-                                    dismiss()
-                                }
-                                #else
-                                dismiss()
-                                #endif
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading) {
-                                        Text(coin.symbol.uppercased())
-                                            .font(.headline)
-                                            .foregroundColor(.primary)
-                                        Text(coin.name)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    Spacer()
-                                    if coin.symbol.uppercased() == selectedCurrency.uppercased() {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(.green)
-                                    }
-                                }
-                                .contentShape(Rectangle())
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-                            }
-                            .buttonStyle(.plain)
-                            Divider()
-                        }
-                        if visibleCount < filteredAll.count {
+                        if currencyViewModel.isLoading {
                             HStack {
                                 Spacer()
                                 ProgressView()
-                                    .onAppear(perform: loadMore)
                                 Spacer()
                             }
+                            .padding(.vertical, 16)
+                        } else if !hasAvailableCurrencies {
+                            unavailableCurrenciesState
+                        } else if filteredCoins.isEmpty {
+                            EmptyStateView.noSearchResults(query: searchText, onClearSearch: {
+                                searchText = ""
+                            })
+                            .frame(height: 200)
                             .padding(.vertical, 8)
+                        } else {
+                            ForEach(filteredCoins, id: \.id) { coin in
+                                Button {
+                                    selectedCurrency = coin.symbol.uppercased()
+                                    #if !os(macOS)
+                                    searchFieldFocused = false
+                                    DispatchQueue.main.async {
+                                        dismiss()
+                                    }
+                                    #else
+                                    dismiss()
+                                    #endif
+                                } label: {
+                                    HStack {
+                                        VStack(alignment: .leading) {
+                                            Text(coin.symbol.uppercased())
+                                                .font(.headline)
+                                                .foregroundColor(.primary)
+                                            Text(coin.name)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Spacer()
+                                        if coin.symbol.uppercased() == selectedCurrency.uppercased() {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(.green)
+                                        }
+                                    }
+                                    .contentShape(Rectangle())
+                                    .padding(.horizontal)
+                                    .padding(.vertical, 8)
+                                }
+                                .buttonStyle(.plain)
+                                Divider()
+                            }
+                            if visibleCount < filteredAll.count {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                        .onAppear(perform: loadMore)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 8)
+                            }
                         }
                     }
                 }
@@ -323,6 +374,9 @@ struct SearchableCurrencyPicker: View {
                                 .foregroundColor(.secondary)
                         }
                         .padding(.vertical, 8)
+                    } else if !hasAvailableCurrencies {
+                        unavailableCurrenciesState
+                            .listRowSeparator(.hidden)
                     } else if filteredCoins.isEmpty && !searchText.isEmpty {
                         EmptyStateView.noSearchResults(query: searchText, onClearSearch: {
                             searchText = ""

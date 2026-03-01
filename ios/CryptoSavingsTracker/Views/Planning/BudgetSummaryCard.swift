@@ -359,7 +359,16 @@ struct BudgetHealthCard: View {
     }
 
     private var insightText: String? {
-        state.insightText(currency: budgetCurrency, conversionContext: conversionContext)
+        if dynamicTypeSize.isAccessibilitySize, conversionContext != nil {
+            // At accessibility sizes, show core insight only; FX context goes into disclosure
+            return state.insightText(currency: budgetCurrency, conversionContext: nil)
+        }
+        return state.insightText(currency: budgetCurrency, conversionContext: conversionContext)
+    }
+
+    private var fxDetailText: String? {
+        guard dynamicTypeSize.isAccessibilitySize else { return nil }
+        return conversionContext
     }
 
     private var focusGoalText: String? {
@@ -408,9 +417,12 @@ struct BudgetHealthCard: View {
                 Spacer(minLength: 8)
 
                 if canEditBudget {
-                    Button("Edit", action: onEdit)
-                        .buttonStyle(.bordered)
-                        .accessibilityIdentifier("editBudgetButton")
+                    Button("Edit") {
+                        BudgetHealthAnalytics.logEditTap()
+                        onEdit()
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("editBudgetButton")
                 }
             }
 
@@ -440,6 +452,17 @@ struct BudgetHealthCard: View {
                         .accessibilityIdentifier(state.isRiskState ? "budgetSummaryShortfallText" : "budgetSummaryInsightText")
                 }
 
+                if let fxDetailText {
+                    DisclosureGroup("Rate details") {
+                        Text(fxDetailText)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("budgetSummaryFXDisclosure")
+                }
+
                 if shouldShowSecondaryText, let focusGoalText, state.isRiskState {
                     Text(focusGoalText)
                         .font(.caption2)
@@ -460,12 +483,15 @@ struct BudgetHealthCard: View {
             .accessibilityHint("Double tap to \(state.primaryActionTitle)")
 
             if state.showsPrimaryCTA {
-                Button(action: onPrimaryAction) {
+                Button {
+                    BudgetHealthAnalytics.logPrimaryCTATap(state: state)
+                    onPrimaryAction()
+                } label: {
                     Label(state.primaryActionTitle, systemImage: state.iconName)
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
-                        .frame(minHeight: 40)
+                        .frame(minHeight: 44)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(state.primaryActionTint)
@@ -490,6 +516,7 @@ struct BudgetHealthCard: View {
         .scaleEffect(reduceMotion || hasAppeared ? 1 : 0.98)
         .opacity(reduceMotion || hasAppeared ? 1 : 0)
         .onAppear {
+            BudgetHealthAnalytics.logImpression(state: state)
             guard !hasAppeared else { return }
             if reduceMotion {
                 hasAppeared = true
@@ -501,6 +528,7 @@ struct BudgetHealthCard: View {
         }
         .onChange(of: state) { oldState, newState in
             guard oldState != newState else { return }
+            BudgetHealthAnalytics.logStateChanged(from: oldState, to: newState)
             #if os(iOS)
             if oldState.isRiskState && newState == .healthy {
                 HapticManager.shared.notification(.success)
@@ -557,12 +585,15 @@ struct BudgetHealthCollapsedStrip: View {
 
             Spacer(minLength: 6)
 
-            Button(state.collapsedActionTitle, action: onPrimaryAction)
-                .font(.caption)
-                .fontWeight(.semibold)
-                .buttonStyle(.bordered)
-                .tint(state.collapsedActionTint)
-                .accessibilityIdentifier("budgetHealthCollapsedCTA")
+            Button(state.collapsedActionTitle) {
+                BudgetHealthAnalytics.logCollapsedStripTap(state: state)
+                onPrimaryAction()
+            }
+            .font(.caption)
+            .fontWeight(.semibold)
+            .buttonStyle(.bordered)
+            .tint(state.collapsedActionTint)
+            .accessibilityIdentifier("budgetHealthCollapsedCTA")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -580,7 +611,54 @@ struct BudgetHealthCollapsedStrip: View {
     }
 }
 
-#Preview("At Risk") {
+// MARK: - Light Mode Previews
+
+#Preview("1 No Budget") {
+    VStack(spacing: 16) {
+        BudgetHealthCard(
+            state: .noBudget, budgetAmount: nil, budgetCurrency: "USD",
+            minimumRequired: nil, nextConstrainedGoal: nil, nextDeadline: nil,
+            conversionContext: nil, onPrimaryAction: {}, onEdit: {}
+        )
+        BudgetHealthCollapsedStrip(state: .noBudget, budgetCurrency: "USD", onPrimaryAction: {})
+    }.padding()
+}
+
+#Preview("2 Healthy") {
+    VStack(spacing: 16) {
+        BudgetHealthCard(
+            state: .healthy, budgetAmount: 5000, budgetCurrency: "USD",
+            minimumRequired: nil, nextConstrainedGoal: nil, nextDeadline: nil,
+            conversionContext: nil, onPrimaryAction: {}, onEdit: {}
+        )
+        BudgetHealthCollapsedStrip(state: .healthy, budgetCurrency: "USD", onPrimaryAction: {})
+    }.padding()
+}
+
+#Preview("3 Not Applied") {
+    VStack(spacing: 16) {
+        BudgetHealthCard(
+            state: .notApplied, budgetAmount: 2500, budgetCurrency: "EUR",
+            minimumRequired: nil, nextConstrainedGoal: nil, nextDeadline: nil,
+            conversionContext: nil, onPrimaryAction: {}, onEdit: {}
+        )
+        BudgetHealthCollapsedStrip(state: .notApplied, budgetCurrency: "EUR", onPrimaryAction: {})
+    }.padding()
+}
+
+#Preview("4 Needs Recalculation") {
+    VStack(spacing: 16) {
+        BudgetHealthCard(
+            state: .needsRecalculation, budgetAmount: 3000, budgetCurrency: "USD",
+            minimumRequired: 3200, nextConstrainedGoal: "Vacation Fund",
+            nextDeadline: Calendar.current.date(byAdding: .month, value: 4, to: Date()),
+            conversionContext: nil, onPrimaryAction: {}, onEdit: {}
+        )
+        BudgetHealthCollapsedStrip(state: .needsRecalculation, budgetCurrency: "USD", onPrimaryAction: {})
+    }.padding()
+}
+
+#Preview("5 At Risk") {
     VStack(spacing: 16) {
         BudgetHealthCard(
             state: .atRisk(shortfall: 4399, goalsAtRisk: 18),
@@ -593,18 +671,7 @@ struct BudgetHealthCollapsedStrip: View {
     }.padding()
 }
 
-#Preview("Healthy") {
-    VStack(spacing: 16) {
-        BudgetHealthCard(
-            state: .healthy, budgetAmount: 5000, budgetCurrency: "USD",
-            minimumRequired: nil, nextConstrainedGoal: nil, nextDeadline: nil,
-            conversionContext: nil, onPrimaryAction: {}, onEdit: {}
-        )
-        BudgetHealthCollapsedStrip(state: .healthy, budgetCurrency: "USD", onPrimaryAction: {})
-    }.padding()
-}
-
-#Preview("Severe Risk") {
+#Preview("6 Severe Risk") {
     VStack(spacing: 16) {
         BudgetHealthCard(
             state: .severeRisk(shortfall: 12500, goalsAtRisk: 8),
@@ -617,7 +684,22 @@ struct BudgetHealthCollapsedStrip: View {
     }.padding()
 }
 
-#Preview("No Budget") {
+#Preview("7 Stale FX") {
+    VStack(spacing: 16) {
+        BudgetHealthCard(
+            state: .staleFX(lastUpdated: Date().addingTimeInterval(-7200), affectedCurrencies: ["BTC", "ETH"]),
+            budgetAmount: 4000, budgetCurrency: "USD",
+            minimumRequired: nil, nextConstrainedGoal: nil, nextDeadline: nil,
+            conversionContext: "Converted from BTC/ETH holdings at current rates.",
+            onPrimaryAction: {}, onEdit: {}
+        )
+        BudgetHealthCollapsedStrip(state: .staleFX(lastUpdated: Date().addingTimeInterval(-7200), affectedCurrencies: ["BTC", "ETH"]), budgetCurrency: "USD", onPrimaryAction: {})
+    }.padding()
+}
+
+// MARK: - Dark Mode Previews
+
+#Preview("Dark: No Budget") {
     VStack(spacing: 16) {
         BudgetHealthCard(
             state: .noBudget, budgetAmount: nil, budgetCurrency: "USD",
@@ -625,5 +707,78 @@ struct BudgetHealthCollapsedStrip: View {
             conversionContext: nil, onPrimaryAction: {}, onEdit: {}
         )
         BudgetHealthCollapsedStrip(state: .noBudget, budgetCurrency: "USD", onPrimaryAction: {})
-    }.padding()
+    }.padding().preferredColorScheme(.dark)
+}
+
+#Preview("Dark: Healthy") {
+    VStack(spacing: 16) {
+        BudgetHealthCard(
+            state: .healthy, budgetAmount: 5000, budgetCurrency: "USD",
+            minimumRequired: nil, nextConstrainedGoal: nil, nextDeadline: nil,
+            conversionContext: nil, onPrimaryAction: {}, onEdit: {}
+        )
+        BudgetHealthCollapsedStrip(state: .healthy, budgetCurrency: "USD", onPrimaryAction: {})
+    }.padding().preferredColorScheme(.dark)
+}
+
+#Preview("Dark: Not Applied") {
+    VStack(spacing: 16) {
+        BudgetHealthCard(
+            state: .notApplied, budgetAmount: 2500, budgetCurrency: "EUR",
+            minimumRequired: nil, nextConstrainedGoal: nil, nextDeadline: nil,
+            conversionContext: nil, onPrimaryAction: {}, onEdit: {}
+        )
+        BudgetHealthCollapsedStrip(state: .notApplied, budgetCurrency: "EUR", onPrimaryAction: {})
+    }.padding().preferredColorScheme(.dark)
+}
+
+#Preview("Dark: Needs Recalculation") {
+    VStack(spacing: 16) {
+        BudgetHealthCard(
+            state: .needsRecalculation, budgetAmount: 3000, budgetCurrency: "USD",
+            minimumRequired: 3200, nextConstrainedGoal: "Vacation Fund",
+            nextDeadline: Calendar.current.date(byAdding: .month, value: 4, to: Date()),
+            conversionContext: nil, onPrimaryAction: {}, onEdit: {}
+        )
+        BudgetHealthCollapsedStrip(state: .needsRecalculation, budgetCurrency: "USD", onPrimaryAction: {})
+    }.padding().preferredColorScheme(.dark)
+}
+
+#Preview("Dark: At Risk") {
+    VStack(spacing: 16) {
+        BudgetHealthCard(
+            state: .atRisk(shortfall: 4399, goalsAtRisk: 18),
+            budgetAmount: 5000, budgetCurrency: "USD",
+            minimumRequired: 9399, nextConstrainedGoal: "Emergency Fund",
+            nextDeadline: Calendar.current.date(byAdding: .month, value: 2, to: Date()),
+            conversionContext: nil, onPrimaryAction: {}, onEdit: {}
+        )
+        BudgetHealthCollapsedStrip(state: .atRisk(shortfall: 4399, goalsAtRisk: 18), budgetCurrency: "USD", onPrimaryAction: {})
+    }.padding().preferredColorScheme(.dark)
+}
+
+#Preview("Dark: Severe Risk") {
+    VStack(spacing: 16) {
+        BudgetHealthCard(
+            state: .severeRisk(shortfall: 12500, goalsAtRisk: 8),
+            budgetAmount: 3000, budgetCurrency: "USD",
+            minimumRequired: 15500, nextConstrainedGoal: "Bitcoin DCA",
+            nextDeadline: Calendar.current.date(byAdding: .day, value: 14, to: Date()),
+            conversionContext: nil, onPrimaryAction: {}, onEdit: {}
+        )
+        BudgetHealthCollapsedStrip(state: .severeRisk(shortfall: 12500, goalsAtRisk: 8), budgetCurrency: "USD", onPrimaryAction: {})
+    }.padding().preferredColorScheme(.dark)
+}
+
+#Preview("Dark: Stale FX") {
+    VStack(spacing: 16) {
+        BudgetHealthCard(
+            state: .staleFX(lastUpdated: Date().addingTimeInterval(-7200), affectedCurrencies: ["BTC", "ETH"]),
+            budgetAmount: 4000, budgetCurrency: "USD",
+            minimumRequired: nil, nextConstrainedGoal: nil, nextDeadline: nil,
+            conversionContext: "Converted from BTC/ETH holdings at current rates.",
+            onPrimaryAction: {}, onEdit: {}
+        )
+        BudgetHealthCollapsedStrip(state: .staleFX(lastUpdated: Date().addingTimeInterval(-7200), affectedCurrencies: ["BTC", "ETH"]), budgetCurrency: "USD", onPrimaryAction: {})
+    }.padding().preferredColorScheme(.dark)
 }

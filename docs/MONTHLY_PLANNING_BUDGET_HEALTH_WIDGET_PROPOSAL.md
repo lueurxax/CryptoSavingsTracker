@@ -4,7 +4,7 @@
 
 | Metadata | Value |
 |----------|-------|
-| Status | 📋 Planning |
+| Status | ✅ Implemented |
 | Last Updated | 2026-03-01 |
 | Platform | iOS |
 | Audience | Product, Developers, QA |
@@ -525,7 +525,7 @@ struct BudgetHealthCard: View {
 
 - `ios/CryptoSavingsTracker/Views/Planning/PlanningView.swift`
 - `ios/CryptoSavingsTracker/Views/Planning/BudgetSummaryCard.swift` (rename or repurpose)
-- `ios/CryptoSavingsTracker/Views/Planning/BudgetNoticesView.swift` (retire or internalize)
+- `ios/CryptoSavingsTracker/Views/Planning/BudgetNoticesView.swift` (legacy component retired)
 - `ios/CryptoSavingsTracker/ViewModels/MonthlyPlanningViewModel.swift` (state derivation for unified card)
 - `ios/CryptoSavingsTracker/Views/Planning/StaleDraftBanner.swift` (visual alignment with unified card when stacked)
 - `ios/CryptoSavingsTracker/Utilities/AccessibleColors.swift` (adaptive status/background token updates)
@@ -554,7 +554,7 @@ struct BudgetHealthCard: View {
 
 ## 14) Rollout Plan
 
-1. Build unified card behind feature flag (`budgetHealthUnifiedCardEnabled`).
+1. Ship unified card as the default Monthly Planning budget surface (legacy feature flag removed).
 2. Add one-time migration handling for legacy notice dismissal state (`hasSeenBudgetMigrationNotice`); do not resurface dismissed migration notices as new alerts.
 3. Run internal dogfood for at least one full planning cycle.
 4. Validate telemetry and UX screenshots for:
