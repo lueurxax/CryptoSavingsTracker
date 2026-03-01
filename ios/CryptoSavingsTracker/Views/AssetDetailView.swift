@@ -7,8 +7,11 @@
 
 import SwiftUI
 import SwiftData
+import Foundation
 
 struct AssetDetailView: View {
+    private static let isoFiatCurrencyCodes = Set(Locale.Currency.isoCurrencies.map(\.identifier).map { $0.uppercased() })
+
     let asset: Asset
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var coordinator: AppCoordinator
@@ -118,7 +121,7 @@ struct AssetDetailView: View {
                 .font(.headline)
             
             VStack(spacing: 8) {
-                InfoRow(label: "Type", value: (asset.address != nil && asset.chainId != nil) ? "On-Chain" : "Manual")
+                InfoRow(label: "Type", value: assetTypeLabel)
                 InfoRow(label: "Currency", value: asset.currency)
                 
                 if asset.address != nil && asset.chainId != nil {
@@ -140,6 +143,17 @@ struct AssetDetailView: View {
         .background(Color.gray.opacity(0.1))
         #endif
         .cornerRadius(12)
+    }
+
+    private var assetTypeLabel: String {
+        if let address = asset.address,
+           let chainId = asset.chainId,
+           !address.isEmpty,
+           !chainId.isEmpty {
+            return "On-Chain"
+        }
+        let isFiat = Self.isoFiatCurrencyCodes.contains(asset.currency.uppercased())
+        return isFiat ? "Fiat (Manual)" : "Manual"
     }
     
     private var recentTransactionsSection: some View {

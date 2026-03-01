@@ -13,6 +13,8 @@ enum UITestFlags {
         return args.contains("UITEST_UI_FLOW")
             || args.contains("UITEST_RESET_DATA")
             || args.contains("UITEST_SEED_GOALS")
+            || args.contains("UITEST_SEED_MANY_GOALS")
             || args.contains("UITEST_SEED_SHARED_ASSET")
+            || args.contains("UITEST_SEED_BUDGET_SHORTFALL")
     }
 }

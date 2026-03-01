@@ -14,12 +14,21 @@ struct BudgetNoticesView: View {
     var body: some View {
         VStack(spacing: 10) {
             if viewModel.showBudgetMigrationNotice {
-                noticeCard(
-                    title: "Budget Applied",
-                    message: "Your budget has been applied to this plan. You can now adjust individual goals.",
-                    primaryAction: ("Got it", { viewModel.dismissBudgetMigrationNotice() }),
-                    secondaryAction: nil
-                )
+                if viewModel.budgetFeasibility.isFeasible {
+                    noticeCard(
+                        title: "Budget Applied",
+                        message: "Your budget has been applied to this month.",
+                        primaryAction: ("Got it", { viewModel.dismissBudgetMigrationNotice() }),
+                        secondaryAction: nil
+                    )
+                } else {
+                    noticeCard(
+                        title: "Budget Needs Attention",
+                        message: "At least one goal is underfunded. Review budget or goal deadlines.",
+                        primaryAction: ("Review Budget", onRecalculate),
+                        secondaryAction: ("Later", { viewModel.dismissBudgetMigrationNotice() })
+                    )
+                }
             }
 
             if viewModel.showBudgetRecalculationPrompt {
@@ -47,6 +56,7 @@ struct BudgetNoticesView: View {
             Text(message)
                 .font(.caption)
                 .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
                 Button(primaryAction.0, action: primaryAction.1)

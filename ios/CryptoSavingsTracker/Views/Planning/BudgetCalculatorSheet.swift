@@ -36,6 +36,7 @@ struct BudgetCalculatorSheet: View {
                             .font(.caption2)
                             .foregroundColor(.orange)
                             .frame(maxWidth: .infinity, alignment: .center)
+                            .accessibilityIdentifier("budgetShortfallSaveWarning")
                     }
 
                     HStack(spacing: 6) {
@@ -67,6 +68,7 @@ struct BudgetCalculatorSheet: View {
                         Text("Save Budget Plan")
                             .fontWeight(.semibold)
                     }
+                    .accessibilityIdentifier("saveBudgetPlanButton")
                     .disabled(!canApply)
                 }
             }
@@ -142,14 +144,17 @@ struct BudgetCalculatorSheet: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("budgetCurrencyButton")
 
                 #if os(iOS)
                 TextField("Amount", text: $budgetText)
                     .keyboardType(.decimalPad)
                     .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("budgetAmountField")
                 #else
                 TextField("Amount", text: $budgetText)
                     .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("budgetAmountField")
                 #endif
             }
         }
@@ -165,18 +170,21 @@ struct BudgetCalculatorSheet: View {
                 Text(feasibility.statusDescription)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                    .accessibilityIdentifier("budgetFeasibilityStatusText")
             }
 
             if !feasibility.isFeasible {
                 Text("Minimum required: \(feasibility.formattedMinimum)")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .accessibilityIdentifier("budgetMinimumRequiredText")
 
                 Button {
                     budgetText = String(format: "%.2f", feasibility.minimumRequired)
                 } label: {
                     Label("Use Minimum \(feasibility.formattedMinimum)", systemImage: "arrow.up.circle.fill")
                 }
+                .accessibilityIdentifier("useMinimumBudgetButton")
                 .buttonStyle(.borderedProminent)
 
                 if !feasibility.infeasibleGoals.isEmpty {

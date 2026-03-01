@@ -177,15 +177,25 @@ struct CryptoSavingsTrackerApp: App {
         guard !didRunUITestSeed else { return }
         let args = ProcessInfo.processInfo.arguments
         let shouldSeedGoalsOnly = args.contains("UITEST_SEED_GOALS")
+        let shouldSeedManyGoals = args.contains("UITEST_SEED_MANY_GOALS")
         let shouldSeed = args.contains("UITEST_SEED_SHARED_ASSET")
         let shouldReshare = args.contains("UITEST_RESHARE_ASSET")
-        guard shouldSeedGoalsOnly || shouldSeed || shouldReshare else { return }
+        let shouldSeedBudgetShortfall = args.contains("UITEST_SEED_BUDGET_SHORTFALL")
+        guard shouldSeedGoalsOnly || shouldSeedManyGoals || shouldSeed || shouldReshare || shouldSeedBudgetShortfall else { return }
         didRunUITestSeed = true
 
         OnboardingManager.shared.completeOnboarding()
 
+        var didSeedGoals = false
+
         if shouldSeedGoalsOnly {
-            await seedUITestGoalsOnly(context: context)
+            await seedUITestGoals(context: context, count: 1)
+            didSeedGoals = true
+        }
+
+        if shouldSeedManyGoals {
+            await seedUITestGoals(context: context, count: 18)
+            didSeedGoals = true
         }
 
         if shouldSeed {
@@ -195,29 +205,68 @@ struct CryptoSavingsTrackerApp: App {
         if shouldReshare {
             await applyUITestReshare(context: context)
         }
+
+        if shouldSeedBudgetShortfall {
+            if !didSeedGoals {
+                await seedUITestGoals(context: context, count: 1)
+            }
+            await seedUITestBudgetShortfall()
+        }
     }
 
     @MainActor
-    private static func seedUITestGoalsOnly(context: ModelContext) async {
+    private static func seedUITestGoals(context: ModelContext, count: Int) async {
         do {
-            // If tests didn't request a reset, keep existing data; just ensure at least 1 deterministic goal exists.
+            // If tests didn't request a reset, keep existing data and avoid duplicate deterministic goals.
             let existingGoals = try context.fetch(FetchDescriptor<Goal>())
-            if existingGoals.contains(where: { $0.name == "UI Goal Seed" }) {
+            let expectedNames: [String]
+            if count <= 1 {
+                expectedNames = ["UI Goal Seed"]
+            } else {
+                expectedNames = (1...count).map { "UI Goal \($0)" }
+            }
+
+            let existingNames = Set(existingGoals.map(\.name))
+            if Set(expectedNames).isSubset(of: existingNames) {
                 return
             }
 
-            let goal = Goal(
-                name: "UI Goal Seed",
-                currency: "USD",
-                targetAmount: 1000,
-                deadline: Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date().addingTimeInterval(86400 * 90)
-            )
-            context.insert(goal)
+            if count <= 1 {
+                let goal = Goal(
+                    name: "UI Goal Seed",
+                    currency: "USD",
+                    targetAmount: 1000,
+                    deadline: Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date().addingTimeInterval(86400 * 90)
+                )
+                context.insert(goal)
+            } else {
+                for index in 1...count {
+                    let goal = Goal(
+                        name: "UI Goal \(index)",
+                        currency: "USD",
+                        targetAmount: Double(900 + index * 150),
+                        deadline: Calendar.current.date(byAdding: .month, value: 1 + (index % 10), to: Date())
+                            ?? Date().addingTimeInterval(86400 * 30 * Double(1 + (index % 10)))
+                    )
+                    context.insert(goal)
+                }
+            }
+
             try context.save()
-            AppLog.info("UITest goals-only seed complete", category: .ui)
+            AppLog.info("UITest goals seed complete (\(count) goals)", category: .ui)
         } catch {
-            AppLog.error("UITest goals-only seed failed: \(error)", category: .ui)
+            AppLog.error("UITest goals seed failed: \(error)", category: .ui)
         }
+    }
+
+    @MainActor
+    private static func seedUITestBudgetShortfall() async {
+        let settings = MonthlyPlanningSettings.shared
+        settings.budgetCurrency = "USD"
+        settings.monthlyBudget = 1
+        settings.budgetAppliedMonthLabel = nil
+        settings.budgetAppliedSignature = nil
+        AppLog.info("UITest shortfall budget seeded", category: .ui)
     }
 
     @MainActor
@@ -385,9 +434,14 @@ struct CryptoSavingsTrackerApp: App {
             let args = ProcessInfo.processInfo.arguments
             let isXCTestRun = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
             UITestBootstrapView {
-                if isXCTestRun {
+                // Keep the app headless only for unit/integration tests.
+                // UI tests rely on UITEST_* launch arguments and need real UI rendered.
+                if isXCTestRun && !UITestFlags.isEnabled {
                     Color.clear
-                } else if args.contains("UITEST_SEED_SHARED_ASSET") {
+                } else if args.contains("UITEST_SEED_SHARED_ASSET")
+                    || args.contains("UITEST_SEED_BUDGET_SHORTFALL")
+                    || args.contains("UITEST_SEED_MANY_GOALS")
+                {
                     MonthlyPlanningContainer()
                 } else if args.contains("UITEST_UI_FLOW") {
                     ContentView()

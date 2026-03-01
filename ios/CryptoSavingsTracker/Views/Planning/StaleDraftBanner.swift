@@ -8,6 +8,11 @@
 
 import SwiftUI
 import SwiftData
+#if os(macOS)
+import AppKit
+#elseif os(iOS)
+import UIKit
+#endif
 
 /// Banner component for managing stale draft plans from past months
 struct StaleDraftBanner: View {
@@ -19,6 +24,16 @@ struct StaleDraftBanner: View {
     @State private var showingDetails = false
     @State private var currentPage = 0
     private let itemsPerPage = 5
+
+    private var baselineStroke: Color {
+        #if os(iOS)
+        return Color(UIColor.separator).opacity(0.55)
+        #elseif os(macOS)
+        return Color(NSColor.separatorColor).opacity(0.55)
+        #else
+        return Color.primary.opacity(0.12)
+        #endif
+    }
 
     private var totalPages: Int {
         max(1, (stalePlans.count + itemsPerPage - 1) / itemsPerPage)
@@ -43,7 +58,7 @@ struct StaleDraftBanner: View {
                     } label: {
                         HStack {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
+                                .foregroundStyle(AccessibleColors.warning)
                                 .font(.title3)
 
                             VStack(alignment: .leading, spacing: 2) {
@@ -53,23 +68,29 @@ struct StaleDraftBanner: View {
 
                                 Text("Tap to review and resolve")
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(.secondary)
                             }
 
                             Spacer()
 
                             Image(systemName: showingDetails ? "chevron.up" : "chevron.down")
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                                 .font(.caption)
                         }
                         .padding()
-                        .background(Color.orange.opacity(0.1))
+                        .background(.regularMaterial)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(baselineStroke, lineWidth: 1)
                         )
+                        .overlay(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(AccessibleColors.warning)
+                                .frame(width: 3)
+                        }
                     }
                     .buttonStyle(.plain)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
 
                     if showingDetails {
                         VStack(alignment: .leading, spacing: 12) {
@@ -78,47 +99,48 @@ struct StaleDraftBanner: View {
                                 Text("What do these actions mean?")
                                     .font(.caption)
                                     .fontWeight(.semibold)
-                                    .foregroundColor(.primary)
+                                    .foregroundStyle(.primary)
 
                                 HStack(alignment: .top, spacing: 8) {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.green)
+                                        .foregroundStyle(AccessibleColors.success)
                                         .font(.caption)
                                         .frame(width: 16)
 
                                     Text("**Mark Completed**: Count as fulfilled (contributed the planned amount)")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundStyle(.secondary)
                                 }
 
                                 HStack(alignment: .top, spacing: 8) {
                                     Image(systemName: "forward.fill")
-                                        .foregroundColor(.orange)
+                                        .foregroundStyle(AccessibleColors.warning)
                                         .font(.caption)
                                         .frame(width: 16)
 
                                     Text("**Mark Skipped**: Count as intentionally skipped (didn't contribute)")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundStyle(.secondary)
                                 }
 
                                 HStack(alignment: .top, spacing: 8) {
                                     Image(systemName: "trash")
-                                        .foregroundColor(.red)
+                                        .foregroundStyle(AccessibleColors.error)
                                         .font(.caption)
                                         .frame(width: 16)
 
                                     Text("**Delete**: Remove plan entirely (no record of this month)")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundStyle(.secondary)
                                 }
                             }
                             .padding(12)
-                            .background(Color.blue.opacity(0.05))
+                            .background(.regularMaterial)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.blue.opacity(0.1), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(baselineStroke, lineWidth: 1)
                             )
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
 
                             // Paginated plan list
                             ForEach(currentPagePlans, id: \.id) { plan in
@@ -141,7 +163,7 @@ struct StaleDraftBanner: View {
                                         }
                                     } label: {
                                         Image(systemName: "chevron.left")
-                                            .foregroundColor(currentPage == 0 ? .secondary.opacity(0.5) : .primary)
+                                            .foregroundStyle(currentPage == 0 ? Color.secondary.opacity(0.5) : Color.primary)
                                     }
                                     .disabled(currentPage == 0)
                                     .buttonStyle(.plain)
@@ -166,7 +188,7 @@ struct StaleDraftBanner: View {
                                         }
                                     } label: {
                                         Image(systemName: "chevron.right")
-                                            .foregroundColor(currentPage >= totalPages - 1 ? .secondary.opacity(0.5) : .primary)
+                                            .foregroundStyle(currentPage >= totalPages - 1 ? Color.secondary.opacity(0.5) : Color.primary)
                                     }
                                     .disabled(currentPage >= totalPages - 1)
                                     .buttonStyle(.plain)
@@ -195,6 +217,16 @@ struct StalePlanRow: View {
     @State private var showingActionSheet = false
     @State private var hovering = false
 
+    private var baselineStroke: Color {
+        #if os(iOS)
+        return Color(UIColor.separator).opacity(0.55)
+        #elseif os(macOS)
+        return Color(NSColor.separatorColor).opacity(0.55)
+        #else
+        return Color.primary.opacity(0.12)
+        #endif
+    }
+
     // Get goal name from relationship or use "Unknown Goal"
     private var goalName: String {
         // This would need to be passed in or fetched via relationship
@@ -205,7 +237,7 @@ struct StalePlanRow: View {
         HStack(spacing: 12) {
             // Status indicator
             Circle()
-                .fill(Color.orange.opacity(0.2))
+                .fill(AccessibleColors.warningBackground)
                 .frame(width: 8, height: 8)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -218,7 +250,7 @@ struct StalePlanRow: View {
                 HStack(spacing: 8) {
                     Text("Planned: \(plan.formattedEffectiveAmount())")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -248,7 +280,7 @@ struct StalePlanRow: View {
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .font(.title3)
-                    .foregroundColor(hovering ? .primary : .secondary)
+                    .foregroundStyle(hovering ? .primary : .secondary)
                     .scaleEffect(hovering ? 1.1 : 1.0)
             }
             .onHover { isHovering in
@@ -258,11 +290,11 @@ struct StalePlanRow: View {
             }
         }
         .padding()
-        .background(Color.secondary.opacity(hovering ? 0.08 : 0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(baselineStroke, lineWidth: 1)
         )
     }
 

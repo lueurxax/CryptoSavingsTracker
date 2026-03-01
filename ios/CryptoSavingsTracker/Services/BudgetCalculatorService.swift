@@ -146,7 +146,7 @@ final class BudgetCalculatorService: ObservableObject {
                                     goalId: goal.id,
                                     goalName: goal.name,
                                     to: proposedTarget,
-                                    currency: currency  // Use display currency, not goal's original currency
+                                    currency: goal.currency
                                 )
                             )
                         }

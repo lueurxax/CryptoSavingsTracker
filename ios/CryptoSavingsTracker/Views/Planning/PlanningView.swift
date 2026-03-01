@@ -48,14 +48,47 @@ struct PlanningView: View {
     }
 }
 
+private struct CompactPlanningScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 // MARK: - iOS Compact Layout
 
 struct iOSCompactPlanningView: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
     let staleDrafts: [MonthlyPlan]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTab = 0
     @State private var showingBudgetSheet = false
+    @State private var tabScrollOffset: CGFloat = 0
+    @State private var isCollapsedHeaderVisible = false
+
+    private let collapseDistance: CGFloat = 160
+
+    private var headerCollapseProgress: CGFloat {
+        min(max(-tabScrollOffset / collapseDistance, 0), 1)
+    }
+
+    private var headerCardScale: CGFloat {
+        guard !reduceMotion else { return 1 }
+        let clamped = min(max(headerCollapseProgress / 0.75, 0), 1)
+        return 1 - (clamped * 0.04)
+    }
+
+    private var headerCardOpacity: Double {
+        guard !reduceMotion else { return isCollapsedHeaderVisible ? 0 : 1 }
+        let fadeStart: CGFloat = 0.55
+        let fadeEnd: CGFloat = 0.85
+        if headerCollapseProgress <= fadeStart { return 1 }
+        if headerCollapseProgress >= fadeEnd { return 0 }
+        let normalized = (headerCollapseProgress - fadeStart) / (fadeEnd - fadeStart)
+        return Double(1 - normalized)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -93,54 +126,27 @@ struct iOSCompactPlanningView: View {
                 .padding(.vertical, 8)
             }
 
-            BudgetNoticesView(viewModel: viewModel) {
-                showingBudgetSheet = true
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 4)
-
-            if viewModel.hasBudget {
-                BudgetSummaryCard(
-                    budgetAmount: viewModel.budgetAmount,
-                    budgetCurrency: viewModel.budgetCurrency,
-                    feasibility: viewModel.budgetFeasibility,
-                    isApplied: viewModel.isBudgetAppliedForCurrentMonth,
-                    currentFocusGoal: viewModel.budgetFocusGoalName,
-                    currentFocusDeadline: viewModel.budgetFocusGoalDeadline,
-                    onEdit: { showingBudgetSheet = true }
-                )
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-            } else {
-                BudgetEntryCard(onSetBudget: { showingBudgetSheet = true })
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
-            }
-
-            // Consolidated Header (replaces context + summary)
-            consolidatedHeader
-                .padding(.horizontal)
-                .padding(.bottom, 12)
-
             // Improved Tab Selector with underline indicator
             improvedTabSelector
                 .padding(.horizontal)
-                .padding(.bottom, 8)
+                .padding(.bottom, 6)
+
+            if isCollapsedHeaderVisible {
+                collapsedHeaderStrip
+                    .padding(.horizontal)
+                    .padding(.bottom, 6)
+                    .transition(reduceMotion ? .identity : .move(edge: .top).combined(with: .opacity))
+                    .zIndex(2)
+            }
 
             // Tab Content
-            TabView(selection: $selectedTab) {
-                goalsListView
-                    .tag(0)
-
-                flexControlsView
-                    .tag(1)
-
-                statisticsView
-                    .tag(2)
-            }
-            #if os(iOS)
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            #endif
+            activeTabContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .animation(.easeInOut(duration: 0.2), value: selectedTab)
+        }
+        .onChange(of: selectedTab) { _, _ in
+            tabScrollOffset = 0
+            isCollapsedHeaderVisible = false
         }
     }
 
@@ -159,6 +165,62 @@ struct iOSCompactPlanningView: View {
         .background(Color(NSColor.controlBackgroundColor))
         #endif
         .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    @ViewBuilder
+    private var activeTabContent: some View {
+        switch selectedTab {
+        case 0:
+            goalsListView
+        case 1:
+            flexControlsView
+        default:
+            statisticsView
+        }
+    }
+
+    @ViewBuilder
+    private var planningHeaderSection: some View {
+        VStack(spacing: 8) {
+            BudgetHealthCard(
+                state: viewModel.budgetHealthState,
+                budgetAmount: viewModel.hasBudget ? viewModel.budgetAmount : nil,
+                budgetCurrency: viewModel.budgetCurrency,
+                minimumRequired: viewModel.budgetFeasibility.minimumRequired > 0 ? viewModel.budgetFeasibility.minimumRequired : nil,
+                nextConstrainedGoal: viewModel.budgetFocusGoalName,
+                nextDeadline: viewModel.budgetFocusGoalDeadline,
+                conversionContext: viewModel.budgetConversionContext,
+                onPrimaryAction: { showingBudgetSheet = true },
+                onEdit: { showingBudgetSheet = true }
+            )
+
+            consolidatedHeader
+        }
+        .scaleEffect(headerCardScale, anchor: .top)
+        .opacity(headerCardOpacity)
+        .allowsHitTesting(headerCollapseProgress < 0.88 || reduceMotion)
+        .zIndex(1)
+    }
+
+    @ViewBuilder
+    private var collapsedHeaderStrip: some View {
+        BudgetHealthCollapsedStrip(
+            state: viewModel.budgetHealthState,
+            budgetCurrency: viewModel.budgetCurrency,
+            onPrimaryAction: { showingBudgetSheet = true }
+        )
+    }
+
+    @ViewBuilder
+    private var scrollOffsetProbe: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .preference(
+                    key: CompactPlanningScrollOffsetPreferenceKey.self,
+                    value: proxy.frame(in: .named("compactPlanningTabScroll")).minY
+                )
+        }
+        .frame(height: 0)
     }
 
     @ViewBuilder
@@ -342,6 +404,11 @@ struct iOSCompactPlanningView: View {
     private var goalsListView: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
+                scrollOffsetProbe
+
+                planningHeaderSection
+                    .padding(.bottom, 2)
+
                 ForEach(viewModel.monthlyRequirements) { requirement in
                     GoalRequirementRow(
                         requirement: requirement,
@@ -379,7 +446,14 @@ struct iOSCompactPlanningView: View {
                     .padding(.vertical, 40)
                 }
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.top, 2)
+            .padding(.bottom, 12)
+        }
+        .coordinateSpace(name: "compactPlanningTabScroll")
+        .onPreferenceChange(CompactPlanningScrollOffsetPreferenceKey.self) { newValue in
+            tabScrollOffset = newValue
+            updateCollapsedHeaderVisibility(for: newValue)
         }
         .refreshable {
             await viewModel.refreshCalculations()
@@ -390,6 +464,11 @@ struct iOSCompactPlanningView: View {
     private var flexControlsView: some View {
         ScrollView {
             VStack(spacing: 24) {
+                scrollOffsetProbe
+
+                planningHeaderSection
+                    .padding(.bottom, 2)
+
                 // Flex Slider
                 VStack(spacing: 16) {
                     HStack {
@@ -475,7 +554,14 @@ struct iOSCompactPlanningView: View {
                 // Quick Actions
                 quickActionsGrid
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.top, 2)
+            .padding(.bottom, 12)
+        }
+        .coordinateSpace(name: "compactPlanningTabScroll")
+        .onPreferenceChange(CompactPlanningScrollOffsetPreferenceKey.self) { newValue in
+            tabScrollOffset = newValue
+            updateCollapsedHeaderVisibility(for: newValue)
         }
     }
     
@@ -483,6 +569,11 @@ struct iOSCompactPlanningView: View {
     private var statisticsView: some View {
         ScrollView {
             VStack(spacing: 20) {
+                scrollOffsetProbe
+
+                planningHeaderSection
+                    .padding(.bottom, 2)
+
                 // Status Overview
                 statusOverviewCard
                 
@@ -492,7 +583,14 @@ struct iOSCompactPlanningView: View {
                 // Performance Metrics
                 performanceMetricsCard
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.top, 2)
+            .padding(.bottom, 12)
+        }
+        .coordinateSpace(name: "compactPlanningTabScroll")
+        .onPreferenceChange(CompactPlanningScrollOffsetPreferenceKey.self) { newValue in
+            tabScrollOffset = newValue
+            updateCollapsedHeaderVisibility(for: newValue)
         }
     }
     
@@ -662,6 +760,30 @@ struct iOSCompactPlanningView: View {
                 .fontWeight(.medium)
         }
     }
+
+    private func updateCollapsedHeaderVisibility(for offset: CGFloat) {
+        let progress = min(max(-offset / collapseDistance, 0), 1)
+        let enterThreshold: CGFloat = 0.80
+        let exitThreshold: CGFloat = 0.70
+
+        if reduceMotion {
+            isCollapsedHeaderVisible = progress >= enterThreshold
+            return
+        }
+
+        if isCollapsedHeaderVisible {
+            guard progress <= exitThreshold else { return }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isCollapsedHeaderVisible = false
+            }
+            return
+        }
+
+        guard progress >= enterThreshold else { return }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isCollapsedHeaderVisible = true
+        }
+    }
     
     private var groupedGoals: [RequirementStatus: [MonthlyRequirement]] {
         Dictionary(grouping: viewModel.monthlyRequirements, by: \.status)
@@ -737,23 +859,17 @@ struct iOSRegularPlanningView: View {
         NavigationView {
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    BudgetNoticesView(viewModel: viewModel) {
-                        showingBudgetSheet = true
-                    }
-
-                    if viewModel.hasBudget {
-                        BudgetSummaryCard(
-                            budgetAmount: viewModel.budgetAmount,
-                            budgetCurrency: viewModel.budgetCurrency,
-                            feasibility: viewModel.budgetFeasibility,
-                            isApplied: viewModel.isBudgetAppliedForCurrentMonth,
-                            currentFocusGoal: viewModel.budgetFocusGoalName,
-                            currentFocusDeadline: viewModel.budgetFocusGoalDeadline,
-                            onEdit: { showingBudgetSheet = true }
-                        )
-                    } else {
-                        BudgetEntryCard(onSetBudget: { showingBudgetSheet = true })
-                    }
+                    BudgetHealthCard(
+                        state: viewModel.budgetHealthState,
+                        budgetAmount: viewModel.hasBudget ? viewModel.budgetAmount : nil,
+                        budgetCurrency: viewModel.budgetCurrency,
+                        minimumRequired: viewModel.budgetFeasibility.minimumRequired > 0 ? viewModel.budgetFeasibility.minimumRequired : nil,
+                        nextConstrainedGoal: viewModel.budgetFocusGoalName,
+                        nextDeadline: viewModel.budgetFocusGoalDeadline,
+                        conversionContext: viewModel.budgetConversionContext,
+                        onPrimaryAction: { showingBudgetSheet = true },
+                        onEdit: { showingBudgetSheet = true }
+                    )
 
                     ForEach(viewModel.monthlyRequirements) { requirement in
                         GoalRequirementRow(
@@ -941,23 +1057,17 @@ struct macOSControlsPanel: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                BudgetNoticesView(viewModel: viewModel) {
-                    showingBudgetSheet = true
-                }
-
-                if viewModel.hasBudget {
-                    BudgetSummaryCard(
-                        budgetAmount: viewModel.budgetAmount,
-                        budgetCurrency: viewModel.budgetCurrency,
-                        feasibility: viewModel.budgetFeasibility,
-                        isApplied: viewModel.isBudgetAppliedForCurrentMonth,
-                        currentFocusGoal: viewModel.budgetFocusGoalName,
-                        currentFocusDeadline: viewModel.budgetFocusGoalDeadline,
-                        onEdit: { showingBudgetSheet = true }
-                    )
-                } else {
-                    BudgetEntryCard(onSetBudget: { showingBudgetSheet = true })
-                }
+                BudgetHealthCard(
+                    state: viewModel.budgetHealthState,
+                    budgetAmount: viewModel.hasBudget ? viewModel.budgetAmount : nil,
+                    budgetCurrency: viewModel.budgetCurrency,
+                    minimumRequired: viewModel.budgetFeasibility.minimumRequired > 0 ? viewModel.budgetFeasibility.minimumRequired : nil,
+                    nextConstrainedGoal: viewModel.budgetFocusGoalName,
+                    nextDeadline: viewModel.budgetFocusGoalDeadline,
+                    conversionContext: viewModel.budgetConversionContext,
+                    onPrimaryAction: { showingBudgetSheet = true },
+                    onEdit: { showingBudgetSheet = true }
+                )
 
                 // Summary section
                 summarySection

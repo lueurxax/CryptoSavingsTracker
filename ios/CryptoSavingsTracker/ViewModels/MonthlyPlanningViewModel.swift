@@ -79,6 +79,15 @@ final class MonthlyPlanningViewModel: ObservableObject {
 
     /// Prompt for recalculation when goals or month change.
     @Published var showBudgetRecalculationPrompt = false
+
+    /// Whether FX data for budget evaluation is stale or unavailable.
+    @Published var budgetHasStaleRates = false
+
+    /// Last successful budget FX refresh time.
+    @Published var budgetRateLastUpdated: Date?
+
+    /// Currencies that currently fail conversion into budget currency.
+    @Published var budgetRateAffectedCurrencies: [String] = []
     
     // MARK: - Computed Properties
     
@@ -173,6 +182,52 @@ final class MonthlyPlanningViewModel: ObservableObject {
     var budgetFocusGoalDeadline: Date? {
         budgetFocusGoal?.deadline
     }
+
+    /// Unified budget state used by Budget Health card.
+    var budgetHealthState: BudgetHealthState {
+        guard hasBudget else { return .noBudget }
+
+        if budgetHasStaleRates {
+            return .staleFX(
+                lastUpdated: budgetRateLastUpdated,
+                affectedCurrencies: budgetRateAffectedCurrencies
+            )
+        }
+
+        let shortfall = max(0, budgetFeasibility.minimumRequired - budgetAmount)
+        if shortfall > 0.01 {
+            let riskCount = budgetFeasibility.infeasibleGoals.count
+            let shortfallRatio = budgetFeasibility.minimumRequired > 0
+                ? shortfall / budgetFeasibility.minimumRequired
+                : 0
+            let goalsRatio = monthlyRequirements.isEmpty
+                ? 0
+                : Double(riskCount) / Double(max(1, monthlyRequirements.count))
+            if shortfallRatio > 0.25 || goalsRatio >= 0.40 {
+                return .severeRisk(shortfall: shortfall, goalsAtRisk: riskCount)
+            }
+            return .atRisk(shortfall: shortfall, goalsAtRisk: riskCount)
+        }
+
+        if !isBudgetAppliedForCurrentMonth {
+            return .notApplied
+        }
+
+        if showBudgetRecalculationPrompt {
+            return .needsRecalculation
+        }
+
+        return .healthy
+    }
+
+    /// Text hint for mixed fiat/crypto conversion basis.
+    var budgetConversionContext: String? {
+        guard hasBudget else { return nil }
+        let sourceCurrencies = Set(monthlyRequirements.map(\.currency).filter { $0 != budgetCurrency })
+        guard !sourceCurrencies.isEmpty else { return nil }
+        let list = sourceCurrencies.sorted().joined(separator: "/")
+        return "Converted from \(list) holdings at current rates."
+    }
     
     // MARK: - Dependencies
     
@@ -184,6 +239,12 @@ final class MonthlyPlanningViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var currentPlans: [MonthlyPlan] = []
     private var isApplyingBudgetMigration = false
+
+    private struct BudgetRateState {
+        let isStale: Bool
+        let lastUpdated: Date?
+        let affectedCurrencies: [String]
+    }
     
     // MARK: - Initialization
     
@@ -671,12 +732,18 @@ final class MonthlyPlanningViewModel: ObservableObject {
         guard hasBudget else {
             budgetFeasibility = .empty
             showBudgetRecalculationPrompt = false
+            budgetHasStaleRates = false
+            budgetRateLastUpdated = nil
+            budgetRateAffectedCurrencies = []
             return
         }
 
         let eligibleGoals = budgetEligibleGoals()
         guard !eligibleGoals.isEmpty else {
             budgetFeasibility = .empty
+            budgetHasStaleRates = false
+            budgetRateLastUpdated = nil
+            budgetRateAffectedCurrencies = []
             return
         }
 
@@ -688,6 +755,11 @@ final class MonthlyPlanningViewModel: ObservableObject {
             currency: currency
         )
         budgetFeasibility = feasibility
+
+        let budgetRateState = await evaluateBudgetRateState(for: eligibleGoals, budgetCurrency: currency)
+        budgetHasStaleRates = budgetRateState.isStale
+        budgetRateLastUpdated = budgetRateState.lastUpdated
+        budgetRateAffectedCurrencies = budgetRateState.affectedCurrencies
 
         guard settings.budgetAppliedMonthLabel != nil else {
             showBudgetRecalculationPrompt = false
@@ -742,6 +814,32 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 return "\(goal.id.uuidString)|\(goal.currency)|\(goal.targetAmount)|\(deadline)"
             }
             .joined(separator: ";")
+    }
+
+    private func evaluateBudgetRateState(for goals: [Goal], budgetCurrency: String) async -> BudgetRateState {
+        let conversions = Set(goals.map(\.currency).filter { $0 != budgetCurrency })
+        guard !conversions.isEmpty else {
+            return BudgetRateState(isStale: false, lastUpdated: nil, affectedCurrencies: [])
+        }
+
+        var failedCurrencies: [String] = []
+        for source in conversions.sorted() {
+            do {
+                _ = try await exchangeRateService.fetchRate(from: source, to: budgetCurrency)
+            } catch {
+                failedCurrencies.append(source)
+            }
+        }
+
+        if failedCurrencies.isEmpty {
+            return BudgetRateState(isStale: false, lastUpdated: Date(), affectedCurrencies: [])
+        }
+
+        return BudgetRateState(
+            isStale: true,
+            lastUpdated: nil,
+            affectedCurrencies: failedCurrencies
+        )
     }
     
     /// Load saved flex states from SwiftData

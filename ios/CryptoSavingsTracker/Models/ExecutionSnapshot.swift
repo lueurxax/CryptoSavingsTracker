@@ -59,8 +59,10 @@ final class ExecutionSnapshot {
 // MARK: - ExecutionGoalSnapshot Struct
 
 /// Snapshot of a single goal's plan at execution start
-struct ExecutionGoalSnapshot: Codable, Sendable {
+struct ExecutionGoalSnapshot: Codable, Sendable, Identifiable, Equatable {
     let goalId: UUID
+
+    var id: UUID { goalId }
     let goalName: String
     let plannedAmount: Double
     let currency: String

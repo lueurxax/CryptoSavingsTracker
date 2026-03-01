@@ -13,19 +13,25 @@ struct MonthlyExecutionView: View {
     @StateObject private var viewModel: MonthlyExecutionViewModel
     @Environment(\.modelContext) private var modelContext
 
-    @State private var showCompleteConfirmation = false
     @State private var showCompletedSection = true
     @State private var showingCurrencyPicker = false
-    @State private var showingAssetPicker = false
     @State private var showingAllocationSheet = false
-    @State private var selectedGoalSnapshot: ExecutionGoalSnapshot?
+    @State private var selectedGoalSnapshot: ExecutionGoalSnapshot?  // For asset picker sheet
+    @State private var pendingGoalSnapshot: ExecutionGoalSnapshot?   // For transaction/allocation sheets
     @State private var selectedAsset: Asset?
     @State private var selectedAllocationAsset: Asset?
+    @State private var pendingAllocationAsset: Asset?  // Staged for onDismiss
+    @State private var pendingTransactionAsset: Asset? // Staged for onDismiss
     @State private var suggestedAmount: Double?
     @State private var isComputingSuggestion = false
+    @State private var allocationSheetData: AllocationSheetData?  // For item-based sheet presentation
 
-    init(modelContext: ModelContext) {
+    /// Shared coordinator for execution state (passed from Container)
+    @ObservedObject var coordinator: ExecutionStateCoordinator
+
+    init(modelContext: ModelContext, coordinator: ExecutionStateCoordinator) {
         _viewModel = StateObject(wrappedValue: MonthlyExecutionViewModel(modelContext: modelContext))
+        self.coordinator = coordinator
     }
 
     var body: some View {
@@ -57,72 +63,85 @@ struct MonthlyExecutionView: View {
         .refreshable {
             await viewModel.refresh()
         }
-        .alert("Complete this month?", isPresented: $showCompleteConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Finish Month") {
-                Task {
-                    await viewModel.markComplete()
-                }
-            }
-        } message: {
-            Text(completeConfirmationMessage)
-        }
         .sheet(isPresented: $showingCurrencyPicker) {
             SearchableCurrencyPicker(
                 selectedCurrency: $viewModel.displayCurrency,
                 pickerType: .fiat
             )
         }
-        .sheet(isPresented: $showingAssetPicker) {
-            if let goalSnapshot = selectedGoalSnapshot {
-                let assets = viewModel.assetsForContribution(goalId: goalSnapshot.goalId)
-                NavigationView {
-                    Group {
-                        if assets.isEmpty {
-                            Text("No assets available. Add an asset first.")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        } else {
-                            List(assets, id: \.id) { asset in
-                                Button {
-                                    showingAssetPicker = false
-                                    if asset.allocations.count > 1 {
-                                        selectedAllocationAsset = asset
-                                        showingAllocationSheet = true
+        .sheet(item: $selectedGoalSnapshot) { goalSnapshot in
+            let assets = viewModel.assetsForContribution(goalId: goalSnapshot.goalId)
+            NavigationView {
+                Group {
+                    if assets.isEmpty {
+                        Text("No assets available. Add an asset first.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        List(assets, id: \.id) { asset in
+                            Button {
+                                // Capture values before dismissing picker
+                                let isSharedAsset = asset.allocations.count > 1
+                                let assetToUse = asset
+                                let snapshotCopy = goalSnapshot
+
+                                // Save goal snapshot for subsequent sheets
+                                pendingGoalSnapshot = snapshotCopy
+
+                                // Dismiss picker sheet first
+                                selectedGoalSnapshot = nil
+
+                                // After picker dismisses, present the appropriate sheet
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                    if isSharedAsset {
+                                        // Present allocation/sharing sheet using item-based binding
+                                        allocationSheetData = AllocationSheetData(
+                                            asset: assetToUse,
+                                            goalSnapshot: snapshotCopy
+                                        )
                                     } else {
-                                        beginSuggestedContribution(for: goalSnapshot, asset: asset)
-                                    }
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "bitcoinsign.circle")
-                                        Text(asset.currency)
-                                        Spacer()
-                                        if asset.allocations.count > 1 {
-                                            Image(systemName: "chart.pie.fill")
-                                                .foregroundColor(.secondary)
+                                        // Compute suggestion and present transaction sheet
+                                        suggestedAmount = nil
+                                        Task { @MainActor in
+                                            let suggestion = await viewModel.suggestedDepositAmount(
+                                                for: assetToUse.currency,
+                                                goalSnapshot: snapshotCopy
+                                            )
+                                            suggestedAmount = suggestion
+                                            selectedAsset = assetToUse
                                         }
                                     }
-                                    .contentShape(Rectangle())
                                 }
-                                .accessibilityIdentifier("assetPickerCell-\(asset.currency)")
+                            } label: {
+                                HStack {
+                                    Image(systemName: "bitcoinsign.circle")
+                                    Text(asset.currency)
+                                    Spacer()
+                                    if asset.allocations.count > 1 {
+                                        Image(systemName: "chart.pie.fill")
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                .contentShape(Rectangle())
                             }
+                            .accessibilityIdentifier("assetPickerCell-\(asset.currency)")
                         }
                     }
-                    .navigationTitle("Select Asset")
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancel") { showingAssetPicker = false }
-                        }
+                }
+                .navigationTitle("Select Asset")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { selectedGoalSnapshot = nil }
                     }
                 }
             }
         }
         .sheet(isPresented: Binding(
             get: { selectedAsset != nil },
-            set: { if !$0 { selectedAsset = nil } }
+            set: { if !$0 { selectedAsset = nil; pendingGoalSnapshot = nil } }
         )) {
-            if let asset = selectedAsset, let goalSnapshot = selectedGoalSnapshot {
+            if let asset = selectedAsset, let goalSnapshot = pendingGoalSnapshot {
                 AddTransactionView(
                     asset: asset,
                     prefillAmount: suggestedAmount,
@@ -130,16 +149,15 @@ struct MonthlyExecutionView: View {
                 )
             }
         }
-        .sheet(isPresented: $showingAllocationSheet, onDismiss: {
+        .sheet(item: $allocationSheetData, onDismiss: {
             selectedAllocationAsset = nil
-        }) {
-            if let asset = selectedAllocationAsset, let goalSnapshot = selectedGoalSnapshot {
-                AssetSharingView(
-                    asset: asset,
-                    currentGoalId: goalSnapshot.goalId,
-                    prefillCloseMonthGoalId: goalSnapshot.goalId
-                )
-            }
+            pendingGoalSnapshot = nil
+        }) { sheetData in
+            AssetSharingView(
+                asset: sheetData.asset,
+                currentGoalId: sheetData.goalSnapshot.goalId,
+                prefillCloseMonthGoalId: sheetData.goalSnapshot.goalId
+            )
         }
         .overlay {
             if viewModel.isLoading {
@@ -362,7 +380,6 @@ struct MonthlyExecutionView: View {
                         viewModel: viewModel,
                         onAddContribution: (viewModel.isActive && remainingToClose > 0) ? {
                             selectedGoalSnapshot = goalSnapshot
-                            showingAssetPicker = true
                         } : nil
                     )
                 }
@@ -425,27 +442,11 @@ struct MonthlyExecutionView: View {
     }
 
     // MARK: - Action Buttons
+    // Note: The "Finish This Month" button is now in the Container's banner
+    // to ensure proper state management (running in Container's context)
 
     private var actionButtons: some View {
         VStack(spacing: 12) {
-            if viewModel.isActive {
-                Button {
-                    if UITestFlags.isEnabled {
-                        Task {
-                            await viewModel.markComplete()
-                        }
-                    } else {
-                        showCompleteConfirmation = true
-                    }
-                } label: {
-                    Label("Finish This Month", systemImage: "checkmark.circle.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-                .accessibilityIdentifier("finishMonthButton")
-            }
-
             if viewModel.isClosed {
                 Text("This month is closed")
                     .font(.subheadline)
@@ -456,21 +457,6 @@ struct MonthlyExecutionView: View {
     }
 
     // MARK: - Helpers
-
-    private var completeConfirmationMessage: String {
-        let stats = MonthlyExecutionStatistics(
-            totalPlanned: viewModel.displayTotalPlanned,
-            totals: viewModel.contributedTotals,
-            fulfillment: viewModel.fulfillmentStatus,
-            goalsCount: viewModel.displayGoalCount
-        )
-
-        if stats.percentageComplete < 100 {
-            return "Progress: \(formatCurrency(stats.totalContributed)) of \(formatCurrency(stats.totalPlanned)) (\(Int(stats.percentageComplete))%)\n\nNot fully funded. The remaining amount will roll into next month's calculations."
-        } else {
-            return "Progress: 100% complete! All goals have been funded for this month."
-        }
-    }
 
     private func formatMonthLabel(_ label: String) -> String {
         let formatter = DateFormatter()
@@ -519,19 +505,6 @@ struct MonthlyExecutionView: View {
             return "\(hours)h \(minutes)m"
         } else {
             return "\(minutes)m"
-        }
-    }
-
-    private func beginSuggestedContribution(for goalSnapshot: ExecutionGoalSnapshot, asset: Asset) {
-        isComputingSuggestion = true
-        Task {
-            let suggestion = await viewModel.suggestedDepositAmount(
-                for: asset.currency,
-                goalSnapshot: goalSnapshot
-            )
-            suggestedAmount = suggestion
-            selectedAsset = asset
-            isComputingSuggestion = false
         }
     }
 }
@@ -630,4 +603,13 @@ struct GoalProgressCard: View {
         formatter.maximumFractionDigits = 2
         return formatter.string(from: NSNumber(value: amount)) ?? "\(currency) \(amount)"
     }
+}
+
+// MARK: - Helper Structs
+
+/// Data for presenting the allocation sheet with item-based binding
+struct AllocationSheetData: Identifiable {
+    let id = UUID()
+    let asset: Asset
+    let goalSnapshot: ExecutionGoalSnapshot
 }

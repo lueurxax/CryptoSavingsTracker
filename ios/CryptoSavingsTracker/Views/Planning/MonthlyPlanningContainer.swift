@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import Combine
 
 /// Container view that shows either planning or execution view based on state
 struct MonthlyPlanningContainer: View {
@@ -18,6 +19,18 @@ struct MonthlyPlanningContainer: View {
     }
 }
 
+/// Shared coordinator for execution state between Container and ExecutionView
+@MainActor
+class ExecutionStateCoordinator: ObservableObject {
+    @Published var isExecuting: Bool = false
+
+    /// Callback to reload state after completion (set by Container)
+    var onCompletionReload: (() async -> Void)?
+
+    /// Request the Container to reload execution state
+    @Published var reloadRequested: Bool = false
+}
+
 /// Implementation detail that binds the container to a single `ModelContext`.
 private struct MonthlyPlanningContainerContent: View {
     let modelContext: ModelContext
@@ -25,7 +38,10 @@ private struct MonthlyPlanningContainerContent: View {
     @State private var isLoading = true
     @State private var showStartTrackingConfirmation = false
     @State private var showReturnToPlanningConfirmation = false
+    @State private var showFinishMonthConfirmation = false
     @State private var hasInitiallyLoaded = false
+    @State private var isExecuting = false  // Local @State synced from coordinator
+    @StateObject private var executionCoordinator = ExecutionStateCoordinator()
     @StateObject private var planningViewModel: MonthlyPlanningViewModel
 
     init(modelContext: ModelContext) {
@@ -40,20 +56,45 @@ private struct MonthlyPlanningContainerContent: View {
                 stateIndicatorBanner(for: record, planningMonthLabel: planningViewModel.planningMonthLabel)
             }
 
-            Group {
-                if isLoading {
-                    ProgressView("Loading...")
-                } else if let record = executionRecord, record.status == .executing {
-                    // Show execution view
-                    MonthlyExecutionView(modelContext: modelContext)
-                } else {
-                    // Show planning view with start tracking button
-                    planningViewWithStartButton
-                }
+            // Use AND logic: show execution only if BOTH local @State AND coordinator say so
+            // This ensures either source setting false will immediately show planning
+            if isLoading {
+                ProgressView("Loading...")
+            } else if isExecuting && executionCoordinator.isExecuting {
+                // Show execution view with shared coordinator
+                MonthlyExecutionView(modelContext: modelContext, coordinator: executionCoordinator)
+            } else {
+                // Show planning view with start tracking button
+                planningViewWithStartButton
             }
         }
         .navigationTitle("Monthly Planning")
+        .onChange(of: executionCoordinator.isExecuting) { _, newValue in
+            // Sync local @State from coordinator changes
+            isExecuting = newValue
+        }
+        .onChange(of: executionCoordinator.reloadRequested) { _, newValue in
+            // When MonthlyExecutionView requests reload after completion
+            // Immediately set states to switch view, then reload in background
+            if newValue {
+                executionCoordinator.reloadRequested = false
+                // Set states immediately (synchronously) to trigger view switch
+                isExecuting = false
+                executionCoordinator.isExecuting = false
+                // Then reload from database to get updated record/labels
+                Task {
+                    await loadExecutionRecord()
+                    await planningViewModel.loadMonthlyRequirements()
+                }
+            }
+        }
         .task {
+            // Set up the completion callback for the coordinator
+            executionCoordinator.onCompletionReload = { [self] in
+                await loadExecutionRecord()
+                await planningViewModel.loadMonthlyRequirements()
+            }
+
             // Ensure UI test seed (if requested) completes before loading execution/planning state
             await CryptoSavingsTrackerApp.runUITestSeedIfNeeded(context: modelContext)
             await loadExecutionRecord()
@@ -61,9 +102,17 @@ private struct MonthlyPlanningContainerContent: View {
             await planningViewModel.loadMonthlyRequirements()
         }
         .onReceive(NotificationCenter.default.publisher(for: .monthlyExecutionCompleted)) { notification in
+            // When execution is completed, immediately set states to trigger view switch
+            isExecuting = false
+            executionCoordinator.isExecuting = false
+
+            // Update record from notification object for banner update
             if let record = notification.object as? MonthlyExecutionRecord {
                 executionRecord = record
+                updatePlanningMonthLabel()
             }
+
+            // Also reload from database to ensure consistent state
             Task {
                 await loadExecutionRecord()
                 await planningViewModel.loadMonthlyRequirements()
@@ -79,53 +128,24 @@ private struct MonthlyPlanningContainerContent: View {
         } message: {
             Text("This will move this month back to planning mode and stop execution tracking. You can start tracking again later.")
         }
+        .alert("Complete this month?", isPresented: $showFinishMonthConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Finish Month") {
+                Task {
+                    await finishMonth()
+                }
+            }
+        } message: {
+            Text("This will mark the current month as complete and move to planning mode for next month.")
+        }
     }
 
     private var planningViewWithStartButton: some View {
-        VStack(spacing: 0) {
-            // Planning view in a ScrollView - takes available space
-            PlanningView(viewModel: planningViewModel)
-                .padding(.bottom, 20)
-                .frame(maxHeight: .infinity)
-
-            // Start Tracking button section - compact and responsive
-            VStack(spacing: 8) {
-                Divider()
-
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                        .font(.title3)
-
-                    Text("Ready to commit to this plan?")
-                        .font(.headline)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-
-                    Spacer()
-                }
-
-                Text("This will lock in your monthly amounts and enable contribution tracking. You can undo this action within 24 hours.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.9)
-
-                Button {
-                    showStartTrackingConfirmation = true
-                } label: {
-                    Label("Lock Plan & Start Tracking", systemImage: "lock.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
-                .accessibilityIdentifier("startTrackingButton")
+        PlanningView(viewModel: planningViewModel)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                startTrackingDock
             }
-            .padding(.horizontal)
-            .padding(.vertical, 12)
-            .background(.regularMaterial)
-            .frame(maxWidth: .infinity)
-        }
         .alert("Start Tracking?", isPresented: $showStartTrackingConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Start Tracking") {
@@ -136,6 +156,44 @@ private struct MonthlyPlanningContainerContent: View {
         } message: {
             Text("This will begin tracking your contributions for this month. You can undo this action within 24 hours.")
         }
+    }
+
+    private var startTrackingDock: some View {
+        VStack(spacing: 8) {
+            Divider()
+
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+                    .font(.title3)
+
+                Text("Ready to commit to this plan?")
+                    .font(.headline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                Spacer()
+            }
+
+            Text("This will lock in your monthly amounts and enable contribution tracking. You can undo this action within 24 hours.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.9)
+
+            Button {
+                showStartTrackingConfirmation = true
+            } label: {
+                Label("Lock Plan & Start Tracking", systemImage: "lock.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
+            .accessibilityIdentifier("startTrackingButton")
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 12)
+        .background(.regularMaterial)
     }
 
     // MARK: - State Indicator Banner
@@ -176,16 +234,36 @@ private struct MonthlyPlanningContainerContent: View {
 
             }
 
-            // Bottom row: Primary action button (full width)
+            // Bottom row: Action buttons (full width)
             if record.status == .executing {
-                Button {
-                    showReturnToPlanningConfirmation = true
-                } label: {
-                    Label("Return to Planning", systemImage: "arrow.uturn.backward")
-                        .frame(maxWidth: .infinity)
+                VStack(spacing: 8) {
+                    // Finish Month button - in UI tests, tapping this runs directly in Container context
+                    Button {
+                        if UITestFlags.isEnabled {
+                            // In UI tests: complete immediately (no confirmation dialog)
+                            Task {
+                                await finishMonth()
+                            }
+                        } else {
+                            showFinishMonthConfirmation = true
+                        }
+                    } label: {
+                        Label("Finish This Month", systemImage: "checkmark.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                    .accessibilityIdentifier("finishMonthButton")
+
+                    Button {
+                        showReturnToPlanningConfirmation = true
+                    } label: {
+                        Label("Return to Planning", systemImage: "arrow.uturn.backward")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("returnToPlanningButton")
                 }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("returnToPlanningButton")
             }
         }
         .padding()
@@ -209,6 +287,8 @@ private struct MonthlyPlanningContainerContent: View {
         // Only reset on initial load in UI tests, not on reloads after state changes
         if UITestFlags.isEnabled && !hasInitiallyLoaded {
             executionRecord = nil
+            isExecuting = false
+            executionCoordinator.isExecuting = false
             hasInitiallyLoaded = true
         }
 
@@ -216,11 +296,19 @@ private struct MonthlyPlanningContainerContent: View {
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
             if let activeRecord = try executionService.getActiveRecord() {
                 executionRecord = activeRecord
+                let newValue = activeRecord.status == .executing
+                isExecuting = newValue
+                executionCoordinator.isExecuting = newValue
             } else {
                 executionRecord = try executionService.getCurrentMonthRecord()
+                let newValue = executionRecord?.status == .executing
+                isExecuting = newValue
+                executionCoordinator.isExecuting = newValue
             }
         } catch {
             print("Error loading execution record: \(error)")
+            isExecuting = false
+            executionCoordinator.isExecuting = false
         }
 
         updatePlanningMonthLabel()
@@ -229,6 +317,7 @@ private struct MonthlyPlanningContainerContent: View {
 
     private func startTracking() async {
         do {
+            AppLog.info("startTracking: Step 1 - Fetching active goals", category: .executionTracking)
             // 1. Fetch active goals
             let descriptor = FetchDescriptor<Goal>(
                 predicate: #Predicate { goal in
@@ -236,38 +325,53 @@ private struct MonthlyPlanningContainerContent: View {
                 }
             )
             let goals = try modelContext.fetch(descriptor)
+            AppLog.info("startTracking: Found \(goals.count) active goals", category: .executionTracking)
+
             // 2. Get MonthlyPlanService through DI
             let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
             let monthLabel = planningViewModel.planningMonthLabel.isEmpty
                 ? planService.currentMonthLabel()
                 : planningViewModel.planningMonthLabel
 
+            AppLog.info("startTracking: Step 3 - Getting/creating plans for \(monthLabel)", category: .executionTracking)
             // 3. Get or create plans (serialized via AsyncSerialExecutor)
             let plans = try await planService.getOrCreatePlans(for: monthLabel, goals: goals)
+
             // 3.5. Check if plans are already in non-draft state and reset if needed
             let nonDraftPlans = plans.filter { $0.state != .draft }
             if !nonDraftPlans.isEmpty {
+                AppLog.info("startTracking: Resetting \(nonDraftPlans.count) non-draft plans to draft", category: .executionTracking)
                 for plan in nonDraftPlans {
                     plan.state = .draft
                 }
                 try modelContext.save()
             }
 
-            // 4. Apply flex adjustments from ViewModel to plans
-            // This ensures the plans have the correct customAmount set based on user's flex settings
-            try await planService.applyBulkFlexAdjustment(
-                plans: plans,
-                adjustment: planningViewModel.flexAdjustment,
-                protectedGoalIds: planningViewModel.protectedGoalIds,
-                skippedGoalIds: planningViewModel.skippedGoalIds
-            )
+            // Note: We do NOT call applyBulkFlexAdjustment here.
+            // The plans already have their correct customAmount values from:
+            // - Budget Calculator allocations
+            // - User's flex slider adjustments (applied when slider changes)
+            // Calling it again would overwrite user's budget with calculated requiredMonthly values.
 
+            // 4. Auto-skip plans with zero effective amount (goal already funded or no remaining)
+            let zeroAmountPlans = plans.filter { !$0.isSkipped && $0.effectiveAmount <= 0 }
+            if !zeroAmountPlans.isEmpty {
+                AppLog.info("startTracking: Auto-skipping \(zeroAmountPlans.count) plans with zero effective amount", category: .executionTracking)
+                for plan in zeroAmountPlans {
+                    plan.isSkipped = true
+                }
+                try modelContext.save()
+            }
+
+            AppLog.info("startTracking: Step 5 - Validating plans", category: .executionTracking)
             // 5. Validate plans before transition
             try planService.validatePlansForExecution(plans)
 
+            AppLog.info("startTracking: Step 6 - Starting execution", category: .executionTracking)
             // 6. Transition plans from draft to executing
             try planService.startExecution(for: plans)
 
+            AppLog.info("startTracking: Step 7 - Creating execution record", category: .executionTracking)
             // 7. Create execution record with snapshot
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
 
@@ -278,9 +382,12 @@ private struct MonthlyPlanningContainerContent: View {
             )
 
             executionRecord = record
+            isExecuting = true
+            executionCoordinator.isExecuting = true
+            AppLog.info("startTracking: Successfully started tracking for \(monthLabel)", category: .executionTracking)
 
         } catch {
-            // TODO: Show error to user
+            AppLog.error("Failed to start tracking: \(error)", category: .executionTracking)
         }
     }
 
@@ -312,6 +419,28 @@ private struct MonthlyPlanningContainerContent: View {
         isLoading = false
     }
 
+    /// Complete the current month and transition to planning for next month.
+    private func finishMonth() async {
+        guard let record = executionRecord else { return }
+
+        // Set states FIRST to immediately switch view (before async work)
+        isExecuting = false
+        executionCoordinator.isExecuting = false
+
+        do {
+            let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
+            try await executionService.markComplete(record)
+
+            // Update record and reload state
+            executionRecord = record
+            await loadExecutionRecord()
+            await planningViewModel.loadMonthlyRequirements()
+        } catch {
+            // If completion fails, restore executing state
+            isExecuting = true
+            executionCoordinator.isExecuting = true
+        }
+    }
 
     private func updatePlanningMonthLabel() {
         let fallbackLabel = monthLabel(from: Date())

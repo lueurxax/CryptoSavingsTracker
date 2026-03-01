@@ -539,7 +539,12 @@ final class ExecutionUserFlowUITests: XCTestCase {
         tapForce(assetCell)
 
         XCTAssertTrue(app.navigationBars["Share Asset"].waitForExistence(timeout: 6))
-        let clampWarning = app.otherElements["closeMonthClampWarning"]
+
+        // Wait for async suggestions to load and prefill to apply
+        sleep(2)
+
+        // Use descendants query since SwiftUI Label renders as a combined element
+        let clampWarning = app.descendants(matching: .any)["closeMonthClampWarning"].firstMatch
         XCTAssertTrue(clampWarning.waitForExistence(timeout: 6), "Clamp warning not shown after Add to Close Month prefill")
     }
 

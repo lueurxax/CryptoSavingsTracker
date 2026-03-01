@@ -97,6 +97,7 @@ private func finishMonth(_ app: XCUIApplication) {
     XCTAssertTrue(finishButton.waitForExistence(timeout: 10))
     tapForce(finishButton)
 
+    // In UI test mode, there's no confirmation alert - action happens directly
     let alert = app.alerts["Complete this month?"]
     if alert.waitForExistence(timeout: 2) {
         let finishAlertButton = alert.buttons["Finish Month"]
@@ -105,12 +106,15 @@ private func finishMonth(_ app: XCUIApplication) {
         }
     }
 
+    // Wait for the execution view to disappear (finish button should go away)
+    _ = finishButton.waitForNonExistence(timeout: 10)
+
     // Wait for UI to transition back to planning mode
     // The startTrackingButton should appear after finishing the month
-    _ = app.buttons["startTrackingButton"].waitForExistence(timeout: 10)
+    _ = app.buttons["startTrackingButton"].waitForExistence(timeout: 15)
 
     // Allow extra time for banner text to update
-    sleep(1)
+    sleep(2)
 }
 
 private func returnToPlanning(_ app: XCUIApplication) {

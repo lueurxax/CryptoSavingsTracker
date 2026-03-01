@@ -207,6 +207,7 @@ final class ExecutionTrackingService {
         if UITestFlags.isEnabled {
             record.markComplete()
             try modelContext.save()
+            // Post notification synchronously (we're already on MainActor)
             NotificationCenter.default.post(name: .monthlyExecutionCompleted, object: record)
             return
         }
@@ -229,7 +230,10 @@ final class ExecutionTrackingService {
         )
 
         try modelContext.save()
-        NotificationCenter.default.post(name: .monthlyExecutionCompleted, object: record)
+        // Post notification on main actor for SwiftUI state updates
+        await MainActor.run {
+            NotificationCenter.default.post(name: .monthlyExecutionCompleted, object: record)
+        }
     }
 
     /// Undo completion (within grace period)

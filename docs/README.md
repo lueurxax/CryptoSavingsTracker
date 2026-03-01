@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-01-04 |
+| Last Updated | 2026-03-01 |
 | Platform | Shared |
 | Audience | All |
 
@@ -46,6 +46,7 @@
 | [ARCHITECTURE.md](ARCHITECTURE.md) | iOS system architecture, design patterns, component organization | iOS Developers |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Development plans, feature roadmaps, refactoring strategies | iOS Developers |
 | [MONTHLY_PLANNING.md](MONTHLY_PLANNING.md) | Monthly planning feature documentation and implementation | Developers, QA |
+| [MONTHLY_PLANNING_BUDGET_HEALTH_WIDGET_PROPOSAL.md](MONTHLY_PLANNING_BUDGET_HEALTH_WIDGET_PROPOSAL.md) | Product + UX proposal for consolidating Monthly Planning budget warning cards into one adaptive widget | Product, Developers, QA |
 | [USER_GUIDES.md](USER_GUIDES.md) | Testing guide, migration guide, troubleshooting | Developers, QA |
 
 ### Shared Reference Documentation

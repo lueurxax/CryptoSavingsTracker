@@ -42,6 +42,25 @@ final class MonthlyPlanService {
             if !existingPlans.isEmpty {
                 AppLog.info("Found \(existingPlans.count) existing plans for \(monthLabel)", category: .monthlyPlanning)
 
+                // Recalculate draft plans to ensure they reflect current allocation state.
+                // Without this, plans created before an allocation was deleted would show
+                // stale remainingAmount/requiredMonthly values.
+                var didRecalculate = false
+                for plan in existingPlans where plan.state == .draft {
+                    guard let goal = goals.first(where: { $0.id == plan.goalId }) else { continue }
+                    let requirement = await self.calculateRequirement(for: goal, in: monthLabel)
+                    plan.updateCalculation(
+                        requiredMonthly: requirement.requiredMonthly,
+                        remainingAmount: requirement.remainingAmount,
+                        monthsRemaining: requirement.monthsRemaining,
+                        status: requirement.status
+                    )
+                    didRecalculate = true
+                }
+                if didRecalculate {
+                    try self.modelContext.save()
+                }
+
                 // Check if we need to create plans for new goals
                 let existingGoalIds = Set(existingPlans.map { $0.goalId })
                 let currentGoalIds = Set(goals.map { $0.id })

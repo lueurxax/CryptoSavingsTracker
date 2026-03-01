@@ -342,4 +342,129 @@ final class MonthlyPlanningUITests: XCTestCase {
         // Verify the view still works
         XCTAssertTrue(app.navigationBars["Monthly Planning"].exists)
     }
+
+    func testBudgetShortfallVisualState() throws {
+        openFullPlanningView()
+
+        XCTAssertTrue(openBudgetSheet(), "Budget entry action should be visible")
+
+        XCTAssertTrue(app.navigationBars["Budget Plan"].waitForExistence(timeout: 5), "Budget plan sheet should open")
+
+        let amountField = app.textFields["budgetAmountField"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 5), "Budget amount field should exist")
+        amountField.clearAndTypeText("1")
+
+        let minimumText = app.staticTexts["budgetMinimumRequiredText"]
+        XCTAssertTrue(minimumText.waitForExistence(timeout: 6), "Minimum required text should appear for low budget")
+
+        let shortfallWarning = app.staticTexts["budgetShortfallSaveWarning"]
+        XCTAssertTrue(shortfallWarning.exists, "Shortfall save warning should be shown")
+
+        let saveButton = app.buttons["saveBudgetPlanButton"]
+        XCTAssertTrue(saveButton.exists, "Save budget button should be present")
+        XCTAssertFalse(saveButton.isEnabled, "Save should be disabled when budget is infeasible")
+
+        let screenshot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = "BudgetShortfallState"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    func testMonthlyPlanningShortfallAfterBudgetCancel() throws {
+        app.terminate()
+        app.launchArguments += ["UITEST_SEED_GOALS", "UITEST_SEED_BUDGET_SHORTFALL"]
+        app.launch()
+
+        openFullPlanningView()
+
+        let summaryShortfall = app.staticTexts["budgetSummaryShortfallText"]
+        XCTAssertTrue(summaryShortfall.waitForExistence(timeout: 6), "Shortfall state should be visible on Monthly Planning")
+
+        XCTAssertTrue(openBudgetSheet(), "Should open budget sheet from Monthly Planning")
+        XCTAssertTrue(app.navigationBars["Budget Plan"].waitForExistence(timeout: 5), "Budget sheet should open")
+
+        let cancelButton = app.navigationBars["Budget Plan"].buttons["Cancel"]
+        XCTAssertTrue(cancelButton.waitForExistence(timeout: 3), "Cancel button should be available in budget sheet")
+        cancelButton.tap()
+
+        XCTAssertTrue(app.navigationBars["Monthly Planning"].waitForExistence(timeout: 5), "Should return to Monthly Planning after cancel")
+        XCTAssertTrue(summaryShortfall.waitForExistence(timeout: 5), "Shortfall state should still be visible after cancel")
+
+        let fixButton = app.buttons["budgetSummaryFixButton"]
+        XCTAssertTrue(fixButton.exists, "Prominent fix button should be visible on Monthly Planning shortfall state")
+
+        let screenshot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = "MonthlyPlanningShortfallAfterCancel"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    private func openBudgetSheet() -> Bool {
+        // Try to reset scroll position to where summary cards are usually rendered.
+        for _ in 0..<2 { app.swipeDown() }
+
+        for _ in 0..<6 {
+            let entryCard = app.otherElements["budgetEntryCard"]
+            if entryCard.exists {
+                let setInCard = entryCard.buttons["setBudgetButton"]
+                if setInCard.exists && setInCard.isHittable {
+                    setInCard.tap()
+                    return true
+                }
+            }
+
+            let summaryCard = app.otherElements["budgetSummaryCard"]
+            if summaryCard.exists {
+                let editInCard = summaryCard.buttons["editBudgetButton"]
+                if editInCard.exists && editInCard.isHittable {
+                    editInCard.tap()
+                    return true
+                }
+            }
+
+            let setBudgetButton = app.buttons["setBudgetButton"]
+            if setBudgetButton.exists && setBudgetButton.isHittable {
+                setBudgetButton.tap()
+                return true
+            }
+
+            let editBudgetButton = app.buttons["editBudgetButton"]
+            if editBudgetButton.exists && editBudgetButton.isHittable {
+                editBudgetButton.tap()
+                return true
+            }
+
+            // Fallback by visible title when accessibility IDs are not surfaced.
+            let setByLabel = app.buttons["Set Budget"]
+            if setByLabel.exists && setByLabel.isHittable {
+                setByLabel.tap()
+                return true
+            }
+
+            let editByLabel = app.buttons["Edit"]
+            if editByLabel.exists && editByLabel.isHittable {
+                editByLabel.tap()
+                return true
+            }
+
+            app.swipeUp()
+        }
+
+        return false
+    }
+}
+
+private extension XCUIElement {
+    func clearAndTypeText(_ text: String) {
+        tap()
+        guard let currentValue = value as? String else {
+            typeText(text)
+            return
+        }
+        let deleteText = String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentValue.count)
+        typeText(deleteText)
+        typeText(text)
+    }
 }

@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-01-04 |
+| Last Updated | 2026-02-28 |
 | Platform | Shared |
 | Audience | Developers |
 
@@ -37,6 +37,7 @@ The Monthly Planning feature is a comprehensive zero-input planning system that 
 3. **Immutable History**: Completed executions freeze exchange rates and contribution snapshots
 4. **Undo Grace Period**: Configurable window (24h-7d) to undo state transitions
 5. **Duplicate Prevention**: `AsyncSerialExecutor` ensures only one set of plans per month
+6. **Draft Plan Freshness**: Draft plans are always recalculated from live allocation data when fetched, preventing stale values after allocation changes
 
 ### High-Level Architecture
 
@@ -88,6 +89,10 @@ The Monthly Planning feature is a comprehensive zero-input planning system that 
 │            ExchangeRateService               │                          │
 │                                              ▼                          │
 │                                     MonthlyPlan (state: draft)          │
+│                                              │                          │
+│                                     On fetch: draft plans recalculated  │
+│                                     from live allocations to ensure     │
+│                                     remainingAmount stays current       │
 └─────────────────────────────────────────────┬───────────────────────────┘
                                               │
 ┌─────────────────────────────────────────────▼───────────────────────────┐
@@ -420,6 +425,10 @@ Single source of truth for persisted MonthlyPlan objects with duplicate preventi
 // Main entry point - ensures one set of plans per month
 func getOrCreatePlansForCurrentMonth(goals: [Goal]) async throws -> [MonthlyPlan]
 
+// Get or create plans for a specific month
+// Draft plans are always recalculated from live allocations before being returned
+func getOrCreatePlans(for monthLabel: String, goals: [Goal]) async throws -> [MonthlyPlan]
+
 // Fetch plans by month and optional state
 func fetchPlans(for monthLabel: String, state: MonthlyPlan.PlanState?) -> [MonthlyPlan]
 
@@ -442,6 +451,8 @@ func completePlans(for plans: [MonthlyPlan])
 ```
 
 **Duplicate Prevention**: Uses `AsyncSerialExecutor` to serialize critical sections.
+
+**Draft Plan Freshness**: When `getOrCreatePlans` returns existing plans, all draft plans are recalculated via `calculateRequirement` before being returned. This ensures that `remainingAmount` and `requiredMonthly` always reflect the current allocation state (e.g., if an allocation was deleted between sessions). Plans in `executing` or `completed` state are not recalculated as they are intentionally immutable during and after execution. User preferences (`customAmount`, `flexState`, `isSkipped`, `isProtected`) are preserved during recalculation.
 
 ### ExecutionTrackingService
 
@@ -782,4 +793,4 @@ class MonthlyPlanningSettings: ObservableObject {
 
 ---
 
-*Last updated: December 2025*
+*Last updated: February 2026*

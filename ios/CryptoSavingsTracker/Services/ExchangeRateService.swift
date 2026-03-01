@@ -17,6 +17,8 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
     private var lastFetchTime: [String: Date] = [:]
     private let cacheQueue = DispatchQueue(label: "com.cryptosavings.exchangerate.cache", attributes: .concurrent)
     private let apiKey: String
+
+    private static let isoFiatCurrencyCodes = Set(Locale.Currency.isoCurrencies.map(\.identifier).map { $0.uppercased() })
     
     private var isOffline = false
     
@@ -139,13 +141,11 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
             await StartupThrottler.shared.waitForStartup()
         }
         
-        // Common fiat currencies that might need cross-conversion
-        let fiatCurrencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "CNY", "INR", "KRW"]
         let fromUppercase = from.uppercased()
         let toUppercase = to.uppercased()
 
-        let fromIsFiat = fiatCurrencies.contains(fromUppercase)
-        let toIsFiat = fiatCurrencies.contains(toUppercase)
+        let fromIsFiat = Self.isoFiatCurrencyCodes.contains(fromUppercase)
+        let toIsFiat = Self.isoFiatCurrencyCodes.contains(toUppercase)
         
         // Check if both are fiat currencies - if so, use cross-conversion through USDT
         if fromIsFiat && toIsFiat {

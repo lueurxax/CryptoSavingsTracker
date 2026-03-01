@@ -64,6 +64,9 @@ final class MonthlyExecutionViewModel: ObservableObject {
     /// Indicates if any conversion failed and fallback currency is in use
     @Published var hasRateConversionWarning = false
 
+    /// Total planned amount converted to display currency
+    @Published var convertedTotalPlanned: Double = 0
+
     /// Current focus goal for execution (earliest deadline with remaining amount)
     @Published var currentFocusGoal: ExecutionFocusGoal?
 
@@ -449,6 +452,7 @@ final class MonthlyExecutionViewModel: ObservableObject {
             hasRateConversionWarning = false
             displayRateUpdatedAt = nil
             currentFocusGoal = nil
+            convertedTotalPlanned = 0
             return
         }
 
@@ -456,18 +460,19 @@ final class MonthlyExecutionViewModel: ObservableObject {
         var currencies: [UUID: String] = [:]
         var rateCache: [String: Double] = [:]
         var hadWarning = false
+        var totalPlannedInDisplayCurrency: Double = 0
 
         for snapshot in snapshots {
+            // Skip skipped goals for total planned calculation
+            let plannedAmount = snapshot.isSkipped ? 0 : snapshot.plannedAmount
+
             let remaining = remainingToClose(for: snapshot)
-            if remaining <= 0 {
-                updated[snapshot.goalId] = 0
-                currencies[snapshot.goalId] = displayCurrency
-                continue
-            }
 
             if snapshot.currency.uppercased() == displayCurrency.uppercased() {
-                updated[snapshot.goalId] = remaining
+                // Same currency - no conversion needed
+                updated[snapshot.goalId] = max(remaining, 0)
                 currencies[snapshot.goalId] = displayCurrency
+                totalPlannedInDisplayCurrency += plannedAmount
                 continue
             }
 
@@ -486,18 +491,22 @@ final class MonthlyExecutionViewModel: ObservableObject {
                     AppLog.warning("Execution display conversion failed \(key): \(error)", category: .exchangeRate)
                     updated[snapshot.goalId] = remaining
                     currencies[snapshot.goalId] = snapshot.currency
+                    // For total, use unconverted amount (better than nothing)
+                    totalPlannedInDisplayCurrency += plannedAmount
                     hadWarning = true
                     continue
                 }
             }
             updated[snapshot.goalId] = remaining * rate
             currencies[snapshot.goalId] = displayCurrency
+            totalPlannedInDisplayCurrency += plannedAmount * rate
         }
 
         remainingByGoalInDisplayCurrency = updated
         remainingDisplayCurrencyByGoal = currencies
         hasRateConversionWarning = hadWarning
         displayRateUpdatedAt = Date()
+        convertedTotalPlanned = totalPlannedInDisplayCurrency
     }
 
     private func refreshCurrentFocusGoal() async {
@@ -587,18 +596,11 @@ extension MonthlyExecutionViewModel {
         return livePlansByGoal[goalId]?.effectiveAmount ?? snapshot?.snapshot(for: goalId)?.plannedAmount ?? 0
     }
 
-    /// Total planned for display (live for active, snapshot for closed)
+    /// Total planned for display (converted to display currency)
     var displayTotalPlanned: Double {
-        if isClosed {
-            return snapshot?.totalPlanned ?? 0
-        }
-        guard let record = executionRecord else { return snapshot?.totalPlanned ?? 0 }
-        let trackedGoalIds = Set(goalIds(for: record, baseline: snapshot))
-        let liveTotal = livePlansByGoal
-            .filter { trackedGoalIds.contains($0.key) && !$0.value.isSkipped }
-            .values
-            .reduce(0) { $0 + $1.effectiveAmount }
-        return liveTotal > 0 ? liveTotal : (snapshot?.totalPlanned ?? 0)
+        // Use the pre-calculated converted total which accounts for currency conversion
+        // This is updated by refreshRemainingDisplayAmounts()
+        return convertedTotalPlanned > 0 ? convertedTotalPlanned : (snapshot?.totalPlanned ?? 0)
     }
 
     /// Count of goals for display (live for active, snapshot for closed)

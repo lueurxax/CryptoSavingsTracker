@@ -7,8 +7,18 @@
 
 import SwiftUI
 import SwiftData
+import Foundation
+
+private enum AssetKind: String, CaseIterable, Identifiable {
+    case crypto = "Crypto"
+    case fiat = "Fiat"
+
+    var id: String { rawValue }
+}
 
 struct AddAssetView: View {
+    private static let isoFiatCurrencyCodes = Set(Locale.Currency.isoCurrencies.map(\.identifier).map { $0.uppercased() })
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @StateObject private var currencyViewModel = CurrencyViewModel()
@@ -25,6 +35,7 @@ struct AddAssetView: View {
     @State private var showingHelp = false
     @State private var showingCurrencyPicker = false
     @State private var currencySearchText = ""
+    @State private var assetKind: AssetKind = .crypto
     
     // Form validation state
     @State private var hasAttemptedSubmit = false
@@ -41,31 +52,44 @@ struct AddAssetView: View {
     }
     
     private var showChainError: Bool {
-        (hasAttemptedSubmit || addressFieldTouched) && !address.isEmpty && predictedChain == nil && chainId == nil
+        (hasAttemptedSubmit || addressFieldTouched) && !address.isEmpty && assetKind == .crypto && predictedChain == nil && chainId == nil
     }
     
     private var isFormValid: Bool {
-        !currency.isEmpty && (address.isEmpty || predictedChain != nil || chainId != nil)
+        if assetKind == .fiat {
+            return !currency.isEmpty
+        }
+        return !currency.isEmpty && (address.isEmpty || predictedChain != nil || chainId != nil)
     }
     
     private var filteredCurrencies: [CoinInfo] {
-        if currencySearchText.isEmpty {
-            return currencyViewModel.coinInfos
+        let candidates: [CoinInfo]
+        if assetKind == .fiat {
+            let fiatCodes = currencyViewModel.supportedCurrencies.filter {
+                Self.isoFiatCurrencyCodes.contains($0.uppercased())
+            }
+            candidates = fiatCodes.map { CoinInfo(id: $0.lowercased(), symbol: $0, name: $0) }
+        } else {
+            candidates = currencyViewModel.coinInfos
         }
-        
+
+        if currencySearchText.isEmpty {
+            return candidates
+        }
+
         let searchLower = currencySearchText.lowercased()
-        let filtered = currencyViewModel.coinInfos.filter { coin in
+        let filtered = candidates.filter { coin in
             coin.symbol.lowercased().contains(searchLower) ||
             coin.name.lowercased().contains(searchLower)
         }
-        
+
         // Sort with exact matches first
         return filtered.sorted { first, second in
             let firstSymbolMatch = first.symbol.lowercased() == searchLower
             let firstNameMatch = first.name.lowercased() == searchLower
             let secondSymbolMatch = second.symbol.lowercased() == searchLower
             let secondNameMatch = second.name.lowercased() == searchLower
-            
+
             // Exact symbol match comes first
             if firstSymbolMatch && !secondSymbolMatch {
                 return true
@@ -73,7 +97,7 @@ struct AddAssetView: View {
             if secondSymbolMatch && !firstSymbolMatch {
                 return false
             }
-            
+
             // Then exact name match
             if firstNameMatch && !secondNameMatch {
                 return true
@@ -81,29 +105,29 @@ struct AddAssetView: View {
             if secondNameMatch && !firstNameMatch {
                 return false
             }
-            
+
             // Then symbol starts with search term
             let firstSymbolStarts = first.symbol.lowercased().hasPrefix(searchLower)
             let secondSymbolStarts = second.symbol.lowercased().hasPrefix(searchLower)
-            
+
             if firstSymbolStarts && !secondSymbolStarts {
                 return true
             }
             if secondSymbolStarts && !firstSymbolStarts {
                 return false
             }
-            
+
             // Then name starts with search term
             let firstNameStarts = first.name.lowercased().hasPrefix(searchLower)
             let secondNameStarts = second.name.lowercased().hasPrefix(searchLower)
-            
+
             if firstNameStarts && !secondNameStarts {
                 return true
             }
             if secondNameStarts && !firstNameStarts {
                 return false
             }
-            
+
             // Finally, maintain alphabetical order
             return first.symbol.lowercased() < second.symbol.lowercased()
         }
@@ -136,6 +160,23 @@ struct AddAssetView: View {
                             .background(AccessibleColors.streakBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                             .shadow(color: .black.opacity(0.03), radius: 2, x: 0, y: 1)
+                        }
+
+                        // MARK: Asset type
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Asset Type:")
+                            Picker("Asset Type", selection: $assetKind) {
+                                ForEach(AssetKind.allCases) { kind in
+                                    Text(kind.rawValue).tag(kind)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(maxWidth: 240)
+                            if assetKind == .fiat {
+                                Text("Fiat assets are tracked manually and do not use blockchain addresses.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
 
                         // MARK: Currency picker
@@ -178,52 +219,54 @@ struct AddAssetView: View {
                             }
                         }
 
-                        // MARK: On-chain tracking
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Address:")
-                            HStack {
-                                TextField(
-                                    addressPlaceholder,
-                                    text: $address
-                                )
-                                .textFieldStyle(.roundedBorder)
-                                .disableAutocorrection(true)
-                                .frame(maxWidth: 300)
-                                .onTapGesture {
-                                    addressFieldTouched = true
+                        if assetKind == .crypto {
+                            // MARK: On-chain tracking
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Address:")
+                                HStack {
+                                    TextField(
+                                        addressPlaceholder,
+                                        text: $address
+                                    )
+                                    .textFieldStyle(.roundedBorder)
+                                    .disableAutocorrection(true)
+                                    .frame(maxWidth: 300)
+                                    .onTapGesture {
+                                        addressFieldTouched = true
+                                    }
+                                    .onChange(of: address) { _, _ in
+                                        addressFieldTouched = true
+                                    }
                                 }
-                                .onChange(of: address) { _, _ in
-                                    addressFieldTouched = true
-                                }
-                            }
 
-                            if !address.isEmpty {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Chain:")
-                                    Picker("Chain", selection: Binding(
-                                        get: { predictedChain?.id ?? chainId ?? "" },
-                                        set: { newValue in
-                                            if newValue.isEmpty {
-                                                chainId = nil
-                                            } else {
-                                                chainId = newValue
-                                                predictedChain = nil
+                                if !address.isEmpty {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Chain:")
+                                        Picker("Chain", selection: Binding(
+                                            get: { predictedChain?.id ?? chainId ?? "" },
+                                            set: { newValue in
+                                                if newValue.isEmpty {
+                                                    chainId = nil
+                                                } else {
+                                                    chainId = newValue
+                                                    predictedChain = nil
+                                                }
+                                            }
+                                        )) {
+                                            Text("Select Chain").tag("")
+                                            ForEach(tatumService.supportedChains) { chain in
+                                                Text("\(chain.name) (\(chain.nativeCurrencySymbol))")
+                                                    .tag(chain.id)
                                             }
                                         }
-                                    )) {
-                                        Text("Select Chain").tag("")
-                                        ForEach(tatumService.supportedChains) { chain in
-                                            Text("\(chain.name) (\(chain.nativeCurrencySymbol))")
-                                                .tag(chain.id)
-                                        }
-                                    }
-                                    .pickerStyle(.menu)
-                                    .frame(minWidth: 200)
+                                        .pickerStyle(.menu)
+                                        .frame(minWidth: 200)
 
-                                    if showChainError {
-                                        Text("Please select a blockchain network")
-                                            .font(.caption)
-                                            .foregroundColor(.red)
+                                        if showChainError {
+                                            Text("Please select a blockchain network")
+                                                .font(.caption)
+                                                .foregroundColor(.red)
+                                        }
                                     }
                                 }
                             }
@@ -356,6 +399,28 @@ struct AddAssetView: View {
                         .accessibilityLabel("Show help about asset tracking types")
                     }) {
                         HStack {
+                            Text("Asset Type:")
+                                .accessibilityLabel("Asset type selection")
+                            Spacer()
+                            Picker("Asset Type", selection: $assetKind) {
+                                ForEach(AssetKind.allCases) { kind in
+                                    Text(kind.rawValue).tag(kind)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(maxWidth: 220)
+                            .accessibilityIdentifier("assetTypePicker")
+                        }
+                        .padding(.vertical, 4)
+
+                        if assetKind == .fiat {
+                            Text("Fiat assets are tracked manually and do not use blockchain addresses.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .accessibilityLabel("Fiat assets are tracked manually and do not use blockchain addresses")
+                        }
+
+                        HStack {
                             Text("Currency:")
                                 .accessibilityLabel("Currency selection")
                             Text("*")
@@ -376,7 +441,7 @@ struct AddAssetView: View {
                             }
                             .accessibilityIdentifier("assetCurrencyButton")
                             .accessibilityLabel(currency.isEmpty ? "Select currency required" : "Selected currency \(currency)")
-                            .accessibilityHint("Tap to choose a cryptocurrency")
+                            .accessibilityHint(assetKind == .fiat ? "Tap to choose a fiat currency" : "Tap to choose a cryptocurrency")
                         }
                         .padding(.vertical, 4)
 
@@ -399,85 +464,87 @@ struct AddAssetView: View {
                     }
                     .padding(.horizontal, 4)
                     
-                    Section(header: HStack {
-                        Text("On-Chain Tracking")
-                        Text("(Optional)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                    }, footer: VStack(alignment: .leading, spacing: 4) {
-                        Text("Add a blockchain address to automatically track balance and transactions.")
-                        if !address.isEmpty {
-                            Text("Format: \(addressFormatHint)")
+                    if assetKind == .crypto {
+                        Section(header: HStack {
+                            Text("On-Chain Tracking")
+                            Text("(Optional)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                        }
-                    }) {
-                        HStack {
-                            Text("Address:")
-                                .accessibilityLabel("Blockchain address")
                             Spacer()
-                            TextField(addressPlaceholder, text: $address)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .autocapitalization(.none)
-                                .disableAutocorrection(true)
-                                .frame(maxWidth: 200)
-                                .accessibilityIdentifier("assetAddressField")
-                                .accessibilityLabel("Blockchain address input")
-                                .accessibilityHint("Enter your blockchain address for automatic tracking, or leave empty for manual tracking only")
-                                .onTapGesture {
-                                    addressFieldTouched = true
-                                }
-                                .onChange(of: address) { _, _ in
-                                    addressFieldTouched = true
-                                }
-                        }
-                        .padding(.vertical, 4)
-                        
-                        if !address.isEmpty {
+                        }, footer: VStack(alignment: .leading, spacing: 4) {
+                            Text("Add a blockchain address to automatically track balance and transactions.")
+                            if !address.isEmpty {
+                                Text("Format: \(addressFormatHint)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }) {
                             HStack {
-                                Text("Chain:")
-                                    .accessibilityLabel("Blockchain network")
+                                Text("Address:")
+                                    .accessibilityLabel("Blockchain address")
                                 Spacer()
-                                
-                                Picker("Chain", selection: Binding(
-                                    get: { predictedChain?.id ?? chainId ?? "" },
-                                    set: { newValue in
-                                        if newValue.isEmpty {
-                                            chainId = nil
-                                        } else {
-                                            chainId = newValue
-                                            predictedChain = nil
-                                        }
+                                TextField(addressPlaceholder, text: $address)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
+                                    .frame(maxWidth: 200)
+                                    .accessibilityIdentifier("assetAddressField")
+                                    .accessibilityLabel("Blockchain address input")
+                                    .accessibilityHint("Enter your blockchain address for automatic tracking, or leave empty for manual tracking only")
+                                    .onTapGesture {
+                                        addressFieldTouched = true
                                     }
-                                )) {
-                                    Text("Select Chain").tag("")
-                                    ForEach(tatumService.supportedChains.filter { $0.chainType == .evm }) { chain in
-                                        Text("\(chain.name) (\(chain.nativeCurrencySymbol))").tag(chain.id)
+                                    .onChange(of: address) { _, _ in
+                                        addressFieldTouched = true
                                     }
-                                    ForEach(tatumService.supportedChains.filter { $0.chainType == .utxo }) { chain in
-                                        Text("\(chain.name) (\(chain.nativeCurrencySymbol))").tag(chain.id)
-                                    }
-                                    ForEach(tatumService.supportedChains.filter { $0.chainType == .other }) { chain in
-                                        Text("\(chain.name) (\(chain.nativeCurrencySymbol))").tag(chain.id)
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .frame(minWidth: 150)
-                                .accessibilityLabel(chainId == nil ? "Select blockchain network required" : "Selected blockchain network")
-                                .accessibilityHint("Choose which blockchain network this address belongs to")
                             }
                             .padding(.vertical, 4)
                             
-                            if showChainError {
-                                Text("Please select a blockchain network")
-                                    .font(.caption)
-                                    .foregroundColor(.red)
-                                    .accessibilityLabel("Validation error: Please select a blockchain network")
+                            if !address.isEmpty {
+                                HStack {
+                                    Text("Chain:")
+                                        .accessibilityLabel("Blockchain network")
+                                    Spacer()
+                                    
+                                    Picker("Chain", selection: Binding(
+                                        get: { predictedChain?.id ?? chainId ?? "" },
+                                        set: { newValue in
+                                            if newValue.isEmpty {
+                                                chainId = nil
+                                            } else {
+                                                chainId = newValue
+                                                predictedChain = nil
+                                            }
+                                        }
+                                    )) {
+                                        Text("Select Chain").tag("")
+                                        ForEach(tatumService.supportedChains.filter { $0.chainType == .evm }) { chain in
+                                            Text("\(chain.name) (\(chain.nativeCurrencySymbol))").tag(chain.id)
+                                        }
+                                        ForEach(tatumService.supportedChains.filter { $0.chainType == .utxo }) { chain in
+                                            Text("\(chain.name) (\(chain.nativeCurrencySymbol))").tag(chain.id)
+                                        }
+                                        ForEach(tatumService.supportedChains.filter { $0.chainType == .other }) { chain in
+                                            Text("\(chain.name) (\(chain.nativeCurrencySymbol))").tag(chain.id)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .frame(minWidth: 150)
+                                    .accessibilityLabel(chainId == nil ? "Select blockchain network required" : "Selected blockchain network")
+                                    .accessibilityHint("Choose which blockchain network this address belongs to")
+                                }
+                                .padding(.vertical, 4)
+                                
+                                if showChainError {
+                                    Text("Please select a blockchain network")
+                                        .font(.caption)
+                                        .foregroundColor(.red)
+                                        .accessibilityLabel("Validation error: Please select a blockchain network")
+                                }
                             }
                         }
+                        .padding(.horizontal, 4)
                     }
-                    .padding(.horizontal, 4)
                     
                     Section(footer: Text("This asset will be tracked against your goal of \(goal.targetAmount, specifier: "%.2f") \(goal.currency).")) {
                         EmptyView()
@@ -519,7 +586,11 @@ struct AddAssetView: View {
                     }
                 }
             )) {
-                SearchableCurrencyPicker(selectedCurrency: $currency, pickerType: .fiat)
+                SearchableCurrencyPicker(
+                    selectedCurrency: $currency,
+                    pickerType: assetKind == .fiat ? .fiat : .crypto,
+                    titleOverride: assetKind == .fiat ? "Select Fiat Currency" : "Select Asset Currency"
+                )
             }
             .sheet(isPresented: Binding(
                 get: { !isUITestFlow && showingCurrencyPicker },
@@ -529,27 +600,60 @@ struct AddAssetView: View {
                     }
                 }
             )) {
-                SearchableCurrencyPicker(selectedCurrency: $currency, pickerType: .crypto)
+                SearchableCurrencyPicker(
+                    selectedCurrency: $currency,
+                    pickerType: assetKind == .fiat ? .fiat : .crypto,
+                    titleOverride: assetKind == .fiat ? "Select Fiat Currency" : "Select Asset Currency"
+                )
             }
 #endif
         }
         .task {
-            if currencyViewModel.coinInfos.isEmpty {
-                await currencyViewModel.fetchCoins()
+            if assetKind == .fiat {
+                if currencyViewModel.supportedCurrencies.isEmpty {
+                    await currencyViewModel.fetchSupportedCurrencies()
+                }
+            } else {
+                if currencyViewModel.coinInfos.isEmpty {
+                    await currencyViewModel.fetchCoins()
+                }
             }
         }
         .onChange(of: currency) { _, newValue in
-            if !newValue.isEmpty {
+            if assetKind == .crypto, !newValue.isEmpty {
                 predictChainForCurrency()
             } else {
                 predictedChain = nil
                 chainId = nil
             }
         }
+        .onChange(of: assetKind) { _, newValue in
+            if newValue == .fiat {
+                address = ""
+                chainId = nil
+                predictedChain = nil
+            }
+            currency = ""
+            currencySearchText = ""
+            currencyFieldTouched = false
+            addressFieldTouched = false
+            hasAttemptedSubmit = false
+            Task {
+                if newValue == .fiat {
+                    if currencyViewModel.supportedCurrencies.isEmpty {
+                        await currencyViewModel.fetchSupportedCurrencies()
+                    }
+                } else {
+                    if currencyViewModel.coinInfos.isEmpty {
+                        await currencyViewModel.fetchCoins()
+                    }
+                }
+            }
+        }
         .alert("Asset Tracking Help", isPresented: $showingHelp) {
             Button("Got it") { }
         } message: {
-            Text("Manual tracking: Add transactions yourself for assets you hold offline or in wallets.\n\nOn-chain tracking: Automatically monitor blockchain addresses for balance and transaction updates.\n\nYou can use both methods for the same asset.")
+            Text("Manual tracking: Add transactions yourself for assets you hold offline, in wallets, or in fiat accounts.\n\nOn-chain tracking: Automatically monitor blockchain addresses for balance and transaction updates (crypto assets only).\n\nYou can use both methods for the same crypto asset.")
         }
     }
     
@@ -559,9 +663,9 @@ struct AddAssetView: View {
     
     private var validationMessage: String {
         if currency.isEmpty {
-            return "Please select a cryptocurrency"
+            return "Please select a currency"
         }
-        if !address.isEmpty && predictedChain == nil && chainId == nil {
+        if assetKind == .crypto && !address.isEmpty && predictedChain == nil && chainId == nil {
             return "Please select a blockchain network for the address"
         }
         return ""
@@ -623,11 +727,19 @@ struct AddAssetView: View {
         print("💾 AddAssetView.saveAsset() called")
         print("   Goal: \(goal.name)")
         print("   Currency: \(currency.uppercased())")
+        print("   Asset Type: \(assetKind.rawValue)")
         print("   Address: \(address)")
         print("   ChainId: \(predictedChain?.id ?? chainId ?? "none")")
-        
-        let finalAddress = address.isEmpty ? nil : address.trimmingCharacters(in: .whitespacesAndNewlines)
-        let finalChainId = predictedChain?.id ?? chainId
+
+        let finalAddress: String?
+        let finalChainId: String?
+        if assetKind == .fiat {
+            finalAddress = nil
+            finalChainId = nil
+        } else {
+            finalAddress = address.isEmpty ? nil : address.trimmingCharacters(in: .whitespacesAndNewlines)
+            finalChainId = predictedChain?.id ?? chainId
+        }
         
         // Validate address format if provided
         if let addr = finalAddress, let chainId = finalChainId {

@@ -39,13 +39,22 @@ struct AccessibleColors {
     
     // MARK: - Status Colors
     /// Success color with high contrast
-    static let success = Color(red: 0.0, green: 0.60, blue: 0.0)
+    static let success = adaptiveStatusColor(
+        light: RGBColor(red: 0.0, green: 0.60, blue: 0.0),
+        dark: RGBColor(red: 0.32, green: 0.84, blue: 0.45)
+    )
     
-    /// Warning color with high contrast  
-    static let warning = Color(red: 0.85, green: 0.50, blue: 0.0)
+    /// Warning color with high contrast
+    static let warning = adaptiveStatusColor(
+        light: RGBColor(red: 0.85, green: 0.50, blue: 0.0),
+        dark: RGBColor(red: 1.0, green: 0.74, blue: 0.25)
+    )
     
     /// Error color with high contrast
-    static let error = Color(red: 0.80, green: 0.0, blue: 0.0)
+    static let error = adaptiveStatusColor(
+        light: RGBColor(red: 0.80, green: 0.0, blue: 0.0),
+        dark: RGBColor(red: 1.0, green: 0.45, blue: 0.40)
+    )
     
     // MARK: - Background Colors
     /// Light background with sufficient contrast for overlays
@@ -75,13 +84,22 @@ struct AccessibleColors {
     
     // MARK: - Status Background Colors
     /// Success background with proper opacity
-    static let successBackground = success.opacity(0.1)
+    static let successBackground = adaptiveStatusBackground(
+        light: RGBColor(red: 0.0, green: 0.60, blue: 0.0),
+        dark: RGBColor(red: 0.32, green: 0.84, blue: 0.45)
+    )
     
-    /// Warning background with proper opacity  
-    static let warningBackground = warning.opacity(0.1)
+    /// Warning background with proper opacity
+    static let warningBackground = adaptiveStatusBackground(
+        light: RGBColor(red: 0.85, green: 0.50, blue: 0.0),
+        dark: RGBColor(red: 1.0, green: 0.74, blue: 0.25)
+    )
     
     /// Error background with proper opacity
-    static let errorBackground = error.opacity(0.1)
+    static let errorBackground = adaptiveStatusBackground(
+        light: RGBColor(red: 0.80, green: 0.0, blue: 0.0),
+        dark: RGBColor(red: 1.0, green: 0.45, blue: 0.40)
+    )
     
     // MARK: - Chart Specific Colors
     /// Achievement/celebration color (accessible yellow)
@@ -184,6 +202,69 @@ struct AccessibleColors {
     /// Check if color combination meets WCAG AAA standards (7:1 contrast)
     static func meetsWCAGAAA(foreground: Color, background: Color) -> Bool {
         return contrastRatio(foreground: foreground, background: background) >= 7.0
+    }
+
+    private struct RGBColor {
+        let red: Double
+        let green: Double
+        let blue: Double
+    }
+
+    private static func adaptiveStatusColor(light: RGBColor, dark: RGBColor) -> Color {
+        #if canImport(UIKit)
+        return Color(
+            UIColor { traitCollection in
+                let source = traitCollection.userInterfaceStyle == .dark ? dark : light
+                return UIColor(red: source.red, green: source.green, blue: source.blue, alpha: 1)
+            }
+        )
+        #elseif canImport(AppKit)
+        return Color(
+            NSColor(name: nil) { appearance in
+                let source = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+                return NSColor(
+                    calibratedRed: source.red,
+                    green: source.green,
+                    blue: source.blue,
+                    alpha: 1
+                )
+            }
+        )
+        #else
+        return Color(red: light.red, green: light.green, blue: light.blue)
+        #endif
+    }
+
+    private static func adaptiveStatusBackground(light: RGBColor, dark: RGBColor) -> Color {
+        #if canImport(UIKit)
+        return Color(
+            UIColor { traitCollection in
+                let isDark = traitCollection.userInterfaceStyle == .dark
+                let source = isDark ? dark : light
+                return UIColor(
+                    red: source.red,
+                    green: source.green,
+                    blue: source.blue,
+                    alpha: isDark ? 0.18 : 0.10
+                )
+            }
+        )
+        #elseif canImport(AppKit)
+        return Color(
+            NSColor(name: nil) { appearance in
+                let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                let source = isDark ? dark : light
+                return NSColor(
+                    calibratedRed: source.red,
+                    green: source.green,
+                    blue: source.blue,
+                    alpha: isDark ? 0.18 : 0.10
+                )
+            }
+        )
+        #else
+        return Color(red: light.red, green: light.green, blue: light.blue).opacity(0.1)
+        #endif
     }
 }
 

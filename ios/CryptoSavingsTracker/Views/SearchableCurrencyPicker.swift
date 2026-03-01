@@ -6,6 +6,7 @@
     //
 
 import SwiftUI
+import Foundation
 
 enum CurrencyPickerType {
     case fiat // For goals - shows fiat currencies like USD, EUR
@@ -18,6 +19,7 @@ struct SearchableCurrencyPicker: View {
     @Environment(\.dismiss) private var dismiss
     
     let pickerType: CurrencyPickerType
+    let titleOverride: String?
     
     @State private var searchText = ""
     @State private var visibleCount: Int = 100
@@ -27,17 +29,28 @@ struct SearchableCurrencyPicker: View {
     private let isUITest = UITestFlags.isEnabled
     #endif
     
-    init(selectedCurrency: Binding<String>, pickerType: CurrencyPickerType = .crypto) {
+    private static let isoFiatCurrencyCodes = Set(Locale.Currency.isoCurrencies.map(\.identifier).map { $0.uppercased() })
+    
+    init(selectedCurrency: Binding<String>, pickerType: CurrencyPickerType = .crypto, titleOverride: String? = nil) {
         self._selectedCurrency = selectedCurrency
         self.pickerType = pickerType
+        self.titleOverride = titleOverride
     }
     
+    private var fiatCurrencyInfos: [CoinInfo] {
+        let fiatCodes = currencyViewModel.supportedCurrencies.filter { Self.isoFiatCurrencyCodes.contains($0.uppercased()) }
+        return fiatCodes.map { CoinInfo(id: $0.lowercased(), symbol: $0, name: $0) }
+    }
+    
+    private var currentSelection: CoinInfo? {
+        let candidates = pickerType == .fiat ? fiatCurrencyInfos : currencyViewModel.coinInfos
+        return candidates.first(where: { $0.symbol.uppercased() == selectedCurrency.uppercased() })
+    }
+
     private var filteredAll: [CoinInfo] {
         if pickerType == .fiat {
             // For fiat currencies, we need to create fake CoinInfo objects from the strings
-            let fiatList = currencyViewModel.supportedCurrencies.map { currency in
-                CoinInfo(id: currency.lowercased(), symbol: currency, name: currency)
-            }
+            let fiatList = fiatCurrencyInfos
             
             if searchText.isEmpty {
                 return fiatList.sorted { $0.symbol.lowercased() < $1.symbol.lowercased() }
@@ -157,7 +170,7 @@ struct SearchableCurrencyPicker: View {
                 .accessibilityIdentifier("currencyCancelButton")
                 
                 Spacer()
-                Text(pickerType == .fiat ? "Select Goal Currency" : "Select Asset Currency")
+                Text(titleOverride ?? (pickerType == .fiat ? "Select Goal Currency" : "Select Asset Currency"))
                     .font(.headline)
                     .fontWeight(.semibold)
                 Spacer()
@@ -200,7 +213,7 @@ struct SearchableCurrencyPicker: View {
                             .foregroundColor(.secondary)
                             .padding(.horizontal)
                             .padding(.top, 8)
-                        if let selectedCoin = currencyViewModel.coinInfos.first(where: { $0.symbol.uppercased() == selectedCurrency.uppercased() }) {
+                        if let selectedCoin = currentSelection {
                             Button {
                                 // Already selected, just dismiss
                                 dismiss()
@@ -283,7 +296,7 @@ struct SearchableCurrencyPicker: View {
             List {
                 if !selectedCurrency.isEmpty {
                     Section("Current Selection") {
-                        if let selectedCoin = currencyViewModel.coinInfos.first(where: { $0.symbol.uppercased() == selectedCurrency.uppercased() }) {
+                        if let selectedCoin = currentSelection {
                             HStack {
                                 VStack(alignment: .leading) {
                                     Text(selectedCoin.symbol.uppercased())
