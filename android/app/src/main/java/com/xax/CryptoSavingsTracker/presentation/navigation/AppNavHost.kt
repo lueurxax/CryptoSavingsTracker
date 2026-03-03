@@ -37,8 +37,8 @@ import com.xax.CryptoSavingsTracker.presentation.execution.ExecutionScreen
 import com.xax.CryptoSavingsTracker.presentation.goals.AddEditGoalScreen
 import com.xax.CryptoSavingsTracker.presentation.goals.GoalDetailScreen
 import com.xax.CryptoSavingsTracker.presentation.goals.GoalsScreen
-import com.xax.CryptoSavingsTracker.presentation.planning.PlanningScreen
 import com.xax.CryptoSavingsTracker.presentation.planning.MonthlyPlanningScreen
+import com.xax.CryptoSavingsTracker.presentation.planning.PlanningScreen
 import com.xax.CryptoSavingsTracker.presentation.planning.PlanHistoryScreen
 import com.xax.CryptoSavingsTracker.presentation.settings.SettingsScreen
 import com.xax.CryptoSavingsTracker.presentation.transactions.AddTransactionScreen

@@ -301,10 +301,12 @@ struct NavigationCoordinatorModifier: ViewModifier {
                     destinationView(for: route)
                 }
         }
+        // NAV-MOD: MOD-01
         .sheet(item: $coordinator.presentedSheet) { route in
             sheetView(for: route)
         }
         #if os(iOS)
+        // NAV-MOD: MOD-03
         .fullScreenCover(item: $coordinator.presentedFullScreen) { route in
             fullScreenView(for: route)
         }

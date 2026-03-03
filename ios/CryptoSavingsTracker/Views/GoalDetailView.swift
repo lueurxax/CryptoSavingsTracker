@@ -24,6 +24,7 @@ struct GoalDetailView: View {
     @State private var showingCharts = false
     @State private var editingGoal: Goal?
     @State private var showingDeleteConfirmation = false
+    @State private var hasStartedDestructiveJourney = false
     
     init(goal: Goal) {
         self.goal = goal
@@ -44,7 +45,7 @@ struct GoalDetailView: View {
             }
         }
     }
-    
+
     // MARK: - Sub Views
     
     @ViewBuilder
@@ -155,6 +156,66 @@ struct GoalDetailView: View {
             }
         }
     }
+
+    private var goalActionsMenu: some View {
+        Menu {
+            Button {
+                editingGoal = goal
+            } label: {
+                Label("Edit Goal", systemImage: "pencil")
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                showingDeleteConfirmation = true
+            } label: {
+                Label("Delete Goal", systemImage: "trash")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.body)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Goal actions")
+        .accessibilityHint("Tap to edit or delete this goal")
+    }
+
+    private var macOSGoalActions: some View {
+        HStack(spacing: 8) {
+            Button {
+                editingGoal = goal
+            } label: {
+                Label("Edit", systemImage: "pencil")
+                    .labelStyle(.titleAndIcon)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
+
+            Button(role: .destructive) {
+                showingDeleteConfirmation = true
+            } label: {
+                Label("Delete", systemImage: "trash")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var goalToolbarContent: some ToolbarContent {
+#if os(iOS)
+        ToolbarItem(placement: .navigationBarTrailing) {
+            goalActionsMenu
+        }
+#else
+        ToolbarItem(placement: .primaryAction) {
+            macOSGoalActions
+        }
+#endif
+    }
     
     @ViewBuilder
     private var chartsSection: some View {
@@ -190,7 +251,6 @@ struct GoalDetailView: View {
                 .padding(12)
                 .background(.regularMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
             }
         }
     }
@@ -300,7 +360,6 @@ struct GoalDetailView: View {
                 .padding(16)
                 .background(.regularMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
 
                 // Assets Section
                 assetsSection
@@ -314,57 +373,59 @@ struct GoalDetailView: View {
     }
 
     var body: some View {
-        scrollViewContent
-        .toolbar {
-#if os(iOS)
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Button {
-                        editingGoal = goal
-                    } label: {
-                        Label("Edit Goal", systemImage: "pencil")
-                    }
-                    
-                    Divider()
-                    
-                    Button(role: .destructive) {
-                        showingDeleteConfirmation = true
-                    } label: {
-                        Label("Delete Goal", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.body)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
+        goalDetailCore
+            .onChange(of: goal.id) { _, _ in
+                goalViewModel = GoalViewModel(goal: goal)
+                goalViewModel.setModelContext(modelContext)
+                Task {
+                    await goalViewModel.refreshValues()
                 }
-                .accessibilityLabel("Goal actions")
-                .accessibilityHint("Tap to edit or delete this goal")
+            }
+            .onChange(of: goalAssets.count) { _, _ in
+                Task {
+                    try? await Task.sleep(for: .milliseconds(100))
+                    await goalViewModel.refreshValues()
+                }
+            }
+            .onChange(of: allAssets.count) { _, _ in
+                Task { await goalViewModel.refreshValues() }
+            }
+            .onChange(of: allTransactions.count) { _, _ in
+                Task {
+                    try? await Task.sleep(for: .milliseconds(100))
+                    await goalViewModel.refreshValues()
+                }
+            }
+            .onChange(of: showingDeleteConfirmation) { _, isPresented in
+                if isPresented {
+                    hasStartedDestructiveJourney = true
+                    DIContainer.shared.navigationTelemetryTracker.flowStarted(
+                        journeyID: NavigationJourney.destructiveDeleteConfirmation,
+                        entryPoint: "goal_detail_menu"
+                    )
+                }
+            }
+#if os(macOS)
+            // NAV-MOD: MOD-01
+            .popover(isPresented: $showingAddAsset) {
+                AddAssetView(goal: goal)
+                    .frame(minWidth: 400, minHeight: 300)
             }
 #else
-            ToolbarItem(placement: .primaryAction) {
-                HStack(spacing: 8) {
-                    Button {
-                        editingGoal = goal
-                    } label: {
-                        Label("Edit", systemImage: "pencil")
-                            .labelStyle(.titleAndIcon)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
-                    
-                    Button(role: .destructive) {
-                        showingDeleteConfirmation = true
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                            .labelStyle(.iconOnly)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
-                }
+            // NAV-MOD: MOD-01
+            .sheet(isPresented: $showingAddAsset) {
+                AddAssetView(goal: goal)
+                    .presentationDetents([.large])
             }
 #endif
-        }
+    } // End of body
+
+    private var goalDetailCore: some View {
+        scrollViewContent
+            .toolbar {
+                goalToolbarContent
+            }
+            // NAV-MOD: MOD-04
             .confirmationDialog(
                 "Delete Goal?",
                 isPresented: $showingDeleteConfirmation,
@@ -379,62 +440,31 @@ struct GoalDetailView: View {
                 Button("Mark Finished (keep allocations)") {
                     finishGoal()
                 }
-                Button("Cancel", role: .cancel) { }
+                Button("Cancel", role: .cancel) {
+                    DIContainer.shared.navigationTelemetryTracker.cancelled(
+                        journeyID: NavigationJourney.destructiveDeleteConfirmation,
+                        isDirty: false,
+                        cancelStage: "destructive_dialog_cancel"
+                    )
+                }
             } message: {
                 Text("Choose how to archive '\(goal.name)'. Finished goals keep allocations (treated as spent). Cancel frees allocations back to unallocated.")
             }
-        .sheet(item: $editingGoal) { goal in
-            EditGoalView(goal: goal, modelContext: modelContext)
+            // NAV-MOD: MOD-01
+            .sheet(item: $editingGoal) { goal in
+                EditGoalView(goal: goal, modelContext: modelContext)
 #if os(macOS)
-                .presentationDetents([.large])
+                    .presentationDetents([.large])
 #else
-                .presentationDetents([.large])
+                    .presentationDetents([.large])
 #endif
-        }
-        .task(id: goal.id) {
-            goalViewModel.setModelContext(modelContext)
-            await goalViewModel.refreshValues()
-            await dashboardViewModel.loadData(for: goal, modelContext: modelContext)
-        }
-        .onChange(of: goal.id) { _, _ in
-                // Create new goalViewModel for the new goal
-            goalViewModel = GoalViewModel(goal: goal)
-            goalViewModel.setModelContext(modelContext)
-            Task {
-                await goalViewModel.refreshValues()
             }
-        }
-        .onChange(of: goalAssets.count) { oldValue, newValue in
-            Task {
-                    // Add a small delay to let SwiftData process the changes
-                try? await Task.sleep(for: .milliseconds(100))
+            .task(id: goal.id) {
+                goalViewModel.setModelContext(modelContext)
                 await goalViewModel.refreshValues()
+                await dashboardViewModel.loadData(for: goal, modelContext: modelContext)
             }
-        }
-        .onChange(of: allAssets.count) { oldValue, newValue in
-            Task {
-                await goalViewModel.refreshValues()
-            }
-        }
-        .onChange(of: allTransactions.count) { oldValue, newValue in
-            Task {
-                    // Add a small delay to let SwiftData process the changes
-                try? await Task.sleep(for: .milliseconds(100))
-                await goalViewModel.refreshValues()
-            }
-        }
-#if os(macOS)
-        .popover(isPresented: $showingAddAsset) {
-            AddAssetView(goal: goal)
-                .frame(minWidth: 400, minHeight: 300)
-        }
-#else
-        .sheet(isPresented: $showingAddAsset) {
-            AddAssetView(goal: goal)
-                .presentationDetents([.large])
-        }
-#endif
-    } // End of body
+    }
     
     private func refreshBalances() async {
         // Clear cache to force refresh
@@ -478,6 +508,13 @@ struct GoalDetailView: View {
     }
     
     private func deleteGoal() {
+        if hasStartedDestructiveJourney {
+            DIContainer.shared.navigationTelemetryTracker.flowCompleted(
+                journeyID: NavigationJourney.destructiveDeleteConfirmation,
+                result: "delete_goal"
+            )
+            hasStartedDestructiveJourney = false
+        }
         withAnimation {
             Task { @MainActor in
                 await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
@@ -488,27 +525,28 @@ struct GoalDetailView: View {
     }
 
     private func cancelGoal() {
+        if hasStartedDestructiveJourney {
+            DIContainer.shared.navigationTelemetryTracker.flowCompleted(
+                journeyID: NavigationJourney.destructiveDeleteConfirmation,
+                result: "cancel_goal"
+            )
+            hasStartedDestructiveJourney = false
+        }
         Task { @MainActor in
             await GoalLifecycleService(modelContext: modelContext).cancelGoal(goal)
         }
     }
 
     private func finishGoal() {
+        if hasStartedDestructiveJourney {
+            DIContainer.shared.navigationTelemetryTracker.flowCompleted(
+                journeyID: NavigationJourney.destructiveDeleteConfirmation,
+                result: "finish_goal"
+            )
+            hasStartedDestructiveJourney = false
+        }
         Task { @MainActor in
             await GoalLifecycleService(modelContext: modelContext).finishGoal(goal)
         }
     }
-}
-
-#Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config)
-    
-    let goal = Goal(name: "Sample Goal", currency: "USD", targetAmount: 10000.0, deadline: Date().addingTimeInterval(86400 * 30))
-    container.mainContext.insert(goal)
-    
-    return NavigationView {
-        GoalDetailView(goal: goal)
-    }
-    .modelContainer(container)
 }

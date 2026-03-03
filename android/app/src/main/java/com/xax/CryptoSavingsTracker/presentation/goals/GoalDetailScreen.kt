@@ -58,8 +58,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.xax.CryptoSavingsTracker.domain.navigation.NavigationJourney
 import com.xax.CryptoSavingsTracker.domain.model.Goal
 import com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus
+import com.xax.CryptoSavingsTracker.presentation.navigation.NavigationRuntimeViewModel
 import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
 import com.xax.CryptoSavingsTracker.presentation.theme.GoalAtRisk
@@ -74,15 +76,24 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun GoalDetailScreen(
     navController: NavController,
+    runtimeViewModel: NavigationRuntimeViewModel = hiltViewModel(),
     viewModel: GoalDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showMenu by remember { mutableStateOf(false) }
+    var hasStartedDestructiveFlow by remember { mutableStateOf(false) }
 
     // Navigate back when deleted
     LaunchedEffect(uiState.isDeleted) {
         if (uiState.isDeleted) {
+            if (hasStartedDestructiveFlow) {
+                runtimeViewModel.telemetryTracker.flowCompleted(
+                    journeyId = NavigationJourney.DESTRUCTIVE_DELETE_CONFIRMATION,
+                    result = "delete_goal"
+                )
+                hasStartedDestructiveFlow = false
+            }
             navController.popBackStack()
         }
     }
@@ -91,7 +102,22 @@ fun GoalDetailScreen(
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
             snackbarHostState.showSnackbar(error)
+            runtimeViewModel.telemetryTracker.recoveryCompleted(
+                journeyId = NavigationJourney.DESTRUCTIVE_DELETE_CONFIRMATION,
+                recoveryPath = "goal_detail_error",
+                success = false
+            )
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(uiState.showDeleteConfirmation) {
+        if (uiState.showDeleteConfirmation && !hasStartedDestructiveFlow) {
+            hasStartedDestructiveFlow = true
+            runtimeViewModel.telemetryTracker.flowStarted(
+                journeyId = NavigationJourney.DESTRUCTIVE_DELETE_CONFIRMATION,
+                entryPoint = "goal_detail_menu"
+            )
         }
     }
 
@@ -180,6 +206,14 @@ fun GoalDetailScreen(
             AlertDialog(
                 onDismissRequest = {
                     dialogStep = 0
+                    if (hasStartedDestructiveFlow) {
+                        runtimeViewModel.telemetryTracker.cancelled(
+                            journeyId = NavigationJourney.DESTRUCTIVE_DELETE_CONFIRMATION,
+                            isDirty = false,
+                            cancelStage = "destructive_dialog_dismiss"
+                        )
+                        hasStartedDestructiveFlow = false
+                    }
                     viewModel.dismissDeleteConfirmation()
                 },
                 title = {
@@ -214,7 +248,13 @@ fun GoalDetailScreen(
 
                             // Delete button (destructive action)
                             OutlinedButton(
-                                onClick = viewModel::confirmDelete,
+                                onClick = {
+                                    runtimeViewModel.telemetryTracker.discardConfirmed(
+                                        journeyId = NavigationJourney.DESTRUCTIVE_DELETE_CONFIRMATION,
+                                        formType = "goal_archive"
+                                    )
+                                    viewModel.confirmDelete()
+                                },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = MaterialTheme.colorScheme.error
@@ -233,7 +273,16 @@ fun GoalDetailScreen(
 
                             // Mark Finished option
                             OutlinedButton(
-                                onClick = { viewModel.updateStatus(GoalLifecycleStatus.FINISHED) },
+                                onClick = {
+                                    if (hasStartedDestructiveFlow) {
+                                        runtimeViewModel.telemetryTracker.flowCompleted(
+                                            journeyId = NavigationJourney.DESTRUCTIVE_DELETE_CONFIRMATION,
+                                            result = "mark_finished"
+                                        )
+                                        hasStartedDestructiveFlow = false
+                                    }
+                                    viewModel.updateStatus(GoalLifecycleStatus.FINISHED)
+                                },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(
@@ -263,7 +312,16 @@ fun GoalDetailScreen(
 
                             // Cancel Goal option
                             OutlinedButton(
-                                onClick = { viewModel.updateStatus(GoalLifecycleStatus.CANCELLED) },
+                                onClick = {
+                                    if (hasStartedDestructiveFlow) {
+                                        runtimeViewModel.telemetryTracker.flowCompleted(
+                                            journeyId = NavigationJourney.DESTRUCTIVE_DELETE_CONFIRMATION,
+                                            result = "cancel_goal"
+                                        )
+                                        hasStartedDestructiveFlow = false
+                                    }
+                                    viewModel.updateStatus(GoalLifecycleStatus.CANCELLED)
+                                },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = MaterialTheme.colorScheme.error
@@ -302,6 +360,14 @@ fun GoalDetailScreen(
                             if (dialogStep == 1) {
                                 dialogStep = 0
                             } else {
+                                if (hasStartedDestructiveFlow) {
+                                    runtimeViewModel.telemetryTracker.cancelled(
+                                        journeyId = NavigationJourney.DESTRUCTIVE_DELETE_CONFIRMATION,
+                                        isDirty = false,
+                                        cancelStage = "destructive_dialog_cancel"
+                                    )
+                                    hasStartedDestructiveFlow = false
+                                }
                                 viewModel.dismissDeleteConfirmation()
                             }
                         }

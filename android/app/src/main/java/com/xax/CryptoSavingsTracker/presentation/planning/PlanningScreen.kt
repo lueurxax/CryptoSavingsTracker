@@ -12,5 +12,7 @@ import androidx.navigation.NavController
 fun PlanningScreen(
     navController: NavController
 ) {
-    MonthlyPlanningContainer(navController = navController)
+    MonthlyPlanningContainer(
+        navController = navController
+    )
 }

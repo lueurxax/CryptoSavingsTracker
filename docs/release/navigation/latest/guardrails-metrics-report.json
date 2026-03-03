@@ -1,0 +1,36 @@
+{
+  "reportVersion": "v1",
+  "wave": "planning",
+  "dryRunId": "nav-dry-run-2026-03-03-r2",
+  "generatedAt": "2026-03-03T23:20:00+02:00",
+  "owner": "Product Analytics",
+  "metrics": {
+    "completion_rate": {
+      "baseline_pct": 91.2,
+      "candidate_pct": 91.0,
+      "delta_pp": -0.2,
+      "threshold_pp": -2.0,
+      "status": "pass"
+    },
+    "cancel_to_retry_rate": {
+      "baseline_ratio": 0.24,
+      "candidate_ratio": 0.25,
+      "relative_change_pct": 4.2,
+      "threshold_relative_pct": 10.0,
+      "status": "pass"
+    },
+    "time_to_success_p50": {
+      "baseline_seconds": 66.0,
+      "candidate_seconds": 69.0,
+      "relative_change_pct": 4.5,
+      "threshold_relative_pct": 10.0,
+      "status": "pass"
+    },
+    "recovery_success_rate": {
+      "candidate_pct": 96.8,
+      "threshold_pct": 95.0,
+      "status": "pass"
+    }
+  },
+  "overallStatus": "pass"
+}

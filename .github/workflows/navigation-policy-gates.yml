@@ -1,0 +1,146 @@
+name: navigation-policy-gates
+
+on:
+  pull_request:
+    paths:
+      - "ios/**"
+      - "android/**"
+      - "scripts/**"
+      - "docs/design/**"
+      - "docs/release/navigation/**"
+      - "docs/runbooks/**"
+      - "docs/testing/**"
+      - "docs/proposals/NAVIGATION_PRESENTATION_CONSISTENCY_PROPOSAL.md"
+      - ".github/workflows/navigation-policy-gates.yml"
+  push:
+    branches:
+      - "release/**"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Gate mode"
+        required: false
+        type: choice
+        options:
+          - pr
+          - release
+        default: pr
+
+jobs:
+  policy-nav-ios-forbidden-apis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - name: Run policy gate (PR changed files)
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 scripts/check_navigation_policy.py \
+            --changed-only \
+            --base-ref "origin/${{ github.base_ref }}" \
+            --strict-mod-tags \
+            --strict-preview-segregation \
+            --allowlist docs/testing/navigation-policy-allowlist.v1.json \
+            --report-out artifacts/navigation/policy-report.json
+      - name: Run policy gate (release branch baseline)
+        if: github.event_name != 'pull_request'
+        run: |
+          python3 scripts/check_navigation_policy.py \
+            --allowlist docs/testing/navigation-policy-allowlist.v1.json \
+            --report-out artifacts/navigation/policy-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nav-policy-ios-report
+          path: artifacts/navigation/policy-report.json
+
+  policy-nav-android-parity-matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python3 scripts/check_android_navigation_parity_matrix.py --report-out artifacts/navigation/android-parity-matrix-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nav-policy-android-parity-report
+          path: artifacts/navigation/android-parity-matrix-report.json
+
+  policy-nav-hard-cutover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - name: Run hard-cutover gate (PR changed files)
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 scripts/check_navigation_hard_cutover.py \
+            --changed-only \
+            --base-ref "origin/${{ github.base_ref }}" \
+            --report-out artifacts/navigation/hard-cutover-report.json
+      - name: Run hard-cutover gate (release baseline)
+        if: github.event_name != 'pull_request'
+        run: |
+          python3 scripts/check_navigation_hard_cutover.py \
+            --report-out artifacts/navigation/hard-cutover-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nav-policy-hard-cutover-report
+          path: artifacts/navigation/hard-cutover-report.json
+
+  policy-nav-mod02-compact-snapshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - name: Run compact artifact gate (PR changed files)
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 scripts/check_mod02_compact_artifacts.py \
+            --changed-only \
+            --base-ref "origin/${{ github.base_ref }}" \
+            --report-out artifacts/navigation/mod02-compact-gate-report.json
+      - name: Run compact artifact gate (release baseline)
+        if: github.event_name != 'pull_request'
+        run: |
+          python3 scripts/check_mod02_compact_artifacts.py \
+            --report-out artifacts/navigation/mod02-compact-gate-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nav-policy-mod02-compact-report
+          path: artifacts/navigation/mod02-compact-gate-report.json
+
+  policy-nav-release-evidence:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'release')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: |
+          python3 scripts/check_navigation_release_evidence.py \
+            --release-dir docs/release/navigation/latest \
+            --schema docs/testing/navigation-telemetry-schema.v1.json \
+            --report-out artifacts/navigation/release-evidence-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nav-policy-release-evidence-report
+          path: artifacts/navigation/release-evidence-report.json

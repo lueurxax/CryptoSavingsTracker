@@ -40,18 +40,18 @@ struct GoalsListContainer: View {
                                 Button("Delete", role: .destructive) {
                                     deleteGoal(goal)
                                 }
-                                .tint(.red)
+                                .tint(AccessibleColors.error)
                                 
                                 Button("Status") {
                                     selectedGoalForLifecycleAction = goal
                                     showingLifecycleActions = true
                                 }
-                                .tint(.orange)
+                                .tint(AccessibleColors.warning)
 
                                 Button("Edit") {
                                     editingGoal = goal
                                 }
-                                .tint(.blue)
+                                .tint(AccessibleColors.primaryInteractive)
                             }
                             .contextMenu {
                                 GoalContextMenu(
@@ -83,6 +83,7 @@ struct GoalsListContainer: View {
                 }
             }
         }
+        // NAV-MOD: MOD-04
         .confirmationDialog(
             "Update Goal Status",
             isPresented: $showingLifecycleActions,
@@ -102,6 +103,7 @@ struct GoalsListContainer: View {
             }
             Button("Close", role: .cancel) { }
         }
+        // NAV-MOD: MOD-01
         .sheet(item: $editingGoal) { goal in
             EditGoalView(goal: goal, modelContext: modelContext)
                 .presentationDetents([.large])
@@ -160,15 +162,4 @@ struct GoalContextMenu: View {
             }
         }
     }
-}
-
-#Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config)
-    
-    let goal1 = Goal(name: "Bitcoin Savings", currency: "USD", targetAmount: 50000, deadline: Date().addingTimeInterval(86400 * 90))
-    container.mainContext.insert(goal1)
-    
-    return GoalsListContainer(selectedView: .constant(DetailViewType.details))
-        .modelContainer(container)
 }

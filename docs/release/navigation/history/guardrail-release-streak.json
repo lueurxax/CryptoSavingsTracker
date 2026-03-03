@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-03-03",
+  "targetConsecutivePassCount": 2,
+  "consecutivePassCount": 0,
+  "status": "hold",
+  "releases": [
+    {
+      "releaseId": "dry-run-2026-03-03-r2",
+      "date": "2026-03-03",
+      "isProductionRelease": false,
+      "guardrailsOverallStatus": "pass",
+      "policyPassed": true,
+      "parityPassed": true,
+      "countsTowardStreak": false,
+      "notes": "Dry-run evidence only; does not count toward production streak."
+    }
+  ]
+}

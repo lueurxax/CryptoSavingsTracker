@@ -15,6 +15,8 @@ struct EditGoalView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showingDeleteConfirmation = false
     @State private var showingArchiveConfirmation = false
+    @State private var showingDiscardConfirmation = false
+    @State private var hasStartedTelemetryFlow = false
     
     init(goal: Goal, modelContext: ModelContext) {
         self._viewModel = StateObject(wrappedValue: GoalEditViewModel(goal: goal, modelContext: modelContext))
@@ -23,7 +25,7 @@ struct EditGoalView: View {
     private var isCompact: Bool {
         horizontalSizeClass == .compact
     }
-    
+
     private var cancelButtonPlacement: ToolbarItemPlacement {
 #if os(iOS)
         .navigationBarLeading
@@ -244,8 +246,22 @@ struct EditGoalView: View {
                 ToolbarItem(placement: cancelButtonPlacement) {
                     Button("Cancel") {
                         if viewModel.isDirty {
+                            DIContainer.shared.navigationTelemetryTracker.cancelled(
+                                journeyID: NavigationJourney.goalCreateEdit,
+                                isDirty: true,
+                                cancelStage: "toolbar_cancel"
+                            )
+                            showingDiscardConfirmation = true
+                            return
+                        }
+                        if viewModel.isDirty {
                             viewModel.cancel()
                         }
+                        DIContainer.shared.navigationTelemetryTracker.cancelled(
+                            journeyID: NavigationJourney.goalCreateEdit,
+                            isDirty: viewModel.isDirty,
+                            cancelStage: "toolbar_cancel"
+                        )
                         dismiss()
                     }
                     .foregroundColor(.blue)
@@ -256,9 +272,17 @@ struct EditGoalView: View {
                         Task {
                             do {
                                 try await viewModel.save()
+                                DIContainer.shared.navigationTelemetryTracker.flowCompleted(
+                                    journeyID: NavigationJourney.goalCreateEdit,
+                                    result: "saved"
+                                )
                                 dismiss()
                             } catch {
-                                // Save failed: error
+                                DIContainer.shared.navigationTelemetryTracker.recoveryCompleted(
+                                    journeyID: NavigationJourney.goalCreateEdit,
+                                    recoveryPath: "save_error",
+                                    success: false
+                                )
                             }
                         }
                     }
@@ -268,6 +292,34 @@ struct EditGoalView: View {
                 }
             }
         }
+        .interactiveDismissDisabled(viewModel.isDirty)
+        .onAppear {
+            guard !hasStartedTelemetryFlow else { return }
+            hasStartedTelemetryFlow = true
+            DIContainer.shared.navigationTelemetryTracker.flowStarted(
+                journeyID: NavigationJourney.goalCreateEdit,
+                entryPoint: "edit_goal_sheet"
+            )
+        }
+        // NAV-MOD: MOD-02
+        .confirmationDialog(
+            "Discard Changes?",
+            isPresented: $showingDiscardConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Discard Changes", role: .destructive) {
+                DIContainer.shared.navigationTelemetryTracker.discardConfirmed(
+                    journeyID: NavigationJourney.goalCreateEdit,
+                    formType: "goal_edit"
+                )
+                viewModel.cancel()
+                dismiss()
+            }
+            Button("Keep Editing", role: .cancel) { }
+        } message: {
+            Text("Unsaved goal changes will be lost.")
+        }
+        // NAV-MOD: MOD-04
         .confirmationDialog(
             "Archive Goal",
             isPresented: $showingArchiveConfirmation,
@@ -420,213 +472,5 @@ struct ArchiveSection: View {
         .padding(16)
         .background(AccessibleColors.warning.opacity(0.1))
         .cornerRadius(12)
-    }
-}
-
-#Preview {
-    struct PreviewWrapper: View {
-        var body: some View {
-            let config = ModelConfiguration(isStoredInMemoryOnly: true)
-            let container = try! ModelContainer(for: Goal.self, configurations: config)
-            
-            let goal = Goal(
-                name: "Emergency Fund",
-                currency: "USD", 
-                targetAmount: 5000.0,
-                deadline: Date().addingTimeInterval(86400 * 180) // 6 months
-            )
-            goal.reminderFrequency = ReminderFrequency.weekly.rawValue
-            goal.reminderTime = Date()
-            
-            container.mainContext.insert(goal)
-            
-            return EditGoalView(goal: goal, modelContext: container.mainContext)
-        }
-    }
-    
-    return PreviewWrapper()
-}
-
-// MARK: - Customization Section
-struct CustomizationSection: View {
-    @ObservedObject var viewModel: GoalEditViewModel
-    
-    var body: some View {
-        FormSection(
-            title: "Customization",
-            icon: "paintbrush"
-        ) {
-            // Emoji Picker
-            FormField(label: "Goal Icon") {
-                EmojiPickerField(viewModel: viewModel)
-            }
-            .popover(isPresented: $viewModel.showingEmojiPicker) {
-                EmojiPickerView(selectedEmoji: $viewModel.goal.emoji)
-                    .frame(width: 320, height: 400)
-                    .onChange(of: viewModel.goal.emoji) { _, _ in
-                        viewModel.triggerChangeDetection()
-                    }
-            }
-            
-            // Description Field
-            FormField(label: "Description (Optional)") {
-                DescriptionField(viewModel: viewModel)
-            }
-            
-            // Link Field
-            FormField(label: "Link (Optional)") {
-                LinkField(viewModel: viewModel)
-            }
-        }
-    }
-}
-
-// MARK: - Emoji Picker Field
-struct EmojiPickerField: View {
-    @ObservedObject var viewModel: GoalEditViewModel
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Current emoji or placeholder
-            Button(action: {
-                viewModel.showingEmojiPicker.toggle()
-            }) {
-                if let emoji = viewModel.goal.emoji {
-                    Text(emoji)
-                        .font(.largeTitle)
-                        .frame(width: 60, height: 60)
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(12)
-                } else {
-                    Image(systemName: "face.smiling")
-                        .font(.largeTitle)
-                        .foregroundColor(.accessibleSecondary)
-                        .frame(width: 60, height: 60)
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(12)
-                }
-            }
-            .buttonStyle(PlainButtonStyle())
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Tap to select emoji")
-                    .font(.caption)
-                    .foregroundColor(.accessibleSecondary)
-                
-                if let suggestion = Goal.suggestEmoji(for: viewModel.goal.name) {
-                    Button(action: {
-                        viewModel.goal.emoji = suggestion
-                        viewModel.triggerChangeDetection()
-                    }) {
-                        HStack(spacing: 4) {
-                            Text("Suggestion:")
-                                .font(.caption2)
-                            Text(suggestion)
-                                .font(.body)
-                        }
-                        .foregroundColor(.accessiblePrimary)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-            }
-            
-            Spacer()
-            
-            if viewModel.goal.emoji != nil {
-                Button(action: {
-                    viewModel.goal.emoji = nil
-                    viewModel.triggerChangeDetection()
-                }) {
-                    Text("Clear")
-                        .font(.caption)
-                        .foregroundColor(.accessibleSecondary)
-                }
-                .buttonStyle(.bordered)
-            }
-        }
-    }
-}
-
-// MARK: - Description Field
-struct DescriptionField: View {
-    @ObservedObject var viewModel: GoalEditViewModel
-    
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            TextEditor(text: Binding(
-                get: { viewModel.goal.goalDescription ?? "" },
-                set: { viewModel.goal.goalDescription = $0.isEmpty ? nil : $0 }
-            ))
-            .frame(minHeight: 60, maxHeight: 120)
-            .padding(4)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-            )
-            .onChange(of: viewModel.goal.goalDescription ?? "") { _, newValue in
-                if newValue.count > 140 {
-                    viewModel.goal.goalDescription = String(newValue.prefix(140))
-                }
-                viewModel.triggerChangeDetection()
-            }
-            
-            Text("\((viewModel.goal.goalDescription ?? "").count)/140")
-                .font(.caption2)
-                .foregroundColor(.accessibleSecondary)
-        }
-    }
-}
-
-// MARK: - Link Field
-struct LinkField: View {
-    @ObservedObject var viewModel: GoalEditViewModel
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "link")
-                    .foregroundColor(.accessibleSecondary)
-                
-                TextField("https://example.com", text: Binding(
-                    get: { viewModel.goal.link ?? "" },
-                    set: { viewModel.goal.link = $0.isEmpty ? nil : $0 }
-                ))
-                .textFieldStyle(.roundedBorder)
-                .textContentType(.URL)
-#if os(iOS)
-                .autocapitalization(.none)
-#endif
-                .disableAutocorrection(true)
-                .onChange(of: viewModel.goal.link ?? "") { _, _ in
-                    viewModel.triggerChangeDetection()
-                }
-            }
-            
-            if let link = viewModel.goal.link, !link.isEmpty {
-                URLValidationView(link: link, isValid: viewModel.isValidURL(link))
-            }
-            
-            Text("Add a link to the product or service you're saving for")
-                .font(.caption2)
-                .foregroundColor(.accessibleSecondary)
-        }
-    }
-}
-
-// MARK: - URL Validation View
-struct URLValidationView: View {
-    let link: String
-    let isValid: Bool
-    
-    var body: some View {
-        HStack {
-            Image(systemName: isValid ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                .foregroundColor(isValid ? AccessibleColors.success : AccessibleColors.warning)
-                .font(.caption)
-            Text(isValid ? "Valid URL" : "Please enter a valid URL")
-                .font(.caption)
-                .foregroundColor(isValid ? AccessibleColors.success : AccessibleColors.warning)
-            Spacer()
-        }
     }
 }

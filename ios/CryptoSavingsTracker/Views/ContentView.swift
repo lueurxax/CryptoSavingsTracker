@@ -153,12 +153,12 @@ struct GoalsList: View {
                             Button("Delete", role: .destructive) {
                                 onDelete(goal)
                             }
-                            .tint(.red)
+                            .tint(AccessibleColors.error)
 
                             Button("Edit") {
                                 editingGoal = goal
                             }
-                            .tint(.blue)
+                            .tint(AccessibleColors.primaryInteractive)
                         }
                         .contextMenu {
                             GoalContextMenuContent(
@@ -206,10 +206,12 @@ struct GoalsList: View {
                 monthlyPlanningViewModel = MonthlyPlanningViewModel(modelContext: modelContext)
             }
         }
+        // NAV-MOD: MOD-01
         .sheet(item: $editingGoal) { goal in
             EditGoalView(goal: goal, modelContext: goal.modelContext!)
                 .presentationDetents([.large])
         }
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
@@ -284,8 +286,3 @@ struct GoalContextMenuContent: View {
 // DetailViewType is now defined in Models/DetailViewType.swift
 
 // MARK: - Preview
-
-#Preview {
-    return ContentView()
-        .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
-}

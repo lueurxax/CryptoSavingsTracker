@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "issueCount": 0,
+  "scannedFileCount": 0,
+  "summary": "No migration-layer references found in active runtime code.",
+  "checkedPatterns": [
+    "NavigationMigration*",
+    "navigationMigrationEvaluator/navigationMigrationRegistry",
+    "migrationEnabled",
+    "nav.migration.*",
+    "isModuleEnabled(...)"
+  ],
+  "generatedAt": "YYYY-MM-DDTHH:MM:SSZ",
+  "dryRunId": "nav-dry-run-<date>-<rev>"
+}

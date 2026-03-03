@@ -4,8 +4,10 @@ import com.xax.CryptoSavingsTracker.data.repository.AllocationHistoryRepositoryI
 import com.xax.CryptoSavingsTracker.data.repository.AllocationRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.AssetRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.CompletedExecutionRepositoryImpl
+import com.xax.CryptoSavingsTracker.data.repository.CompletionEventRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.ExecutionRecordRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.ExecutionSnapshotRepositoryImpl
+import com.xax.CryptoSavingsTracker.data.repository.ExecutionTransitionTransactionRunnerImpl
 import com.xax.CryptoSavingsTracker.data.repository.GoalRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.MonthlyGoalPlanRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.MonthlyPlanRepositoryImpl
@@ -16,14 +18,18 @@ import com.xax.CryptoSavingsTracker.domain.repository.AllocationHistoryRepositor
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.CompletedExecutionRepository
+import com.xax.CryptoSavingsTracker.domain.repository.CompletionEventRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionRecordRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionSnapshotRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExecutionTransitionTransactionRunner
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.repository.MonthlyGoalPlanRepository
 import com.xax.CryptoSavingsTracker.domain.repository.MonthlyPlanRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainTransactionRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
+import com.xax.CryptoSavingsTracker.domain.navigation.LogcatNavigationTelemetryProvider
+import com.xax.CryptoSavingsTracker.domain.navigation.NavigationTelemetryProvider
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -99,6 +105,18 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
+    abstract fun bindCompletionEventRepository(
+        completionEventRepositoryImpl: CompletionEventRepositoryImpl
+    ): CompletionEventRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindExecutionTransitionTransactionRunner(
+        impl: ExecutionTransitionTransactionRunnerImpl
+    ): ExecutionTransitionTransactionRunner
+
+    @Binds
+    @Singleton
     abstract fun bindOnChainBalanceRepository(
         impl: OnChainBalanceRepositoryImpl
     ): OnChainBalanceRepository
@@ -108,4 +126,10 @@ abstract class RepositoryModule {
     abstract fun bindOnChainTransactionRepository(
         impl: OnChainTransactionRepositoryImpl
     ): OnChainTransactionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNavigationTelemetryProvider(
+        impl: LogcatNavigationTelemetryProvider
+    ): NavigationTelemetryProvider
 }

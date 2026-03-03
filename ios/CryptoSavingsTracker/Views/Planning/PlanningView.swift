@@ -14,7 +14,6 @@ struct PlanningView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.modelContext) private var modelContext
     @Query private var allPlans: [MonthlyPlan]
-    @State private var viewId = UUID()  // Force view refresh
 
     // Get stale draft plans (past months that are still in draft state)
     private var staleDrafts: [MonthlyPlan] {
@@ -35,19 +34,16 @@ struct PlanningView: View {
             macOSPlanningView(viewModel: viewModel, staleDrafts: staleDrafts)
             #endif
         }
-        .onAppear {
-        }
-        .id(viewId)
-        .onReceive(viewModel.$monthlyRequirements) { _ in
-            viewId = UUID()  // Force view refresh
-        }
     }
 }
 
-private struct CompactPlanningScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
+/// Preference key for propagating dock phase from the scroll-tracking child
+/// up to the container that renders CommitDock. Using a PreferenceKey avoids
+/// the SwiftUI layout-phase suppression that affects @Binding and @Published writes.
+struct DockPhasePreferenceKey: PreferenceKey {
+    static var defaultValue: DockPhase = .expanded
 
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    static func reduce(value: inout DockPhase, nextValue: () -> DockPhase) {
         value = nextValue()
     }
 }
@@ -62,8 +58,10 @@ struct iOSCompactPlanningView: View {
     @State private var selectedTab = 0
     @State private var showingBudgetSheet = false
     @State private var tabScrollOffset: CGFloat = 0
-    @State private var initialTabScrollOffset: CGFloat?
     @State private var isCollapsedHeaderVisible = false
+    /// Local dock phase computed from scroll offset. Exposed to the parent via DockPhasePreferenceKey.
+    /// Using @State + PreferenceKey avoids layout-phase suppression that affects @Binding and @Published.
+    @State private var localDockPhase: DockPhase = .expanded
 
     private let collapseDistance: CGFloat = 160
 
@@ -92,13 +90,18 @@ struct iOSCompactPlanningView: View {
             perGoalContent
         }
         .background(.regularMaterial)
+        // Expose the locally-computed dock phase to the parent via preference key.
+        // This is the only reliable child→parent data flow during the layout/preference phase.
+        .preference(key: DockPhasePreferenceKey.self, value: localDockPhase)
+        // NAV-MOD: MOD-02
         .sheet(isPresented: $showingBudgetSheet) {
             BudgetCalculatorSheet(viewModel: viewModel)
         }
         .onChange(of: showingBudgetSheet) { _, isPresented in
             guard !isPresented else { return }
-            // Re-anchor scroll offset after sheet dismissal to avoid collapsed header glitches.
-            initialTabScrollOffset = nil
+            // Apply programmatic reset immediately so it doesn't leak into the next scroll callback.
+            let resetOrigin = ScrollOrigin.programmaticReset(.sheetDismiss)
+            localDockPhase = reduceDockPhase(current: localDockPhase, progress: 0, origin: resetOrigin)
             tabScrollOffset = 0
             isCollapsedHeaderVisible = false
         }
@@ -149,8 +152,14 @@ struct iOSCompactPlanningView: View {
                 .animation(.easeInOut(duration: 0.2), value: selectedTab)
         }
         .onChange(of: selectedTab) { _, _ in
+            // Apply programmatic reset immediately — don't defer to next scroll callback.
+            localDockPhase = reduceDockPhase(current: localDockPhase, progress: 0, origin: .programmaticReset(.tabSwitch))
             tabScrollOffset = 0
-            initialTabScrollOffset = nil
+            isCollapsedHeaderVisible = false
+        }
+        .onChange(of: viewModel.planningMonthLabel) { _, _ in
+            localDockPhase = reduceDockPhase(current: localDockPhase, progress: 0, origin: .programmaticReset(.planReload))
+            tabScrollOffset = 0
             isCollapsedHeaderVisible = false
         }
     }
@@ -164,11 +173,7 @@ struct iOSCompactPlanningView: View {
             tabButton(title: "Adjust", tag: 1, icon: "slider.horizontal.3")
             tabButton(title: "Stats", tag: 2, icon: "chart.bar.fill")
         }
-        #if os(iOS)
-        .background(Color(.secondarySystemBackground))
-        #else
-        .background(Color(NSColor.controlBackgroundColor))
-        #endif
+        .background(AccessibleColors.mediumBackground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
@@ -214,18 +219,6 @@ struct iOSCompactPlanningView: View {
             budgetCurrency: viewModel.budgetCurrency,
             onPrimaryAction: { showingBudgetSheet = true }
         )
-    }
-
-    @ViewBuilder
-    private var scrollOffsetProbe: some View {
-        GeometryReader { proxy in
-            Color.clear
-                .preference(
-                    key: CompactPlanningScrollOffsetPreferenceKey.self,
-                    value: proxy.frame(in: .named("compactPlanningTabScroll")).minY
-                )
-        }
-        .frame(height: 0)
     }
 
     @ViewBuilder
@@ -409,8 +402,6 @@ struct iOSCompactPlanningView: View {
     private var goalsListView: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                scrollOffsetProbe
-
                 planningHeaderSection
                     .padding(.bottom, 2)
 
@@ -455,11 +446,13 @@ struct iOSCompactPlanningView: View {
             .padding(.top, 2)
             .padding(.bottom, 12)
         }
-        .coordinateSpace(name: "compactPlanningTabScroll")
-        .onPreferenceChange(CompactPlanningScrollOffsetPreferenceKey.self) { newValue in
-            let normalizedOffset = normalizeScrollOffset(from: newValue)
-            tabScrollOffset = normalizedOffset
-            updateCollapsedHeaderVisibility(for: normalizedOffset)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y
+        } action: { _, newValue in
+            let offset = -newValue
+            tabScrollOffset = offset
+            updateCollapsedHeaderVisibility(for: offset)
+            updateDockPhase(for: offset)
         }
         .refreshable {
             await viewModel.refreshCalculations()
@@ -470,8 +463,6 @@ struct iOSCompactPlanningView: View {
     private var flexControlsView: some View {
         ScrollView {
             VStack(spacing: 24) {
-                scrollOffsetProbe
-
                 planningHeaderSection
                     .padding(.bottom, 2)
 
@@ -493,7 +484,7 @@ struct iOSCompactPlanningView: View {
                             }
                         }
                     }
-                    
+
                     Slider(value: Binding(
                         get: { viewModel.flexAdjustment },
                         set: { newValue in
@@ -556,7 +547,7 @@ struct iOSCompactPlanningView: View {
                 .padding()
                 .background(.regularMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                
+
                 // Quick Actions
                 quickActionsGrid
             }
@@ -564,29 +555,29 @@ struct iOSCompactPlanningView: View {
             .padding(.top, 2)
             .padding(.bottom, 12)
         }
-        .coordinateSpace(name: "compactPlanningTabScroll")
-        .onPreferenceChange(CompactPlanningScrollOffsetPreferenceKey.self) { newValue in
-            let normalizedOffset = normalizeScrollOffset(from: newValue)
-            tabScrollOffset = normalizedOffset
-            updateCollapsedHeaderVisibility(for: normalizedOffset)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y
+        } action: { _, newValue in
+            let offset = -newValue
+            tabScrollOffset = offset
+            updateCollapsedHeaderVisibility(for: offset)
+            updateDockPhase(for: offset)
         }
     }
-    
+
     @ViewBuilder
     private var statisticsView: some View {
         ScrollView {
             VStack(spacing: 20) {
-                scrollOffsetProbe
-
                 planningHeaderSection
                     .padding(.bottom, 2)
 
                 // Status Overview
                 statusOverviewCard
-                
+
                 // Goals by Status
                 goalsByStatusCard
-                
+
                 // Performance Metrics
                 performanceMetricsCard
             }
@@ -594,14 +585,16 @@ struct iOSCompactPlanningView: View {
             .padding(.top, 2)
             .padding(.bottom, 12)
         }
-        .coordinateSpace(name: "compactPlanningTabScroll")
-        .onPreferenceChange(CompactPlanningScrollOffsetPreferenceKey.self) { newValue in
-            let normalizedOffset = normalizeScrollOffset(from: newValue)
-            tabScrollOffset = normalizedOffset
-            updateCollapsedHeaderVisibility(for: normalizedOffset)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y
+        } action: { _, newValue in
+            let offset = -newValue
+            tabScrollOffset = offset
+            updateCollapsedHeaderVisibility(for: offset)
+            updateDockPhase(for: offset)
         }
     }
-    
+
     @ViewBuilder
     private var quickActionsGrid: some View {
         VStack(spacing: 12) {
@@ -769,6 +762,16 @@ struct iOSCompactPlanningView: View {
         }
     }
 
+    /// Update dock phase from scroll offset.
+    /// Always uses `.userScroll` origin — programmatic resets are applied eagerly in onChange handlers.
+    private func updateDockPhase(for offset: CGFloat) {
+        let progress = min(max(-offset / collapseDistance, 0), 1)
+        let newPhase = reduceDockPhase(current: localDockPhase, progress: progress, origin: .userScroll)
+        if newPhase != localDockPhase {
+            localDockPhase = newPhase
+        }
+    }
+
     private func updateCollapsedHeaderVisibility(for offset: CGFloat) {
         let progress = min(max(-offset / collapseDistance, 0), 1)
         let enterThreshold: CGFloat = 0.80
@@ -793,14 +796,6 @@ struct iOSCompactPlanningView: View {
         }
     }
 
-    private func normalizeScrollOffset(from rawOffset: CGFloat) -> CGFloat {
-        if initialTabScrollOffset == nil {
-            initialTabScrollOffset = rawOffset
-            return 0
-        }
-        return rawOffset - (initialTabScrollOffset ?? rawOffset)
-    }
-    
     private var groupedGoals: [RequirementStatus: [MonthlyRequirement]] {
         Dictionary(grouping: viewModel.monthlyRequirements, by: \.status)
     }
@@ -835,7 +830,7 @@ struct iOSRegularPlanningView: View {
     private var macOSRegularLayout: some View {
         HSplitView {
             // Left panel - Goals list
-            NavigationView {
+            NavigationStack {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(viewModel.monthlyRequirements) { requirement in
@@ -871,8 +866,8 @@ struct iOSRegularPlanningView: View {
     
     @ViewBuilder
     private var iosRegularLayout: some View {
-        // iOS uses NavigationView instead of HSplitView
-        NavigationView {
+        // iOS uses NavigationStack instead of HSplitView
+        NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 12) {
                     BudgetHealthCard(
@@ -912,6 +907,7 @@ struct iOSRegularPlanningView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
         }
+        // NAV-MOD: MOD-02
         .sheet(isPresented: $showingBudgetSheet) {
             BudgetCalculatorSheet(viewModel: viewModel)
         }
@@ -945,7 +941,7 @@ struct macOSPlanningView: View {
             macOSControlsPanel(viewModel: viewModel)
                 .frame(minWidth: 320, maxWidth: 400)
 
-            // Main content - Goals list (removed NavigationView wrapper)
+            // Main content - Goals list (removed NavigationStack wrapper)
             Group {
                 if viewModel.isLoading {
                     ProgressView("Loading monthly requirements...")
@@ -1007,7 +1003,7 @@ struct macOSPlanningView: View {
     @ViewBuilder
     private var iosLayout: some View {
         // iOS simplified layout
-        NavigationView {
+        NavigationStack {
             if viewModel.monthlyRequirements.isEmpty {
                 emptyStateView
             } else {
@@ -1101,11 +1097,8 @@ struct macOSControlsPanel: View {
             }
             .padding()
         }
-        #if os(macOS)
-        .background(Color(.controlBackgroundColor))
-        #else
-        .background(Color(.systemBackground))
-        #endif
+        .background(AccessibleColors.lightBackground)
+        // NAV-MOD: MOD-02
         .sheet(isPresented: $showingBudgetSheet) {
             BudgetCalculatorSheet(viewModel: viewModel)
         }
@@ -1315,26 +1308,3 @@ struct macOSControlsPanel: View {
 }
 
 // MARK: - Preview
-
-#Preview("iOS Compact") {
-    let modelContext = CryptoSavingsTrackerApp.sharedModelContainer.mainContext
-    NavigationView {
-        iOSCompactPlanningView(
-            viewModel: MonthlyPlanningViewModel(modelContext: modelContext),
-            staleDrafts: []
-        )
-    }
-    .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
-}
-
-#Preview("macOS") {
-    let modelContext = CryptoSavingsTrackerApp.sharedModelContainer.mainContext
-    NavigationView {
-        macOSPlanningView(
-            viewModel: MonthlyPlanningViewModel(modelContext: modelContext),
-            staleDrafts: []
-        )
-    }
-    .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
-    .frame(width: 800, height: 600)
-}

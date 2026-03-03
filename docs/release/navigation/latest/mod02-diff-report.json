@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "generatedAt": "2026-03-03T12:05:00+02:00",
+  "generator": "proposal-implementation-r3-compact-reuse",
+  "maxAllowedDiffRatio": 0.02,
+  "notes": "Compact evidence reused from validated R3 capture set.",
+  "scenarios": [
+    {
+      "id": "monthly-budget-adjust-compact",
+      "status": "pass",
+      "diffRatio": 0.0,
+      "baselineArtifact": "docs/screenshots/review-navigation-presentation-r3/compact/monthly-budget-sheet-01-shortfall-iphone16e-light-reuse.png",
+      "candidateArtifact": "docs/screenshots/review-navigation-presentation-r3/compact/monthly-budget-sheet-01-shortfall-iphone16e-light-reuse.png"
+    },
+    {
+      "id": "planning-flow-cancel-recovery-compact",
+      "status": "pass",
+      "diffRatio": 0.0,
+      "baselineArtifact": "docs/screenshots/review-navigation-presentation-r3/compact/monthly-planning-02-after-cancel-shortfall-card-iphone16e-light-reuse.png",
+      "candidateArtifact": "docs/screenshots/review-navigation-presentation-r3/compact/monthly-planning-02-after-cancel-shortfall-card-iphone16e-light-reuse.png"
+    }
+  ]
+}

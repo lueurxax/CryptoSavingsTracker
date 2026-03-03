@@ -110,6 +110,27 @@ class DIContainer: ObservableObject {
         }
     }
 
+    // MARK: - Navigation Telemetry
+    private var _navigationTelemetryProvider: NavigationTelemetryProvider?
+    var navigationTelemetryProvider: NavigationTelemetryProvider {
+        if let provider = _navigationTelemetryProvider {
+            return provider
+        }
+        let provider = AppLogNavigationTelemetryProvider()
+        _navigationTelemetryProvider = provider
+        return provider
+    }
+
+    private var _navigationTelemetryTracker: NavigationTelemetryTracker?
+    var navigationTelemetryTracker: NavigationTelemetryTracker {
+        if let tracker = _navigationTelemetryTracker {
+            return tracker
+        }
+        let tracker = NavigationTelemetryTracker(provider: navigationTelemetryProvider)
+        _navigationTelemetryTracker = tracker
+        return tracker
+    }
+
     // Balance service
     private var _balanceService: BalanceServiceProtocol?
     var balanceService: BalanceServiceProtocol {

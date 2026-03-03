@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "issueCount": 0,
+  "scannedFileCount": 128,
+  "summary": "No migration-layer references found in active iOS/Android runtime navigation code.",
+  "checkedPatterns": [
+    "NavigationMigration*",
+    "navigationMigrationEvaluator/navigationMigrationRegistry",
+    "migrationEnabled",
+    "nav.migration.*",
+    "isModuleEnabled(...)"
+  ],
+  "generatedAt": "2026-03-03T23:20:00+02:00",
+  "dryRunId": "nav-dry-run-2026-03-03-r2"
+}

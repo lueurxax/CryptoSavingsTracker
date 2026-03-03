@@ -61,6 +61,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.xax.CryptoSavingsTracker.domain.navigation.NavigationJourney
+import com.xax.CryptoSavingsTracker.presentation.navigation.NavigationRuntimeViewModel
 import com.xax.CryptoSavingsTracker.domain.model.FeasibilityResult
 import com.xax.CryptoSavingsTracker.domain.model.RequirementStatus
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
@@ -71,6 +73,7 @@ import com.xax.CryptoSavingsTracker.presentation.planning.components.BudgetSumma
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleGreen
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleRed
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleYellow
+import com.xax.CryptoSavingsTracker.presentation.theme.VisualComponentDefaults
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -93,17 +96,43 @@ private val planningDisplayCurrencies = listOf(
 @Composable
 fun MonthlyPlanningScreen(
     navController: NavController,
+    runtimeViewModel: NavigationRuntimeViewModel = hiltViewModel(),
     viewModel: MonthlyPlanningViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var customDialogGoalId by remember { mutableStateOf<String?>(null) }
+    var hasStartedPlanningFlow by remember { mutableStateOf(false) }
 
     // Show error in snackbar
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
             snackbarHostState.showSnackbar(error)
+            runtimeViewModel.telemetryTracker.recoveryCompleted(
+                journeyId = NavigationJourney.PLANNING_FLOW_CANCEL_RECOVERY,
+                recoveryPath = "planning_error",
+                success = false
+            )
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasStartedPlanningFlow) {
+            hasStartedPlanningFlow = true
+            runtimeViewModel.telemetryTracker.flowStarted(
+                journeyId = NavigationJourney.PLANNING_FLOW_CANCEL_RECOVERY,
+                entryPoint = "planning_tab"
+            )
+        }
+    }
+
+    LaunchedEffect(uiState.showBudgetSheet) {
+        if (uiState.showBudgetSheet) {
+            runtimeViewModel.telemetryTracker.flowStarted(
+                journeyId = NavigationJourney.MONTHLY_BUDGET_ADJUST,
+                entryPoint = "budget_sheet"
+            )
         }
     }
 
@@ -218,9 +247,36 @@ fun MonthlyPlanningScreen(
                 isLoading = uiState.isBudgetPreviewLoading,
                 errorMessage = uiState.budgetPreviewError,
                 availableCurrencies = planningDisplayCurrencies,
-                onDismiss = viewModel::dismissBudgetSheet,
+                onDismiss = {
+                    runtimeViewModel.telemetryTracker.cancelled(
+                        journeyId = NavigationJourney.MONTHLY_BUDGET_ADJUST,
+                        isDirty = true,
+                        cancelStage = "budget_sheet_dismiss"
+                    )
+                    runtimeViewModel.telemetryTracker.cancelled(
+                        journeyId = NavigationJourney.PLANNING_FLOW_CANCEL_RECOVERY,
+                        isDirty = true,
+                        cancelStage = "budget_sheet_dismiss"
+                    )
+                    viewModel.dismissBudgetSheet()
+                },
                 onBudgetChange = viewModel::previewBudget,
-                onApply = viewModel::applyBudgetPlan,
+                onApply = { amount, currency ->
+                    viewModel.applyBudgetPlan(amount, currency)
+                    runtimeViewModel.telemetryTracker.flowCompleted(
+                        journeyId = NavigationJourney.MONTHLY_BUDGET_ADJUST,
+                        result = "saved"
+                    )
+                    runtimeViewModel.telemetryTracker.flowCompleted(
+                        journeyId = NavigationJourney.PLANNING_FLOW_CANCEL_RECOVERY,
+                        result = "saved"
+                    )
+                    runtimeViewModel.telemetryTracker.recoveryCompleted(
+                        journeyId = NavigationJourney.PLANNING_FLOW_CANCEL_RECOVERY,
+                        recoveryPath = "budget_apply",
+                        success = true
+                    )
+                },
                 onApplySuggestion = { suggestion, amount, currency ->
                     when (suggestion) {
                         is com.xax.CryptoSavingsTracker.domain.model.FeasibilitySuggestion.EditGoal -> {
@@ -445,9 +501,10 @@ private fun TotalRequirementCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        shape = MaterialTheme.shapes.medium,
+        colors = VisualComponentDefaults.planningHeaderCardColors(),
+        border = VisualComponentDefaults.planningHeaderCardBorder(),
+        elevation = VisualComponentDefaults.planningHeaderCardElevation()
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -625,7 +682,10 @@ private fun RequirementCard(
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = MaterialTheme.shapes.medium,
+        colors = VisualComponentDefaults.planningGoalRowCardColors(),
+        border = VisualComponentDefaults.planningGoalRowCardBorder(),
+        elevation = VisualComponentDefaults.planningGoalRowCardElevation()
     ) {
         Column(
             modifier = Modifier.padding(16.dp)

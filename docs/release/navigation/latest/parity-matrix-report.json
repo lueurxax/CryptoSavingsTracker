@@ -1,0 +1,26 @@
+{
+  "reportVersion": "v1",
+  "wave": "planning",
+  "dryRunId": "nav-dry-run-2026-03-03-r2",
+  "generatedAt": "2026-03-03T23:20:00+02:00",
+  "owner": "Mobile Platform Team",
+  "matrixPath": "docs/testing/navigation-parity-matrix.v1.json",
+  "requiredJourneyIds": [
+    "goal-create-edit",
+    "monthly-budget-adjust",
+    "destructive-delete-confirmation",
+    "goal-contribution-edit-cancel",
+    "planning-flow-cancel-recovery"
+  ],
+  "requiredSteps": [
+    "entry",
+    "action",
+    "cancel",
+    "validationError",
+    "recovery",
+    "confirmation"
+  ],
+  "passed": true,
+  "issueCount": 0,
+  "issues": []
+}

@@ -39,12 +39,7 @@ struct SettingsView: View {
                         // Import functionality
                     }
                 }
-                
-                Section("General") {
-                    Toggle("Show progress notifications", isOn: .constant(true))
-                    Toggle("Auto-refresh exchange rates", isOn: .constant(true))
-                }
-                
+
                 Section("Monthly Planning") {
                     HStack {
                         Label("Display Currency", systemImage: "dollarsign.circle")
@@ -71,18 +66,7 @@ struct SettingsView: View {
                         showingMonthlyPlanningSettings = true
                     }
                 }
-                
-                Section("Display") {
-                    Picker("Currency Format", selection: .constant("Symbol")) {
-                        Text("Symbol ($)").tag("Symbol")
-                        Text("Code (USD)").tag("Code")
-                    }
-                    
-                    Picker("Number Format", selection: .constant("Default")) {
-                        Text("1,234.56").tag("Default")
-                        Text("1.234,56").tag("European")
-                    }
-                }
+
             }
             .accessibilityIdentifier("settingsForm")
             .formStyle(.grouped)
@@ -102,9 +86,11 @@ struct SettingsView: View {
         .platformPadding()
         .frame(width: 500, height: 400)
         #endif
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingMonthlyPlanningSettings) {
             MonthlyPlanningSettingsView(goals: [])
         }
+        // NAV-MOD: MOD-01
         .sheet(item: $exportResult) { result in
             CSVExportShareView(fileURLs: result.fileURLs)
         }
@@ -140,8 +126,4 @@ private extension Int {
 struct CSVExportResult: Identifiable {
     let id = UUID()
     let fileURLs: [URL]
-}
-
-#Preview {
-    SettingsView()
 }

@@ -1,0 +1,14 @@
+{
+  "reportVersion": "v1",
+  "wave": "<wave>",
+  "dryRunId": "<id>",
+  "generatedAt": "<ISO-8601>",
+  "owner": "Product Analytics",
+  "metrics": {
+    "completion_rate": {"baseline_pct": 0, "candidate_pct": 0, "delta_pp": 0, "threshold_pp": -2.0, "status": "pass"},
+    "cancel_to_retry_rate": {"baseline_ratio": 0, "candidate_ratio": 0, "relative_change_pct": 0, "threshold_relative_pct": 10.0, "status": "pass"},
+    "time_to_success_p50": {"baseline_seconds": 0, "candidate_seconds": 0, "relative_change_pct": 0, "threshold_relative_pct": 10.0, "status": "pass"},
+    "recovery_success_rate": {"candidate_pct": 0, "threshold_pct": 95.0, "status": "pass"}
+  },
+  "overallStatus": "pass"
+}

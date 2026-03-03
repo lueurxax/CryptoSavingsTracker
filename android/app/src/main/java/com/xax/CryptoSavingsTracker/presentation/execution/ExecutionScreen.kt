@@ -53,13 +53,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.xax.CryptoSavingsTracker.domain.navigation.NavigationJourney
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionGoalProgress
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionSession
 import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
@@ -68,11 +68,14 @@ import com.xax.CryptoSavingsTracker.presentation.execution.components.GoalProgre
 import com.xax.CryptoSavingsTracker.presentation.execution.components.ProgressHeaderCard
 import com.xax.CryptoSavingsTracker.presentation.execution.components.UndoBanner
 import com.xax.CryptoSavingsTracker.presentation.execution.components.executionDisplayCurrencies
+import com.xax.CryptoSavingsTracker.presentation.navigation.NavigationRuntimeViewModel
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.launch
 
@@ -80,11 +83,13 @@ import kotlinx.coroutines.launch
 @Composable
 fun ExecutionScreen(
     navController: NavController,
+    runtimeViewModel: NavigationRuntimeViewModel = hiltViewModel(),
     viewModel: ExecutionViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    var hasStartedContributionJourney by remember { mutableStateOf(false) }
 
     var showAssetPicker by remember { mutableStateOf(false) }
     var selectedGoal by remember { mutableStateOf<ExecutionGoalProgress?>(null) }
@@ -94,7 +99,22 @@ fun ExecutionScreen(
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
             snackbarHostState.showSnackbar(error)
+            runtimeViewModel.telemetryTracker.recoveryCompleted(
+                journeyId = NavigationJourney.GOAL_CONTRIBUTION_EDIT_CANCEL,
+                recoveryPath = "execution_error",
+                success = false
+            )
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasStartedContributionJourney) {
+            hasStartedContributionJourney = true
+            runtimeViewModel.telemetryTracker.flowStarted(
+                journeyId = NavigationJourney.GOAL_CONTRIBUTION_EDIT_CANCEL,
+                entryPoint = "execution_screen"
+            )
         }
     }
 
@@ -103,7 +123,14 @@ fun ExecutionScreen(
             TopAppBar(
                 title = { Text("Monthly Execution") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = {
+                        runtimeViewModel.telemetryTracker.cancelled(
+                            journeyId = NavigationJourney.GOAL_CONTRIBUTION_EDIT_CANCEL,
+                            isDirty = false,
+                            cancelStage = "back_navigation"
+                        )
+                        navController.popBackStack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -120,7 +147,6 @@ fun ExecutionScreen(
                 EmptyExecutionState(
                     canUndo = uiState.undoableRecordId != null,
                     isBusy = uiState.isBusy,
-                    onStart = viewModel::startExecution,
                     onUndo = viewModel::undoLastCompletion
                 )
             } else {
@@ -149,6 +175,10 @@ fun ExecutionScreen(
                         val goal = selectedGoal ?: return@ActiveExecutionContent
                         showAssetPicker = false
                         if (asset.isShared) {
+                            runtimeViewModel.telemetryTracker.flowCompleted(
+                                journeyId = NavigationJourney.GOAL_CONTRIBUTION_EDIT_CANCEL,
+                                result = "open_asset_sharing"
+                            )
                             navController.navigate(
                                 Screen.AssetSharing.createRoute(
                                     assetId = asset.assetId,
@@ -161,6 +191,10 @@ fun ExecutionScreen(
                                 isSuggesting = true
                                 val suggestion = viewModel.suggestedContributionAmount(goal, asset.currency)
                                 isSuggesting = false
+                                runtimeViewModel.telemetryTracker.flowCompleted(
+                                    journeyId = NavigationJourney.GOAL_CONTRIBUTION_EDIT_CANCEL,
+                                    result = "open_add_transaction"
+                                )
                                 navController.navigate(
                                     Screen.AddTransaction.createRoute(
                                         assetId = asset.assetId,
@@ -271,6 +305,7 @@ private fun ActiveExecutionContent(
         // Action Buttons
         item {
             ActionButtonsSection(
+                monthLabel = session.record.monthLabel,
                 isBusy = isBusy,
                 onComplete = onComplete
             )
@@ -355,7 +390,7 @@ private fun CompletedGoalsSection(
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = Color(0xFF4CAF50)
+                        tint = MaterialTheme.colorScheme.secondary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -393,9 +428,11 @@ private fun CompletedGoalsSection(
 
 @Composable
 private fun ActionButtonsSection(
+    monthLabel: String,
     isBusy: Boolean,
     onComplete: () -> Unit
 ) {
+    val monthDisplay = formatMonthLabel(monthLabel)
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -404,13 +441,13 @@ private fun ActionButtonsSection(
             onClick = onComplete,
             enabled = !isBusy,
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF4CAF50)
+                containerColor = MaterialTheme.colorScheme.secondary
             ),
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Default.CheckCircle, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Finish This Month")
+            Text("Finish $monthDisplay")
         }
     }
 }
@@ -461,4 +498,13 @@ private fun AssetPickerDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+}
+
+private fun formatMonthLabel(monthLabel: String): String {
+    return try {
+        YearMonth.parse(monthLabel)
+            .format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()))
+    } catch (_: DateTimeParseException) {
+        monthLabel
+    }
 }

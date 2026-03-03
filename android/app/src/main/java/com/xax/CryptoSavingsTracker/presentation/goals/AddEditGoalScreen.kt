@@ -49,6 +49,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.xax.CryptoSavingsTracker.domain.navigation.NavigationJourney
+import com.xax.CryptoSavingsTracker.presentation.navigation.NavigationRuntimeViewModel
 import com.xax.CryptoSavingsTracker.domain.model.ReminderFrequency
 import java.time.Instant
 import java.time.LocalDate
@@ -59,14 +61,35 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun AddEditGoalScreen(
     navController: NavController,
+    runtimeViewModel: NavigationRuntimeViewModel = hiltViewModel(),
     viewModel: AddEditGoalViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var hasStartedFlow by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.isEditMode) {
+        if (!hasStartedFlow) {
+            hasStartedFlow = true
+            runtimeViewModel.telemetryTracker.flowStarted(
+                journeyId = NavigationJourney.GOAL_CREATE_EDIT,
+                entryPoint = if (uiState.isEditMode) "edit_goal_screen" else "add_goal_screen"
+            )
+        }
+    }
 
     // Navigate back when saved
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) {
+            runtimeViewModel.telemetryTracker.flowCompleted(
+                journeyId = NavigationJourney.GOAL_CREATE_EDIT,
+                result = "saved"
+            )
+            runtimeViewModel.telemetryTracker.recoveryCompleted(
+                journeyId = NavigationJourney.GOAL_CREATE_EDIT,
+                recoveryPath = "save_goal",
+                success = true
+            )
             navController.popBackStack()
         }
     }
@@ -75,7 +98,22 @@ fun AddEditGoalScreen(
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
             snackbarHostState.showSnackbar(error)
+            runtimeViewModel.telemetryTracker.recoveryCompleted(
+                journeyId = NavigationJourney.GOAL_CREATE_EDIT,
+                recoveryPath = "save_error",
+                success = false
+            )
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(uiState.nameError, uiState.targetAmountError, uiState.deadlineError) {
+        if (uiState.nameError != null || uiState.targetAmountError != null || uiState.deadlineError != null) {
+            runtimeViewModel.telemetryTracker.recoveryCompleted(
+                journeyId = NavigationJourney.GOAL_CREATE_EDIT,
+                recoveryPath = "validation_error",
+                success = false
+            )
         }
     }
 
@@ -84,7 +122,14 @@ fun AddEditGoalScreen(
             TopAppBar(
                 title = { Text(if (uiState.isEditMode) "Edit Goal" else "Add Goal") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = {
+                        runtimeViewModel.telemetryTracker.cancelled(
+                            journeyId = NavigationJourney.GOAL_CREATE_EDIT,
+                            isDirty = true,
+                            cancelStage = "back_navigation"
+                        )
+                        navController.popBackStack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -223,7 +268,9 @@ fun AddEditGoalScreen(
 
                 // Save button
                 Button(
-                    onClick = viewModel::saveGoal,
+                    onClick = {
+                        viewModel.saveGoal()
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
                 ) {

@@ -30,9 +30,17 @@ struct AddGoalView: View {
     @State private var showingTemplates = false
     @State private var hasAttemptedSubmit = false
     @State private var showValidationWarnings = false
+    @State private var hasStartedTelemetryFlow = false
+    @State private var showingDiscardConfirmation = false
 
     private var isUITestFlow: Bool {
         UITestFlags.isEnabled
+    }
+
+    private var isDirty: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !currency.isEmpty ||
+        !(targetAmount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
     
     // Computed validation properties
@@ -137,7 +145,6 @@ struct AddGoalView: View {
                                 .padding(12)
                                 .background(.regularMaterial)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
                             } else {
                                 Text("Choose a template to get started quickly, or create your own goal below.")
                                     .font(.caption)
@@ -201,7 +208,6 @@ struct AddGoalView: View {
                                 .background(Color.accessiblePrimaryBackground)
                                 .foregroundColor(.accessiblePrimary)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .shadow(color: .black.opacity(0.03), radius: 2, x: 0, y: 1)
                         }
                         
                         // Validation warnings (only show after interaction)
@@ -210,18 +216,17 @@ struct AddGoalView: View {
                                 ForEach(validationIssues, id: \.self) { issue in
                                     HStack {
                                         Image(systemName: "exclamationmark.triangle.fill")
-                                            .foregroundColor(.red)
+                                            .foregroundColor(AccessibleColors.error)
                                             .font(.caption)
                                         Text(issue)
                                             .font(.caption)
-                                            .foregroundColor(.red)
+                                            .foregroundColor(AccessibleColors.error)
                                     }
                                 }
                             }
                             .padding(12)
-                            .background(Color.red.opacity(0.1))
+                            .background(AccessibleColors.errorBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .shadow(color: .black.opacity(0.03), radius: 2, x: 0, y: 1)
                         }
                         
                         VStack(alignment: .leading, spacing: 8) {
@@ -270,7 +275,7 @@ struct AddGoalView: View {
                 
                 HStack {
                     Button("Cancel") {
-                        dismiss()
+                        requestCancel(stage: "mac_toolbar_cancel")
                     }
                     .keyboardShortcut(.cancelAction)
                     
@@ -287,7 +292,7 @@ struct AddGoalView: View {
             }
             .frame(minWidth: 450, minHeight: 350)
 #else
-            NavigationView {
+            NavigationStack {
                 Form {
                     Section(header: Text("Goal Details")) {
                         TextField("Goal Name", text: $name)
@@ -360,7 +365,7 @@ struct AddGoalView: View {
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button("Cancel") {
-                            dismiss()
+                            requestCancel(stage: "ios_toolbar_cancel")
                         }
                     }
                     
@@ -380,26 +385,19 @@ struct AddGoalView: View {
                 await currencyViewModel.fetchCoins()
             }
         }
-        .fullScreenCover(isPresented: Binding(
-            get: { isUITestFlow && showingCurrencyPicker },
-            set: { newValue in
-                if isUITestFlow {
-                    showingCurrencyPicker = newValue
-                }
-            }
-        )) {
+        .onAppear {
+            guard !hasStartedTelemetryFlow else { return }
+            hasStartedTelemetryFlow = true
+            DIContainer.shared.navigationTelemetryTracker.flowStarted(
+                journeyID: NavigationJourney.goalCreateEdit,
+                entryPoint: "add_goal_sheet"
+            )
+        }
+        // NAV-MOD: MOD-01
+        .sheet(isPresented: $showingCurrencyPicker) {
             SearchableCurrencyPicker(selectedCurrency: $currency, pickerType: .fiat)
         }
-        .sheet(isPresented: Binding(
-            get: { !isUITestFlow && showingCurrencyPicker },
-            set: { newValue in
-                if !isUITestFlow {
-                    showingCurrencyPicker = newValue
-                }
-            }
-        )) {
-            SearchableCurrencyPicker(selectedCurrency: $currency, pickerType: .fiat)
-        }
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingTemplates) {
             GoalTemplateSelectionView(selectedTemplate: $selectedTemplate) { template in
                 // Apply template to form
@@ -415,6 +413,24 @@ struct AddGoalView: View {
                 showingTemplates = false
             }
         }
+        .interactiveDismissDisabled(isDirty)
+        // NAV-MOD: MOD-02
+        .confirmationDialog(
+            "Discard Changes?",
+            isPresented: $showingDiscardConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Discard Changes", role: .destructive) {
+                DIContainer.shared.navigationTelemetryTracker.discardConfirmed(
+                    journeyID: NavigationJourney.goalCreateEdit,
+                    formType: "goal_create"
+                )
+                dismiss()
+            }
+            Button("Keep Editing", role: .cancel) { }
+        } message: {
+            Text("Unsaved goal inputs will be lost.")
+        }
     }
     
     private var isValidInput: Bool {
@@ -426,6 +442,11 @@ struct AddGoalView: View {
         
         guard isFormValid, let amount = Double(targetAmount) else { 
             showValidationWarnings = true
+            DIContainer.shared.navigationTelemetryTracker.recoveryCompleted(
+                journeyID: NavigationJourney.goalCreateEdit,
+                recoveryPath: "validation_error",
+                success: false
+            )
             return 
         }
         
@@ -446,14 +467,41 @@ struct AddGoalView: View {
         
         do {
             try modelContext.save()
+            DIContainer.shared.navigationTelemetryTracker.flowCompleted(
+                journeyID: NavigationJourney.goalCreateEdit,
+                result: "saved"
+            )
         } catch {
             // TODO: Show user-friendly error message like "Unable to save your goal. Please try again."
             print("❌ Goal saving failed: \(error)")
+            DIContainer.shared.navigationTelemetryTracker.recoveryCompleted(
+                journeyID: NavigationJourney.goalCreateEdit,
+                recoveryPath: "save_error",
+                success: false
+            )
         }
         
         Task {
             await NotificationManager.shared.scheduleReminders(for: newGoal)
         }
+        dismiss()
+    }
+
+    private func trackCancel(stage: String) {
+        DIContainer.shared.navigationTelemetryTracker.cancelled(
+            journeyID: NavigationJourney.goalCreateEdit,
+            isDirty: isDirty,
+            cancelStage: stage
+        )
+    }
+
+    private func requestCancel(stage: String) {
+        if isDirty {
+            trackCancel(stage: stage)
+            showingDiscardConfirmation = true
+            return
+        }
+        trackCancel(stage: stage)
         dismiss()
     }
 }
@@ -465,7 +513,7 @@ struct GoalTemplateSelectionView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 ForEach(GoalType.allCases, id: \.self) { goalType in
                     let typeTemplates = GoalTemplate.allTemplates.filter { $0.type == goalType }
@@ -564,7 +612,7 @@ struct GoalTemplateRow: View {
                     HStack(spacing: 12) {
                         HStack(spacing: 4) {
                             Image(systemName: "dollarsign.circle")
-                                .foregroundColor(.green)
+                                .foregroundColor(AccessibleColors.success)
                                 .font(.caption)
                             Text("$\(Int(template.defaultAmount).formatted())")
                                 .font(.caption)
@@ -584,7 +632,7 @@ struct GoalTemplateRow: View {
                         
                         if isSelected {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
+                                .foregroundColor(AccessibleColors.success)
                                 .font(.title2)
                         }
                     }
@@ -595,9 +643,4 @@ struct GoalTemplateRow: View {
         }
         .buttonStyle(PlainButtonStyle())
     }
-}
-
-#Preview {
-    AddGoalView()
-        .modelContainer(for: [Goal.self, Asset.self, Transaction.self], inMemory: true)
 }

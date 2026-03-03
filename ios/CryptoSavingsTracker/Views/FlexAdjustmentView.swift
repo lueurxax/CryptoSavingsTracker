@@ -24,6 +24,7 @@ struct FlexAdjustmentView: View {
     @State private var flexPercentage: Double = 100
     @State private var redistributionStrategy: RedistributionStrategy = .balanced
     @State private var protectedGoals: Set<UUID> = []
+    @State private var hasStartedTelemetryFlow = false
     
     enum RedistributionStrategy: String, CaseIterable {
         case balanced = "Balanced"
@@ -31,9 +32,13 @@ struct FlexAdjustmentView: View {
         case largest = "Largest First"
         case riskMinimizing = "Minimize Risk"
     }
+
+    private var isDirty: Bool {
+        abs(flexPercentage - 100) > 0.001 || redistributionStrategy != .balanced || !protectedGoals.isEmpty
+    }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Adjustment Controls
                 adjustmentSection
@@ -54,6 +59,11 @@ struct FlexAdjustmentView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
+                        DIContainer.shared.navigationTelemetryTracker.cancelled(
+                            journeyID: NavigationJourney.goalContributionEditCancel,
+                            isDirty: isDirty,
+                            cancelStage: "toolbar_cancel"
+                        )
                         dismiss()
                     }
                 }
@@ -69,6 +79,13 @@ struct FlexAdjustmentView: View {
         }
         .task {
             await viewModel.initialize(goals: goals, modelContext: modelContext)
+            if !hasStartedTelemetryFlow {
+                hasStartedTelemetryFlow = true
+                DIContainer.shared.navigationTelemetryTracker.flowStarted(
+                    journeyID: NavigationJourney.goalContributionEditCancel,
+                    entryPoint: "flex_adjustment_sheet"
+                )
+            }
         }
     }
     
@@ -110,13 +127,13 @@ struct FlexAdjustmentView: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .tint(flexPercentage == Double(percentage) ? .blue : .secondary)
+                    .tint(flexPercentage == Double(percentage) ? .accessiblePrimary : .secondary)
                 }
             }
         }
         .padding()
         #if os(iOS)
-        .background(Color(UIColor.systemGray6))
+        .background(Color.accessibleSurfaceSubtle)
         #else
         .background(Color.gray.opacity(0.1))
         #endif
@@ -149,9 +166,9 @@ struct FlexAdjustmentView: View {
         }
         .padding()
         #if os(iOS)
-        .background(Color(UIColor.systemBackground))
+        .background(Color.accessibleSurface)
         #else
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(Color.accessibleSurface)
         #endif
     }
     
@@ -199,7 +216,7 @@ struct FlexAdjustmentView: View {
                 HStack {
                     Label("\(viewModel.goalsAtRisk) goals may be delayed", systemImage: "exclamationmark.triangle")
                         .font(.caption)
-                        .foregroundColor(.orange)
+                        .foregroundColor(AccessibleColors.warning)
                     
                     Spacer()
                 }
@@ -207,7 +224,7 @@ struct FlexAdjustmentView: View {
         }
         .padding()
         #if os(iOS)
-        .background(Color(UIColor.systemGray6))
+        .background(Color.accessibleSurfaceSubtle)
         #else
         .background(Color.gray.opacity(0.1))
         #endif
@@ -243,20 +260,24 @@ struct FlexAdjustmentView: View {
     private func colorForPercentage(_ percentage: Double) -> Color {
         switch percentage {
         case 0..<50:
-            return .red
+            return AccessibleColors.error
         case 50..<75:
-            return .orange
+            return AccessibleColors.warning
         case 75..<125:
-            return .blue
+            return AccessibleColors.primaryInteractive
         case 125..<175:
-            return .green
+            return AccessibleColors.success
         default:
-            return .purple
+            return AccessibleColors.chartColor(at: 3)
         }
     }
     
     private func applyAdjustments() {
         // Save adjustments to user preferences or apply to monthly planning
+        DIContainer.shared.navigationTelemetryTracker.flowCompleted(
+            journeyID: NavigationJourney.goalContributionEditCancel,
+            result: "applied"
+        )
         dismiss()
     }
 }
@@ -284,7 +305,7 @@ struct FlexGoalRow: View {
                     onProtectionToggle(!isProtected)
                 } label: {
                     Image(systemName: isProtected ? "lock.fill" : "lock.open")
-                        .foregroundColor(isProtected ? .blue : .secondary)
+                        .foregroundColor(isProtected ? .accessiblePrimary : .secondary)
                 }
                 .buttonStyle(.plain)
             }
@@ -311,7 +332,11 @@ struct FlexGoalRow: View {
                     Text(CurrencyFormatter.format(amount: requirement.displayAmount, currency: requirement.displayCurrency))
                         .font(.callout)
                         .fontWeight(.medium)
-                        .foregroundColor(isProtected ? .blue : colorForChange(from: requirement.monthlyAmount, to: requirement.displayAmount))
+                        .foregroundColor(
+                            isProtected
+                                ? .accessiblePrimary
+                                : colorForChange(from: requirement.monthlyAmount, to: requirement.displayAmount)
+                        )
                 }
                 
                 Spacer()
@@ -334,15 +359,15 @@ struct FlexGoalRow: View {
     private func colorForChange(from original: Double, to adjusted: Double) -> Color {
         let change = (adjusted - original) / original
         if change < -0.5 {
-            return .red
+            return AccessibleColors.error
         } else if change < -0.25 {
-            return .orange
+            return AccessibleColors.warning
         } else if change < 0.25 {
             return .primary
         } else if change < 0.5 {
-            return .green
+            return AccessibleColors.success
         } else {
-            return .purple
+            return AccessibleColors.chartColor(at: 3)
         }
     }
     
@@ -375,13 +400,13 @@ struct FlexGoalRow: View {
     private func riskColor(for risk: MonthlyRequirement.RiskLevel) -> Color {
         switch risk {
         case .low:
-            return .green
+            return AccessibleColors.success
         case .medium:
-            return .orange
+            return AccessibleColors.warning
         case .high:
-            return .red
+            return AccessibleColors.error
         case .critical:
-            return .purple
+            return AccessibleColors.chartColor(at: 3)
         }
     }
 }
