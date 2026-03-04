@@ -1,0 +1,52 @@
+{
+  "version": "1.0.0",
+  "owner": "Cross-platform Dashboard Working Group",
+  "moduleIds": [
+    "goal_snapshot",
+    "next_action",
+    "forecast_risk",
+    "contribution_activity",
+    "allocation_health",
+    "utilities"
+  ],
+  "stateIds": [
+    "loading",
+    "ready",
+    "empty",
+    "error",
+    "stale"
+  ],
+  "resolverStateIds": [
+    "hard_error",
+    "goal_finished_or_archived",
+    "goal_paused",
+    "over_allocated",
+    "no_assets",
+    "no_contributions",
+    "stale_data",
+    "behind_schedule",
+    "on_track"
+  ],
+  "copyKeys": [
+    "dashboard.nextAction.hardError.reason",
+    "dashboard.nextAction.hardError.nextStep",
+    "dashboard.nextAction.finished.reason",
+    "dashboard.nextAction.paused.reason",
+    "dashboard.nextAction.overAllocated.reason",
+    "dashboard.nextAction.noAssets.reason",
+    "dashboard.nextAction.noContributions.reason",
+    "dashboard.nextAction.stale.reason",
+    "dashboard.nextAction.behind.reason",
+    "dashboard.nextAction.onTrack.reason"
+  ],
+  "statusChipIds": [
+    "on_track",
+    "at_risk",
+    "off_track"
+  ],
+  "approvals": {
+    "iosLead": "required",
+    "androidLead": "required",
+    "qaLead": "required"
+  }
+}

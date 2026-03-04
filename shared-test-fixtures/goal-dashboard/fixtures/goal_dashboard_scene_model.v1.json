@@ -1,0 +1,71 @@
+{
+  "goalId": "8d45a045-37a1-4cb6-8f80-12e5fdf6f2aa",
+  "goalLifecycle": "active",
+  "currency": "USD",
+  "generatedAt": "2026-03-04T08:00:00.000Z",
+  "freshness": "fresh",
+  "freshnessUpdatedAt": "2026-03-04T08:00:00.000Z",
+  "freshnessReason": null,
+  "snapshot": {
+    "moduleState": "ready",
+    "currentAmount": "1500.25",
+    "targetAmount": "3000.00",
+    "remainingAmount": "1499.75",
+    "progressRatio": 0.5000833333,
+    "daysRemaining": 90,
+    "status": "on_track",
+    "lastUpdatedAt": "2026-03-04T08:00:00.000Z"
+  },
+  "nextAction": {
+    "resolverState": "on_track",
+    "moduleState": "ready",
+    "primaryCta": {
+      "id": "log_contribution",
+      "title": "Log Contribution",
+      "copyKey": "dashboard.nextAction.onTrack.primary",
+      "systemImage": "plus.circle"
+    },
+    "secondaryCta": {
+      "id": "open_forecast",
+      "title": "Open Forecast",
+      "copyKey": "dashboard.nextAction.onTrack.secondary",
+      "systemImage": "chart.line.uptrend.xyaxis"
+    },
+    "reasonCopyKey": "dashboard.nextAction.onTrack.reason",
+    "isBlocking": false,
+    "diagnostics": null
+  },
+  "forecastRisk": {
+    "moduleState": "ready",
+    "status": "on_track",
+    "assumptionWindowDays": 30,
+    "confidence": "medium",
+    "updatedAt": "2026-03-04T08:00:00.000Z",
+    "targetDate": "2026-06-02T00:00:00.000Z",
+    "projectedAmount": "3200.00",
+    "whyStatusCopyKey": "dashboard.forecast.why.on_track",
+    "errorReasonCode": null
+  },
+  "contributionActivity": {
+    "moduleState": "ready",
+    "monthContributionSum": "250.00",
+    "recentRows": [],
+    "lastContributionAt": null
+  },
+  "allocationHealth": {
+    "moduleState": "ready",
+    "overAllocated": false,
+    "concentrationRatio": 0.55,
+    "topAssets": [],
+    "warningCopyKey": null
+  },
+  "utilities": {
+    "moduleState": "ready",
+    "actions": [],
+    "legacyWidgetPrefsApplied": false
+  },
+  "telemetryContext": {
+    "source": "goal_dashboard_screen",
+    "generatedAt": "2026-03-04T08:00:00.000Z"
+  }
+}

@@ -41,6 +41,29 @@ class NavigationTelemetryTrackerTest {
                 platform = "android",
                 recoveryPath = "validation",
                 success = true
+            ),
+            NavigationTelemetryPayload(
+                event = NavigationTelemetryEvent.GOAL_DASHBOARD_OPENED,
+                journeyId = NavigationJourney.GOAL_DASHBOARD,
+                platform = "android",
+                entryPoint = "goal_detail",
+                goalId = "goal-1"
+            ),
+            NavigationTelemetryPayload(
+                event = NavigationTelemetryEvent.GOAL_DASHBOARD_PRIMARY_CTA_SHOWN,
+                journeyId = NavigationJourney.GOAL_DASHBOARD,
+                platform = "android",
+                goalId = "goal-1",
+                resolverState = "on_track",
+                ctaId = "log_contribution"
+            ),
+            NavigationTelemetryPayload(
+                event = NavigationTelemetryEvent.GOAL_DASHBOARD_PRIMARY_CTA_TAPPED,
+                journeyId = NavigationJourney.GOAL_DASHBOARD,
+                platform = "android",
+                goalId = "goal-1",
+                resolverState = "on_track",
+                ctaId = "log_contribution"
             )
         )
 
@@ -81,6 +104,29 @@ class NavigationTelemetryTrackerTest {
 
         val cancelledEvents = provider.payloads.filter { it.event == NavigationTelemetryEvent.CANCELLED }
         assertEquals(2, cancelledEvents.size)
+    }
+
+    @Test
+    fun goalDashboardTelemetryEvents_areEmitted() {
+        val provider = CapturingProvider()
+        val tracker = NavigationTelemetryTracker(provider)
+        tracker.dedupeWindowMs = 0
+
+        tracker.goalDashboardOpened(goalId = "goal-1", entryPoint = "goal_detail")
+        tracker.goalDashboardPrimaryCtaShown(
+            goalId = "goal-1",
+            resolverState = "on_track",
+            ctaId = "log_contribution"
+        )
+        tracker.goalDashboardPrimaryCtaTapped(
+            goalId = "goal-1",
+            resolverState = "on_track",
+            ctaId = "log_contribution"
+        )
+
+        assertTrue(provider.payloads.any { it.event == NavigationTelemetryEvent.GOAL_DASHBOARD_OPENED })
+        assertTrue(provider.payloads.any { it.event == NavigationTelemetryEvent.GOAL_DASHBOARD_PRIMARY_CTA_SHOWN })
+        assertTrue(provider.payloads.any { it.event == NavigationTelemetryEvent.GOAL_DASHBOARD_PRIMARY_CTA_TAPPED })
     }
 
     private class CapturingProvider : NavigationTelemetryProvider {

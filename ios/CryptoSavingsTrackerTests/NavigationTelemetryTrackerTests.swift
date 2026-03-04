@@ -72,6 +72,54 @@ struct NavigationTelemetryTrackerTests {
                 formType: nil,
                 recoveryPath: "validation_fix",
                 success: true
+            ),
+            NavigationTelemetryPayload(
+                event: .goalDashboardOpened,
+                journeyID: NavigationJourney.goalDashboard,
+                platform: "ios",
+                entryPoint: "goal_detail",
+                durationMs: nil,
+                result: nil,
+                isDirty: nil,
+                cancelStage: nil,
+                formType: nil,
+                recoveryPath: nil,
+                success: nil,
+                goalID: "goal-1",
+                resolverState: nil,
+                ctaID: nil
+            ),
+            NavigationTelemetryPayload(
+                event: .goalDashboardPrimaryCtaShown,
+                journeyID: NavigationJourney.goalDashboard,
+                platform: "ios",
+                entryPoint: nil,
+                durationMs: nil,
+                result: nil,
+                isDirty: nil,
+                cancelStage: nil,
+                formType: nil,
+                recoveryPath: nil,
+                success: nil,
+                goalID: "goal-1",
+                resolverState: "on_track",
+                ctaID: "log_contribution"
+            ),
+            NavigationTelemetryPayload(
+                event: .goalDashboardPrimaryCtaTapped,
+                journeyID: NavigationJourney.goalDashboard,
+                platform: "ios",
+                entryPoint: nil,
+                durationMs: nil,
+                result: nil,
+                isDirty: nil,
+                cancelStage: nil,
+                formType: nil,
+                recoveryPath: nil,
+                success: nil,
+                goalID: "goal-1",
+                resolverState: "on_track",
+                ctaID: "log_contribution"
             )
         ]
 
@@ -130,6 +178,20 @@ struct NavigationTelemetryTrackerTests {
 
         let cancelled = provider.payloads.filter { $0.event == .cancelled }
         #expect(cancelled.count == 2)
+    }
+
+    @Test("goal dashboard telemetry proxy emits all required events")
+    func goalDashboardProxyEvents() {
+        let provider = CapturingTelemetryProvider()
+        let tracker = NavigationTelemetryTracker(provider: provider, dedupeWindowMs: 0)
+
+        tracker.goalDashboardOpened(goalID: "goal-1", entryPoint: "goal_detail")
+        tracker.goalDashboardPrimaryCtaShown(goalID: "goal-1", resolverState: "on_track", ctaID: "log_contribution")
+        tracker.goalDashboardPrimaryCtaTapped(goalID: "goal-1", resolverState: "on_track", ctaID: "log_contribution")
+
+        #expect(provider.payloads.contains(where: { $0.event == .goalDashboardOpened }))
+        #expect(provider.payloads.contains(where: { $0.event == .goalDashboardPrimaryCtaShown }))
+        #expect(provider.payloads.contains(where: { $0.event == .goalDashboardPrimaryCtaTapped }))
     }
 }
 

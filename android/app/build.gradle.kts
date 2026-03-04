@@ -161,6 +161,7 @@ dependencies {
 
     // Network Mocking
     testImplementation(libs.mockwebserver)
+    testImplementation("com.networknt:json-schema-validator:1.5.6")
 
     // Android Instrumented Tests
     androidTestImplementation(platform(libs.compose.bom))

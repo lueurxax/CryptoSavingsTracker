@@ -17,6 +17,9 @@ sealed class Screen(val route: String) {
     data object GoalDetail : Screen("goal/{goalId}") {
         fun createRoute(goalId: String) = "goal/$goalId"
     }
+    data object GoalDashboard : Screen("goal/{goalId}/dashboard") {
+        fun createRoute(goalId: String) = "goal/$goalId/dashboard"
+    }
     data object AddGoal : Screen("goal/add")
     data object EditGoal : Screen("goal/{goalId}/edit") {
         fun createRoute(goalId: String) = "goal/$goalId/edit"

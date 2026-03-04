@@ -9,7 +9,10 @@ enum class NavigationTelemetryEvent(val wireName: String) {
     FLOW_COMPLETED("nav_flow_completed"),
     CANCELLED("nav_cancelled"),
     DISCARD_CONFIRMED("nav_discard_confirmed"),
-    RECOVERY_COMPLETED("nav_recovery_completed")
+    RECOVERY_COMPLETED("nav_recovery_completed"),
+    GOAL_DASHBOARD_OPENED("goal_dashboard_opened"),
+    GOAL_DASHBOARD_PRIMARY_CTA_SHOWN("goal_dashboard_primary_cta_shown"),
+    GOAL_DASHBOARD_PRIMARY_CTA_TAPPED("goal_dashboard_primary_cta_tapped")
 }
 
 object NavigationJourney {
@@ -18,6 +21,7 @@ object NavigationJourney {
     const val DESTRUCTIVE_DELETE_CONFIRMATION = "destructive-delete-confirmation"
     const val GOAL_CONTRIBUTION_EDIT_CANCEL = "goal-contribution-edit-cancel"
     const val PLANNING_FLOW_CANCEL_RECOVERY = "planning-flow-cancel-recovery"
+    const val GOAL_DASHBOARD = "goal-dashboard"
 
     val TOP_5: Set<String> = setOf(
         GOAL_CREATE_EDIT,
@@ -39,7 +43,10 @@ data class NavigationTelemetryPayload(
     val cancelStage: String? = null,
     val formType: String? = null,
     val recoveryPath: String? = null,
-    val success: Boolean? = null
+    val success: Boolean? = null,
+    val goalId: String? = null,
+    val resolverState: String? = null,
+    val ctaId: String? = null
 ) {
     fun properties(): Map<String, String> {
         val values = linkedMapOf(
@@ -54,6 +61,9 @@ data class NavigationTelemetryPayload(
         formType?.let { values["form_type"] = it }
         recoveryPath?.let { values["recovery_path"] = it }
         success?.let { values["success"] = it.toString() }
+        goalId?.let { values["goal_id"] = it }
+        resolverState?.let { values["resolver_state"] = it }
+        ctaId?.let { values["cta_id"] = it }
         return values
     }
 
@@ -64,6 +74,9 @@ data class NavigationTelemetryPayload(
             NavigationTelemetryEvent.CANCELLED -> listOf("journey_id", "platform", "is_dirty", "cancel_stage")
             NavigationTelemetryEvent.DISCARD_CONFIRMED -> listOf("journey_id", "platform", "form_type")
             NavigationTelemetryEvent.RECOVERY_COMPLETED -> listOf("journey_id", "platform", "recovery_path", "success")
+            NavigationTelemetryEvent.GOAL_DASHBOARD_OPENED -> listOf("journey_id", "platform", "goal_id", "entry_point")
+            NavigationTelemetryEvent.GOAL_DASHBOARD_PRIMARY_CTA_SHOWN -> listOf("journey_id", "platform", "goal_id", "resolver_state", "cta_id")
+            NavigationTelemetryEvent.GOAL_DASHBOARD_PRIMARY_CTA_TAPPED -> listOf("journey_id", "platform", "goal_id", "resolver_state", "cta_id")
         }
         val props = properties()
         return required.filter { key -> props[key].isNullOrBlank() }
@@ -161,6 +174,44 @@ class NavigationTelemetryTracker @Inject constructor(
                 platform = "android",
                 recoveryPath = recoveryPath,
                 success = success
+            )
+        )
+    }
+
+    fun goalDashboardOpened(goalId: String, entryPoint: String) {
+        emit(
+            NavigationTelemetryPayload(
+                event = NavigationTelemetryEvent.GOAL_DASHBOARD_OPENED,
+                journeyId = NavigationJourney.GOAL_DASHBOARD,
+                platform = "android",
+                entryPoint = entryPoint,
+                goalId = goalId
+            )
+        )
+    }
+
+    fun goalDashboardPrimaryCtaShown(goalId: String, resolverState: String, ctaId: String) {
+        emit(
+            NavigationTelemetryPayload(
+                event = NavigationTelemetryEvent.GOAL_DASHBOARD_PRIMARY_CTA_SHOWN,
+                journeyId = NavigationJourney.GOAL_DASHBOARD,
+                platform = "android",
+                goalId = goalId,
+                resolverState = resolverState,
+                ctaId = ctaId
+            )
+        )
+    }
+
+    fun goalDashboardPrimaryCtaTapped(goalId: String, resolverState: String, ctaId: String) {
+        emit(
+            NavigationTelemetryPayload(
+                event = NavigationTelemetryEvent.GOAL_DASHBOARD_PRIMARY_CTA_TAPPED,
+                journeyId = NavigationJourney.GOAL_DASHBOARD,
+                platform = "android",
+                goalId = goalId,
+                resolverState = resolverState,
+                ctaId = ctaId
             )
         )
     }

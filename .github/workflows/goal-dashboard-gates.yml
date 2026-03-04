@@ -1,0 +1,135 @@
+name: goal-dashboard-gates
+
+on:
+  pull_request:
+    paths:
+      - "docs/proposals/GOAL_DASHBOARD_REDESIGN_PROPOSAL.md"
+      - "docs/runbooks/goal-dashboard-release-gate.md"
+      - "shared-test-fixtures/goal-dashboard/**"
+      - "ios/CryptoSavingsTracker/Views/Dashboard/GoalDashboardScreen.swift"
+      - "ios/CryptoSavingsTracker/ViewModels/GoalDashboardViewModel.swift"
+      - "ios/CryptoSavingsTracker/Services/GoalDashboardSceneAssembler.swift"
+      - "ios/CryptoSavingsTracker/Models/GoalDashboardContract.swift"
+      - "ios/CryptoSavingsTracker/Utilities/GoalDashboard*.swift"
+      - "ios/CryptoSavingsTrackerTests/GoalDashboard*Tests.swift"
+      - "ios/CryptoSavingsTrackerTests/NavigationTelemetryTrackerTests.swift"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/dashboard/GoalDashboard*.kt"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/domain/navigation/NavigationTelemetry.kt"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/goals/GoalDetailScreen.kt"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/navigation/AppNavHost.kt"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/navigation/Screen.kt"
+      - "android/app/src/test/java/com/xax/CryptoSavingsTracker/presentation/dashboard/GoalDashboard*.kt"
+      - "android/app/src/test/java/com/xax/CryptoSavingsTracker/domain/navigation/NavigationTelemetryTrackerTest.kt"
+      - "android/app/src/test/java/com/xax/CryptoSavingsTracker/presentation/navigation/GoalDashboardNavigationContractTest.kt"
+      - "scripts/validate_goal_dashboard_contracts.py"
+      - "scripts/validate_visual_rollback_drill_report.py"
+      - "docs/design/schemas/visual-rollback-drill-report.schema.json"
+      - "artifacts/visual-system/rollback-drill-report.json"
+      - ".github/workflows/goal-dashboard-gates.yml"
+  push:
+    branches:
+      - "release/**"
+    paths:
+      - "shared-test-fixtures/goal-dashboard/**"
+      - "ios/CryptoSavingsTracker/Views/Dashboard/GoalDashboardScreen.swift"
+      - "ios/CryptoSavingsTracker/ViewModels/GoalDashboardViewModel.swift"
+      - "ios/CryptoSavingsTracker/Services/GoalDashboardSceneAssembler.swift"
+      - "ios/CryptoSavingsTracker/Models/GoalDashboardContract.swift"
+      - "ios/CryptoSavingsTracker/Utilities/GoalDashboard*.swift"
+      - "ios/CryptoSavingsTrackerTests/GoalDashboard*Tests.swift"
+      - "ios/CryptoSavingsTrackerTests/NavigationTelemetryTrackerTests.swift"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/dashboard/GoalDashboard*.kt"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/domain/navigation/NavigationTelemetry.kt"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/goals/GoalDetailScreen.kt"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/navigation/AppNavHost.kt"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/navigation/Screen.kt"
+      - "android/app/src/test/java/com/xax/CryptoSavingsTracker/presentation/dashboard/GoalDashboard*.kt"
+      - "android/app/src/test/java/com/xax/CryptoSavingsTracker/domain/navigation/NavigationTelemetryTrackerTest.kt"
+      - "android/app/src/test/java/com/xax/CryptoSavingsTracker/presentation/navigation/GoalDashboardNavigationContractTest.kt"
+      - "scripts/validate_goal_dashboard_contracts.py"
+      - "scripts/validate_visual_rollback_drill_report.py"
+      - "docs/design/schemas/visual-rollback-drill-report.schema.json"
+      - "artifacts/visual-system/rollback-drill-report.json"
+      - ".github/workflows/goal-dashboard-gates.yml"
+  workflow_dispatch:
+
+jobs:
+  goal-dashboard-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip jsonschema
+      - run: python3 scripts/validate_goal_dashboard_contracts.py --report-out artifacts/goal-dashboard/goal-dashboard-contract-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goal-dashboard-contract-report
+          path: artifacts/goal-dashboard/goal-dashboard-contract-report.json
+
+  android-goal-dashboard-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: |
+          cd android
+          ./gradlew :app:testDebugUnitTest \
+            --tests "com.xax.CryptoSavingsTracker.presentation.dashboard.GoalDashboard*Test" \
+            --tests "com.xax.CryptoSavingsTracker.presentation.navigation.GoalDashboardNavigationContractTest" \
+            --tests "com.xax.CryptoSavingsTracker.domain.navigation.NavigationTelemetryTrackerTest"
+
+  ios-goal-dashboard-parity:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run iOS goal dashboard contract tests
+        run: |
+          xcodebuild \
+            -project ios/CryptoSavingsTracker.xcodeproj \
+            -scheme CryptoSavingsTrackerTests \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            test \
+            -only-testing:CryptoSavingsTrackerTests/GoalDashboardParityContractTests \
+            -only-testing:CryptoSavingsTrackerTests/GoalDashboardWireCodecTests \
+            -only-testing:CryptoSavingsTrackerTests/GoalDashboardSceneWireCodecTests \
+            -only-testing:CryptoSavingsTrackerTests/GoalDashboardNextActionResolverTests \
+            -only-testing:CryptoSavingsTrackerTests/GoalDashboardNavigationContractTests \
+            -only-testing:CryptoSavingsTrackerTests/NavigationTelemetryTrackerTests
+
+  rollback-drill-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip jsonschema
+      - run: |
+          python3 scripts/validate_visual_rollback_drill_report.py \
+            --report artifacts/visual-system/rollback-drill-report.json \
+            --schema docs/design/schemas/visual-rollback-drill-report.schema.json \
+            --report-out artifacts/visual-system/rollback-drill-validation.json
+      - run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/visual-system/rollback-drill-report.json").read_text())
+          markers = report.get("telemetryMarkers", {})
+          checklist = report.get("checklist", {})
+          if markers.get("triggeredEvent") != "vsu_wave_rollback_triggered":
+              raise SystemExit("missing rollback trigger marker for threshold breach simulation")
+          if markers.get("completedEvent") != "vsu_wave_rollback_completed":
+              raise SystemExit("missing rollback completion marker for threshold breach simulation")
+          if checklist.get("fallbackValidated") is not True:
+              raise SystemExit("rollback checklist fallbackValidated must be true")
+          print("rollback threshold-breach simulation markers validated")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goal-dashboard-rollback-drill-validation
+          path: artifacts/visual-system/rollback-drill-validation.json

@@ -1,0 +1,355 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cryptosavingstracker.local/schemas/goal_dashboard_scene_model.v1.schema.json",
+  "title": "GoalDashboardSceneModel v1",
+  "type": "object",
+  "required": [
+    "goalId",
+    "goalLifecycle",
+    "currency",
+    "generatedAt",
+    "freshness",
+    "snapshot",
+    "nextAction",
+    "forecastRisk",
+    "contributionActivity",
+    "allocationHealth",
+    "utilities",
+    "telemetryContext"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "goalId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "goalLifecycle": {
+      "type": "string",
+      "enum": ["active", "paused", "finished", "archived"]
+    },
+    "currency": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 8
+    },
+    "generatedAt": {
+      "$ref": "#/$defs/dateTimeUtc"
+    },
+    "freshness": {
+      "type": "string",
+      "enum": ["fresh", "stale", "hardError"]
+    },
+    "freshnessUpdatedAt": {
+      "anyOf": [
+        { "$ref": "#/$defs/dateTimeUtc" },
+        { "type": "null" }
+      ]
+    },
+    "freshnessReason": {
+      "anyOf": [
+        { "type": "string" },
+        { "type": "null" }
+      ]
+    },
+    "snapshot": {
+      "$ref": "#/$defs/snapshotSlice"
+    },
+    "nextAction": {
+      "$ref": "#/$defs/nextActionSlice"
+    },
+    "forecastRisk": {
+      "$ref": "#/$defs/forecastRiskSlice"
+    },
+    "contributionActivity": {
+      "$ref": "#/$defs/contributionActivitySlice"
+    },
+    "allocationHealth": {
+      "$ref": "#/$defs/allocationHealthSlice"
+    },
+    "utilities": {
+      "$ref": "#/$defs/utilitiesSlice"
+    },
+    "telemetryContext": {
+      "type": "object",
+      "required": ["source", "generatedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string" },
+        "generatedAt": { "$ref": "#/$defs/dateTimeUtc" }
+      }
+    }
+  },
+  "$defs": {
+    "moduleState": {
+      "type": "string",
+      "enum": ["loading", "ready", "empty", "error", "stale"]
+    },
+    "riskStatus": {
+      "type": "string",
+      "enum": ["on_track", "at_risk", "off_track"]
+    },
+    "resolverState": {
+      "type": "string",
+      "enum": [
+        "hard_error",
+        "goal_finished_or_archived",
+        "goal_paused",
+        "over_allocated",
+        "no_assets",
+        "no_contributions",
+        "stale_data",
+        "behind_schedule",
+        "on_track"
+      ]
+    },
+    "forecastConfidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "decimalString": {
+      "type": "string",
+      "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,18})?$"
+    },
+    "dateTimeUtc": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "dashboardCTA": {
+      "type": "object",
+      "required": ["id", "title", "copyKey", "systemImage"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "copyKey": { "type": "string" },
+        "systemImage": { "type": "string" }
+      }
+    },
+    "diagnosticsPayload": {
+      "type": "object",
+      "required": ["reasonCode", "nextStepCopyKey", "userMessage"],
+      "additionalProperties": false,
+      "properties": {
+        "reasonCode": { "type": "string" },
+        "lastSuccessfulRefreshAt": {
+          "anyOf": [
+            { "$ref": "#/$defs/dateTimeUtc" },
+            { "type": "null" }
+          ]
+        },
+        "nextStepCopyKey": { "type": "string" },
+        "userMessage": { "type": "string" }
+      }
+    },
+    "snapshotSlice": {
+      "type": "object",
+      "required": [
+        "moduleState",
+        "currentAmount",
+        "targetAmount",
+        "remainingAmount",
+        "progressRatio"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "moduleState": { "$ref": "#/$defs/moduleState" },
+        "currentAmount": { "$ref": "#/$defs/decimalString" },
+        "targetAmount": { "$ref": "#/$defs/decimalString" },
+        "remainingAmount": { "$ref": "#/$defs/decimalString" },
+        "progressRatio": { "type": "number" },
+        "daysRemaining": {
+          "anyOf": [
+            { "type": "integer" },
+            { "type": "null" }
+          ]
+        },
+        "status": {
+          "anyOf": [
+            { "$ref": "#/$defs/riskStatus" },
+            { "type": "null" }
+          ]
+        },
+        "lastUpdatedAt": {
+          "anyOf": [
+            { "$ref": "#/$defs/dateTimeUtc" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "nextActionSlice": {
+      "type": "object",
+      "required": [
+        "resolverState",
+        "moduleState",
+        "primaryCta",
+        "reasonCopyKey",
+        "isBlocking"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "resolverState": { "$ref": "#/$defs/resolverState" },
+        "moduleState": { "$ref": "#/$defs/moduleState" },
+        "primaryCta": { "$ref": "#/$defs/dashboardCTA" },
+        "secondaryCta": {
+          "anyOf": [
+            { "$ref": "#/$defs/dashboardCTA" },
+            { "type": "null" }
+          ]
+        },
+        "reasonCopyKey": { "type": "string" },
+        "isBlocking": { "type": "boolean" },
+        "diagnostics": {
+          "anyOf": [
+            { "$ref": "#/$defs/diagnosticsPayload" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "forecastRiskSlice": {
+      "type": "object",
+      "required": ["moduleState", "targetDate"],
+      "additionalProperties": false,
+      "properties": {
+        "moduleState": { "$ref": "#/$defs/moduleState" },
+        "status": {
+          "anyOf": [
+            { "$ref": "#/$defs/riskStatus" },
+            { "type": "null" }
+          ]
+        },
+        "assumptionWindowDays": {
+          "anyOf": [
+            { "type": "integer" },
+            { "type": "null" }
+          ]
+        },
+        "confidence": {
+          "anyOf": [
+            { "$ref": "#/$defs/forecastConfidence" },
+            { "type": "null" }
+          ]
+        },
+        "updatedAt": {
+          "anyOf": [
+            { "$ref": "#/$defs/dateTimeUtc" },
+            { "type": "null" }
+          ]
+        },
+        "targetDate": { "$ref": "#/$defs/dateTimeUtc" },
+        "projectedAmount": {
+          "anyOf": [
+            { "$ref": "#/$defs/decimalString" },
+            { "type": "null" }
+          ]
+        },
+        "whyStatusCopyKey": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "errorReasonCode": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "contributionActivitySlice": {
+      "type": "object",
+      "required": ["moduleState", "monthContributionSum", "recentRows"],
+      "additionalProperties": false,
+      "properties": {
+        "moduleState": { "$ref": "#/$defs/moduleState" },
+        "monthContributionSum": { "$ref": "#/$defs/decimalString" },
+        "recentRows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "assetCurrency", "amount", "date"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "assetCurrency": { "type": "string" },
+              "amount": { "$ref": "#/$defs/decimalString" },
+              "date": { "$ref": "#/$defs/dateTimeUtc" },
+              "note": {
+                "anyOf": [
+                  { "type": "string" },
+                  { "type": "null" }
+                ]
+              }
+            }
+          }
+        },
+        "lastContributionAt": {
+          "anyOf": [
+            { "$ref": "#/$defs/dateTimeUtc" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "allocationHealthSlice": {
+      "type": "object",
+      "required": ["moduleState", "overAllocated", "topAssets"],
+      "additionalProperties": false,
+      "properties": {
+        "moduleState": { "$ref": "#/$defs/moduleState" },
+        "overAllocated": { "type": "boolean" },
+        "concentrationRatio": {
+          "anyOf": [
+            { "type": "number" },
+            { "type": "null" }
+          ]
+        },
+        "topAssets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["assetId", "assetCurrency", "amount", "weightRatio"],
+            "additionalProperties": false,
+            "properties": {
+              "assetId": { "type": "string", "format": "uuid" },
+              "assetCurrency": { "type": "string" },
+              "amount": { "$ref": "#/$defs/decimalString" },
+              "weightRatio": { "type": "number" }
+            }
+          }
+        },
+        "warningCopyKey": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "utilitiesSlice": {
+      "type": "object",
+      "required": ["moduleState", "actions", "legacyWidgetPrefsApplied"],
+      "additionalProperties": false,
+      "properties": {
+        "moduleState": { "$ref": "#/$defs/moduleState" },
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "copyKey", "systemImage"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "copyKey": { "type": "string" },
+              "systemImage": { "type": "string" }
+            }
+          }
+        },
+        "legacyWidgetPrefsApplied": { "type": "boolean" }
+      }
+    }
+  }
+}

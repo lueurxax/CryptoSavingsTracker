@@ -33,6 +33,7 @@ import com.xax.CryptoSavingsTracker.presentation.assets.AssetDetailScreen
 import com.xax.CryptoSavingsTracker.presentation.assets.AssetSharingScreen
 import com.xax.CryptoSavingsTracker.presentation.assets.AssetsScreen
 import com.xax.CryptoSavingsTracker.presentation.dashboard.DashboardScreen
+import com.xax.CryptoSavingsTracker.presentation.dashboard.GoalDashboardScreen
 import com.xax.CryptoSavingsTracker.presentation.execution.ExecutionScreen
 import com.xax.CryptoSavingsTracker.presentation.goals.AddEditGoalScreen
 import com.xax.CryptoSavingsTracker.presentation.goals.GoalDetailScreen
@@ -132,6 +133,15 @@ fun AppNavHost() {
                 )
             ) {
                 GoalDetailScreen(navController = navController)
+            }
+
+            composable(
+                route = Screen.GoalDashboard.route,
+                arguments = listOf(
+                    navArgument("goalId") { type = NavType.StringType }
+                )
+            ) {
+                GoalDashboardScreen(navController = navController)
             }
 
             composable(Screen.AddGoal.route) {

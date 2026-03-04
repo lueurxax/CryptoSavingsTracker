@@ -25,6 +25,27 @@ object VisualComponentDefaults {
     }
 
     @Composable
+    fun goalDashboardPrimaryCardColors(): CardColors {
+        return CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    }
+
+    @Composable
+    fun goalDashboardSecondaryCardColors(): CardColors {
+        return CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        )
+    }
+
+    @Composable
+    fun goalDashboardEmphasisCardColors(): CardColors {
+        return CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.42f)
+        )
+    }
+
+    @Composable
     fun settingsSectionRowColors(): CardColors {
         return CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     }
@@ -41,6 +62,11 @@ object VisualComponentDefaults {
 
     @Composable
     fun dashboardSummaryCardBorder(): BorderStroke {
+        return BorderStroke(1.dp, planningSurfaceStroke())
+    }
+
+    @Composable
+    fun goalDashboardCardBorder(): BorderStroke {
         return BorderStroke(1.dp, planningSurfaceStroke())
     }
 
@@ -68,6 +94,12 @@ object VisualComponentDefaults {
     )
 
     @Composable
+    fun goalDashboardCardElevation() = CardDefaults.cardElevation(
+        defaultElevation = Elevation.none,
+        pressedElevation = Elevation.none
+    )
+
+    @Composable
     fun settingsSectionRowElevation() = CardDefaults.cardElevation(
         defaultElevation = Elevation.none,
         pressedElevation = Elevation.none
@@ -77,4 +109,16 @@ object VisualComponentDefaults {
     private fun planningSurfaceStroke(): Color {
         return MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
     }
+
+    @Composable
+    fun statusSuccessColor(): Color = MaterialTheme.colorScheme.tertiary
+
+    @Composable
+    fun statusWarningColor(): Color = MaterialTheme.colorScheme.error
+
+    @Composable
+    fun statusErrorColor(): Color = MaterialTheme.colorScheme.error
+
+    @Composable
+    fun statusInfoColor(): Color = MaterialTheme.colorScheme.primary
 }

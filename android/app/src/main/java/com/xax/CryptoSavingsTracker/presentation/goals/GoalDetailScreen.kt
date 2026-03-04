@@ -191,6 +191,9 @@ fun GoalDetailScreen(
                         fundedAmount = uiState.fundedAmount,  // Use fundedAmount to match iOS
                         progress = uiState.progress,
                         progressPercent = uiState.progressPercent,
+                        onOpenDashboard = {
+                            navController.navigate(Screen.GoalDashboard.createRoute(uiState.goal!!.id))
+                        },
                         onManageAllocations = {
                             navController.navigate(Screen.AllocationList.createRoute(uiState.goal!!.id))
                         }
@@ -393,6 +396,7 @@ private fun GoalDetailContent(
     fundedAmount: Double,  // Actual funded amount (min of allocation vs balance, matches iOS)
     progress: Double,
     progressPercent: Int,
+    onOpenDashboard: () -> Unit = {},
     onManageAllocations: () -> Unit = {}
 ) {
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMMM d, yyyy") }
@@ -527,8 +531,13 @@ private fun GoalDetailContent(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
-                    TextButton(onClick = onManageAllocations) {
-                        Text("Manage")
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        TextButton(onClick = onOpenDashboard) {
+                            Text("Dashboard")
+                        }
+                        TextButton(onClick = onManageAllocations) {
+                            Text("Manage")
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(Spacing.xxs))

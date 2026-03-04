@@ -6,6 +6,9 @@ enum NavigationTelemetryEvent: String, CaseIterable {
     case cancelled = "nav_cancelled"
     case discardConfirmed = "nav_discard_confirmed"
     case recoveryCompleted = "nav_recovery_completed"
+    case goalDashboardOpened = "goal_dashboard_opened"
+    case goalDashboardPrimaryCtaShown = "goal_dashboard_primary_cta_shown"
+    case goalDashboardPrimaryCtaTapped = "goal_dashboard_primary_cta_tapped"
 }
 
 enum NavigationJourney {
@@ -14,6 +17,7 @@ enum NavigationJourney {
     static let destructiveDeleteConfirmation = "destructive-delete-confirmation"
     static let goalContributionEditCancel = "goal-contribution-edit-cancel"
     static let planningFlowCancelRecovery = "planning-flow-cancel-recovery"
+    static let goalDashboard = "goal-dashboard"
 
     static let top5: [String] = [
         goalCreateEdit,
@@ -36,6 +40,41 @@ struct NavigationTelemetryPayload {
     let formType: String?
     let recoveryPath: String?
     let success: Bool?
+    let goalID: String?
+    let resolverState: String?
+    let ctaID: String?
+
+    init(
+        event: NavigationTelemetryEvent,
+        journeyID: String,
+        platform: String,
+        entryPoint: String?,
+        durationMs: Int?,
+        result: String?,
+        isDirty: Bool?,
+        cancelStage: String?,
+        formType: String?,
+        recoveryPath: String?,
+        success: Bool?,
+        goalID: String? = nil,
+        resolverState: String? = nil,
+        ctaID: String? = nil
+    ) {
+        self.event = event
+        self.journeyID = journeyID
+        self.platform = platform
+        self.entryPoint = entryPoint
+        self.durationMs = durationMs
+        self.result = result
+        self.isDirty = isDirty
+        self.cancelStage = cancelStage
+        self.formType = formType
+        self.recoveryPath = recoveryPath
+        self.success = success
+        self.goalID = goalID
+        self.resolverState = resolverState
+        self.ctaID = ctaID
+    }
 
     var properties: [String: String] {
         var values: [String: String] = [
@@ -51,6 +90,9 @@ struct NavigationTelemetryPayload {
         if let formType { values["form_type"] = formType }
         if let recoveryPath { values["recovery_path"] = recoveryPath }
         if let success { values["success"] = success ? "true" : "false" }
+        if let goalID { values["goal_id"] = goalID }
+        if let resolverState { values["resolver_state"] = resolverState }
+        if let ctaID { values["cta_id"] = ctaID }
 
         return values
     }
@@ -67,6 +109,10 @@ struct NavigationTelemetryPayload {
             return missing(["journey_id", "platform", "form_type"])
         case .recoveryCompleted:
             return missing(["journey_id", "platform", "recovery_path", "success"])
+        case .goalDashboardOpened:
+            return missing(["journey_id", "platform", "goal_id", "entry_point"])
+        case .goalDashboardPrimaryCtaShown, .goalDashboardPrimaryCtaTapped:
+            return missing(["journey_id", "platform", "goal_id", "resolver_state", "cta_id"])
         }
     }
 
@@ -137,7 +183,10 @@ final class NavigationTelemetryTracker {
                 cancelStage: nil,
                 formType: nil,
                 recoveryPath: nil,
-                success: nil
+                success: nil,
+                goalID: nil,
+                resolverState: nil,
+                ctaID: nil
             )
         )
     }
@@ -160,7 +209,10 @@ final class NavigationTelemetryTracker {
                 cancelStage: nil,
                 formType: nil,
                 recoveryPath: nil,
-                success: nil
+                success: nil,
+                goalID: nil,
+                resolverState: nil,
+                ctaID: nil
             )
         )
     }
@@ -178,7 +230,10 @@ final class NavigationTelemetryTracker {
                 cancelStage: cancelStage,
                 formType: nil,
                 recoveryPath: nil,
-                success: nil
+                success: nil,
+                goalID: nil,
+                resolverState: nil,
+                ctaID: nil
             )
         )
     }
@@ -196,7 +251,10 @@ final class NavigationTelemetryTracker {
                 cancelStage: nil,
                 formType: formType,
                 recoveryPath: nil,
-                success: nil
+                success: nil,
+                goalID: nil,
+                resolverState: nil,
+                ctaID: nil
             )
         )
     }
@@ -214,7 +272,73 @@ final class NavigationTelemetryTracker {
                 cancelStage: nil,
                 formType: nil,
                 recoveryPath: recoveryPath,
-                success: success
+                success: success,
+                goalID: nil,
+                resolverState: nil,
+                ctaID: nil
+            )
+        )
+    }
+
+    func goalDashboardOpened(goalID: String, entryPoint: String) {
+        emit(
+            NavigationTelemetryPayload(
+                event: .goalDashboardOpened,
+                journeyID: NavigationJourney.goalDashboard,
+                platform: "ios",
+                entryPoint: entryPoint,
+                durationMs: nil,
+                result: nil,
+                isDirty: nil,
+                cancelStage: nil,
+                formType: nil,
+                recoveryPath: nil,
+                success: nil,
+                goalID: goalID,
+                resolverState: nil,
+                ctaID: nil
+            )
+        )
+    }
+
+    func goalDashboardPrimaryCtaShown(goalID: String, resolverState: String, ctaID: String) {
+        emit(
+            NavigationTelemetryPayload(
+                event: .goalDashboardPrimaryCtaShown,
+                journeyID: NavigationJourney.goalDashboard,
+                platform: "ios",
+                entryPoint: nil,
+                durationMs: nil,
+                result: nil,
+                isDirty: nil,
+                cancelStage: nil,
+                formType: nil,
+                recoveryPath: nil,
+                success: nil,
+                goalID: goalID,
+                resolverState: resolverState,
+                ctaID: ctaID
+            )
+        )
+    }
+
+    func goalDashboardPrimaryCtaTapped(goalID: String, resolverState: String, ctaID: String) {
+        emit(
+            NavigationTelemetryPayload(
+                event: .goalDashboardPrimaryCtaTapped,
+                journeyID: NavigationJourney.goalDashboard,
+                platform: "ios",
+                entryPoint: nil,
+                durationMs: nil,
+                result: nil,
+                isDirty: nil,
+                cancelStage: nil,
+                formType: nil,
+                recoveryPath: nil,
+                success: nil,
+                goalID: goalID,
+                resolverState: resolverState,
+                ctaID: ctaID
             )
         )
     }

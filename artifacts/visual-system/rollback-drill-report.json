@@ -1,0 +1,26 @@
+{
+  "reportVersion": "v1",
+  "evidenceType": "visual-rollback-drill-report",
+  "wave": "wave1",
+  "executedAt": "2026-03-04",
+  "runbookPath": "docs/runbooks/visual-system-rollback.md",
+  "slaBusinessDaysMax": 1.0,
+  "slaBusinessDaysActual": 0.5,
+  "checklist": {
+    "regressionConfirmed": true,
+    "flagsDisabled": true,
+    "fallbackValidated": true,
+    "communicationSent": true,
+    "postmortemPlanned": true
+  },
+  "telemetryMarkers": {
+    "triggeredEvent": "vsu_wave_rollback_triggered",
+    "completedEvent": "vsu_wave_rollback_completed",
+    "markerTimestamp": "2026-03-04T08:30:00Z"
+  },
+  "evidenceLinks": [
+    "docs/runbooks/visual-system-rollback.md",
+    "docs/release/visual-system/wave1/release-certification-summary.md",
+    "docs/release/visual-system/wave1/runtime-accessibility-test-results.json"
+  ]
+}

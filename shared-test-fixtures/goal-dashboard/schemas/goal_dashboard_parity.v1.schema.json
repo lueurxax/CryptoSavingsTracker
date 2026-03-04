@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cryptosavingstracker.local/schemas/goal_dashboard_parity.v1.schema.json",
+  "title": "Goal Dashboard Parity Artifact v1",
+  "type": "object",
+  "required": [
+    "version",
+    "owner",
+    "moduleIds",
+    "stateIds",
+    "resolverStateIds",
+    "copyKeys",
+    "statusChipIds",
+    "approvals"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "owner": { "type": "string" },
+    "moduleIds": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "stateIds": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "resolverStateIds": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "copyKeys": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "statusChipIds": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "approvals": {
+      "type": "object",
+      "required": ["iosLead", "androidLead", "qaLead"],
+      "additionalProperties": false,
+      "properties": {
+        "iosLead": { "type": "string" },
+        "androidLead": { "type": "string" },
+        "qaLead": { "type": "string" }
+      }
+    }
+  }
+}

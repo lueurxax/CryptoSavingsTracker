@@ -26,7 +26,7 @@ struct DetailContainerView: View {
                 .tag(DetailViewType.details)
                 .transition(.opacity)
             
-            DashboardViewForGoal(goal: goal)
+            GoalDashboardScreen(goal: goal)
                 .tabItem {
                     Image(systemName: "chart.bar.fill")
                     Text("Dashboard")
