@@ -1,6 +1,6 @@
 # Latest Navigation Release Evidence
 
-This folder is the canonical release-gate package for navigation migration.
+This folder is the canonical release-gate package for navigation release governance.
 
 Required files:
 
