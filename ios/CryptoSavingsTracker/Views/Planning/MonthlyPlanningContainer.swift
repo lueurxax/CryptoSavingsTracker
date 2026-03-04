@@ -48,6 +48,7 @@ private struct MonthlyPlanningContainerContent: View {
         source: .currentMonth
     )
     @State private var dockPhase: DockPhase = .expanded
+    @State private var planningVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .planning)
     @StateObject private var executionCoordinator = ExecutionStateCoordinator()
     @StateObject private var planningViewModel: MonthlyPlanningViewModel
 
@@ -58,21 +59,26 @@ private struct MonthlyPlanningContainerContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // State indicator banner
-            if !isLoading {
-                stateIndicatorBanner(cycleState: cycleState)
-            }
-
-            // Use AND logic: show execution only if BOTH local @State AND coordinator say so
-            // This ensures either source setting false will immediately show planning
-            if isLoading {
-                ProgressView("Loading...")
-            } else if isExecuting && executionCoordinator.isExecuting {
-                // Show execution view with shared coordinator
-                MonthlyExecutionView(modelContext: modelContext, coordinator: executionCoordinator)
+            if !planningVisualEnabled {
+                PlanningView(viewModel: planningViewModel)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                // Show planning view with start tracking button
-                planningViewWithStartButton
+                // State indicator banner
+                if !isLoading {
+                    stateIndicatorBanner(cycleState: cycleState)
+                }
+
+                // Use AND logic: show execution only if BOTH local @State AND coordinator say so
+                // This ensures either source setting false will immediately show planning
+                if isLoading {
+                    ProgressView("Loading...")
+                } else if isExecuting && executionCoordinator.isExecuting {
+                    // Show execution view with shared coordinator
+                    MonthlyExecutionView(modelContext: modelContext, coordinator: executionCoordinator)
+                } else {
+                    // Show planning view with start tracking button
+                    planningViewWithStartButton
+                }
             }
         }
         .navigationTitle("Monthly Planning")
@@ -99,6 +105,8 @@ private struct MonthlyPlanningContainerContent: View {
             }
         }
         .task {
+            planningVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .planning)
+
             // Set up the completion callback for the coordinator
             executionCoordinator.onCompletionReload = { [self] in
                 await loadExecutionRecord()
@@ -228,7 +236,7 @@ private struct MonthlyPlanningContainerContent: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.green)
+                    .tint(AccessibleColors.success)
                     .accessibilityIdentifier("finishMonthButton")
 
                     Button {
@@ -251,7 +259,7 @@ private struct MonthlyPlanningContainerContent: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .tint(.orange)
+                .tint(AccessibleColors.warning)
                 .accessibilityIdentifier("undoFinishButton")
             }
         }
@@ -323,9 +331,9 @@ private struct MonthlyPlanningContainerContent: View {
         case .executing:
             return .blue
         case .closed:
-            return .green
+            return AccessibleColors.success
         case .conflict:
-            return .orange
+            return AccessibleColors.warning
         }
     }
 
@@ -336,9 +344,9 @@ private struct MonthlyPlanningContainerContent: View {
         case .executing:
             return Color.blue.opacity(0.1)
         case .closed:
-            return Color.green.opacity(0.08)
+            return AccessibleColors.success.opacity(0.08)
         case .conflict:
-            return Color.orange.opacity(0.12)
+            return AccessibleColors.warning.opacity(0.12)
         }
     }
 

@@ -1,7 +1,11 @@
 package com.xax.CryptoSavingsTracker.presentation.planning
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
+import com.xax.CryptoSavingsTracker.presentation.config.VisualSystemFlow
+import com.xax.CryptoSavingsTracker.presentation.config.VisualSystemRollout
 
 /**
  * Main Planning tab screen.
@@ -12,7 +16,17 @@ import androidx.navigation.NavController
 fun PlanningScreen(
     navController: NavController
 ) {
-    MonthlyPlanningContainer(
-        navController = navController
-    )
+    val context = LocalContext.current
+    val rollout = remember(context) { VisualSystemRollout.from(context) }
+    val visualEnabled = remember(rollout) { rollout.isEnabled(VisualSystemFlow.PLANNING) }
+    if (visualEnabled) {
+        MonthlyPlanningContainer(
+            navController = navController
+        )
+    } else {
+        // Legacy fallback entrypoint for rollout rollback path.
+        MonthlyPlanningScreen(
+            navController = navController
+        )
+    }
 }

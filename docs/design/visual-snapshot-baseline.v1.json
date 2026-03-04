@@ -1,6 +1,6 @@
 {
   "baselineVersion": "v1",
-  "generatedAt": "2026-03-03",
+  "generatedAt": "2026-03-04",
   "artifactCount": 64,
   "artifacts": [
     {
@@ -232,224 +232,224 @@
       "platform": "ios",
       "state": "default",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/default.png",
-      "sha256": "52126bd4e10af5f41a744c4cfbdc4e7dfe38321cc68ee75c0cbf1f9b16733aec"
+      "sha256": "92cefa8106df5b6885c279d095784bff228fce7166e90922ba44d8bceb734ec7"
     },
     {
       "component": "dashboard.summary_card",
       "platform": "ios",
       "state": "disabled",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/disabled.png",
-      "sha256": "6d9a4026ad42ae5fbe6ca2cac9bc9cf3b41bda6f42b7170b8b57452c9855d0ea"
+      "sha256": "114c1e44e2fb97465ebc35504ffcac5efea6f64f1769e924ce14610d494989ab"
     },
     {
       "component": "dashboard.summary_card",
       "platform": "ios",
       "state": "empty",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/empty.png",
-      "sha256": "31e1faec20d5a2665a33c913a59133480451888170fba318501fa43c2ff0a70a"
+      "sha256": "01982875d5ab031ecf732df19e1dc65fcd86e9952fb475dfb01427c7a8e42ff2"
     },
     {
       "component": "dashboard.summary_card",
       "platform": "ios",
       "state": "error",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/error.png",
-      "sha256": "0b9b34052d610fcdf877341a7199897c696a5d43e8347c8b1f3bddc557d1d64d"
+      "sha256": "f0f0cfaefba32b521b8e53feabc2279ca4d4d1309f8f5d9fdee54034662f076d"
     },
     {
       "component": "dashboard.summary_card",
       "platform": "ios",
       "state": "loading",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/loading.png",
-      "sha256": "97df9a2fe16fdab9b45f1fc871dd79e70cc5e80b656727eb46f5c2137960b35f"
+      "sha256": "3a92f3eba7f3e9af11ac8328c1b11467719414ac5f7af450147e50b050ef3c7b"
     },
     {
       "component": "dashboard.summary_card",
       "platform": "ios",
       "state": "pressed",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/pressed.png",
-      "sha256": "a0723558464d996ff9bb1360d9b6a415cba9a1986f2e42100e0823e575b4c0b9"
+      "sha256": "de72d86c47ab59f04890f8e953e05c3b2e13d2b5d48e09ee42cd7bec8a6a49e1"
     },
     {
       "component": "dashboard.summary_card",
       "platform": "ios",
       "state": "recovery",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/recovery.png",
-      "sha256": "1bbe3b272bf699c0991280ad6982b6b58d625de26d4e00536db23e4379c7f780"
+      "sha256": "94d3f4d6df1fc6432c78d402c0c6c71cea02d6f000576fd82639c36c2369c060"
     },
     {
       "component": "dashboard.summary_card",
       "platform": "ios",
       "state": "stale",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/stale.png",
-      "sha256": "a06df777a4b02905d3af11c359367fe33123d8adc79845b21e1e39438fd16607"
+      "sha256": "ecac6a2b26b0c47aa00bb049e8ddeac59f99a95aa56fc2abed4bc70fd2c02379"
     },
     {
       "component": "planning.goal_row",
       "platform": "ios",
       "state": "default",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/default.png",
-      "sha256": "000a22a8176889a063195c135c6e20a3f96bc67ef52abd8037b2eae37ab21f31"
+      "sha256": "e5a341a2572937b7f89d5962718154e3fef0a295aaae00315607731091bd13ee"
     },
     {
       "component": "planning.goal_row",
       "platform": "ios",
       "state": "disabled",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/disabled.png",
-      "sha256": "430d6bb1942699ded52f4718af2a94b91de7674bdf2ad9996ae63616ffaeb368"
+      "sha256": "7ff4ed9a3b65b54d8856b679a652a41faa705e0708159aa447b1246dc04778b1"
     },
     {
       "component": "planning.goal_row",
       "platform": "ios",
       "state": "empty",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/empty.png",
-      "sha256": "95b38eabfa4f9110f4613510cd856e5399dbed88a2f47771f3730318691a1634"
+      "sha256": "d53d52b5c470fc35f7acecca64082402d84377b7b8e7523b9a6ec96c74bc3532"
     },
     {
       "component": "planning.goal_row",
       "platform": "ios",
       "state": "error",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/error.png",
-      "sha256": "260d9ad8d75ef3384cc8432e26b5143a3a3ab4e3ae9f06009cf2ac009b166f42"
+      "sha256": "ae3a6bc974faf66dd069dabad8c644a5ffea124965c063ae425ee9b1754b9551"
     },
     {
       "component": "planning.goal_row",
       "platform": "ios",
       "state": "loading",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/loading.png",
-      "sha256": "a0a910b90ff89c6b6643b89d8f08b7e923504c275b93fed155d54f9dc31100c9"
+      "sha256": "fc7a937a13d6ee64f92f1502ce66c419bf2229cf897a7d01a60b1b4276fe92fa"
     },
     {
       "component": "planning.goal_row",
       "platform": "ios",
       "state": "pressed",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/pressed.png",
-      "sha256": "64652f3f2738996850ec5d57f1dc2812f209447f1944c9216b369017e843793a"
+      "sha256": "3bf95131e34c6cedc0f75309563afdcda93eb91caaad7556fc44ef1c3246af08"
     },
     {
       "component": "planning.goal_row",
       "platform": "ios",
       "state": "recovery",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/recovery.png",
-      "sha256": "71a359e01523a424391bc437a418005fde40c50a8610fbdf06dd2985c9a35dbd"
+      "sha256": "22d2f2d27e12277a8577d22de40b2b53e77f71b89263449f5323966228ca8cb5"
     },
     {
       "component": "planning.goal_row",
       "platform": "ios",
       "state": "stale",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/stale.png",
-      "sha256": "31e1faec20d5a2665a33c913a59133480451888170fba318501fa43c2ff0a70a"
+      "sha256": "1107b3946c0c685e15c99a3ee6bc1f72f37256db620886dd2d9ad71c5128bff8"
     },
     {
       "component": "planning.header_card",
       "platform": "ios",
       "state": "default",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/default.png",
-      "sha256": "5c02fcc2c4455cc7e8bdf78d80f46db7841052d234aa69600b07a026ef7e1450"
+      "sha256": "c2489751dfc16ef28ee3d2bc3025092a8c1059d61183a38778cbb92e8192ee02"
     },
     {
       "component": "planning.header_card",
       "platform": "ios",
       "state": "disabled",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/disabled.png",
-      "sha256": "a82bd7fe5e45a1da7bde0a92b42a187dac7e1361ac2b9e57b6bc047d579ba4a5"
+      "sha256": "6b9da334739f7c14501314a7afdffbdb5ecb8bf30761eb53fb876a9cd7c587e0"
     },
     {
       "component": "planning.header_card",
       "platform": "ios",
       "state": "empty",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/empty.png",
-      "sha256": "b6fca1ca7fe6311a0d51573708c835b289a35d4a20160180109f41734bb2b8ce"
+      "sha256": "15318f6bd950f06f22ba0bc0d6393c19c662c509772aa0bdd2c417a82c646840"
     },
     {
       "component": "planning.header_card",
       "platform": "ios",
       "state": "error",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/error.png",
-      "sha256": "1203ba43c33492d0b3e6e3a4dd1bf9a54702ee3f7d64818ccffbd6bee847f42c"
+      "sha256": "3436a19c48ca6a6c364647f0dd9a4b612306ab7bb5ca1da31d456176b1c6f67b"
     },
     {
       "component": "planning.header_card",
       "platform": "ios",
       "state": "loading",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/loading.png",
-      "sha256": "dc49d58981c8eb849c370f25736931a6f385f02233188bf5015bd3506bd0bae4"
+      "sha256": "8964b05b172f0d8014409892ab3bb87323aa9f601e95364ed797f0119eafc322"
     },
     {
       "component": "planning.header_card",
       "platform": "ios",
       "state": "pressed",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/pressed.png",
-      "sha256": "7f81c65253408464b55a761f4953a6428790826fbcd7015a0cc0598bf7eb2b2b"
+      "sha256": "7296c4d0d49e24e84f449b2cd6f953301f65dc1bada61defab08abb800097d39"
     },
     {
       "component": "planning.header_card",
       "platform": "ios",
       "state": "recovery",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/recovery.png",
-      "sha256": "712e76c993e195e62b7e3098942c70f2b13c7a4201d08feda217b2ea625e8f7d"
+      "sha256": "e155d4cb4844e971cfb5d9aadb2e9780bf2fdef367ee95de7b27b93b5dcfc6ac"
     },
     {
       "component": "planning.header_card",
       "platform": "ios",
       "state": "stale",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/stale.png",
-      "sha256": "4e01d91cc9e928c02e5e3f3f1221925ce3d1e2cc13280cc2b330aae5c3977392"
+      "sha256": "cf7cd185ec3c08e84cb6062d5e5a2aca798dd2f49ab32090c81d99e4bedc6b47"
     },
     {
       "component": "settings.section_row",
       "platform": "ios",
       "state": "default",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/default.png",
-      "sha256": "ca37b280df4f4e2440fea7b45109d4029f445a77cda42bd50d83d02016557569"
+      "sha256": "4f86db13f2e25a9673d3701c7c61dca0207254553005940cea4c9d03a9975d67"
     },
     {
       "component": "settings.section_row",
       "platform": "ios",
       "state": "disabled",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/disabled.png",
-      "sha256": "1d2bdbed979012b78f8983bb3b7835337a72b1604e31e69b04a46fc2815122f3"
+      "sha256": "0eebe473cc39264fb32580fcd5235efbcb3cdb90203cdb83cdd762253f980303"
     },
     {
       "component": "settings.section_row",
       "platform": "ios",
       "state": "empty",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/empty.png",
-      "sha256": "046cfa0a62f4b9dd827107b8d56f697e8ae12227525e7680c82b277b7416a425"
+      "sha256": "6e0f9f1157ae7d178c241021e2842996f1430fd46284dfa999998dfec121cef4"
     },
     {
       "component": "settings.section_row",
       "platform": "ios",
       "state": "error",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/error.png",
-      "sha256": "9544d511f00315f266e32194f4a5fc57dbd971b11d5f13c22196752d5278a0e4"
+      "sha256": "8df1387a4cb2567512e3bf0638c95f4a081f49b654e105f62576c0d7cd51b346"
     },
     {
       "component": "settings.section_row",
       "platform": "ios",
       "state": "loading",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/loading.png",
-      "sha256": "9544d511f00315f266e32194f4a5fc57dbd971b11d5f13c22196752d5278a0e4"
+      "sha256": "2a7ba73ceadc094f25c4d7fa97559b54d62081905773fb7bb0a2e60d1f094aca"
     },
     {
       "component": "settings.section_row",
       "platform": "ios",
       "state": "pressed",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/pressed.png",
-      "sha256": "2cfe92c3ae5e5ae9d41ca97519b32fb3465eb8113360d007751fe2ff7485913c"
+      "sha256": "df28dc210a308e7fecf31e487ac9dc18984ade802e7e322cf6920b1137e2f1b3"
     },
     {
       "component": "settings.section_row",
       "platform": "ios",
       "state": "recovery",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/recovery.png",
-      "sha256": "5a897b3ed44657fa1d65f3a1ad100ee79fd9d21df913a29aecd1d3835a50bb4d"
+      "sha256": "bead720bdc81d3c85fa869f52386cc2d725b4f8412e6fe1e2f83c1169cee9e03"
     },
     {
       "component": "settings.section_row",
       "platform": "ios",
       "state": "stale",
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/stale.png",
-      "sha256": "452d8d60b75d8238bbd9a3ae5ba3bde18f82774a31099c3c6047d6b9152389a2"
+      "sha256": "ab7210605100d0a66a9c7dd731ece54e8f0500dd172c36b9fc8fd8c8f810eabd"
     }
   ]
 }

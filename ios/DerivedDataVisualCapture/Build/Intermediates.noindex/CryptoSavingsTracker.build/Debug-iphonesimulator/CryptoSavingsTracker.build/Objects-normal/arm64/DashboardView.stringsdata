@@ -183,7 +183,7 @@
         "key": "Custom Widgets",
         "location": {
           "startingColumn": 18,
-          "startingLine": 589
+          "startingLine": 597
         }
       },
       {
@@ -191,7 +191,7 @@
         "key": "Customize Dashboard",
         "location": {
           "startingColumn": 30,
-          "startingLine": 730
+          "startingLine": 738
         }
       },
       {
@@ -199,7 +199,7 @@
         "key": "Available Widgets",
         "location": {
           "startingColumn": 25,
-          "startingLine": 674
+          "startingLine": 682
         }
       },
       {
@@ -207,7 +207,7 @@
         "key": "Current Widgets",
         "location": {
           "startingColumn": 25,
-          "startingLine": 694
+          "startingLine": 702
         }
       },
       {
@@ -215,7 +215,7 @@
         "key": "Add",
         "location": {
           "startingColumn": 36,
-          "startingLine": 681
+          "startingLine": 689
         }
       },
       {
@@ -223,7 +223,7 @@
         "key": "Span: %lld columns, %lld rows",
         "location": {
           "startingColumn": 34,
-          "startingLine": 712
+          "startingLine": 720
         }
       },
       {
@@ -231,7 +231,7 @@
         "key": "Size",
         "location": {
           "startingColumn": 40,
-          "startingLine": 703
+          "startingLine": 711
         }
       },
       {
@@ -239,7 +239,7 @@
         "key": "S",
         "location": {
           "startingColumn": 42,
-          "startingLine": 704
+          "startingLine": 712
         }
       },
       {
@@ -247,7 +247,7 @@
         "key": "M",
         "location": {
           "startingColumn": 42,
-          "startingLine": 705
+          "startingLine": 713
         }
       },
       {
@@ -255,7 +255,7 @@
         "key": "L",
         "location": {
           "startingColumn": 42,
-          "startingLine": 706
+          "startingLine": 714
         }
       },
       {
@@ -263,7 +263,7 @@
         "key": "Full",
         "location": {
           "startingColumn": 42,
-          "startingLine": 707
+          "startingLine": 715
         }
       },
       {
@@ -271,7 +271,7 @@
         "key": "Done",
         "location": {
           "startingColumn": 28,
-          "startingLine": 736
+          "startingLine": 744
         }
       },
       {
@@ -279,7 +279,7 @@
         "key": "Reset",
         "location": {
           "startingColumn": 28,
-          "startingLine": 741
+          "startingLine": 749
         }
       }
     ]

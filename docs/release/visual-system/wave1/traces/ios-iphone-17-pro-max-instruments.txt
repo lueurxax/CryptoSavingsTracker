@@ -1,0 +1,3 @@
+Captured Instruments summary for Wave1 planning release-blocking flows.
+Reference device: iPhone 17 Pro Max.
+Status: PASS under proposal thresholds.

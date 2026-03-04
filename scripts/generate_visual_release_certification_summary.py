@@ -22,6 +22,7 @@ def load_json(path: Path) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", choices=("pr", "release"), default="release")
     parser.add_argument("--cert", default=DEFAULT_CERT)
     parser.add_argument("--freshness", default=DEFAULT_FRESH)
     parser.add_argument("--runtime-test-results", default=DEFAULT_RUNTIME_TEST_RESULTS)
@@ -94,6 +95,9 @@ def main() -> int:
         )
 
     status_line = "PASS" if (release_certifiable and freshness_passed) else "FAIL"
+    evidence_quality_status = "PASS"
+    if args.mode == "release" and evidence_quality["available"] and not evidence_quality["policyPassed"]:
+        evidence_quality_status = "FAIL"
 
     lines = [
         "# Visual Release Certification Summary",
@@ -105,6 +109,7 @@ def main() -> int:
         f"- Source commit: `{source_commit}`",
         f"- Source CI run: `{source_run}`",
         f"- Freshness age hours: `{age_hours}`",
+        f"- Evidence quality status: `{evidence_quality_status}`",
         "",
         "## Failed Steps",
     ]
@@ -152,6 +157,9 @@ def main() -> int:
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     print(f"release certification summary written: {output_path}")
+    if args.mode == "release" and evidence_quality_status != "PASS":
+        print("error: release summary evidence quality is FAIL")
+        return 1
     return 0
 
 

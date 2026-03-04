@@ -78,10 +78,10 @@
     "platforms": {
       "ios": {
         "totalFiles": 32,
-        "uniqueHashes": 30,
-        "duplicateFiles": 2,
-        "duplicateRatio": 0.0625,
-        "largestDuplicateGroup": 2
+        "uniqueHashes": 32,
+        "duplicateFiles": 0,
+        "duplicateRatio": 0.0,
+        "largestDuplicateGroup": 1
       },
       "android": {
         "totalFiles": 32,
@@ -99,9 +99,9 @@
       "error",
       "recovery"
     ],
-    "evidenceCommitSha": "b6f443283405fefff67b775b9d03f734cd233cf7",
-    "capturedAt": "2026-03-03T21:14:40.040990Z",
-    "capturedAgeHours": 0.6054241102777778,
+    "evidenceCommitSha": "653180d2a7c1ef45021f90229bd09b4ac90fa5f0",
+    "capturedAt": "2026-03-04T05:39:59.005102Z",
+    "capturedAgeHours": 0.8979059322222221,
     "maxAllowedAgeHours": 24.0,
     "flows": {
       "planning": {

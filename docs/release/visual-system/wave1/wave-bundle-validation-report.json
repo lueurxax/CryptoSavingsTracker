@@ -1,0 +1,56 @@
+{
+  "wave": "wave1",
+  "waveDir": "docs/release/visual-system/wave1",
+  "passed": true,
+  "issueCount": 0,
+  "requiredWaveFiles": [
+    "token-parity-report.md",
+    "state-coverage-report.md",
+    "snapshot-diff-summary.md",
+    "accessibility-report.md",
+    "ux-metrics-report.md",
+    "performance-report.md",
+    "rollback-drill-report.md",
+    "runtime-accessibility-assertions.json",
+    "ux-metrics-report.json",
+    "release-certification-report.json",
+    "release-certification-summary.md",
+    "runtime-accessibility-test-results.json",
+    "performance-report.json",
+    "rollback-drill-report.json"
+  ],
+  "requiredGlobalFiles": [
+    "docs/screenshots/review-visual-system-unification-r4/manifest.md",
+    "docs/screenshots/review-visual-system-unification-r4/production/manifest.v1.json"
+  ],
+  "validatorRuns": [
+    {
+      "name": "uxMetrics",
+      "returnCode": 0,
+      "stdout": [
+        "visual UX metrics validation passed",
+        "report: artifacts/visual-system/ux-metrics-validation-wave-bundle.json"
+      ],
+      "stderr": []
+    },
+    {
+      "name": "performanceBudget",
+      "returnCode": 0,
+      "stdout": [
+        "visual performance report validation passed",
+        "report: /Users/user/Documents/CryptoSavingsTracker/artifacts/visual-system/performance-report-validation-wave-bundle.json"
+      ],
+      "stderr": []
+    },
+    {
+      "name": "rollbackDrill",
+      "returnCode": 0,
+      "stdout": [
+        "visual rollback drill report validation passed",
+        "report: /Users/user/Documents/CryptoSavingsTracker/artifacts/visual-system/rollback-drill-validation-wave-bundle.json"
+      ],
+      "stderr": []
+    }
+  ],
+  "issues": []
+}

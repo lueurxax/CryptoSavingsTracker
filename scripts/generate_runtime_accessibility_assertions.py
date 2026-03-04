@@ -83,6 +83,12 @@ def validate_test_results(payload: dict[str, Any], mode: str, allow_fixture: boo
         issues.append("test-results sourceMode must be 'test-run' or 'fixture'")
 
     in_ci = os.getenv("GITHUB_ACTIONS", "").lower() == "true"
+    if mode == "release" and source_mode != "test-run":
+        issues.append("release mode requires sourceMode='test-run'")
+    if mode == "release" and test_mode != "full":
+        issues.append("release mode requires testMode='full'")
+    if mode == "release" and required_test_mode != "full":
+        issues.append("release mode requires requiredTestMode='full'")
     if mode == "release" and in_ci and source_mode != "test-run" and not allow_fixture:
         issues.append("release mode in CI requires sourceMode='test-run'")
     if mode == "release" and in_ci and test_mode != "full":
@@ -128,6 +134,19 @@ def validate_test_results(payload: dict[str, Any], mode: str, allow_fixture: boo
             issues.append(f"test-results {platform}.testCommand is required")
         if not str(section.get("suiteId", "")).strip():
             issues.append(f"test-results {platform}.suiteId is required")
+        expected_suite_id = (
+            "visual-accessibility-full-ios"
+            if platform == "ios" and test_mode == "full"
+            else "visual-accessibility-full-android"
+            if platform == "android" and test_mode == "full"
+            else "visual-accessibility-smoke-ios"
+            if platform == "ios"
+            else "visual-accessibility-smoke-android"
+        )
+        if str(section.get("suiteId", "")).strip() != expected_suite_id:
+            issues.append(
+                f"test-results {platform}.suiteId must be '{expected_suite_id}' for testMode='{test_mode}'"
+            )
         executed_count = section.get("executedTestCount")
         if not isinstance(executed_count, int) or executed_count <= 0:
             issues.append(f"test-results {platform}.executedTestCount must be > 0 integer")

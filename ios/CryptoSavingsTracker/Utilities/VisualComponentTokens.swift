@@ -14,9 +14,17 @@ enum VisualComponentTokens {
     static let planningCardCornerRadius: CGFloat = 12
     static let planningRowCornerRadius: CGFloat = 12
     static let dashboardSummaryCornerRadius: CGFloat = 12
+    static let dashboardCardCornerRadius: CGFloat = 16
     static let settingsRowCornerRadius: CGFloat = 10
     static let financeSurfaceFill = AnyShapeStyle(.regularMaterial)
     static let settingsRowFill = AnyShapeStyle(Color.accessibleSurfaceSubtle)
+    static let dashboardCardPrimaryFill = AnyShapeStyle(Color.accessibleSurfaceSubtle)
+    static let dashboardCardSecondaryFill = AnyShapeStyle(Color.accessibleSurface)
+    static let dashboardCardEmphasisFill = AnyShapeStyle(Color.accessiblePrimaryBackground.opacity(0.6))
+    static let statusSuccess = AccessibleColors.success
+    static let statusWarning = AccessibleColors.warning
+    static let statusError = AccessibleColors.error
+    static let statusInfo = AccessibleColors.primaryInteractive
 
     static var financeSurfaceStroke: Color {
         #if canImport(UIKit)
@@ -27,4 +35,6 @@ enum VisualComponentTokens {
         return Color.primary.opacity(0.12)
         #endif
     }
+
+    static var dashboardCardStroke: Color { financeSurfaceStroke }
 }

@@ -246,15 +246,7 @@ struct MacGoalSwitcherSheet: View {
 #endif
 
 // MARK: - Dashboard View for Specific Goal
-struct DashboardViewForGoal: View {
-    let goal: Goal
-    @Environment(\.modelContext) private var modelContext
-    
-    var body: some View {
-        // Use the enhanced GoalDashboardView which includes all the improved components
-        GoalDashboardView(goal: goal)
-    }
-}
+// Moved to Views/Dashboard/DashboardViewForGoal.swift
 
 // MARK: - Mobile Forecast Section
 // MARK: - Mobile Insights Section

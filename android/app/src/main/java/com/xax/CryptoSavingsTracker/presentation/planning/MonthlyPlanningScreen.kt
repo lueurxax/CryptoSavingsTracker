@@ -56,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -500,7 +501,9 @@ private fun TotalRequirementCard(
     completedCount: Int
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("planning.header_card"),
         shape = MaterialTheme.shapes.medium,
         colors = VisualComponentDefaults.planningHeaderCardColors(),
         border = VisualComponentDefaults.planningHeaderCardBorder(),
@@ -681,7 +684,9 @@ private fun RequirementCard(
 
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("planning.goal_row"),
         shape = MaterialTheme.shapes.medium,
         colors = VisualComponentDefaults.planningGoalRowCardColors(),
         border = VisualComponentDefaults.planningGoalRowCardBorder(),

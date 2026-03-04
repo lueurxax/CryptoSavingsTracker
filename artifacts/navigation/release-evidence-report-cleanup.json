@@ -1,0 +1,47 @@
+{
+  "releaseDir": "docs/release/navigation/latest",
+  "schemaPath": "docs/testing/navigation-telemetry-schema.v1.json",
+  "passed": true,
+  "issueCount": 0,
+  "issues": [],
+  "requiredReleaseFiles": [
+    "README.md",
+    "guardrails-metrics-report.json",
+    "hard-cutover-report.json",
+    "go-no-go.md",
+    "mod02-diff-report.json",
+    "rollback-drill.md",
+    "parity-matrix-report.json",
+    "policy-report.json"
+  ],
+  "requiredEvents": {
+    "nav_flow_started": [
+      "journey_id",
+      "platform",
+      "entry_point"
+    ],
+    "nav_flow_completed": [
+      "journey_id",
+      "platform",
+      "duration_ms",
+      "result"
+    ],
+    "nav_cancelled": [
+      "journey_id",
+      "platform",
+      "is_dirty",
+      "cancel_stage"
+    ],
+    "nav_discard_confirmed": [
+      "journey_id",
+      "platform",
+      "form_type"
+    ],
+    "nav_recovery_completed": [
+      "journey_id",
+      "platform",
+      "recovery_path",
+      "success"
+    ]
+  }
+}

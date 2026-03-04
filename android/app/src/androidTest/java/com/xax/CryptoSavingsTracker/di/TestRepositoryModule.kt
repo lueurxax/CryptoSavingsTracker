@@ -4,20 +4,26 @@ import com.xax.CryptoSavingsTracker.data.repository.AllocationHistoryRepositoryI
 import com.xax.CryptoSavingsTracker.data.repository.AllocationRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.AssetRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.CompletedExecutionRepositoryImpl
+import com.xax.CryptoSavingsTracker.data.repository.CompletionEventRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.ExecutionRecordRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.ExecutionSnapshotRepositoryImpl
+import com.xax.CryptoSavingsTracker.data.repository.ExecutionTransitionTransactionRunnerImpl
 import com.xax.CryptoSavingsTracker.data.repository.GoalRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.MonthlyGoalPlanRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.MonthlyPlanRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.TransactionRepositoryImpl
 import com.xax.CryptoSavingsTracker.domain.model.Asset
 import com.xax.CryptoSavingsTracker.domain.model.OnChainBalance
+import com.xax.CryptoSavingsTracker.domain.navigation.NavigationTelemetryPayload
+import com.xax.CryptoSavingsTracker.domain.navigation.NavigationTelemetryProvider
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationHistoryRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.CompletedExecutionRepository
+import com.xax.CryptoSavingsTracker.domain.repository.CompletionEventRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionRecordRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionSnapshotRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExecutionTransitionTransactionRunner
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.repository.MonthlyGoalPlanRepository
 import com.xax.CryptoSavingsTracker.domain.repository.MonthlyPlanRepository
@@ -46,6 +52,17 @@ object TestRepositoryModule {
     @Provides @Singleton fun provideExecutionRecordRepository(impl: ExecutionRecordRepositoryImpl): ExecutionRecordRepository = impl
     @Provides @Singleton fun provideExecutionSnapshotRepository(impl: ExecutionSnapshotRepositoryImpl): ExecutionSnapshotRepository = impl
     @Provides @Singleton fun provideCompletedExecutionRepository(impl: CompletedExecutionRepositoryImpl): CompletedExecutionRepository = impl
+    @Provides @Singleton fun provideCompletionEventRepository(impl: CompletionEventRepositoryImpl): CompletionEventRepository = impl
+    @Provides @Singleton fun provideExecutionTransitionTransactionRunner(impl: ExecutionTransitionTransactionRunnerImpl): ExecutionTransitionTransactionRunner = impl
+    @Provides
+    @Singleton
+    fun provideNavigationTelemetryProvider(): NavigationTelemetryProvider {
+        return object : NavigationTelemetryProvider {
+            override fun track(payload: NavigationTelemetryPayload) {
+                // No-op telemetry sink for instrumentation tests.
+            }
+        }
+    }
 
     @Provides
     @Singleton

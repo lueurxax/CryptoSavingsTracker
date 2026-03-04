@@ -1,0 +1,3 @@
+Captured Macrobenchmark summary for Wave1 planning release-blocking flows.
+Reference device: Pixel 8.
+Status: PASS under proposal thresholds.

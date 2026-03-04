@@ -26,6 +26,9 @@ REQUIRED_STEP_KEYS = (
     "runtimeAccessibilityTests",
     "accessibility",
     "uxMetrics",
+    "performanceBudget",
+    "rollbackDrill",
+    "waveBundle",
     "certificationFreshness",
 )
 
@@ -134,6 +137,18 @@ def main() -> int:
         "--report-out",
         default="artifacts/visual-system/release-certification-report.json",
     )
+    parser.add_argument(
+        "--performance-report",
+        default="artifacts/visual-system/performance-report-validation.json",
+    )
+    parser.add_argument(
+        "--rollback-drill-report",
+        default="artifacts/visual-system/rollback-drill-validation.json",
+    )
+    parser.add_argument(
+        "--wave-bundle-report",
+        default="artifacts/visual-system/wave-bundle-validation-report.json",
+    )
     parser.add_argument("--source-commit", default="")
     parser.add_argument("--source-ci-run-id", default="")
     parser.add_argument("--generated-at", default="")
@@ -150,6 +165,9 @@ def main() -> int:
     ux_ok, ux_msg = report_passed(Path(args.ux_report))
     variant_ok, variant_msg = report_passed(Path(args.variant_expiry_report))
     state_matrix_ok, state_matrix_msg = report_passed(Path(args.state_matrix_report))
+    performance_ok, performance_msg = report_passed(Path(args.performance_report))
+    rollback_ok, rollback_msg = report_passed(Path(args.rollback_drill_report))
+    wave_bundle_ok, wave_bundle_msg = report_passed(Path(args.wave_bundle_report))
 
     checks = {
         "stepStatus": {key: (value == "passed") for key, value in step_status.items()},
@@ -159,6 +177,9 @@ def main() -> int:
             "uxMetrics": {"passed": ux_ok, "message": ux_msg},
             "variantExpiry": {"passed": variant_ok, "message": variant_msg},
             "stateMatrix": {"passed": state_matrix_ok, "message": state_matrix_msg},
+            "performanceBudget": {"passed": performance_ok, "message": performance_msg},
+            "rollbackDrill": {"passed": rollback_ok, "message": rollback_msg},
+            "waveBundle": {"passed": wave_bundle_ok, "message": wave_bundle_msg},
         },
     }
 

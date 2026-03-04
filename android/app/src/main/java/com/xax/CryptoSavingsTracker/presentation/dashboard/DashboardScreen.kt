@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -34,12 +35,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.xax.CryptoSavingsTracker.presentation.config.VisualSystemFlow
+import com.xax.CryptoSavingsTracker.presentation.config.VisualSystemRollout
 import com.xax.CryptoSavingsTracker.presentation.navigation.Screen
 import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import com.xax.CryptoSavingsTracker.presentation.theme.VisualComponentDefaults
@@ -63,6 +67,11 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState = viewModel.uiState.collectAsState().value
+    val context = LocalContext.current
+    val visualRollout = remember(context) { VisualSystemRollout.from(context) }
+    val dashboardVisualEnabled = remember(visualRollout) {
+        visualRollout.isEnabled(VisualSystemFlow.DASHBOARD)
+    }
 
     Scaffold(
         topBar = {
@@ -119,14 +128,34 @@ fun DashboardScreen(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        if (!dashboardVisualEnabled) {
+                            Text(
+                                text = "Legacy visual fallback active",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("dashboard.summary_card"),
                             shape = MaterialTheme.shapes.medium,
-                            colors = VisualComponentDefaults.dashboardSummaryCardColors(),
-                            border = VisualComponentDefaults.dashboardSummaryCardBorder(),
-                            elevation = VisualComponentDefaults.dashboardSummaryCardElevation()
+                            colors = if (dashboardVisualEnabled) {
+                                VisualComponentDefaults.dashboardSummaryCardColors()
+                            } else {
+                                CardDefaults.cardColors()
+                            },
+                            border = if (dashboardVisualEnabled) {
+                                VisualComponentDefaults.dashboardSummaryCardBorder()
+                            } else {
+                                null
+                            },
+                            elevation = if (dashboardVisualEnabled) {
+                                VisualComponentDefaults.dashboardSummaryCardElevation()
+                            } else {
+                                CardDefaults.cardElevation()
+                            }
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(

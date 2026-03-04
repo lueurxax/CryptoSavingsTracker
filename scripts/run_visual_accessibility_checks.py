@@ -140,64 +140,58 @@ def check_runtime_assertions(path: Path, mode: str) -> tuple[list[str], dict[str
         if mode == "release":
             if not test_results_path:
                 issues.append("runtime assertions source.testResultsPath is required in release mode")
-            if source_mode not in {"test-run", "fixture"}:
-                issues.append("runtime assertions source.sourceMode must be 'test-run' or 'fixture'")
-            if os.getenv("GITHUB_ACTIONS", "").lower() == "true" and source_mode != "test-run":
-                issues.append("runtime assertions source.sourceMode must be 'test-run' in CI release mode")
-            if test_mode not in {"smoke", "full"}:
-                issues.append("runtime assertions source.testMode must be 'smoke' or 'full'")
-            if required_test_mode not in {"smoke", "full"}:
-                issues.append("runtime assertions source.requiredTestMode must be 'smoke' or 'full'")
+            if source_mode != "test-run":
+                issues.append("runtime assertions source.sourceMode must be 'test-run' in release mode")
+            if test_mode != "full":
+                issues.append("runtime assertions source.testMode must be 'full' in release mode")
+            if required_test_mode != "full":
+                issues.append(
+                    "runtime assertions source.requiredTestMode must be 'full' in release mode"
+                )
             if test_mode and required_test_mode and test_mode != required_test_mode:
                 issues.append("runtime assertions source.testMode must match source.requiredTestMode")
-            if os.getenv("GITHUB_ACTIONS", "").lower() == "true" and test_mode != "full":
-                issues.append("runtime assertions source.testMode must be 'full' in CI release mode")
-            if os.getenv("GITHUB_ACTIONS", "").lower() == "true" and required_test_mode != "full":
-                issues.append(
-                    "runtime assertions source.requiredTestMode must be 'full' in CI release mode"
-                )
 
-            if not isinstance(executed_tests_payload, dict):
-                issues.append("runtime assertions source.executedTests must be an object")
-            else:
-                for platform_key in ("ios", "android", "total"):
-                    value = executed_tests_payload.get(platform_key)
-                    if not isinstance(value, int):
-                        issues.append(
-                            f"runtime assertions source.executedTests.{platform_key} must be integer"
-                        )
-                        continue
-                    executed_tests_summary[platform_key] = value
-                if executed_tests_summary["total"] <= 0:
-                    issues.append("runtime assertions source.executedTests.total must be > 0")
-                if (
-                    executed_tests_summary["ios"] > 0
-                    and executed_tests_summary["android"] > 0
-                    and executed_tests_summary["total"]
-                    != executed_tests_summary["ios"] + executed_tests_summary["android"]
-                ):
+        if not isinstance(executed_tests_payload, dict):
+            issues.append("runtime assertions source.executedTests must be an object")
+        else:
+            for platform_key in ("ios", "android", "total"):
+                value = executed_tests_payload.get(platform_key)
+                if not isinstance(value, int):
                     issues.append(
-                        "runtime assertions source.executedTests.total must equal ios + android"
+                        f"runtime assertions source.executedTests.{platform_key} must be integer"
                     )
-            if not isinstance(suite_ids_payload, dict):
-                issues.append("runtime assertions source.suiteIds must be an object")
-            else:
-                for platform_key in ("ios", "android"):
-                    value = str(suite_ids_payload.get(platform_key, "")).strip()
-                    if not value:
-                        issues.append(
-                            f"runtime assertions source.suiteIds.{platform_key} is required in release mode"
-                        )
-                    suite_ids_summary[platform_key] = value
-            if test_results_path:
-                test_results_file = Path(test_results_path)
-                if not test_results_file.is_absolute():
-                    repo_root = Path(__file__).resolve().parent.parent
-                    test_results_file = repo_root / test_results_file
-                if not test_results_file.exists():
+                    continue
+                executed_tests_summary[platform_key] = value
+            if executed_tests_summary["total"] <= 0:
+                issues.append("runtime assertions source.executedTests.total must be > 0")
+            if (
+                executed_tests_summary["ios"] > 0
+                and executed_tests_summary["android"] > 0
+                and executed_tests_summary["total"]
+                != executed_tests_summary["ios"] + executed_tests_summary["android"]
+            ):
+                issues.append(
+                    "runtime assertions source.executedTests.total must equal ios + android"
+                )
+        if not isinstance(suite_ids_payload, dict):
+            issues.append("runtime assertions source.suiteIds must be an object")
+        else:
+            for platform_key in ("ios", "android"):
+                value = str(suite_ids_payload.get(platform_key, "")).strip()
+                if not value:
                     issues.append(
-                        f"runtime assertions source.testResultsPath file not found: {test_results_path}"
+                        f"runtime assertions source.suiteIds.{platform_key} is required in release mode"
                     )
+                suite_ids_summary[platform_key] = value
+        if test_results_path:
+            test_results_file = Path(test_results_path)
+            if not test_results_file.is_absolute():
+                repo_root = Path(__file__).resolve().parent.parent
+                test_results_file = repo_root / test_results_file
+            if not test_results_file.exists():
+                issues.append(
+                    f"runtime assertions source.testResultsPath file not found: {test_results_path}"
+                )
         source_summary = {
             "testResultsPath": test_results_path,
             "sourceMode": source_mode,

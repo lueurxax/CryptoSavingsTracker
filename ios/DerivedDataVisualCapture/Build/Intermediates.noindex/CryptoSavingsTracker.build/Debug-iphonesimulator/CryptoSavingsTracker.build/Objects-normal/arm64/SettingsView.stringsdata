@@ -60,46 +60,6 @@
       },
       {
         "comment": "",
-        "key": "Display Currency",
-        "location": {
-          "startingColumn": 31,
-          "startingLine": 45
-        }
-      },
-      {
-        "comment": "",
-        "key": "%lld%@ of month",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 54
-        }
-      },
-      {
-        "comment": "",
-        "key": "Payment Day",
-        "location": {
-          "startingColumn": 31,
-          "startingLine": 52
-        }
-      },
-      {
-        "comment": "",
-        "key": "%lld days",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 61
-        }
-      },
-      {
-        "comment": "",
-        "key": "Next Payment",
-        "location": {
-          "startingColumn": 31,
-          "startingLine": 59
-        }
-      },
-      {
-        "comment": "",
         "key": "Done",
         "location": {
           "startingColumn": 28,

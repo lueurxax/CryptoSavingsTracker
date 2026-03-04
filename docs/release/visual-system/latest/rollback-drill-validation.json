@@ -1,0 +1,28 @@
+{
+  "reportPath": "artifacts/visual-system/rollback-drill-report.json",
+  "schemaPath": "docs/design/schemas/visual-rollback-drill-report.schema.json",
+  "passed": true,
+  "issueCount": 0,
+  "summary": {
+    "wave": "wave1",
+    "executedAt": "2026-03-04",
+    "runbookPath": "docs/runbooks/visual-system-rollback.md",
+    "runbookExists": true,
+    "slaBusinessDaysMax": 1.0,
+    "slaBusinessDaysActual": 0.5,
+    "checklist": {
+      "regressionConfirmed": true,
+      "flagsDisabled": true,
+      "fallbackValidated": true,
+      "communicationSent": true,
+      "postmortemPlanned": true
+    },
+    "telemetryMarkers": {
+      "triggeredEvent": "vsu_wave_rollback_triggered",
+      "completedEvent": "vsu_wave_rollback_completed",
+      "markerTimestamp": "2026-03-04T08:30:00Z"
+    },
+    "evidenceLinkCount": 3
+  },
+  "issues": []
+}

@@ -7,6 +7,7 @@ import com.xax.CryptoSavingsTracker.data.local.database.dao.AllocationDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.AllocationHistoryDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.AssetDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.CompletedExecutionDao
+import com.xax.CryptoSavingsTracker.data.local.database.dao.CompletionEventDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.ExecutionRecordDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.ExecutionSnapshotDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.GoalDao
@@ -44,6 +45,6 @@ object InMemoryDatabaseModule {
     @Provides fun provideMonthlyGoalPlanDao(database: AppDatabase): MonthlyGoalPlanDao = database.monthlyGoalPlanDao()
     @Provides fun provideExecutionRecordDao(database: AppDatabase): ExecutionRecordDao = database.executionRecordDao()
     @Provides fun provideExecutionSnapshotDao(database: AppDatabase): ExecutionSnapshotDao = database.executionSnapshotDao()
+    @Provides fun provideCompletionEventDao(database: AppDatabase): CompletionEventDao = database.completionEventDao()
     @Provides fun provideCompletedExecutionDao(database: AppDatabase): CompletedExecutionDao = database.completedExecutionDao()
 }
-

@@ -1,0 +1,55 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "gateId": "DASH-BOOTSTRAP-001",
+      "passed": true,
+      "details": "All normative goal-dashboard artifact files exist."
+    },
+    {
+      "gateId": "DASH-SCHEMA-001",
+      "passed": true,
+      "details": "Scene and parity fixtures validate against shared JSON schemas."
+    },
+    {
+      "gateId": "DASH-PARITY-001",
+      "passed": true,
+      "details": "Parity artifact has valid semver, approvals metadata, and required lists."
+    },
+    {
+      "gateId": "DASH-LINT-001",
+      "passed": true,
+      "details": "Token-only surfaces verified on iOS + Android."
+    },
+    {
+      "gateId": "DASH-LINT-002",
+      "passed": true,
+      "details": "No ad-hoc shadow/material usage in GoalDashboardScreen on iOS + Android."
+    },
+    {
+      "gateId": "DASH-A11Y-CHIP-001",
+      "passed": true,
+      "details": "Status chip accessibility labels present on iOS + Android."
+    },
+    {
+      "gateId": "DASH-SNAP-CHIP-001",
+      "passed": true,
+      "details": "Status chip anatomy markers present (icon/text/a11y) on iOS + Android."
+    },
+    {
+      "gateId": "DASH-MOTION-001",
+      "passed": true,
+      "details": "Reduced-motion fallback and controlled animation are present on iOS + Android."
+    },
+    {
+      "gateId": "DASH-SNAP-STATE-001",
+      "passed": true,
+      "details": "Module state render markers cover loading/ready/empty/error/stale on iOS + Android."
+    },
+    {
+      "gateId": "DASH-COPY-ERR-001",
+      "passed": true,
+      "details": "Diagnostics copy checklist implementation exists with hard-error reason and next-step coverage."
+    }
+  ]
+}

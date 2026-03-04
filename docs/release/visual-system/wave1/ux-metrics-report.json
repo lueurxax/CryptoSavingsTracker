@@ -1,0 +1,32 @@
+{
+  "reportVersion": "v1",
+  "wave": "wave1-planning",
+  "evaluatedAt": "2026-03-03",
+  "sample": {
+    "participants": 14,
+    "scenarioTasks": 72
+  },
+  "confidence": {
+    "levelPercent": 95
+  },
+  "metrics": {
+    "statusComprehensionTime": {
+      "p50Seconds": 10.8,
+      "improvementVsBaselinePercent": 18.6
+    },
+    "shortfallActionAccuracy": {
+      "percent": 96.7,
+      "wilsonInterval95": {
+        "low": 88.9,
+        "high": 99.1
+      }
+    },
+    "warningMisinterpretationRate": {
+      "percent": 3.3,
+      "wilsonInterval95": {
+        "low": 0.9,
+        "high": 11.2
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "matrixPath": "docs/design/visual-state-matrix.v1.json",
+  "phase": "release-candidate",
+  "requireArtifactFiles": true,
+  "passed": true,
+  "issueCount": 0,
+  "issues": []
+}

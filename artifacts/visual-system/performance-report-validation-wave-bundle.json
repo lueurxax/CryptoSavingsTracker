@@ -1,0 +1,50 @@
+{
+  "reportPath": "/Users/user/Documents/CryptoSavingsTracker/docs/release/visual-system/wave1/performance-report.json",
+  "schemaPath": "docs/design/schemas/visual-performance-report.schema.json",
+  "passed": true,
+  "issueCount": 0,
+  "summary": {
+    "wave": "wave1",
+    "evaluatedAt": "2026-03-04",
+    "baseline": {
+      "p95FrameTimeMs": 15.3,
+      "jankRatePercent": 2.1
+    },
+    "current": {
+      "p95FrameTimeMs": 16.53,
+      "jankRatePercent": 3.7
+    },
+    "deltas": {
+      "declaredP95RegressionPercent": 8.04,
+      "computedP95RegressionPercent": 8.039215686274511,
+      "declaredJankDeltaPercentagePoints": 1.6,
+      "computedJankDeltaPercentagePoints": 1.6
+    },
+    "thresholds": {
+      "p95RegressionMaxPercent": 10.0,
+      "jankDeltaMaxPercentagePoints": 2.0
+    },
+    "traceCount": 3,
+    "traces": [
+      {
+        "platform": "ios",
+        "device": "iPhone 16e",
+        "tool": "Instruments",
+        "artifactRef": "docs/release/visual-system/wave1/traces/ios-iphone-16e-instruments.txt"
+      },
+      {
+        "platform": "ios",
+        "device": "iPhone 17 Pro Max",
+        "tool": "Instruments",
+        "artifactRef": "docs/release/visual-system/wave1/traces/ios-iphone-17-pro-max-instruments.txt"
+      },
+      {
+        "platform": "android",
+        "device": "Pixel 8",
+        "tool": "Macrobenchmark",
+        "artifactRef": "docs/release/visual-system/wave1/traces/android-pixel-8-macrobenchmark.txt"
+      }
+    ]
+  },
+  "issues": []
+}

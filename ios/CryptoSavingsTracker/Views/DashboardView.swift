@@ -16,6 +16,7 @@ struct DashboardView: View {
     @State private var showingTrendChart = false
     @State private var showingActionSheet = false
     @State private var showingCustomize = false
+    @State private var dashboardVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .dashboard)
     @AppStorage("dashboard_widgets") private var widgetsJSON: String = ""
     @State private var widgets: [DashboardWidget] = []
     @StateObject private var widgetsViewModel = DIContainer.shared.makeDashboardViewModel()
@@ -28,70 +29,78 @@ struct DashboardView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                if isCompact {
-                    Spacer().frame(height: 16)
-                }
-                    // Goal Switcher with improved mobile UX (only for mobile)
-                if !goals.isEmpty && isCompact {
-                    MobileGoalSwitcher(
-                        selectedGoal: $selectedGoal,
-                        goals: goals,
-                        showingActionSheet: $showingActionSheet
-                    )
-                    .padding(.bottom, 24)
-                }
-                
-                if let currentGoal = selectedGoal {
-                    if isCompact {
-                            // Mobile-optimized layout
-                        VStack(spacing: 20) {
-                                // Hero Progress Section
-                            HeroProgressView(goal: currentGoal)
-                            // Enhanced Stats
-                            MobileStatsSection(goal: currentGoal)
-                            
-                                // Balance Trend Chart - Always Visible
-                            ChartSection(goal: currentGoal)
-                            
-                                // Insights Widget
-                            MobileInsightsSection(goal: currentGoal)
-                            
-                            // Forecast Widget
-                            MobileForecastSection(goal: currentGoal)
+        Group {
+            if dashboardVisualEnabled {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        if isCompact {
+                            Spacer().frame(height: 16)
+                        }
+                            // Goal Switcher with improved mobile UX (only for mobile)
+                        if !goals.isEmpty && isCompact {
+                            MobileGoalSwitcher(
+                                selectedGoal: $selectedGoal,
+                                goals: goals,
+                                showingActionSheet: $showingActionSheet
+                            )
+                            .padding(.bottom, 24)
+                        }
 
-                            // Custom Widgets Grid (persisted)
-                            if !widgets.isEmpty {
-                                CustomWidgetsGrid(goal: currentGoal, viewModel: widgetsViewModel, widgets: widgets)
+                        if let currentGoal = selectedGoal {
+                            if isCompact {
+                                    // Mobile-optimized layout
+                                VStack(spacing: 20) {
+                                        // Hero Progress Section
+                                    HeroProgressView(goal: currentGoal)
+                                    // Enhanced Stats
+                                    MobileStatsSection(goal: currentGoal)
+
+                                        // Balance Trend Chart - Always Visible
+                                    ChartSection(goal: currentGoal)
+
+                                        // Insights Widget
+                                    MobileInsightsSection(goal: currentGoal)
+
+                                    // Forecast Widget
+                                    MobileForecastSection(goal: currentGoal)
+
+                                    // Custom Widgets Grid (persisted)
+                                    if !widgets.isEmpty {
+                                        CustomWidgetsGrid(goal: currentGoal, viewModel: widgetsViewModel, widgets: widgets)
+                                    }
+                                }
+                                .padding(.top, 8)
+                                .padding(.horizontal, 16)
+                            } else {
+                                    // Desktop/iPad layout - Use the enhanced dashboard
+                                VStack(spacing: 20) {
+                                    GoalDashboardView(goal: currentGoal)
+                                    // Custom Widgets Grid (persisted)
+                                    if !widgets.isEmpty {
+                                        CustomWidgetsGrid(goal: currentGoal, viewModel: widgetsViewModel, widgets: widgets)
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical)
+                            }
+                        } else {
+                                // Empty state when no goals exist
+                            if isCompact {
+                                MobileEmptyState()
+                                    .padding(.top, 40)
+                            } else {
+                                DashboardEmptyState()
+                                    .padding(.horizontal, 16)
                             }
                         }
-                        .padding(.top, 8)
-                        .padding(.horizontal, 16)
-                    } else {
-                            // Desktop/iPad layout - Use the enhanced dashboard
-                        VStack(spacing: 20) {
-                            GoalDashboardView(goal: currentGoal)
-                            // Custom Widgets Grid (persisted)
-                            if !widgets.isEmpty {
-                                CustomWidgetsGrid(goal: currentGoal, viewModel: widgetsViewModel, widgets: widgets)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical)
                     }
-                } else {
-                        // Empty state when no goals exist
-                    if isCompact {
-                        MobileEmptyState()
-                            .padding(.top, 40)
-                    } else {
-                        DashboardEmptyState()
-                            .padding(.horizontal, 16)
-                    }
+                    .padding(.horizontal, isCompact ? 16 : 0)
                 }
+            } else {
+                LegacyDashboardFallbackView(goals: goals, selectedGoal: $selectedGoal)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
             }
-            .padding(.horizontal, isCompact ? 16 : 0)
         }
         .navigationTitle("Dashboard")
 #if os(iOS)
@@ -107,6 +116,7 @@ struct DashboardView: View {
             }
         }
         .onAppear {
+            dashboardVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .dashboard)
             if selectedGoal == nil && !goals.isEmpty {
                 selectedGoal = goals.first
             }
@@ -287,6 +297,51 @@ struct DashboardEmptyState: View {
         .frame(maxWidth: .infinity)
         .background(.regularMaterial)
         .cornerRadius(16)
+    }
+}
+
+struct LegacyDashboardFallbackView: View {
+    let goals: [Goal]
+    @Binding var selectedGoal: Goal?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Dashboard (Legacy Visual Style)")
+                .font(.headline)
+
+            if !goals.isEmpty {
+                Picker("Goal", selection: Binding(
+                    get: { selectedGoal?.id ?? goals.first?.id ?? UUID() },
+                    set: { id in
+                        selectedGoal = goals.first(where: { $0.id == id })
+                    }
+                )) {
+                    ForEach(goals) { goal in
+                        Text(goal.name).tag(goal.id)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            if let goal = selectedGoal {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(goal.name)
+                        .font(.title3)
+                    Text("Target: \(goal.currency) \(String(format: "%,.2f", goal.targetAmount))")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Text("Legacy fallback keeps flow available when visual rollout flag is disabled.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+                .padding(12)
+                .background(.regularMaterial)
+                .cornerRadius(10)
+            } else {
+                Text("No goals available.")
+                    .foregroundColor(.secondary)
+            }
+        }
     }
 }
 

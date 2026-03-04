@@ -35,10 +35,6 @@ on:
           - wave1
           - wave2
           - wave3
-      runtime_accessibility_command:
-        description: "Release accessibility command that writes runtime test-results artifact"
-        required: false
-        type: string
 
 jobs:
   visual-contract-validate:
@@ -169,14 +165,18 @@ jobs:
 
   visual-release-gates:
     if: startsWith(github.ref, 'refs/heads/release/') || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release')
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
+    timeout-minutes: 120
     env:
       VISUAL_SYSTEM_WAVE: ${{ inputs.wave || vars.VISUAL_SYSTEM_WAVE }}
-      VISUAL_ACCESSIBILITY_TEST_COMMAND: ${{ inputs.runtime_accessibility_command || vars.VISUAL_ACCESSIBILITY_TEST_COMMAND }}
       VISUAL_ACCESSIBILITY_REQUIRED_TEST_MODE: "full"
       VISUAL_PRODUCTION_CAPTURE_MAX_AGE_HOURS: "24"
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -191,33 +191,36 @@ jobs:
             echo "error: VISUAL_SYSTEM_WAVE must match ^wave[0-9]+$"
             exit 1
           fi
-          if [[ -z "${VISUAL_ACCESSIBILITY_TEST_COMMAND}" ]]; then
-            echo "error: VISUAL_ACCESSIBILITY_TEST_COMMAND is required for release mode"
-            exit 1
-          fi
-          if [[ "${VISUAL_ACCESSIBILITY_TEST_COMMAND}" == *"run_visual_accessibility_runtime_test_smoke.py"* ]]; then
+      - name: Configure full runtime accessibility command
+        run: |
+          COMMAND="bash scripts/run_visual_accessibility_runtime_full.sh --output artifacts/visual-system/runtime-accessibility-test-results.json"
+          if [[ "${COMMAND}" == *"run_visual_accessibility_runtime_test_smoke.py"* ]]; then
             echo "error: smoke runtime accessibility command is not allowed in release mode"
             exit 1
           fi
-      - name: Execute runtime accessibility test command and materialize test-results artifact
-        run: |
-          python3 scripts/run_visual_accessibility_runtime_tests.py \
-            --mode release \
-            --output artifacts/visual-system/runtime-accessibility-test-results.json \
-            --test-command "${VISUAL_ACCESSIBILITY_TEST_COMMAND}" \
-            --required-test-mode "${VISUAL_ACCESSIBILITY_REQUIRED_TEST_MODE}" \
-            --commit-sha "${GITHUB_SHA}" \
-            --ci-job-id "github-run-${GITHUB_RUN_ID}:job-${GITHUB_JOB}"
+          if [[ "${COMMAND}" == *"--source"* ]]; then
+            echo "error: --source fallback is not allowed in release mode"
+            exit 1
+          fi
+          echo "VISUAL_ACCESSIBILITY_TEST_COMMAND=${COMMAND}" >> "${GITHUB_ENV}"
       - name: Run release visual gates (includes runtime assertion generation + canonical publish sync)
-        run: bash scripts/run_visual_system_release_gates.sh
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_7
+          emulator-boot-timeout: 1200
+          disable-animations: true
+          script: bash scripts/run_visual_system_release_gates.sh
         env:
           VISUAL_SYSTEM_WAVE: ${{ env.VISUAL_SYSTEM_WAVE }}
           VISUAL_ACCESSIBILITY_REQUIRED_TEST_MODE: ${{ env.VISUAL_ACCESSIBILITY_REQUIRED_TEST_MODE }}
           VISUAL_PRODUCTION_CAPTURE_MAX_AGE_HOURS: ${{ env.VISUAL_PRODUCTION_CAPTURE_MAX_AGE_HOURS }}
-          VISUAL_ACCESSIBILITY_TEST_RESULTS_SOURCE: artifacts/visual-system/runtime-accessibility-test-results.json
+          VISUAL_ACCESSIBILITY_TEST_COMMAND: ${{ env.VISUAL_ACCESSIBILITY_TEST_COMMAND }}
       - uses: actions/upload-artifact@v4
         with:
           name: visual-release-artifacts
           path: |
             artifacts/visual-system
+            docs/release/visual-system/${{ env.VISUAL_SYSTEM_WAVE }}
             docs/release/visual-system/latest

@@ -13,6 +13,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var monthlySettings = MonthlyPlanningSettings.shared
     @State private var showingMonthlyPlanningSettings = false
+    @State private var settingsVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .settings)
     @State private var exportResult: CSVExportResult?
     @State private var exportErrorMessage: String?
     @State private var showingExportError = false
@@ -41,26 +42,44 @@ struct SettingsView: View {
                 }
 
                 Section("Monthly Planning") {
-                    SettingsSectionRow(
-                        title: "Display Currency",
-                        systemImage: "dollarsign.circle",
-                        value: monthlySettings.displayCurrency,
-                        accessibilityIdentifier: "settings.section_row"
-                    )
+                    if settingsVisualEnabled {
+                        SettingsSectionRow(
+                            title: "Display Currency",
+                            systemImage: "dollarsign.circle",
+                            value: monthlySettings.displayCurrency,
+                            accessibilityIdentifier: "settings.section_row"
+                        )
 
-                    SettingsSectionRow(
-                        title: "Payment Day",
-                        systemImage: "calendar",
-                        value: "\(monthlySettings.paymentDay)\(monthlySettings.paymentDay.ordinalSuffix) of month",
-                        accessibilityIdentifier: "settings.section_row.payment_day"
-                    )
+                        SettingsSectionRow(
+                            title: "Payment Day",
+                            systemImage: "calendar",
+                            value: "\(monthlySettings.paymentDay)\(monthlySettings.paymentDay.ordinalSuffix) of month",
+                            accessibilityIdentifier: "settings.section_row.payment_day"
+                        )
 
-                    SettingsSectionRow(
-                        title: "Next Payment",
-                        systemImage: "clock",
-                        value: "\(monthlySettings.daysUntilPayment) days",
-                        accessibilityIdentifier: "settings.section_row.next_payment"
-                    )
+                        SettingsSectionRow(
+                            title: "Next Payment",
+                            systemImage: "clock",
+                            value: "\(monthlySettings.daysUntilPayment) days",
+                            accessibilityIdentifier: "settings.section_row.next_payment"
+                        )
+                    } else {
+                        LegacySettingsValueRow(
+                            title: "Display Currency",
+                            value: monthlySettings.displayCurrency,
+                            accessibilityIdentifier: "settings.section_row"
+                        )
+                        LegacySettingsValueRow(
+                            title: "Payment Day",
+                            value: "\(monthlySettings.paymentDay)\(monthlySettings.paymentDay.ordinalSuffix) of month",
+                            accessibilityIdentifier: "settings.section_row.payment_day"
+                        )
+                        LegacySettingsValueRow(
+                            title: "Next Payment",
+                            value: "\(monthlySettings.daysUntilPayment) days",
+                            accessibilityIdentifier: "settings.section_row.next_payment"
+                        )
+                    }
                     
                     Button("Configure Monthly Planning") {
                         showingMonthlyPlanningSettings = true
@@ -99,6 +118,9 @@ struct SettingsView: View {
         } message: {
             Text(exportErrorMessage ?? "Unknown error")
         }
+        .onAppear {
+            settingsVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .settings)
+        }
     }
 }
 
@@ -128,6 +150,22 @@ private struct SettingsSectionRow: View {
         .clipShape(RoundedRectangle(cornerRadius: VisualComponentTokens.settingsRowCornerRadius))
         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
         .listRowBackground(Color.clear)
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+private struct LegacySettingsValueRow: View {
+    let title: String
+    let value: String
+    let accessibilityIdentifier: String
+
+    var body: some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(value)
+                .foregroundColor(.secondary)
+        }
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 }

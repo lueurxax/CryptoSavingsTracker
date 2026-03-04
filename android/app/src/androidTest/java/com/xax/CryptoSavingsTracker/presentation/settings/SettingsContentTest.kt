@@ -28,6 +28,7 @@ class SettingsContentTest {
                 onExportCsv = { exportClicks += 1 },
                 onTapVersion = {},
                 isDeveloperModeEnabled = false,
+                useVisualSystemStyle = true,
                 versionLabel = "1.0.0"
             )
         }
@@ -48,6 +49,7 @@ class SettingsContentTest {
                 onExportCsv = {},
                 onTapVersion = {},
                 isDeveloperModeEnabled = false,
+                useVisualSystemStyle = true,
                 versionLabel = "1.0.0"
             )
         }
@@ -68,6 +70,7 @@ class SettingsContentTest {
                 onExportCsv = {},
                 onTapVersion = {},
                 isDeveloperModeEnabled = true,
+                useVisualSystemStyle = true,
                 versionLabel = "1.0.0"
             )
         }

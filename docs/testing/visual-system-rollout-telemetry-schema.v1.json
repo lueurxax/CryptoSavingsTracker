@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "name": "vsu_flag_evaluated",
+      "requiredProperties": ["wave", "flow", "source", "timestamp"]
+    },
+    {
+      "name": "vsu_wave_rollback_triggered",
+      "requiredProperties": ["wave", "flow", "source", "timestamp"]
+    },
+    {
+      "name": "vsu_wave_rollback_completed",
+      "requiredProperties": ["wave", "flow", "source", "timestamp"]
+    }
+  ]
+}

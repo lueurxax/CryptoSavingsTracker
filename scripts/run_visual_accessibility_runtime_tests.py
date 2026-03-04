@@ -25,6 +25,16 @@ REQUIRED_ASSERTIONS = (
     "reducedMotion",
     "nonColorSemantics",
 )
+REQUIRED_SUITE_IDS_BY_MODE = {
+    "smoke": {
+        "ios": "visual-accessibility-smoke-ios",
+        "android": "visual-accessibility-smoke-android",
+    },
+    "full": {
+        "ios": "visual-accessibility-full-ios",
+        "android": "visual-accessibility-full-android",
+    },
+}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -103,8 +113,6 @@ def validate_payload(
     payload: dict[str, Any],
     mode: str,
     required_test_mode: str,
-    allow_fixture: bool,
-    allow_smoke_release: bool,
 ) -> tuple[list[str], dict[str, int]]:
     issues: list[str] = []
     executed_tests = {"ios": 0, "android": 0, "total": 0}
@@ -123,28 +131,25 @@ def validate_payload(
         issues.append("requiredTestMode must be 'smoke' or 'full' when provided")
 
     in_ci = os.getenv("GITHUB_ACTIONS", "").lower() == "true"
-    if mode == "release" and source_mode != "test-run" and not allow_fixture:
-        issues.append("release mode requires sourceMode='test-run' unless --allow-fixture is set")
-    if mode == "release" and in_ci and source_mode != "test-run":
-        issues.append("release mode in CI requires sourceMode='test-run'")
+    if mode == "release" and source_mode != "test-run":
+        issues.append("release mode requires sourceMode='test-run'")
 
     if payload_required_test_mode and payload_required_test_mode != required_test_mode:
-        if not (
-            mode == "release"
-            and required_test_mode == "full"
-            and payload_required_test_mode == "smoke"
-            and allow_smoke_release
-        ):
-            issues.append(
-                "requiredTestMode in payload must match run policy "
-                f"(payload='{payload_required_test_mode}', policy='{required_test_mode}')"
-            )
+        issues.append(
+            "requiredTestMode in payload must match run policy "
+            f"(payload='{payload_required_test_mode}', policy='{required_test_mode}')"
+        )
 
     if test_mode and test_mode != required_test_mode:
-        if not (mode == "release" and required_test_mode == "full" and test_mode == "smoke" and allow_smoke_release):
-            issues.append(
-                f"testMode must be '{required_test_mode}' for this run (got '{test_mode}')"
-            )
+        issues.append(
+            f"testMode must be '{required_test_mode}' for this run (got '{test_mode}')"
+        )
+    if mode == "release" and required_test_mode != "full":
+        issues.append("release mode requires requiredTestMode='full'")
+    if mode == "release" and payload_required_test_mode and payload_required_test_mode != "full":
+        issues.append("release mode requires payload requiredTestMode='full'")
+    if mode == "release" and test_mode and test_mode != "full":
+        issues.append("release mode requires testMode='full'")
     if mode == "release" and in_ci and required_test_mode == "full" and test_mode != "full":
         issues.append("release mode in CI requires testMode='full'")
 
@@ -167,6 +172,11 @@ def validate_payload(
         suite_id = str(section.get("suiteId", "")).strip()
         if not suite_id:
             issues.append(f"platforms.{platform}.suiteId is required")
+        expected_suite_id = REQUIRED_SUITE_IDS_BY_MODE.get(test_mode, {}).get(platform)
+        if expected_suite_id and suite_id != expected_suite_id:
+            issues.append(
+                f"platforms.{platform}.suiteId must be '{expected_suite_id}' for testMode='{test_mode}'"
+            )
         executed_count_raw = section.get("executedTestCount")
         if not isinstance(executed_count_raw, int):
             issues.append(f"platforms.{platform}.executedTestCount must be an integer")
@@ -236,17 +246,16 @@ def main() -> int:
     parser.add_argument("--source", default="")
     parser.add_argument("--fixture", default=DEFAULT_FIXTURE)
     parser.add_argument("--test-command", default="")
-    parser.add_argument("--allow-fixture", action="store_true")
+    parser.add_argument(
+        "--allow-fixture",
+        action="store_true",
+        help="Allow fixture fallback in PR mode only",
+    )
     parser.add_argument(
         "--required-test-mode",
         choices=("smoke", "full"),
         default="",
         help="Required evidence quality mode (defaults: pr=smoke, release=full)",
-    )
-    parser.add_argument(
-        "--allow-smoke-release",
-        action="store_true",
-        help="Allow smoke mode in release for local rehearsals (ignored in CI)",
     )
     parser.add_argument("--commit-sha", default="")
     parser.add_argument("--ci-job-id", default="")
@@ -258,6 +267,12 @@ def main() -> int:
     source_path = repo_root / args.source if args.source else None
     fixture_path = repo_root / args.fixture
     required_test_mode = resolve_required_test_mode(args.mode, args.required_test_mode)
+    if args.mode == "release" and args.allow_fixture:
+        print("error: --allow-fixture is not permitted in release mode")
+        return 2
+    if args.mode == "release" and args.source.strip():
+        print("error: --source is not permitted in release mode; run the runtime suites via --test-command")
+        return 2
 
     if args.test_command.strip():
         if source_path is None and output_path.exists():
@@ -270,10 +285,13 @@ def main() -> int:
     if source_path is None:
         if output_path.exists():
             source_path = output_path
-        elif args.allow_fixture:
+        elif args.allow_fixture and args.mode == "pr":
             source_path = fixture_path
         else:
-            print("error: runtime test results source is required (set --source or --allow-fixture)")
+            print(
+                "error: runtime test results source is required "
+                "(set --source, --test-command, or --allow-fixture in PR mode; release requires --test-command)"
+            )
             return 2
 
     if not source_path.exists():
@@ -290,8 +308,6 @@ def main() -> int:
         payload=payload,
         mode=args.mode,
         required_test_mode=required_test_mode,
-        allow_fixture=args.allow_fixture,
-        allow_smoke_release=args.allow_smoke_release,
     )
     if issues:
         print("error: runtime test results payload is invalid")
@@ -315,9 +331,6 @@ def main() -> int:
     in_ci = os.getenv("GITHUB_ACTIONS", "").lower() == "true"
     if args.mode == "release" and in_ci and required_test_mode != "full":
         print("error: release mode in CI requires --required-test-mode full")
-        return 2
-    if args.mode == "release" and in_ci and args.allow_smoke_release:
-        print("error: --allow-smoke-release cannot be used in CI")
         return 2
 
     platforms = payload["platforms"]

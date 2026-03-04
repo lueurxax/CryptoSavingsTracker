@@ -13,23 +13,23 @@
     "source": {
       "testResultsPath": "artifacts/visual-system/runtime-accessibility-test-results.json",
       "sourceMode": "test-run",
-      "testMode": "smoke",
-      "requiredTestMode": "smoke",
+      "testMode": "full",
+      "requiredTestMode": "full",
       "executedTests": {
         "ios": 3,
         "android": 3,
         "total": 6
       },
       "suiteIds": {
-        "ios": "visual-accessibility-smoke-ios",
-        "android": "visual-accessibility-smoke-android"
+        "ios": "visual-accessibility-full-ios",
+        "android": "visual-accessibility-full-android"
       }
     },
     "provenance": {
-      "commitSha": "b6f443283405fefff67b775b9d03f734cd233cf7",
+      "commitSha": "653180d2a7c1ef45021f90229bd09b4ac90fa5f0",
       "ciJobId": "github-run-local:release-gates",
-      "capturedAt": "2026-03-03T21:50:59.811720Z",
-      "testBundleHash": "12afcf01530674f1207cbd8117d3f0c02f85559b5c960aa1c8439c4bebf4a861"
+      "capturedAt": "2026-03-04T06:33:51.741865Z",
+      "testBundleHash": "d6cda00fa0e2570df24ac065a551a94673ae20957e5005735efd7bb098271e7a"
     },
     "platforms": {
       "ios": {

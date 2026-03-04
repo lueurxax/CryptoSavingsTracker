@@ -42,6 +42,8 @@ import androidx.annotation.VisibleForTesting
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.xax.CryptoSavingsTracker.BuildConfig
+import com.xax.CryptoSavingsTracker.presentation.config.VisualSystemFlow
+import com.xax.CryptoSavingsTracker.presentation.config.VisualSystemRollout
 import com.xax.CryptoSavingsTracker.presentation.theme.VisualComponentDefaults
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,6 +54,10 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val visualRollout = androidx.compose.runtime.remember(context) { VisualSystemRollout.from(context) }
+    val settingsVisualEnabled = androidx.compose.runtime.remember(visualRollout) {
+        visualRollout.isEnabled(VisualSystemFlow.SETTINGS)
+    }
     val developerTapCount = rememberSaveable { mutableIntStateOf(0) }
 
     LaunchedEffect(uiState.saveMessage, uiState.cacheMessage) {
@@ -103,6 +109,7 @@ fun SettingsScreen(
             onExportCsv = viewModel::exportCsv,
             onTapVersion = { developerTapCount.intValue += 1 },
             isDeveloperModeEnabled = developerTapCount.intValue >= 7,
+            useVisualSystemStyle = settingsVisualEnabled,
             versionLabel = BuildConfig.VERSION_NAME,
             modifier = Modifier.padding(paddingValues)
         )
@@ -120,6 +127,7 @@ internal fun SettingsContent(
     onExportCsv: () -> Unit,
     onTapVersion: () -> Unit,
     isDeveloperModeEnabled: Boolean,
+    useVisualSystemStyle: Boolean,
     versionLabel: String,
     modifier: Modifier = Modifier
 ) {
@@ -179,9 +187,21 @@ internal fun SettingsContent(
                 .fillMaxWidth()
                 .testTag("settings.section_row"),
             shape = MaterialTheme.shapes.small,
-            colors = VisualComponentDefaults.settingsSectionRowColors(),
-            border = VisualComponentDefaults.settingsSectionRowBorder(),
-            elevation = VisualComponentDefaults.settingsSectionRowElevation()
+            colors = if (useVisualSystemStyle) {
+                VisualComponentDefaults.settingsSectionRowColors()
+            } else {
+                androidx.compose.material3.CardDefaults.cardColors()
+            },
+            border = if (useVisualSystemStyle) {
+                VisualComponentDefaults.settingsSectionRowBorder()
+            } else {
+                null
+            },
+            elevation = if (useVisualSystemStyle) {
+                VisualComponentDefaults.settingsSectionRowElevation()
+            } else {
+                androidx.compose.material3.CardDefaults.cardElevation()
+            }
         ) {
             Text(
                 text = "Version $versionLabel",
