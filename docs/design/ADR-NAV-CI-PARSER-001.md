@@ -6,7 +6,7 @@ Accepted (2026-03-03)
 
 ## Context
 
-`docs/proposals/NAVIGATION_PRESENTATION_CONSISTENCY_PROPOSAL.md` requires a CI gate that:
+`docs/NAVIGATION_PRESENTATION_CONSISTENCY.md` requires a CI gate that:
 
 1. blocks forbidden iOS APIs in active source,
 2. validates machine-checkable modal decision annotations,

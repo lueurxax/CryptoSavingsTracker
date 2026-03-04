@@ -5,7 +5,7 @@
 | Status | Accepted |
 | Date | 2026-03-03 |
 | Scope | Chart-specific motion semantics |
-| Related Proposal | `docs/proposals/VISUAL_SYSTEM_UNIFICATION_PROPOSAL.md` |
+| Related Documentation | `docs/VISUAL_SYSTEM_UNIFICATION.md` |
 
 ## Context
 

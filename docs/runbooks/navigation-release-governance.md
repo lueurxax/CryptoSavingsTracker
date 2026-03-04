@@ -8,7 +8,7 @@ Go/no-go governance for navigation and presentation migration waves (`planning`,
 
 ## Required Inputs
 
-1. Section 10 guardrail dashboard snapshot from `docs/proposals/NAVIGATION_PRESENTATION_CONSISTENCY_PROPOSAL.md`.
+1. Section 10 guardrail dashboard snapshot from `docs/NAVIGATION_PRESENTATION_CONSISTENCY.md`.
 2. Rollback drill evidence per migrated module wave.
 3. Compact `MOD-02` screenshot diff report:
    - `docs/screenshots/review-navigation-presentation-r3/compact/mod02-diff-report.json`.

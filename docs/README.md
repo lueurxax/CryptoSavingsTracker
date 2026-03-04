@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-03-02 |
+| Last Updated | 2026-03-04 |
 | Platform | Shared |
 | Audience | All |
 
@@ -47,6 +47,8 @@
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Development plans, feature roadmaps, refactoring strategies | iOS Developers |
 | [MONTHLY_PLANNING.md](MONTHLY_PLANNING.md) | Monthly planning feature documentation and implementation | Developers, QA |
 | [MONTHLY_PLANNING_BUDGET_HEALTH_WIDGET.md](MONTHLY_PLANNING_BUDGET_HEALTH_WIDGET.md) | Budget Health Widget specification: states, visual rules, accessibility, API reference | Developers |
+| [NAVIGATION_PRESENTATION_CONSISTENCY.md](NAVIGATION_PRESENTATION_CONSISTENCY.md) | Navigation architecture, modal policy (MOD-01...MOD-05), CI enforcement | Developers |
+| [VISUAL_SYSTEM_UNIFICATION.md](VISUAL_SYSTEM_UNIFICATION.md) | Visual token contract, surface/elevation policy, CI gates, release certification | Developers |
 | [USER_GUIDES.md](USER_GUIDES.md) | Testing guide, migration guide, troubleshooting | Developers, QA |
 
 ### Shared Reference Documentation
@@ -365,6 +367,11 @@ Configure external API keys in `Config.plist`:
 
 Historical documentation is preserved in `archive/` directories:
 
+- **archive/2026-03/**: Implemented proposals from March 2026
+  - Budget Health Widget Proposal (now MONTHLY_PLANNING_BUDGET_HEALTH_WIDGET.md)
+  - Navigation Presentation Consistency Proposal (now NAVIGATION_PRESENTATION_CONSISTENCY.md)
+  - Visual System Unification Proposal (now VISUAL_SYSTEM_UNIFICATION.md)
+
 - **archive/2026-01/**: Implemented proposals from January 2026
   - Fixed Budget Planning Proposal (now BUDGET_CALCULATOR.md)
   - Contribution Process Proposal (now CONTRIBUTION_PROCESS.md)
@@ -471,10 +478,14 @@ let container = try ModelContainer(for:
 | MONTHLY_PLANNING.md | 2026-01-04 | ✅ Current | Complete |
 | USER_GUIDES.md | 2026-01-04 | ✅ Current | Complete |
 | API_INTEGRATIONS.md | 2026-01-04 | ✅ Current | Complete |
+| NAVIGATION_PRESENTATION_CONSISTENCY.md | 2026-03-04 | ✅ Current | Complete |
+| VISUAL_SYSTEM_UNIFICATION.md | 2026-03-04 | ✅ Current | Complete |
 | COMPONENT_REGISTRY.md | 2026-01-04 | ✅ Current | iOS Only |
 | sample-data.md | 2026-01-04 | ✅ Current | Complete |
 
 ### Recent Updates
+- **2026-03-04**: Converted implemented Navigation and Visual System proposals to proper documentation
+- **2026-03-02**: Added MONTHLY_PLANNING_BUDGET_HEALTH_WIDGET.md from implemented proposal
 - **2026-01-04**: Created STYLE_GUIDE.md and standardized all documentation
 - **2026-01-04**: Documentation cleanup - archived execution-tracking-live-sync proposal
 - **2026-01-04**: Added CONTRIBUTION_FLOW.md, CONTRIBUTION_TRACKING_REDESIGN.md to index
@@ -491,4 +502,4 @@ let container = try ModelContainer(for:
 
 ---
 
-*Last updated: 2026-01-04*
+*Last updated: 2026-03-04*
