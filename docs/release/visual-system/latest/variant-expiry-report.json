@@ -1,0 +1,22 @@
+{
+  "tokensPath": "docs/design/visual-tokens.v1.json",
+  "passed": true,
+  "issueCount": 0,
+  "summary": {
+    "today": "2026-03-03",
+    "variantCount": 6,
+    "thresholdDays": 30,
+    "concentrationMinVariants": 3,
+    "groups": {
+      "2026-06-30": [
+        "interactive.primary",
+        "interactive.secondary",
+        "status.success",
+        "status.warning",
+        "text.secondary",
+        "surface.base"
+      ]
+    }
+  },
+  "issues": []
+}

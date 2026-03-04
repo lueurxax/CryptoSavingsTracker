@@ -1,0 +1,44 @@
+{
+  "reportVersion": "v1",
+  "platform": "ios",
+  "captureMode": "production-flow",
+  "artifactRoot": "docs/screenshots/review-visual-system-unification-r4/production/ios",
+  "artifacts": [
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/dashboard/default.png",
+      "sha256": "af3b9c9dc8a87ce565960b3fee9419702dbf45158d85fa69c33c3b4dcc349ce1"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/dashboard/error.png",
+      "sha256": "e58d4c1bf03004e7ad5fd9e24a46a9f7a29305f3d33d18a2c5c5b15f88444128"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/dashboard/recovery.png",
+      "sha256": "7563751c058f67dae5eb28d16b8c4f7ae52007d329be23c4454d8485ff2ffe7a"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/planning/default.png",
+      "sha256": "a2d8fc5093f73c93d058ee1c902c872d028708ca4ed21497b52f6faa806db0ba"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/planning/error.png",
+      "sha256": "85f7855a0d7baee66182474c9d718de644624f3c4e657327b5209ae9b09f1ac3"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/planning/recovery.png",
+      "sha256": "058358b765482abdb1b24ce0659eb77b7afbb0339fce616f2471a879a581fdca"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/settings/default.png",
+      "sha256": "c99dd9b449a9c101e8fef6ecadbb2ae329c64012b1dbd1228f28cddc5d07e1f8"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/settings/error.png",
+      "sha256": "c5025b5b29bdf23126a43088e3990ed96ad78e5c9f244347d664bf407b54cb8b"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/settings/recovery.png",
+      "sha256": "2a4213e7868bd8054184e002dd4806918ff57948a0fe547c7c3fc3f0a108866e"
+    }
+  ]
+}

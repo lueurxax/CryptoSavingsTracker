@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>logFormatVersion</key>
+	<integer>12</integer>
+	<key>logs</key>
+	<dict>
+		<key>987D9A81-5225-4C4E-874B-C9D0804DBA95</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>987D9A81-5225-4C4E-874B-C9D0804DBA95.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>W</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>1</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>CryptoSavingsTracker project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>CryptoSavingsTracker</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>0</integer>
+			<key>signature</key>
+			<string>Building project CryptoSavingsTracker with scheme CryptoSavingsTracker and configuration Debug</string>
+			<key>timeStartedRecording</key>
+			<real>794268289.09096396</real>
+			<key>timeStoppedRecording</key>
+			<real>794268302.03143203</real>
+			<key>title</key>
+			<string>Building project CryptoSavingsTracker with scheme CryptoSavingsTracker and configuration Debug</string>
+			<key>uniqueIdentifier</key>
+			<string>987D9A81-5225-4C4E-874B-C9D0804DBA95</string>
+		</dict>
+		<key>E7C93472-0C54-44DF-B396-C3DB024955E6</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>E7C93472-0C54-44DF-B396-C3DB024955E6.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>W</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>1</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>CryptoSavingsTracker project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>CryptoSavingsTracker</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>0</integer>
+			<key>signature</key>
+			<string>Building project CryptoSavingsTracker with scheme CryptoSavingsTracker and configuration Debug</string>
+			<key>timeStartedRecording</key>
+			<real>794264474.01718497</real>
+			<key>timeStoppedRecording</key>
+			<real>794264521.74352503</real>
+			<key>title</key>
+			<string>Building project CryptoSavingsTracker with scheme CryptoSavingsTracker and configuration Debug</string>
+			<key>uniqueIdentifier</key>
+			<string>E7C93472-0C54-44DF-B396-C3DB024955E6</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

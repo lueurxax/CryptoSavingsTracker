@@ -569,8 +569,16 @@ struct SummaryStatsView: View {
             }
         }
         .padding()
-        .background(.regularMaterial)
-        .cornerRadius(12)
+        .background(
+            RoundedRectangle(cornerRadius: VisualComponentTokens.dashboardSummaryCornerRadius)
+                .fill(VisualComponentTokens.financeSurfaceFill)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: VisualComponentTokens.dashboardSummaryCornerRadius)
+                .stroke(VisualComponentTokens.financeSurfaceStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: VisualComponentTokens.dashboardSummaryCornerRadius))
+        .accessibilityIdentifier("dashboard.summary_card")
     }
 }
 

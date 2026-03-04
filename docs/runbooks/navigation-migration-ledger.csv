@@ -1,0 +1,7 @@
+file,legacy_api,decision_id_target,owner,target_release,status
+ios/CryptoSavingsTracker/Views/Planning/PlanningView.swift,missing_NAV_MOD_annotation,MOD-02,Mobile Platform Team,2026.03,completed
+ios/CryptoSavingsTracker/Views/Planning/BudgetCalculatorSheet.swift,missing_NAV_MOD_annotation,MOD-02,Mobile Platform Team,2026.03,completed
+ios/CryptoSavingsTracker/Views/Dashboard/DashboardComponents.swift,missing_NAV_MOD_annotation,MOD-01,Dashboard Team,2026.03,completed
+ios/CryptoSavingsTracker/Views/GoalDetailView.swift,missing_NAV_MOD_annotation,MOD-04,Goals Team,2026.03,completed
+ios/CryptoSavingsTracker/Views/Settings/MonthlyPlanningSettingsView.swift,missing_NAV_MOD_annotation,MOD-01,Settings Team,2026.03,completed
+ios/CryptoSavingsTracker/Navigation/Coordinator.swift,missing_NAV_MOD_annotation,MOD-01,Mobile Platform Team,2026.03,completed

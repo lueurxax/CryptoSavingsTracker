@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "owner": "Product Analytics",
+  "lastUpdated": "2026-03-03",
+  "topJourneys": [
+    "goal-create-edit",
+    "monthly-budget-adjust",
+    "destructive-delete-confirmation",
+    "goal-contribution-edit-cancel",
+    "planning-flow-cancel-recovery"
+  ],
+  "events": [
+    {
+      "name": "nav_flow_started",
+      "requiredProperties": ["journey_id", "platform", "entry_point"]
+    },
+    {
+      "name": "nav_flow_completed",
+      "requiredProperties": ["journey_id", "platform", "duration_ms", "result"]
+    },
+    {
+      "name": "nav_cancelled",
+      "requiredProperties": ["journey_id", "platform", "is_dirty", "cancel_stage"]
+    },
+    {
+      "name": "nav_discard_confirmed",
+      "requiredProperties": ["journey_id", "platform", "form_type"]
+    },
+    {
+      "name": "nav_recovery_completed",
+      "requiredProperties": ["journey_id", "platform", "recovery_path", "success"]
+    }
+  ],
+  "platformParity": {
+    "iosContractRef": "ios/CryptoSavingsTracker/Utilities/NavigationTelemetry.swift",
+    "androidContractRef": "android/app/src/main/java/com/xax/CryptoSavingsTracker/domain/navigation/NavigationTelemetry.kt"
+  }
+}

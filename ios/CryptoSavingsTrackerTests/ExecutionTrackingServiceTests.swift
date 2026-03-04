@@ -152,4 +152,373 @@ struct ExecutionTrackingServiceTests {
         histories = try context.fetch(FetchDescriptor<AllocationHistory>())
         #expect(histories.count == 1)
     }
+
+    @Test("Undo completion keeps immutable completion history")
+    func testUndoCompletionKeepsCompletionEvent() async throws {
+        let context = modelContainer.mainContext
+        let goal = TestHelpers.createGoal(
+            name: "History Goal",
+            currency: "USD",
+            targetAmount: 1000,
+            currentTotal: 0,
+            deadline: Calendar.current.date(byAdding: .month, value: 3, to: Date())!
+        )
+        let asset = Asset(currency: "USD")
+        let allocation = AssetAllocation(asset: asset, goal: goal, amount: 100)
+        goal.allocations.append(allocation)
+        asset.allocations.append(allocation)
+        context.insert(goal)
+        context.insert(asset)
+        context.insert(allocation)
+
+        let monthLabel = MonthlyExecutionRecord.monthLabel(from: Date())
+        let plan = MonthlyPlan(
+            goalId: goal.id,
+            monthLabel: monthLabel,
+            requiredMonthly: 100,
+            remainingAmount: 1000,
+            monthsRemaining: 10,
+            currency: "USD"
+        )
+        context.insert(plan)
+        try context.save()
+
+        let record = try executionService.startTracking(for: monthLabel, from: [plan], goals: [goal])
+        let tx = Transaction(amount: 50, asset: asset, date: Date().addingTimeInterval(1))
+        asset.transactions.append(tx)
+        context.insert(tx)
+        try context.save()
+
+        try await executionService.markComplete(record)
+        #expect(record.completionEvents.count == 1)
+        let firstEventId = record.completionEvents.first?.eventId
+        #expect(record.completionEvents.first?.undoneAt == nil)
+
+        try executionService.undoCompletion(record)
+
+        #expect(record.status == .executing)
+        #expect(record.completionEvents.count == 1)
+        #expect(record.completionEvents.first?.eventId == firstEventId)
+        #expect(record.completionEvents.first?.undoneAt != nil)
+        #expect(record.completionEvents.first?.completionSnapshot != nil)
+    }
+
+    @Test("Backfill completion events is idempotent for legacy closed records")
+    func testBackfillCompletionEventsIdempotent() throws {
+        let context = modelContainer.mainContext
+        let monthLabel = "2026-01"
+        let completedAt = Date(timeIntervalSince1970: 1_704_067_200) // 2024-01-01T00:00:00Z
+
+        let record = MonthlyExecutionRecord(monthLabel: monthLabel, goalIds: [])
+        record.statusRawValue = "closed"
+        record.completedAt = completedAt
+
+        let snapshot = CompletedExecution(
+            monthLabel: monthLabel,
+            completedAt: completedAt,
+            exchangeRatesSnapshot: ["USD->USD": 1],
+            goalSnapshots: [],
+            contributionSnapshots: []
+        )
+        record.completedExecution = snapshot
+
+        context.insert(record)
+        context.insert(snapshot)
+        try context.save()
+
+        #expect(record.completionEvents.isEmpty)
+
+        let firstInsertCount = try executionService.backfillCompletionEventsIfNeeded()
+        let secondInsertCount = try executionService.backfillCompletionEventsIfNeeded()
+
+        #expect(firstInsertCount == 1)
+        #expect(secondInsertCount == 0)
+
+        let events = try executionService.getCompletionEvents(limit: 50)
+            .filter { $0.executionRecordId == record.id }
+        #expect(events.count == 1)
+
+        guard let event = events.first else {
+            Issue.record("Expected one completion event after backfill")
+            return
+        }
+
+        #expect(event.sequence == 1)
+        #expect(event.sourceDiscriminator == snapshot.id.uuidString)
+        #expect(event.completionSnapshot?.id == snapshot.id)
+    }
+
+    @Test("Completion events are returned in deterministic month and sequence order")
+    func testCompletionEventsDeterministicOrder() throws {
+        let context = modelContainer.mainContext
+
+        let janRecord = MonthlyExecutionRecord(monthLabel: "2026-01", goalIds: [])
+        janRecord.statusRawValue = "closed"
+        let febRecord = MonthlyExecutionRecord(monthLabel: "2026-02", goalIds: [])
+        febRecord.statusRawValue = "closed"
+
+        let janSnapshot1 = CompletedExecution(
+            monthLabel: "2026-01",
+            completedAt: Date(timeIntervalSince1970: 1_704_067_200),
+            exchangeRatesSnapshot: [:],
+            goalSnapshots: [],
+            contributionSnapshots: []
+        )
+        let janSnapshot2 = CompletedExecution(
+            monthLabel: "2026-01",
+            completedAt: Date(timeIntervalSince1970: 1_704_153_600),
+            exchangeRatesSnapshot: [:],
+            goalSnapshots: [],
+            contributionSnapshots: []
+        )
+        let febSnapshot = CompletedExecution(
+            monthLabel: "2026-02",
+            completedAt: Date(timeIntervalSince1970: 1_706_745_600),
+            exchangeRatesSnapshot: [:],
+            goalSnapshots: [],
+            contributionSnapshots: []
+        )
+
+        let janEvent1 = CompletionEvent(
+            executionRecord: janRecord,
+            sequence: 1,
+            sourceDiscriminator: janSnapshot1.id.uuidString,
+            completedAt: janSnapshot1.completedAt,
+            completionSnapshot: janSnapshot1
+        )
+        let janEvent2 = CompletionEvent(
+            executionRecord: janRecord,
+            sequence: 2,
+            sourceDiscriminator: janSnapshot2.id.uuidString,
+            completedAt: janSnapshot2.completedAt,
+            completionSnapshot: janSnapshot2
+        )
+        let febEvent = CompletionEvent(
+            executionRecord: febRecord,
+            sequence: 1,
+            sourceDiscriminator: febSnapshot.id.uuidString,
+            completedAt: febSnapshot.completedAt,
+            completionSnapshot: febSnapshot
+        )
+
+        context.insert(janRecord)
+        context.insert(febRecord)
+        context.insert(janSnapshot1)
+        context.insert(janSnapshot2)
+        context.insert(febSnapshot)
+        context.insert(janEvent1)
+        context.insert(janEvent2)
+        context.insert(febEvent)
+        try context.save()
+
+        let events = try executionService.getCompletionEvents(limit: 20)
+        let labelsAndSequence = events.map { ($0.monthLabel, $0.sequence) }
+        #expect(labelsAndSequence.prefix(3).map { "\($0.0)#\($0.1)" } == ["2026-02#1", "2026-01#2", "2026-01#1"])
+
+        let grouped = Dictionary(grouping: events, by: { $0.monthLabel })
+        #expect(grouped["2026-01"]?.count == 2)
+        #expect(grouped["2026-02"]?.count == 1)
+    }
+
+    @Test("Resolver returns closed state while undo window is active")
+    func testResolverClosedStateWithUndoWindow() {
+        let resolver = MonthlyCycleStateResolver()
+        let now = Date()
+        let input = ResolverInput(
+            nowUtc: now,
+            displayTimeZone: .current,
+            currentStorageMonthLabelUtc: "2026-03",
+            records: [
+                ExecutionRecordSnapshot(
+                    monthLabel: "2026-02",
+                    status: .closed,
+                    completedAt: now.addingTimeInterval(-3600),
+                    startedAt: now.addingTimeInterval(-7200),
+                    canUndoUntil: now.addingTimeInterval(3600)
+                )
+            ],
+            undoWindowSeconds: 24 * 3600
+        )
+
+        let state = resolver.resolve(input)
+        #expect(state == .closed(month: "2026-02", canUndoCompletion: true))
+    }
+
+    @Test("Resolver returns planning for current month after closed undo window expires")
+    func testResolverReturnsPlanningAfterClosedWindowExpires() {
+        let resolver = MonthlyCycleStateResolver()
+        let now = Date()
+        let input = ResolverInput(
+            nowUtc: now,
+            displayTimeZone: .current,
+            currentStorageMonthLabelUtc: "2026-03",
+            records: [
+                ExecutionRecordSnapshot(
+                    monthLabel: "2026-02",
+                    status: .closed,
+                    completedAt: now.addingTimeInterval(-3 * 24 * 3600),
+                    startedAt: now.addingTimeInterval(-4 * 24 * 3600),
+                    canUndoUntil: now.addingTimeInterval(-1)
+                )
+            ],
+            undoWindowSeconds: 24 * 3600
+        )
+
+        let state = resolver.resolve(input)
+        #expect(state == .planning(month: "2026-03", source: .nextMonthAfterClosed))
+    }
+
+    @Test("Resolver returns executing for active month")
+    func testResolverReturnsExecutingForActiveMonth() {
+        let resolver = MonthlyCycleStateResolver()
+        let now = Date()
+        let input = ResolverInput(
+            nowUtc: now,
+            displayTimeZone: .current,
+            currentStorageMonthLabelUtc: "2026-03",
+            records: [
+                ExecutionRecordSnapshot(
+                    monthLabel: "2026-03",
+                    status: .executing,
+                    completedAt: nil,
+                    startedAt: now.addingTimeInterval(-300),
+                    canUndoUntil: now.addingTimeInterval(300)
+                )
+            ],
+            undoWindowSeconds: 24 * 3600
+        )
+
+        let state = resolver.resolve(input)
+        #expect(state == .executing(month: "2026-03", canFinish: true, canUndoStart: true))
+    }
+
+    @Test("Resolver returns conflict for malformed month labels")
+    func testResolverReturnsConflictForMalformedMonthLabels() {
+        let resolver = MonthlyCycleStateResolver()
+        let now = Date()
+        let input = ResolverInput(
+            nowUtc: now,
+            displayTimeZone: .current,
+            currentStorageMonthLabelUtc: "2026-03",
+            records: [
+                ExecutionRecordSnapshot(
+                    monthLabel: "bad-label",
+                    status: .executing,
+                    completedAt: nil,
+                    startedAt: now.addingTimeInterval(-60),
+                    canUndoUntil: now.addingTimeInterval(60)
+                )
+            ],
+            undoWindowSeconds: 24 * 3600
+        )
+
+        let state = resolver.resolve(input)
+        #expect(state == .conflict(month: nil, reason: .invalidMonthLabel))
+    }
+
+    @Test("Resolver returns conflict for duplicate active executing records")
+    func testResolverReturnsConflictForDuplicateExecutingRecords() {
+        let resolver = MonthlyCycleStateResolver()
+        let now = Date()
+        let input = ResolverInput(
+            nowUtc: now,
+            displayTimeZone: .current,
+            currentStorageMonthLabelUtc: "2026-03",
+            records: [
+                ExecutionRecordSnapshot(
+                    monthLabel: "2026-03",
+                    status: .executing,
+                    completedAt: nil,
+                    startedAt: now.addingTimeInterval(-180),
+                    canUndoUntil: now.addingTimeInterval(180)
+                ),
+                ExecutionRecordSnapshot(
+                    monthLabel: "2026-03",
+                    status: .executing,
+                    completedAt: nil,
+                    startedAt: now.addingTimeInterval(-120),
+                    canUndoUntil: now.addingTimeInterval(120)
+                )
+            ],
+            undoWindowSeconds: 24 * 3600
+        )
+
+        let state = resolver.resolve(input)
+        #expect(state == .conflict(month: "2026-03", reason: .duplicateActiveRecords))
+    }
+
+    @Test("Resolver future boundary accepts current plus one month")
+    func testResolverFutureBoundaryCurrentPlusOneIsValid() {
+        let resolver = MonthlyCycleStateResolver()
+        let now = Date()
+        let input = ResolverInput(
+            nowUtc: now,
+            displayTimeZone: .current,
+            currentStorageMonthLabelUtc: "2026-03",
+            records: [
+                ExecutionRecordSnapshot(
+                    monthLabel: "2026-04",
+                    status: .draft,
+                    completedAt: nil,
+                    startedAt: nil,
+                    canUndoUntil: nil
+                )
+            ],
+            undoWindowSeconds: 24 * 3600
+        )
+
+        let state = resolver.resolve(input)
+        #expect(state == .planning(month: "2026-03", source: .currentMonth))
+    }
+
+    @Test("Resolver future boundary rejects current plus two months")
+    func testResolverFutureBoundaryCurrentPlusTwoIsConflict() {
+        let resolver = MonthlyCycleStateResolver()
+        let now = Date()
+        let input = ResolverInput(
+            nowUtc: now,
+            displayTimeZone: .current,
+            currentStorageMonthLabelUtc: "2026-03",
+            records: [
+                ExecutionRecordSnapshot(
+                    monthLabel: "2026-05",
+                    status: .draft,
+                    completedAt: nil,
+                    startedAt: nil,
+                    canUndoUntil: nil
+                )
+            ],
+            undoWindowSeconds: 24 * 3600
+        )
+
+        let state = resolver.resolve(input)
+        #expect(state == .conflict(month: "2026-05", reason: .futureRecord))
+    }
+
+    @Test("Resolver keeps storage month deterministic for UTC display edges")
+    func testResolverMonthBoundaryTimeZonesRemainDeterministic() {
+        let resolver = MonthlyCycleStateResolver()
+        let now = Date()
+
+        let utcMinusTwelve = ResolverInput(
+            nowUtc: now,
+            displayTimeZone: TimeZone(secondsFromGMT: -12 * 3600) ?? .current,
+            currentStorageMonthLabelUtc: "2026-03",
+            records: [],
+            undoWindowSeconds: 24 * 3600
+        )
+        let utcPlusFourteen = ResolverInput(
+            nowUtc: now,
+            displayTimeZone: TimeZone(secondsFromGMT: 14 * 3600) ?? .current,
+            currentStorageMonthLabelUtc: "2026-03",
+            records: [],
+            undoWindowSeconds: 24 * 3600
+        )
+
+        let minusState = resolver.resolve(utcMinusTwelve)
+        let plusState = resolver.resolve(utcPlusFourteen)
+
+        #expect(minusState == .planning(month: "2026-03", source: .currentMonth))
+        #expect(plusState == .planning(month: "2026-03", source: .currentMonth))
+    }
 }

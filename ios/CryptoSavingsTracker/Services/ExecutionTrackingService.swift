@@ -54,6 +54,56 @@ final class ExecutionTrackingService {
         return try modelContext.fetch(descriptor)
     }
 
+    /// Fetch completion events across all records (append-only history).
+    func getCompletionEvents(limit: Int = 200, offset: Int = 0) throws -> [CompletionEvent] {
+        var descriptor = FetchDescriptor<CompletionEvent>(
+            sortBy: [
+                SortDescriptor(\.monthLabel, order: .reverse),
+                SortDescriptor(\.sequence, order: .reverse),
+                SortDescriptor(\.completedAt, order: .reverse)
+            ]
+        )
+        descriptor.fetchLimit = limit
+        descriptor.fetchOffset = offset
+        return try modelContext.fetch(descriptor)
+    }
+
+    /// One-time deterministic backfill:
+    /// create a completion event for closed records that have immutable completion snapshots
+    /// but no event history yet.
+    @discardableResult
+    func backfillCompletionEventsIfNeeded() throws -> Int {
+        let records = try getAllRecords()
+        var inserted = 0
+
+        for record in records {
+            guard record.status == .closed else { continue }
+            if !record.completionEvents.isEmpty { continue }
+            guard let snapshot = record.completedExecution else {
+                AppLog.warning(
+                    "Skipping CompletionEvent backfill for \(record.monthLabel): missing completedExecution snapshot.",
+                    category: .executionTracking
+                )
+                continue
+            }
+
+            let event = CompletionEvent(
+                executionRecord: record,
+                sequence: 1,
+                sourceDiscriminator: snapshot.id.uuidString,
+                completedAt: snapshot.completedAt,
+                completionSnapshot: snapshot
+            )
+            modelContext.insert(event)
+            inserted += 1
+        }
+
+        if inserted > 0 {
+            try modelContext.save()
+        }
+        return inserted
+    }
+
     /// Get active (executing) record
     func getActiveRecord() throws -> MonthlyExecutionRecord? {
         let predicate = #Predicate<MonthlyExecutionRecord> { record in
@@ -78,11 +128,6 @@ final class ExecutionTrackingService {
         // Check if record already exists
         if let existing = try getRecord(for: monthLabel) {
             if existing.status == .draft || existing.status == .executing {
-                if let completed = existing.completedExecution {
-                    modelContext.delete(completed)
-                    existing.completedExecution = nil
-                }
-
                 // Always refresh snapshot from current plans to reflect latest adjustments
                 let goalIds = plans.map { $0.goalId }
                 if let encoded = try? JSONEncoder().encode(goalIds) {
@@ -105,11 +150,11 @@ final class ExecutionTrackingService {
 
                 // Transition to executing if needed
                 if existing.status == .draft {
-                    existing.startTracking()
+                    existing.startTracking(undoWindowHours: undoWindowHours())
                 } else if existing.status == .executing && existing.startedAt == nil {
                     // Older records may not have start time/undo window populated
                     existing.startedAt = Date()
-                    existing.canUndoUntil = Date().addingTimeInterval(24 * 3600)
+                    existing.canUndoUntil = Date().addingTimeInterval(TimeInterval(undoWindowHours() * 3600))
                 }
 
                 if let startedAt = existing.startedAt {
@@ -149,7 +194,7 @@ final class ExecutionTrackingService {
         record.snapshot = snapshot
 
         // Start tracking
-        record.startTracking()
+        record.startTracking(undoWindowHours: undoWindowHours())
 
         modelContext.insert(record)
         if let startedAt = record.startedAt {
@@ -205,29 +250,36 @@ final class ExecutionTrackingService {
     /// Mark month as complete
     func markComplete(_ record: MonthlyExecutionRecord) async throws {
         if UITestFlags.isEnabled {
-            record.markComplete()
+            record.markComplete(undoWindowHours: undoWindowHours())
             try modelContext.save()
             // Post notification synchronously (we're already on MainActor)
             NotificationCenter.default.post(name: .monthlyExecutionCompleted, object: record)
             return
         }
 
-        record.markComplete()
+        record.markComplete(undoWindowHours: undoWindowHours())
         let completedAt = record.completedAt ?? Date()
 
         // Snapshot derived contributions for immutability in history views.
         let (exchangeRatesSnapshot, contributionSnapshots) = try await buildCompletedExecutionSnapshot(for: record, end: completedAt)
-        if let existing = record.completedExecution {
-            modelContext.delete(existing)
-            record.completedExecution = nil
-        }
-        record.completedExecution = CompletedExecution(
+        let completionSnapshot = CompletedExecution(
             monthLabel: record.monthLabel,
             completedAt: completedAt,
             exchangeRatesSnapshot: exchangeRatesSnapshot,
             goalSnapshots: record.snapshot?.goalSnapshots ?? [],
             contributionSnapshots: contributionSnapshots
         )
+        record.completedExecution = completionSnapshot
+
+        let completionEvent = CompletionEvent(
+            executionRecord: record,
+            sequence: nextCompletionSequence(for: record),
+            sourceDiscriminator: completionSnapshot.id.uuidString,
+            completedAt: completedAt,
+            completionSnapshot: completionSnapshot
+        )
+        modelContext.insert(completionSnapshot)
+        modelContext.insert(completionEvent)
 
         try modelContext.save()
         // Post notification on main actor for SwiftUI state updates
@@ -241,10 +293,13 @@ final class ExecutionTrackingService {
         guard record.canUndo else {
             throw ExecutionError.undoPeriodExpired
         }
+        guard record.status == .closed else {
+            throw ExecutionError.invalidState
+        }
         record.undoCompletion()
-        if let completed = record.completedExecution {
-            modelContext.delete(completed)
-            record.completedExecution = nil
+        if let latest = latestOpenCompletionEvent(for: record) {
+            latest.undoneAt = Date()
+            latest.undoReason = "manualUndo"
         }
         try modelContext.save()
     }
@@ -324,6 +379,13 @@ final class ExecutionTrackingService {
         return try modelContext.fetchCount(descriptor)
     }
 
+    func getAllRecords() throws -> [MonthlyExecutionRecord] {
+        let descriptor = FetchDescriptor<MonthlyExecutionRecord>(
+            sortBy: [SortDescriptor(\.monthLabel, order: .forward)]
+        )
+        return try modelContext.fetch(descriptor)
+    }
+
     private func buildCompletedExecutionSnapshot(
         for record: MonthlyExecutionRecord,
         end: Date
@@ -397,6 +459,26 @@ final class ExecutionTrackingService {
             throw ExecutionError.recordNotFound
         }
         return goal
+    }
+
+    private func undoWindowHours() -> Int {
+        max(0, MonthlyPlanningSettings.shared.undoGracePeriodHours)
+    }
+
+    private func nextCompletionSequence(for record: MonthlyExecutionRecord) -> Int {
+        (record.completionEvents.map(\.sequence).max() ?? 0) + 1
+    }
+
+    private func latestOpenCompletionEvent(for record: MonthlyExecutionRecord) -> CompletionEvent? {
+        record.completionEvents
+            .filter { $0.undoneAt == nil }
+            .sorted { lhs, rhs in
+                if lhs.sequence == rhs.sequence {
+                    return lhs.completedAt > rhs.completedAt
+                }
+                return lhs.sequence > rhs.sequence
+            }
+            .first
     }
 }
 

@@ -1,0 +1,91 @@
+{
+  "manifestVersion": "v1",
+  "updatedAt": "2026-03-03",
+  "captureMode": "production-flow",
+  "captureEntrypoints": {
+    "ios": "scripts/capture_ios_production_flows.sh",
+    "android": "scripts/capture_android_production_flows.sh"
+  },
+  "requiredFlows": [
+    {
+      "flowId": "planning",
+      "routeId": "planning",
+      "requiredStates": [
+        "default",
+        "error",
+        "recovery"
+      ],
+      "states": [
+        {
+          "stateId": "default",
+          "iosArtifact": "docs/screenshots/review-visual-system-unification-r4/production/ios/planning/default.png",
+          "androidArtifact": "docs/screenshots/review-visual-system-unification-r4/production/android/planning/default.png"
+        },
+        {
+          "stateId": "error",
+          "iosArtifact": "docs/screenshots/review-visual-system-unification-r4/production/ios/planning/error.png",
+          "androidArtifact": "docs/screenshots/review-visual-system-unification-r4/production/android/planning/error.png"
+        },
+        {
+          "stateId": "recovery",
+          "iosArtifact": "docs/screenshots/review-visual-system-unification-r4/production/ios/planning/recovery.png",
+          "androidArtifact": "docs/screenshots/review-visual-system-unification-r4/production/android/planning/recovery.png"
+        }
+      ]
+    },
+    {
+      "flowId": "dashboard",
+      "routeId": "dashboard",
+      "requiredStates": [
+        "default",
+        "error",
+        "recovery"
+      ],
+      "states": [
+        {
+          "stateId": "default",
+          "iosArtifact": "docs/screenshots/review-visual-system-unification-r4/production/ios/dashboard/default.png",
+          "androidArtifact": "docs/screenshots/review-visual-system-unification-r4/production/android/dashboard/default.png"
+        },
+        {
+          "stateId": "error",
+          "iosArtifact": "docs/screenshots/review-visual-system-unification-r4/production/ios/dashboard/error.png",
+          "androidArtifact": "docs/screenshots/review-visual-system-unification-r4/production/android/dashboard/error.png"
+        },
+        {
+          "stateId": "recovery",
+          "iosArtifact": "docs/screenshots/review-visual-system-unification-r4/production/ios/dashboard/recovery.png",
+          "androidArtifact": "docs/screenshots/review-visual-system-unification-r4/production/android/dashboard/recovery.png"
+        }
+      ]
+    },
+    {
+      "flowId": "settings",
+      "routeId": "settings",
+      "requiredStates": [
+        "default",
+        "error",
+        "recovery"
+      ],
+      "states": [
+        {
+          "stateId": "default",
+          "iosArtifact": "docs/screenshots/review-visual-system-unification-r4/production/ios/settings/default.png",
+          "androidArtifact": "docs/screenshots/review-visual-system-unification-r4/production/android/settings/default.png"
+        },
+        {
+          "stateId": "error",
+          "iosArtifact": "docs/screenshots/review-visual-system-unification-r4/production/ios/settings/error.png",
+          "androidArtifact": "docs/screenshots/review-visual-system-unification-r4/production/android/settings/error.png"
+        },
+        {
+          "stateId": "recovery",
+          "iosArtifact": "docs/screenshots/review-visual-system-unification-r4/production/ios/settings/recovery.png",
+          "androidArtifact": "docs/screenshots/review-visual-system-unification-r4/production/android/settings/recovery.png"
+        }
+      ]
+    }
+  ],
+  "evidenceCommitSha": "b6f443283405fefff67b775b9d03f734cd233cf7",
+  "capturedAt": "2026-03-03T22:02:00.387952Z"
+}

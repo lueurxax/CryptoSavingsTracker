@@ -183,7 +183,7 @@ struct AddAssetView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Text("Currency:")
-                                Text("*").foregroundColor(.red)
+                                Text("*").foregroundColor(AccessibleColors.error)
                                 Spacer()
                                 Button(action: { showingHelp = true }) {
                                     Image(systemName: "questionmark.circle")
@@ -215,7 +215,7 @@ struct AddAssetView: View {
                             if showCurrencyError {
                                 Text("Please select a currency")
                                     .font(.caption)
-                                    .foregroundColor(.red)
+                                    .foregroundColor(AccessibleColors.error)
                             }
                         }
 
@@ -265,7 +265,7 @@ struct AddAssetView: View {
                                         if showChainError {
                                             Text("Please select a blockchain network")
                                                 .font(.caption)
-                                                .foregroundColor(.red)
+                                                .foregroundColor(AccessibleColors.error)
                                         }
                                     }
                                 }
@@ -306,6 +306,7 @@ struct AddAssetView: View {
                 .padding(.bottom, 16)
             }
             .frame(minWidth: 500, minHeight: 450)
+            // NAV-MOD: MOD-01
             .popover(isPresented: $showingCurrencyPicker) {
                 VStack(spacing: 0) {
                     // Search field
@@ -360,7 +361,7 @@ struct AddAssetView: View {
                 .frame(width: 350, height: 450)
             }
 #else
-            NavigationView {
+            NavigationStack {
                 Form {
                     // Error Message Section
                     if let errorMessage = errorMessage {
@@ -424,7 +425,7 @@ struct AddAssetView: View {
                             Text("Currency:")
                                 .accessibilityLabel("Currency selection")
                             Text("*")
-                                .foregroundColor(.red)
+                                .foregroundColor(AccessibleColors.error)
                                 .accessibilityHidden(true)
                             Spacer()
                             Button(action: { 
@@ -458,7 +459,7 @@ struct AddAssetView: View {
                         if showCurrencyError {
                             Text("Please select a currency")
                                 .font(.caption)
-                                .foregroundColor(.red)
+                                .foregroundColor(AccessibleColors.error)
                                 .accessibilityLabel("Validation error: Please select a currency")
                         }
                     }
@@ -538,7 +539,7 @@ struct AddAssetView: View {
                                 if showChainError {
                                     Text("Please select a blockchain network")
                                         .font(.caption)
-                                        .foregroundColor(.red)
+                                        .foregroundColor(AccessibleColors.error)
                                         .accessibilityLabel("Validation error: Please select a blockchain network")
                                 }
                             }
@@ -578,28 +579,8 @@ struct AddAssetView: View {
                     }
                 }
             }
-            .fullScreenCover(isPresented: Binding(
-                get: { isUITestFlow && showingCurrencyPicker },
-                set: { newValue in
-                    if isUITestFlow {
-                        showingCurrencyPicker = newValue
-                    }
-                }
-            )) {
-                SearchableCurrencyPicker(
-                    selectedCurrency: $currency,
-                    pickerType: assetKind == .fiat ? .fiat : .crypto,
-                    titleOverride: assetKind == .fiat ? "Select Fiat Currency" : "Select Asset Currency"
-                )
-            }
-            .sheet(isPresented: Binding(
-                get: { !isUITestFlow && showingCurrencyPicker },
-                set: { newValue in
-                    if !isUITestFlow {
-                        showingCurrencyPicker = newValue
-                    }
-                }
-            )) {
+            // NAV-MOD: MOD-01
+            .sheet(isPresented: $showingCurrencyPicker) {
                 SearchableCurrencyPicker(
                     selectedCurrency: $currency,
                     pickerType: assetKind == .fiat ? .fiat : .crypto,
@@ -837,12 +818,4 @@ struct AddAssetView: View {
             predictedChain = nil
         }
     }
-}
-
-
-#Preview {
-    let goal = Goal(name: "Sample Goal", currency: "USD", targetAmount: 10000.0, deadline: Date().addingTimeInterval(86400 * 30))
-    
-    return AddAssetView(goal: goal)
-        .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
 }

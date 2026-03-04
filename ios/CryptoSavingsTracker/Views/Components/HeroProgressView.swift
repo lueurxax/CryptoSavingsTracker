@@ -256,17 +256,3 @@ struct CompactMetric: View {
         .frame(maxWidth: .infinity)
     }
 }
-
-#Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config)
-    
-    let goal = Goal(name: "Emergency Fund", currency: "EUR", targetAmount: 1600, deadline: Date().addingTimeInterval(86400 * 85))
-    container.mainContext.insert(goal)
-    
-    return ScrollView {
-        HeroProgressView(goal: goal)
-            .padding()
-    }
-    .modelContainer(container)
-}

@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "owner": "Mobile Platform Team",
+  "lastUpdated": "2026-03-03",
+  "journeys": [
+    {
+      "id": "goal-create-edit",
+      "name": "Goal create/edit",
+      "coverage": {
+        "entry": true,
+        "action": true,
+        "cancel": true,
+        "validationError": true,
+        "recovery": true,
+        "confirmation": true
+      },
+      "iosRefs": [
+        "ios/CryptoSavingsTracker/Views/AddGoalView.swift",
+        "ios/CryptoSavingsTracker/Views/EditGoalView.swift"
+      ],
+      "androidPresentationRefs": [
+        "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/goals/AddEditGoalScreen.kt"
+      ]
+    },
+    {
+      "id": "monthly-budget-adjust",
+      "name": "Monthly budget adjust",
+      "coverage": {
+        "entry": true,
+        "action": true,
+        "cancel": true,
+        "validationError": true,
+        "recovery": true,
+        "confirmation": true
+      },
+      "iosRefs": [
+        "ios/CryptoSavingsTracker/Views/Planning/PlanningView.swift",
+        "ios/CryptoSavingsTracker/Views/Planning/BudgetCalculatorSheet.swift"
+      ],
+      "androidPresentationRefs": [
+        "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/planning/PlanningScreen.kt",
+        "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/planning/components/BudgetCalculatorComponents.kt"
+      ]
+    },
+    {
+      "id": "destructive-delete-confirmation",
+      "name": "Destructive delete confirmation",
+      "coverage": {
+        "entry": true,
+        "action": true,
+        "cancel": true,
+        "validationError": true,
+        "recovery": true,
+        "confirmation": true
+      },
+      "iosRefs": [
+        "ios/CryptoSavingsTracker/Views/GoalDetailView.swift"
+      ],
+      "androidPresentationRefs": [
+        "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/goals/GoalDetailScreen.kt"
+      ]
+    },
+    {
+      "id": "goal-contribution-edit-cancel",
+      "name": "Goal contribution edit/cancel",
+      "coverage": {
+        "entry": true,
+        "action": true,
+        "cancel": true,
+        "validationError": true,
+        "recovery": true,
+        "confirmation": true
+      },
+      "iosRefs": [
+        "ios/CryptoSavingsTracker/Views/GoalDetailView.swift",
+        "ios/CryptoSavingsTracker/Views/FlexAdjustmentView.swift"
+      ],
+      "androidPresentationRefs": [
+        "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/goals/GoalDetailScreen.kt",
+        "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/execution/ExecutionScreen.kt"
+      ]
+    },
+    {
+      "id": "planning-flow-cancel-recovery",
+      "name": "Planning flow cancel/recovery",
+      "coverage": {
+        "entry": true,
+        "action": true,
+        "cancel": true,
+        "validationError": true,
+        "recovery": true,
+        "confirmation": true
+      },
+      "iosRefs": [
+        "ios/CryptoSavingsTracker/Views/Planning/PlanningView.swift",
+        "ios/CryptoSavingsTracker/Views/Planning/BudgetCalculatorSheet.swift"
+      ],
+      "androidPresentationRefs": [
+        "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/planning/PlanningScreen.kt",
+        "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/planning/MonthlyPlanningScreen.kt"
+      ]
+    }
+  ]
+}

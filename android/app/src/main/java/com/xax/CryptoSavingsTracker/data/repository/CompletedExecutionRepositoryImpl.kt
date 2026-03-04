@@ -27,13 +27,42 @@ class CompletedExecutionRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun replaceForRecord(recordId: String, executions: List<CompletedExecution>) {
-        completedExecutionDao.deleteByRecordId(recordId)
+    override fun getActiveByRecordId(recordId: String): Flow<List<CompletedExecution>> {
+        return completedExecutionDao.getActiveByRecordId(recordId).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
+    override fun getByCompletionEventId(completionEventId: String): Flow<List<CompletedExecution>> {
+        return completedExecutionDao.getByCompletionEventId(completionEventId).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
+    override fun getActiveByCompletionEventId(completionEventId: String): Flow<List<CompletedExecution>> {
+        return completedExecutionDao.getActiveByCompletionEventId(completionEventId).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
+    override suspend fun append(executions: List<CompletedExecution>) {
         completedExecutionDao.insertAll(executions.map { it.toEntity() })
     }
 
     override suspend fun deleteByRecordId(recordId: String) {
         completedExecutionDao.deleteByRecordId(recordId)
+    }
+
+    override suspend fun markUndoneByRecordId(recordId: String, undoneAtMillis: Long, undoReason: String) {
+        completedExecutionDao.markUndoneByRecordId(recordId, undoneAtMillis, undoReason)
+    }
+
+    override suspend fun markUndoneByCompletionEventId(
+        completionEventId: String,
+        undoneAtMillis: Long,
+        undoReason: String
+    ) {
+        completedExecutionDao.markUndoneByCompletionEventId(completionEventId, undoneAtMillis, undoReason)
     }
 
     override fun getUndoable(currentTimeMillis: Long): Flow<List<CompletedExecution>> {

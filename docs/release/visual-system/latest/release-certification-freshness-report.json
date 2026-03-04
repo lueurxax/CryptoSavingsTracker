@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "issueCount": 0,
+  "issues": [],
+  "summary": {
+    "reportPath": "artifacts/visual-system/release-certification-report.json",
+    "expectedCommit": "b6f443283405fefff67b775b9d03f734cd233cf7",
+    "sourceCommitSha": "b6f443283405fefff67b775b9d03f734cd233cf7",
+    "generatedAt": "2026-03-03T21:51:00.312187Z",
+    "ageHours": 0.0001,
+    "maxAgeHours": 24.0
+  }
+}

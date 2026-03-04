@@ -6,6 +6,7 @@ package com.xax.CryptoSavingsTracker.domain.model
 data class CompletedExecution(
     val id: String,
     val executionRecordId: String,
+    val completionEventId: String? = null,
     val goalId: String,
     val goalName: String,
     val currency: String,
@@ -13,6 +14,7 @@ data class CompletedExecution(
     val actualAmount: Double,
     val completedAtMillis: Long,
     val canUndoUntilMillis: Long,
-    val createdAtMillis: Long
+    val createdAtMillis: Long,
+    val undoneAtMillis: Long? = null,
+    val undoReason: String? = null
 )
-

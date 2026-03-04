@@ -46,20 +46,6 @@ private enum BudgetHealthTone {
     }
 }
 
-private enum BudgetHealthCardStyle {
-    static let cornerRadius: CGFloat = 12
-
-    static var baselineStroke: Color {
-        #if os(iOS)
-        return Color(UIColor.separator).opacity(0.55)
-        #elseif os(macOS)
-        return Color(NSColor.separatorColor).opacity(0.55)
-        #else
-        return Color.primary.opacity(0.12)
-        #endif
-    }
-}
-
 enum BudgetHealthState: Equatable {
     case noBudget
     case healthy
@@ -500,19 +486,19 @@ struct BudgetHealthCard: View {
         }
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: BudgetHealthCardStyle.cornerRadius)
-                .fill(.regularMaterial)
+            RoundedRectangle(cornerRadius: VisualComponentTokens.planningCardCornerRadius)
+                .fill(VisualComponentTokens.financeSurfaceFill)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: BudgetHealthCardStyle.cornerRadius)
-                .stroke(state.tone.accentStroke ?? BudgetHealthCardStyle.baselineStroke, lineWidth: 1)
+            RoundedRectangle(cornerRadius: VisualComponentTokens.planningCardCornerRadius)
+                .stroke(state.tone.accentStroke ?? VisualComponentTokens.financeSurfaceStroke, lineWidth: 1)
         )
         .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: BudgetHealthCardStyle.cornerRadius)
+            RoundedRectangle(cornerRadius: VisualComponentTokens.planningCardCornerRadius)
                 .fill(state.tone.color)
                 .frame(width: 3)
         }
-        .clipShape(RoundedRectangle(cornerRadius: BudgetHealthCardStyle.cornerRadius))
+        .clipShape(RoundedRectangle(cornerRadius: VisualComponentTokens.planningCardCornerRadius))
         .scaleEffect(reduceMotion || hasAppeared ? 1 : 0.98)
         .opacity(reduceMotion || hasAppeared ? 1 : 0)
         .onAppear {
@@ -604,7 +590,7 @@ struct BudgetHealthCollapsedStrip: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(BudgetHealthCardStyle.baselineStroke, lineWidth: 1)
+                .stroke(VisualComponentTokens.financeSurfaceStroke, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .accessibilityIdentifier("budgetHealthCollapsedStrip")

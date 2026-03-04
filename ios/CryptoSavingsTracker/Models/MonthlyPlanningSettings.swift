@@ -121,6 +121,28 @@ final class MonthlyPlanningSettings: ObservableObject {
     }
 
     // MARK: - Computed Properties
+
+    /// Human-readable undo grace period string derived from `undoGracePeriodHours`.
+    var undoWindowString: String {
+        switch undoGracePeriodHours {
+        case 0:
+            return "no undo available"
+        case 1...23:
+            return "\(undoGracePeriodHours) hour\(undoGracePeriodHours == 1 ? "" : "s")"
+        case 24:
+            return "24 hours"
+        case 48:
+            return "48 hours"
+        case 168:
+            return "7 days"
+        default:
+            let days = undoGracePeriodHours / 24
+            if days > 0 && undoGracePeriodHours % 24 == 0 {
+                return "\(days) day\(days == 1 ? "" : "s")"
+            }
+            return "\(undoGracePeriodHours) hours"
+        }
+    }
     
     /// Next payment deadline based on current date and payment day
     var nextPaymentDate: Date {

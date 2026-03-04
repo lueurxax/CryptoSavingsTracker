@@ -61,7 +61,3 @@ struct EmptyDetailView: View {
         }
     }
 }
-
-#Preview {
-    EmptyDetailView()
-}

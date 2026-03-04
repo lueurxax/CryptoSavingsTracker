@@ -2,92 +2,92 @@
 //  PlanHistoryDetailView.swift
 //  CryptoSavingsTracker
 //
-//  Created for v2.1 - Monthly Planning Execution & Tracking
-//  Shows detailed view of a completed monthly execution record
-//
 
 import SwiftUI
 import SwiftData
 #if os(macOS)
 import AppKit
 private let windowBackground = Color(NSColor.windowBackgroundColor)
-private let controlBackground = Color(NSColor.controlBackgroundColor)
 #else
 import UIKit
 private let windowBackground = Color(.systemBackground)
-private let controlBackground = Color(.secondarySystemBackground)
 #endif
 
-struct PlanHistoryDetailView: View {
+private struct HistoryEventEntry: Identifiable {
+    var id: UUID { event.eventId }
+    let event: CompletionEvent
     let record: MonthlyExecutionRecord
+    let snapshot: CompletedExecution?
+}
+
+struct PlanHistoryDetailView: View {
+    let monthLabel: String
     let modelContext: ModelContext
 
-    @State private var contributionCountsByGoal: [UUID: Int] = [:]
-    @State private var contributedTotals: [UUID: Double] = [:]
-    @State private var overallProgress: Double = 0
-    @State private var isLoading = false
+    @State private var entries: [HistoryEventEntry] = []
     @State private var showUndoAlert = false
+    @State private var isLoading = false
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                // Header
+            VStack(spacing: 16) {
                 headerSection
-
-                // Undo banner if available
-                if record.canUndo {
+                if canUndoLatest {
                     undoBanner
                 }
-
-                // Overall Summary
                 summarySection
-
-                // Goals Breakdown
-                goalsBreakdownSection
-
-                // Timeline
                 timelineSection
             }
             .padding()
         }
-        .navigationTitle(formatMonthLabel(record.monthLabel))
+        .navigationTitle(formatMonthLabel(monthLabel))
         .task {
             await loadData()
+        }
+        .refreshable {
+            await loadData()
+        }
+        .overlay {
+            if isLoading {
+                ProgressView()
+            }
         }
         .alert("Undo Completion?", isPresented: $showUndoAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Undo") {
                 Task {
-                    await undoCompletion()
+                    await undoLatestCompletion()
                 }
             }
         } message: {
-            Text("This will reopen this month for tracking. You can still add contributions.")
+            Text("This will reopen this month for tracking.")
         }
     }
 
-    // MARK: - Header
+    private var latestEntry: HistoryEventEntry? {
+        entries.first
+    }
+
+    private var latestOpenEntry: HistoryEventEntry? {
+        entries.first(where: { $0.event.undoneAt == nil })
+    }
+
+    private var canUndoLatest: Bool {
+        guard let latestOpenEntry else { return false }
+        return latestOpenEntry.record.canUndo
+    }
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: record.status.icon)
-                    .font(.title2)
-                Text(record.status.displayName)
+                Image(systemName: "calendar")
+                Text(formatMonthLabel(monthLabel))
                     .font(.title2)
                     .fontWeight(.bold)
-
                 Spacer()
-
-                if overallProgress >= 100 {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.title2)
-                        .foregroundStyle(.green)
-                }
             }
-
-            if let completedAt = record.completedAt {
-                Text("Completed on \(completedAt, format: .dateTime.month().day().year())")
+            if let completedAt = latestEntry?.event.completedAt {
+                Text("Latest completion: \(completedAt, format: .dateTime.month().day().year())")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -95,208 +95,111 @@ struct PlanHistoryDetailView: View {
         .padding()
         .background(windowBackground)
         .cornerRadius(12)
-        .shadow(radius: 2)
     }
-
-    // MARK: - Undo Banner
 
     private var undoBanner: some View {
         HStack {
             Image(systemName: "arrow.uturn.backward.circle.fill")
-                .foregroundStyle(.orange)
-
-            VStack(alignment: .leading) {
-                Text("Undo Available")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                if let expiresAt = record.canUndoUntil {
-                    Text("Expires in \(timeRemaining(until: expiresAt))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
+                .foregroundStyle(AccessibleColors.warning)
+            Text("Undo available for latest completion")
+                .font(.subheadline)
             Spacer()
-
             Button("Undo") {
                 showUndoAlert = true
             }
             .buttonStyle(.borderedProminent)
-            .tint(.orange)
+            .tint(AccessibleColors.warning)
         }
         .padding()
-        .background(Color.orange.opacity(0.1))
+        .background(AccessibleColors.warningBackground)
         .cornerRadius(12)
     }
-
-    // MARK: - Summary
 
     private var summarySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Summary")
                 .font(.headline)
-
-            if let snapshot = record.snapshot {
-                VStack(spacing: 16) {
-                    // Progress bar
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Overall Progress")
-                                .font(.subheadline)
-                            Spacer()
-                            Text("\(Int(overallProgress))%")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        }
-
-                        let pct = min(max(overallProgress, 0), 100)
-                        ProgressView(value: pct, total: 100)
-                            .tint(pct >= 100 ? .green : .orange)
-                    }
-
-                    // Stats grid
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                        HistoryStatCard(
-                            title: "Planned",
-                            value: formatCurrency(snapshot.totalPlanned),
-                            icon: "target"
-                        )
-
-                        HistoryStatCard(
-                            title: "Contributed",
-                            value: formatCurrency(contributedTotals.values.reduce(0, +)),
-                            icon: "arrow.up.circle.fill"
-                        )
-
-                        HistoryStatCard(
-                            title: "Goals",
-                            value: "\(snapshot.activeGoalCount)",
-                            icon: "flag.fill"
-                        )
-
-                        HistoryStatCard(
-                            title: "Fulfilled",
-                            value: "\(fulfilledCount)",
-                            icon: "checkmark.circle.fill"
-                        )
-                    }
-                }
-            }
+            let required = latestEntry?.snapshot?.goalSnapshots.reduce(0, { $0 + $1.plannedAmount }) ?? 0
+            let actual = latestEntry?.snapshot?.contributedTotalsByGoalId.values.reduce(0, +) ?? 0
+            Text("Planned: \(formatCurrency(required))")
+            Text("Actual: \(formatCurrency(actual))")
+            Text("Events: \(entries.count)")
+                .foregroundStyle(.secondary)
         }
         .padding()
         .background(windowBackground)
         .cornerRadius(12)
-        .shadow(radius: 2)
     }
-
-    // MARK: - Goals Breakdown
-
-    private var goalsBreakdownSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Goals Breakdown")
-                .font(.headline)
-
-            if let snapshot = record.snapshot {
-                ForEach(snapshot.goalSnapshots, id: \.goalId) { goalSnapshot in
-                    GoalHistoryCard(
-                        goalSnapshot: goalSnapshot,
-                        contributed: contributedTotals[goalSnapshot.goalId] ?? 0,
-                        contributionCount: contributionCountsByGoal[goalSnapshot.goalId] ?? 0
-                    )
-                }
-            }
-        }
-        .padding()
-        .background(windowBackground)
-        .cornerRadius(12)
-        .shadow(radius: 2)
-    }
-
-    // MARK: - Timeline
 
     private var timelineSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Timeline")
+            Text("Completion Events")
                 .font(.headline)
-
-            VStack(alignment: .leading, spacing: 16) {
-                TimelineEvent(
-                    icon: "plus.circle.fill",
-                    title: "Created",
-                    date: record.createdAt,
-                    color: .blue
-                )
-
-                if let startedAt = record.startedAt {
-                    TimelineEvent(
-                        icon: "play.circle.fill",
-                        title: "Started Tracking",
-                        date: startedAt,
-                        color: .green
-                    )
+            ForEach(entries) { entry in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(entry.event.completedAt, format: .dateTime.month().day().year().hour().minute())
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Text("Sequence: \(entry.event.sequence)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(statusText(for: entry))
+                        .font(.caption)
+                        .foregroundStyle(statusColor(for: entry))
+                    let required = entry.snapshot?.goalSnapshots.reduce(0, { $0 + $1.plannedAmount }) ?? 0
+                    let actual = entry.snapshot?.contributedTotalsByGoalId.values.reduce(0, +) ?? 0
+                    Text("Planned \(formatCurrency(required)) · Actual \(formatCurrency(actual))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-
-                if let completedAt = record.completedAt {
-                    TimelineEvent(
-                        icon: "checkmark.circle.fill",
-                        title: "Completed",
-                        date: completedAt,
-                        color: .green
-                    )
-                }
+                .padding()
+                .background(windowBackground)
+                .cornerRadius(10)
             }
         }
         .padding()
         .background(windowBackground)
         .cornerRadius(12)
-        .shadow(radius: 2)
     }
-
-    // MARK: - Computed Properties
-
-    private var fulfilledCount: Int {
-        guard let snapshot = record.snapshot else { return 0 }
-        return snapshot.goalSnapshots.filter { goalSnapshot in
-            let contributed = contributedTotals[goalSnapshot.goalId] ?? 0
-            return contributed >= goalSnapshot.plannedAmount
-        }.count
-    }
-
-    // MARK: - Actions
 
     private func loadData() async {
         isLoading = true
+        defer { isLoading = false }
 
         do {
-            let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
-            contributedTotals = try await executionService.getContributionTotals(for: record)
-            overallProgress = try await executionService.calculateProgress(for: record)
-
-            contributionCountsByGoal = record.completedExecution?.contributionSnapshots.reduce(into: [:]) { partial, snapshot in
-                partial[snapshot.goalId, default: 0] += 1
-            } ?? [:]
+            let service = DIContainer.shared.executionTrackingService(modelContext: modelContext)
+            let events = try service.getCompletionEvents(limit: 500)
+            entries = events
+                .filter { $0.monthLabel == monthLabel }
+                .compactMap { event in
+                    guard let record = event.executionRecord else { return nil }
+                    return HistoryEventEntry(event: event, record: record, snapshot: event.completionSnapshot)
+                }
+                .sorted {
+                    if $0.event.sequence == $1.event.sequence {
+                        return $0.event.completedAt > $1.event.completedAt
+                    }
+                    return $0.event.sequence > $1.event.sequence
+                }
         } catch {
-            print("Error loading data: \(error)")
+            print("Error loading month history: \(error)")
         }
-
-        isLoading = false
     }
 
-    private func undoCompletion() async {
+    private func undoLatestCompletion() async {
+        guard let latestOpenEntry else { return }
         do {
-            let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
-            try executionService.undoCompletion(record)
-            // Navigate back
+            let service = DIContainer.shared.executionTrackingService(modelContext: modelContext)
+            try service.undoCompletion(latestOpenEntry.record)
+            await loadData()
         } catch {
             print("Error undoing completion: \(error)")
         }
     }
 
-    // MARK: - Helpers
-
     private func formatMonthLabel(_ label: String) -> String {
         let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(identifier: "UTC")
         formatter.dateFormat = "yyyy-MM"
         if let date = formatter.date(from: label) {
             formatter.dateFormat = "MMMM yyyy"
@@ -305,129 +208,33 @@ struct PlanHistoryDetailView: View {
         return label
     }
 
-    private func formatCurrency(_ amount: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        return formatter.string(from: NSNumber(value: amount)) ?? "$\(amount)"
+    private func formatCurrency(_ value: Double) -> String {
+        let number = NumberFormatter()
+        number.numberStyle = .currency
+        number.currencyCode = "USD"
+        number.maximumFractionDigits = 2
+        return number.string(from: NSNumber(value: value)) ?? String(format: "$%.2f", value)
     }
 
-    private func timeRemaining(until date: Date) -> String {
-        let interval = date.timeIntervalSinceNow
-        let hours = Int(interval / 3600)
-        let minutes = Int((interval.truncatingRemainder(dividingBy: 3600)) / 60)
-
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        } else {
-            return "\(minutes)m"
+    private func statusText(for entry: HistoryEventEntry) -> String {
+        if let undoneAt = entry.event.undoneAt {
+            return "Undone at \(undoneAt.formatted(date: .abbreviated, time: .shortened))"
         }
-    }
-}
 
-// MARK: - Supporting Views
-
-struct HistoryStatCard: View {
-    let title: String
-    let value: String
-    let icon: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Text(value)
-                .font(.title3)
-                .fontWeight(.semibold)
+        if let latestOpenEntry, latestOpenEntry.id == entry.id {
+            return latestOpenEntry.record.canUndo ? "Undo available" : "Undo expired"
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(controlBackground)
-        .cornerRadius(8)
+
+        return "Completed"
     }
-}
 
-struct GoalHistoryCard: View {
-    let goalSnapshot: ExecutionGoalSnapshot
-    let contributed: Double
-    let contributionCount: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(goalSnapshot.goalName)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                Spacer()
-
-                if contributed >= goalSnapshot.plannedAmount {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                }
-            }
-
-            let total = max(goalSnapshot.plannedAmount, 0.0001)
-            let safeContributed = min(max(contributed, 0), total)
-            ProgressView(value: safeContributed, total: total)
-                .tint(safeContributed >= total ? .green : .orange)
-
-            HStack {
-                Text("\(formatCurrency(contributed, currency: goalSnapshot.currency)) / \(formatCurrency(goalSnapshot.plannedAmount, currency: goalSnapshot.currency))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                Text("\(contributionCount) contributions")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+    private func statusColor(for entry: HistoryEventEntry) -> Color {
+        if entry.event.undoneAt != nil {
+            return AccessibleColors.warning
         }
-        .padding()
-        .background(contributed >= goalSnapshot.plannedAmount ? Color.green.opacity(0.1) : controlBackground)
-        .cornerRadius(8)
-    }
-
-    private func formatCurrency(_ amount: Double, currency: String) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = currency
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: NSNumber(value: amount)) ?? "\(currency) \(amount)"
-    }
-}
-
-struct TimelineEvent: View {
-    let icon: String
-    let title: String
-    let date: Date
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundStyle(color)
-                .font(.title3)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                Text(date, format: .dateTime.month().day().year().hour().minute())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
+        if let latestOpenEntry, latestOpenEntry.id == entry.id, latestOpenEntry.record.canUndo {
+            return .blue
         }
+        return AccessibleColors.success
     }
 }

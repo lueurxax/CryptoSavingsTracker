@@ -108,6 +108,7 @@ struct TestContainer {
             AllocationHistory.self,
             MonthlyExecutionRecord.self,
             CompletedExecution.self,
+            CompletionEvent.self,
             ExecutionSnapshot.self
         ])
         // Use UUID to ensure unique store name for parallel test execution

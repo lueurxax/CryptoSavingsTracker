@@ -1,0 +1,79 @@
+name: Visual System Rollback
+description: Use for visual-system rollback incidents (SEV1/SEV2)
+title: "[VSU Rollback] <short incident summary>"
+labels:
+  - visual-system
+  - rollback
+body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: Select incident severity
+      options:
+        - sev1
+        - sev2
+    validations:
+      required: true
+
+  - type: input
+    id: affected_wave
+    attributes:
+      label: Affected wave flag(s)
+      description: e.g. visual_system.wave1_planning
+      placeholder: visual_system.wave1_planning
+    validations:
+      required: true
+
+  - type: textarea
+    id: rollback_action
+    attributes:
+      label: Rollback action
+      description: What was rolled back and when
+      placeholder: Include timestamp, owner, and flags disabled.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence_links
+    attributes:
+      label: Evidence links
+      description: Required evidence for rollback decision
+      placeholder: |
+        - Gate failure links
+        - Before/after screenshots
+        - Telemetry marker vsu_wave_rollback_completed
+    validations:
+      required: true
+
+  - type: textarea
+    id: user_communication
+    attributes:
+      label: User Communication (Required for SEV1/SEV2)
+      description: Fill all communication channels used for this incident.
+      placeholder: |
+        In-app banner:
+        Release notes:
+        Support macro:
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: comm_channels
+    attributes:
+      label: Communication channels checklist
+      options:
+        - label: In-app banner prepared or not required by severity
+        - label: Release notes prepared
+        - label: Support macro prepared
+    validations:
+      required: true
+
+  - type: textarea
+    id: prevention_action
+    attributes:
+      label: Prevention action
+      description: What will prevent recurrence
+      placeholder: Link closure PR, owner, and due date.
+    validations:
+      required: true

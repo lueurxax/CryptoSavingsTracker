@@ -75,12 +75,3 @@ struct ExchangeRateStatusBadge: View {
         }
     }
 }
-
-#Preview {
-    VStack(spacing: 20) {
-        ExchangeRateWarningView(isOffline: true, lastUpdate: Date().addingTimeInterval(-3600))
-        ExchangeRateWarningView(isOffline: true, lastUpdate: nil)
-        ExchangeRateStatusBadge()
-    }
-    .padding()
-}

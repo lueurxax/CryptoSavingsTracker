@@ -2,44 +2,57 @@
 //  PlanHistoryListView.swift
 //  CryptoSavingsTracker
 //
-//  Created for v2.1 - Monthly Planning Execution & Tracking
-//  Shows list of completed monthly execution records
-//
 
 import SwiftUI
 import SwiftData
 
+private struct HistoryEventEntry {
+    let event: CompletionEvent
+    let record: MonthlyExecutionRecord
+    let snapshot: CompletedExecution?
+}
+
+private struct HistoryMonthGroup: Identifiable {
+    var id: String { monthLabel }
+    let monthLabel: String
+    let latestCompletedAt: Date
+    let requiredTotal: Double
+    let actualTotal: Double
+    let undoAvailable: Bool
+}
+
 struct PlanHistoryListView: View {
     @Environment(\.modelContext) private var modelContext
-    @State private var completedRecords: [MonthlyExecutionRecord] = []
+    @State private var groups: [HistoryMonthGroup] = []
     @State private var isLoading = false
-    @State private var selectedRecord: MonthlyExecutionRecord?
 
     var body: some View {
         List {
-            if completedRecords.isEmpty {
+            if groups.isEmpty {
                 ContentUnavailableView(
                     "No History Yet",
                     systemImage: "clock.arrow.circlepath",
                     description: Text("Completed months will appear here")
                 )
             } else {
-                ForEach(completedRecords, id: \.id) { record in
-                    NavigationLink(value: record) {
-                        HistoryRecordRow(record: record, modelContext: modelContext)
+                ForEach(groups) { group in
+                    NavigationLink {
+                        PlanHistoryDetailView(
+                            monthLabel: group.monthLabel,
+                            modelContext: modelContext
+                        )
+                    } label: {
+                        HistoryMonthRow(group: group)
                     }
                 }
             }
         }
         .navigationTitle("History")
-        .navigationDestination(for: MonthlyExecutionRecord.self) { record in
-            PlanHistoryDetailView(record: record, modelContext: modelContext)
-        }
         .task {
-            await loadCompletedRecords()
+            await loadHistory()
         }
         .refreshable {
-            await loadCompletedRecords()
+            await loadHistory()
         }
         .overlay {
             if isLoading {
@@ -48,94 +61,90 @@ struct PlanHistoryListView: View {
         }
     }
 
-    private func loadCompletedRecords() async {
+    private func loadHistory() async {
         isLoading = true
+        defer { isLoading = false }
 
         do {
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
-            completedRecords = try executionService.getCompletedRecords(limit: 12)
-        } catch {
-            print("Error loading completed records: \(error)")
-        }
+            let events = try executionService.getCompletionEvents(limit: 500)
+            let entries: [HistoryEventEntry] = events.compactMap { event in
+                guard let record = event.executionRecord else { return nil }
+                return HistoryEventEntry(event: event, record: record, snapshot: event.completionSnapshot)
+            }
 
-        isLoading = false
+            let grouped = Dictionary(grouping: entries, by: { $0.event.monthLabel })
+            groups = grouped.compactMap { (monthLabel, monthEntries) in
+                let sorted = monthEntries.sorted {
+                    if $0.event.sequence == $1.event.sequence {
+                        return $0.event.completedAt > $1.event.completedAt
+                    }
+                    return $0.event.sequence > $1.event.sequence
+                }
+                guard let latest = sorted.first else { return nil }
+                let required = latest.snapshot?.goalSnapshots.reduce(0, { $0 + $1.plannedAmount }) ?? 0
+                let actual = latest.snapshot?.contributedTotalsByGoalId.values.reduce(0, +) ?? 0
+                let latestOpen = sorted.first(where: { $0.event.undoneAt == nil })
+                let undoAvailable = latestOpen?.record.canUndo ?? false
+
+                return HistoryMonthGroup(
+                    monthLabel: monthLabel,
+                    latestCompletedAt: latest.event.completedAt,
+                    requiredTotal: required,
+                    actualTotal: actual,
+                    undoAvailable: undoAvailable
+                )
+            }
+            .sorted(by: { $0.monthLabel > $1.monthLabel })
+        } catch {
+            print("Error loading history: \(error)")
+        }
     }
 }
 
-// MARK: - History Record Row
-
-struct HistoryRecordRow: View {
-    let record: MonthlyExecutionRecord
-    let modelContext: ModelContext
-
-    @State private var progress: Double = 0
-    @State private var totalContributed: Double = 0
-    @State private var totalPlanned: Double = 0
+private struct HistoryMonthRow: View {
+    let group: HistoryMonthGroup
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(formatMonthLabel(record.monthLabel))
+                Text(formatMonthLabel(group.monthLabel))
                     .font(.headline)
-
                 Spacer()
-
-                if progress >= 100 {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                }
-            }
-
-            let pct = min(max(progress, 0), 100)
-            ProgressView(value: pct, total: 100)
-                .tint(pct >= 100 ? .green : .orange)
-
-            HStack {
-                Text("\(Int(progress))% complete")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                if let snapshot = record.snapshot {
-                    Text("\(snapshot.activeGoalCount) goals")
+                if group.undoAvailable {
+                    Text("Undo available")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AccessibleColors.warning)
                 }
             }
 
-            if let completedAt = record.completedAt {
-                Text("Completed \(completedAt, format: .dateTime.month().day())")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
+            Text("Completed \(group.latestCompletedAt, format: .dateTime.month().day().year())")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Text("Planned: \(formatCurrency(group.actualTotal)) of \(formatCurrency(group.requiredTotal))")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
-        .task {
-            await calculateProgress()
-        }
-    }
-
-    private func calculateProgress() async {
-        do {
-            let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
-            progress = try await executionService.calculateProgress(for: record)
-
-            let totals = try await executionService.getContributionTotals(for: record)
-            totalContributed = totals.values.reduce(0, +)
-            totalPlanned = record.snapshot?.totalPlanned ?? 0
-        } catch {
-            print("Error calculating progress: \(error)")
-        }
     }
 
     private func formatMonthLabel(_ label: String) -> String {
         let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(identifier: "UTC")
         formatter.dateFormat = "yyyy-MM"
         if let date = formatter.date(from: label) {
             formatter.dateFormat = "MMMM yyyy"
             return formatter.string(from: date)
         }
         return label
+    }
+
+    private func formatCurrency(_ value: Double) -> String {
+        let number = NumberFormatter()
+        number.numberStyle = .currency
+        number.currencyCode = "USD"
+        number.maximumFractionDigits = 2
+        return number.string(from: NSNumber(value: value)) ?? String(format: "$%.2f", value)
     }
 }

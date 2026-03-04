@@ -65,6 +65,18 @@ struct AccessibleColors {
     
     /// Dark background for emphasis
     static let darkBackground = Color(red: 0.90, green: 0.90, blue: 0.90)
+
+    /// Adaptive base surface matching system container backgrounds across light/dark modes
+    static let surfaceBase = adaptiveNeutralColor(
+        light: RGBColor(red: 1.0, green: 1.0, blue: 1.0),
+        dark: RGBColor(red: 0.12, green: 0.12, blue: 0.12)
+    )
+
+    /// Adaptive subtle surface matching secondary grouped backgrounds across light/dark modes
+    static let surfaceSubtle = adaptiveNeutralColor(
+        light: RGBColor(red: 0.95, green: 0.95, blue: 0.95),
+        dark: RGBColor(red: 0.16, green: 0.16, blue: 0.18)
+    )
     
     // MARK: - Interactive Colors
     /// Primary interactive color (accessible blue)
@@ -266,6 +278,31 @@ struct AccessibleColors {
         return Color(red: light.red, green: light.green, blue: light.blue).opacity(0.1)
         #endif
     }
+
+    private static func adaptiveNeutralColor(light: RGBColor, dark: RGBColor) -> Color {
+        #if canImport(UIKit)
+        return Color(
+            UIColor { traitCollection in
+                let source = traitCollection.userInterfaceStyle == .dark ? dark : light
+                return UIColor(red: source.red, green: source.green, blue: source.blue, alpha: 1)
+            }
+        )
+        #elseif canImport(AppKit)
+        return Color(
+            NSColor(name: nil) { appearance in
+                let source = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+                return NSColor(
+                    calibratedRed: source.red,
+                    green: source.green,
+                    blue: source.blue,
+                    alpha: 1
+                )
+            }
+        )
+        #else
+        return Color(red: light.red, green: light.green, blue: light.blue)
+        #endif
+    }
 }
 
 /// Extension to provide accessible color variants
@@ -287,6 +324,12 @@ extension Color {
     
     /// Accessible hover background
     static let accessibleHover = AccessibleColors.hoverBackground
+
+    /// Accessible adaptive base surface for cards/containers
+    static let accessibleSurface = AccessibleColors.surfaceBase
+
+    /// Accessible adaptive subtle surface for grouped blocks
+    static let accessibleSurfaceSubtle = AccessibleColors.surfaceSubtle
     
     /// Accessible achievement color (replaces .yellow)
     static let accessibleAchievement = AccessibleColors.achievement

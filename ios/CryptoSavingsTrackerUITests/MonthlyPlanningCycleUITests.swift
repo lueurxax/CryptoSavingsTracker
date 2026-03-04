@@ -20,7 +20,7 @@ final class MonthlyPlanningCycleUITests: XCTestCase {
         app = nil
     }
 
-    func testFinishMonthAdvancesToNextMonthPlanningAndStartTrackingTargetsNextMonth() throws {
+    func testFinishMonthShowsClosedStateWithUndoDuringUndoWindow() throws {
         #if os(macOS)
         throw XCTSkip("Flow is automated on iOS simulator.")
         #endif
@@ -32,12 +32,12 @@ final class MonthlyPlanningCycleUITests: XCTestCase {
         let trackingMonth = bannerMonthLabel(app, prefix: "Recording contributions for")
 
         finishMonth(app)
-        let planningMonth = bannerMonthLabel(app, prefix: "Planning for")
-        XCTAssertNotEqual(planningMonth, trackingMonth, "Expected planning month to advance after completion.")
+        let closedMonth = bannerMonthLabel(app, prefix: "Undo available for")
+        XCTAssertEqual(closedMonth, trackingMonth, "Expected closed banner to reference the finished tracking month.")
 
-        startTracking(app)
-        let nextTrackingMonth = bannerMonthLabel(app, prefix: "Recording contributions for")
-        XCTAssertEqual(nextTrackingMonth, planningMonth, "Expected tracking month to match the next-month planning banner.")
+        XCTAssertTrue(app.buttons["undoFinishButton"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["finishMonthButton"].exists, "Finish should not remain visible in closed state.")
+        XCTAssertFalse(app.buttons["startTrackingButton"].exists, "Start should not appear while closed undo window is active.")
     }
 
     func testUndoStartTrackingReturnsToCurrentMonthPlanning() throws {
@@ -84,9 +84,9 @@ private func startTracking(_ app: XCUIApplication) {
     XCTAssertTrue(startButton.waitForExistence(timeout: 10))
     tapForce(startButton)
 
-    let alert = app.alerts["Start Tracking?"]
+    let alert = app.alerts.matching(NSPredicate(format: "label BEGINSWITH %@", "Start Tracking")).firstMatch
     if alert.waitForExistence(timeout: 2) {
-        alert.buttons["Start Tracking"].firstMatch.tap()
+        alert.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Start Tracking")).firstMatch.tap()
     }
 
     XCTAssertTrue(app.buttons["finishMonthButton"].waitForExistence(timeout: 10))
@@ -98,9 +98,9 @@ private func finishMonth(_ app: XCUIApplication) {
     tapForce(finishButton)
 
     // In UI test mode, there's no confirmation alert - action happens directly
-    let alert = app.alerts["Complete this month?"]
+    let alert = app.alerts.matching(NSPredicate(format: "label BEGINSWITH %@", "Finish ")).firstMatch
     if alert.waitForExistence(timeout: 2) {
-        let finishAlertButton = alert.buttons["Finish Month"]
+        let finishAlertButton = alert.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Finish ")).firstMatch
         if finishAlertButton.exists {
             finishAlertButton.tap()
         }
@@ -109,12 +109,8 @@ private func finishMonth(_ app: XCUIApplication) {
     // Wait for the execution view to disappear (finish button should go away)
     _ = finishButton.waitForNonExistence(timeout: 10)
 
-    // Wait for UI to transition back to planning mode
-    // The startTrackingButton should appear after finishing the month
-    _ = app.buttons["startTrackingButton"].waitForExistence(timeout: 15)
-
-    // Allow extra time for banner text to update
-    sleep(2)
+    // Allow state banner/actions to settle (closed state or planning based on undo window).
+    sleep(1)
 }
 
 private func returnToPlanning(_ app: XCUIApplication) {
@@ -122,9 +118,9 @@ private func returnToPlanning(_ app: XCUIApplication) {
     XCTAssertTrue(returnButton.waitForExistence(timeout: 10))
     tapForce(returnButton)
 
-    let alert = app.alerts["Return to Planning Mode?"]
+    let alert = app.alerts.matching(NSPredicate(format: "label BEGINSWITH %@", "Back to Planning")).firstMatch
     if alert.waitForExistence(timeout: 2) {
-        let confirmButton = alert.buttons["Return to Planning"]
+        let confirmButton = alert.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Back to Planning")).firstMatch
         if confirmButton.exists {
             confirmButton.tap()
         }

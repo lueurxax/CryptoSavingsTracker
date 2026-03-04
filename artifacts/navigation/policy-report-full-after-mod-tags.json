@@ -1,0 +1,462 @@
+{
+  "passed": true,
+  "changedOnly": false,
+  "baseRef": null,
+  "strictModTags": false,
+  "strictPreviewSegregation": false,
+  "allowlistPath": null,
+  "allowlistedCount": 0,
+  "scannedFileCount": 74,
+  "scannedFiles": [
+    "ios/CryptoSavingsTracker/Views/AddAssetView.swift",
+    "ios/CryptoSavingsTracker/Views/AddGoalView.swift",
+    "ios/CryptoSavingsTracker/Views/AddTransactionView.swift",
+    "ios/CryptoSavingsTracker/Views/AssetDetailView.swift",
+    "ios/CryptoSavingsTracker/Views/AssetRowView.swift",
+    "ios/CryptoSavingsTracker/Views/AssetSharingView.swift",
+    "ios/CryptoSavingsTracker/Views/Charts/ChartSkeletonView.swift",
+    "ios/CryptoSavingsTracker/Views/Charts/EnhancedLineChartView.swift",
+    "ios/CryptoSavingsTracker/Views/Charts/ForecastChartView.swift",
+    "ios/CryptoSavingsTracker/Views/Charts/HeatmapCalendarView.swift",
+    "ios/CryptoSavingsTracker/Views/Charts/LineChartView.swift",
+    "ios/CryptoSavingsTracker/Views/Charts/ProgressRingView.swift",
+    "ios/CryptoSavingsTracker/Views/Charts/SimpleLineChartView.swift",
+    "ios/CryptoSavingsTracker/Views/Charts/SimpleStackedBarView.swift",
+    "ios/CryptoSavingsTracker/Views/Charts/SparklineChartView.swift",
+    "ios/CryptoSavingsTracker/Views/Charts/StackedBarChartView.swift",
+    "ios/CryptoSavingsTracker/Views/Components/AllocationPromptBanner.swift",
+    "ios/CryptoSavingsTracker/Views/Components/ChartErrorView.swift",
+    "ios/CryptoSavingsTracker/Views/Components/DashboardMetricsGrid.swift",
+    "ios/CryptoSavingsTracker/Views/Components/DetailContainerView.swift",
+    "ios/CryptoSavingsTracker/Views/Components/EmojiPickerView.swift",
+    "ios/CryptoSavingsTracker/Views/Components/EmptyDetailView.swift",
+    "ios/CryptoSavingsTracker/Views/Components/EmptyGoalsView.swift",
+    "ios/CryptoSavingsTracker/Views/Components/EmptyStateView.swift",
+    "ios/CryptoSavingsTracker/Views/Components/ExchangeRateWarningView.swift",
+    "ios/CryptoSavingsTracker/Views/Components/FlexAdjustmentSlider.swift",
+    "ios/CryptoSavingsTracker/Views/Components/GoalAllocationCard.swift",
+    "ios/CryptoSavingsTracker/Views/Components/GoalSwitcherBar.swift",
+    "ios/CryptoSavingsTracker/Views/Components/GoalsSidebarView.swift",
+    "ios/CryptoSavingsTracker/Views/Components/HelpTooltip.swift",
+    "ios/CryptoSavingsTracker/Views/Components/HeroProgressView.swift",
+    "ios/CryptoSavingsTracker/Views/Components/HoverTooltipView.swift",
+    "ios/CryptoSavingsTracker/Views/Components/ImpactPreviewCard.swift",
+    "ios/CryptoSavingsTracker/Views/Components/MonthlyPlanningWidget.swift",
+    "ios/CryptoSavingsTracker/Views/Components/OnboardingTooltip.swift",
+    "ios/CryptoSavingsTracker/Views/Components/ReminderConfigurationView.swift",
+    "ios/CryptoSavingsTracker/Views/Components/SharedAssetIndicator.swift",
+    "ios/CryptoSavingsTracker/Views/Components/SimplePieChart.swift",
+    "ios/CryptoSavingsTracker/Views/Components/UnallocatedAssetsSection.swift",
+    "ios/CryptoSavingsTracker/Views/ContentView.swift",
+    "ios/CryptoSavingsTracker/Views/Dashboard/DashboardComponents.swift",
+    "ios/CryptoSavingsTracker/Views/Dashboard/EnhancedDashboardComponents.swift",
+    "ios/CryptoSavingsTracker/Views/Dashboard/WhatIfSettings.swift",
+    "ios/CryptoSavingsTracker/Views/Dashboard/WhatIfView.swift",
+    "ios/CryptoSavingsTracker/Views/DashboardView.swift",
+    "ios/CryptoSavingsTracker/Views/EditGoalView.swift",
+    "ios/CryptoSavingsTracker/Views/FlexAdjustmentView.swift",
+    "ios/CryptoSavingsTracker/Views/GoalDetailView.swift",
+    "ios/CryptoSavingsTracker/Views/Goals/GoalComparisonView.swift",
+    "ios/CryptoSavingsTracker/Views/Goals/GoalsListContainer.swift",
+    "ios/CryptoSavingsTracker/Views/Goals/GoalsSidebarContainer.swift",
+    "ios/CryptoSavingsTracker/Views/GoalsListView.swift",
+    "ios/CryptoSavingsTracker/Views/MonthlyPlanningView.swift",
+    "ios/CryptoSavingsTracker/Views/Onboarding/OnboardingFlowView.swift",
+    "ios/CryptoSavingsTracker/Views/Onboarding/OnboardingStepViews.swift",
+    "ios/CryptoSavingsTracker/Views/OnboardingContentView.swift",
+    "ios/CryptoSavingsTracker/Views/Planning/BudgetCalculatorSheet.swift",
+    "ios/CryptoSavingsTracker/Views/Planning/BudgetSummaryCard.swift",
+    "ios/CryptoSavingsTracker/Views/Planning/CommitDock.swift",
+    "ios/CryptoSavingsTracker/Views/Planning/GoalRequirementRow.swift",
+    "ios/CryptoSavingsTracker/Views/Planning/MonthlyExecutionView.swift",
+    "ios/CryptoSavingsTracker/Views/Planning/MonthlyPlanningContainer.swift",
+    "ios/CryptoSavingsTracker/Views/Planning/PlanHistoryDetailView.swift",
+    "ios/CryptoSavingsTracker/Views/Planning/PlanHistoryListView.swift",
+    "ios/CryptoSavingsTracker/Views/Planning/PlanningView.swift",
+    "ios/CryptoSavingsTracker/Views/Planning/StaleDraftBanner.swift",
+    "ios/CryptoSavingsTracker/Views/SearchableCurrencyPicker.swift",
+    "ios/CryptoSavingsTracker/Views/Settings/MonthlyPlanningSettingsView.swift",
+    "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift",
+    "ios/CryptoSavingsTracker/Views/Shared/CSVExportShareView.swift",
+    "ios/CryptoSavingsTracker/Views/Shared/UITestBootstrapView.swift",
+    "ios/CryptoSavingsTracker/Views/Shared/UnifiedGoalRowView.swift",
+    "ios/CryptoSavingsTracker/Views/TransactionHistoryView.swift",
+    "ios/CryptoSavingsTracker/Navigation/Coordinator.swift"
+  ],
+  "issueCount": 0,
+  "warningCount": 53,
+  "issues": [],
+  "warnings": [
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/AddAssetView.swift",
+      "line": 824,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/AddGoalView.swift",
+      "line": 585,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/AddTransactionView.swift",
+      "line": 237,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Charts/ChartSkeletonView.swift",
+      "line": 241,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Charts/EnhancedLineChartView.swift",
+      "line": 494,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Charts/ForecastChartView.swift",
+      "line": 255,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Charts/HeatmapCalendarView.swift",
+      "line": 439,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Charts/LineChartView.swift",
+      "line": 151,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Charts/ProgressRingView.swift",
+      "line": 265,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Charts/SimpleLineChartView.swift",
+      "line": 267,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Charts/SimpleStackedBarView.swift",
+      "line": 254,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Charts/SparklineChartView.swift",
+      "line": 256,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Charts/StackedBarChartView.swift",
+      "line": 122,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/ChartErrorView.swift",
+      "line": 176,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/DashboardMetricsGrid.swift",
+      "line": 216,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/DetailContainerView.swift",
+      "line": 43,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/EmojiPickerView.swift",
+      "line": 136,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/EmptyDetailView.swift",
+      "line": 65,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/EmptyGoalsView.swift",
+      "line": 51,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/EmptyStateView.swift",
+      "line": 423,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/ExchangeRateWarningView.swift",
+      "line": 79,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/FlexAdjustmentSlider.swift",
+      "line": 544,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/GoalSwitcherBar.swift",
+      "line": 164,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/GoalsSidebarView.swift",
+      "line": 115,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/HelpTooltip.swift",
+      "line": 180,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/HeroProgressView.swift",
+      "line": 260,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/HoverTooltipView.swift",
+      "line": 219,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/MonthlyPlanningWidget.swift",
+      "line": 480,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/ReminderConfigurationView.swift",
+      "line": 223,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Components/SharedAssetIndicator.swift",
+      "line": 150,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/ContentView.swift",
+      "line": 290,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Dashboard/DashboardComponents.swift",
+      "line": 597,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Dashboard/EnhancedDashboardComponents.swift",
+      "line": 422,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/DashboardView.swift",
+      "line": 754,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/EditGoalView.swift",
+      "line": 427,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/GoalDetailView.swift",
+      "line": 507,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Goals/GoalComparisonView.swift",
+      "line": 183,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Goals/GoalsListContainer.swift",
+      "line": 167,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Goals/GoalsSidebarContainer.swift",
+      "line": 48,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/GoalsListView.swift",
+      "line": 197,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Onboarding/OnboardingFlowView.swift",
+      "line": 326,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Onboarding/OnboardingStepViews.swift",
+      "line": 655,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/OnboardingContentView.swift",
+      "line": 68,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Planning/BudgetSummaryCard.swift",
+      "line": 616,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Planning/CommitDock.swift",
+      "line": 300,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Planning/GoalRequirementRow.swift",
+      "line": 780,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Planning/PlanningView.swift",
+      "line": 1322,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Planning/StaleDraftBanner.swift",
+      "line": 324,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/SearchableCurrencyPicker.swift",
+      "line": 475,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Settings/MonthlyPlanningSettingsView.swift",
+      "line": 742,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift",
+      "line": 130,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Shared/CSVExportShareView.swift",
+      "line": 52,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    },
+    {
+      "rule_id": "NAV003",
+      "file": "ios/CryptoSavingsTracker/Views/Shared/UnifiedGoalRowView.swift",
+      "line": 268,
+      "message": "Preview and active declarations are mixed in one file",
+      "suggested_fix": "Extract #Preview/PreviewProvider into dedicated *Preview*.swift file"
+    }
+  ]
+}

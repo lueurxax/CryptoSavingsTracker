@@ -9,6 +9,10 @@ import Foundation
 
 /// Utility for consistent currency formatting across the app
 struct CurrencyFormatter {
+
+    static func format(amount: MoneyAmount) -> String {
+        format(amount: amount.value, currency: amount.currency, fractionDigits: amount.minorUnits)
+    }
     
     /// Format an amount with currency symbol
     static func format(amount: Double, currency: String, maximumFractionDigits: Int = 0) -> String {
@@ -27,6 +31,30 @@ struct CurrencyFormatter {
 
         let digits = max(0, maximumFractionDigits)
         let fallback = String(format: "%.\(digits)f", amount)
+        return currency.isEmpty ? fallback : "\(currency) \(fallback)"
+    }
+
+    /// Format a Decimal amount with optional explicit fraction digits.
+    static func format(amount: Decimal, currency: String, fractionDigits: Int? = nil) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = currency
+
+        if let fractionDigits {
+            formatter.minimumFractionDigits = max(0, fractionDigits)
+            formatter.maximumFractionDigits = max(0, fractionDigits)
+        }
+
+        let number = NSDecimalNumber(decimal: amount)
+        if let formatted = formatter.string(from: number) {
+            return formatted
+        }
+
+        let digits = fractionDigits ?? MoneyQuantizer.minorUnits(for: currency)
+        let fallback = NSDecimalNumber(decimal: amount).stringValue
+        if digits == 0 {
+            return currency.isEmpty ? fallback : "\(currency) \(fallback)"
+        }
         return currency.isEmpty ? fallback : "\(currency) \(fallback)"
     }
     

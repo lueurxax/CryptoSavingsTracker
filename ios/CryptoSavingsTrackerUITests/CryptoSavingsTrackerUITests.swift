@@ -161,6 +161,29 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
             app.swipeDown()
         }
     }
+
+    @MainActor
+    func testAddGoalDirtyDismissConfirmationFlow() throws {
+        openAddGoalForm()
+
+        let nameField = app.textFields["goalNameField"].exists ? app.textFields["goalNameField"] : app.textFields["Goal Name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 3))
+        nameField.tap()
+        nameField.typeText("Dirty Goal")
+
+        let cancelButton = app.buttons["Cancel"]
+        XCTAssertTrue(cancelButton.waitForExistence(timeout: 3))
+        cancelButton.tap()
+
+        let discardButton = app.buttons["Discard Changes"]
+        XCTAssertTrue(discardButton.waitForExistence(timeout: 3))
+        discardButton.tap()
+
+        XCTAssertTrue(
+            app.navigationBars["Goals"].waitForExistence(timeout: 5) ||
+            app.navigationBars["Crypto Goals"].waitForExistence(timeout: 5)
+        )
+    }
     
     // MARK: - Goal Detail Flow Tests
     

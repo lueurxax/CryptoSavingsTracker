@@ -38,13 +38,19 @@ class ExecutionRecordRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun getAllRecords(): Flow<List<ExecutionRecord>> {
+        return executionRecordDao.getAllRecords().map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
     override suspend fun upsert(record: ExecutionRecord) {
         executionRecordDao.insert(record.toEntity())
     }
 
-    override suspend fun close(recordId: String, closedAtMillis: Long) {
+    override suspend fun close(recordId: String, closedAtMillis: Long, canUndoUntilMillis: Long?) {
         val now = System.currentTimeMillis()
-        executionRecordDao.closeRecord(recordId, closedAtMillis, now)
+        executionRecordDao.closeRecord(recordId, closedAtMillis, canUndoUntilMillis, now)
     }
 
     override suspend fun reopen(recordId: String) {

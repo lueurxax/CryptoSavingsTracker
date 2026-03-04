@@ -5,6 +5,7 @@ import com.xax.CryptoSavingsTracker.domain.model.ExecutionRecord
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionStatus
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionRecordRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionSnapshotRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExecutionTransitionTransactionRunner
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -16,6 +17,9 @@ class UndoStartExecutionUseCaseTest {
     fun undoStart_succeedsWithinWindow() = runTest {
         val recordRepo = mockk<ExecutionRecordRepository>()
         val snapshotRepo = mockk<ExecutionSnapshotRepository>(relaxed = true)
+        val transactionRunner = object : ExecutionTransitionTransactionRunner {
+            override suspend fun <T> run(block: suspend () -> T): T = block()
+        }
 
         val startedAt = System.currentTimeMillis() - (60L * 60L * 1000L)
         val record = ExecutionRecord(
@@ -35,7 +39,8 @@ class UndoStartExecutionUseCaseTest {
 
         val useCase = UndoStartExecutionUseCase(
             executionRecordRepository = recordRepo,
-            executionSnapshotRepository = snapshotRepo
+            executionSnapshotRepository = snapshotRepo,
+            transactionRunner = transactionRunner
         )
 
         val result = useCase("r1")
@@ -49,6 +54,9 @@ class UndoStartExecutionUseCaseTest {
     fun undoStart_failsAfterWindow() = runTest {
         val recordRepo = mockk<ExecutionRecordRepository>()
         val snapshotRepo = mockk<ExecutionSnapshotRepository>(relaxed = true)
+        val transactionRunner = object : ExecutionTransitionTransactionRunner {
+            override suspend fun <T> run(block: suspend () -> T): T = block()
+        }
 
         val startedAt = System.currentTimeMillis() - (25L * 60L * 60L * 1000L)
         val record = ExecutionRecord(
@@ -67,14 +75,52 @@ class UndoStartExecutionUseCaseTest {
 
         val useCase = UndoStartExecutionUseCase(
             executionRecordRepository = recordRepo,
-            executionSnapshotRepository = snapshotRepo
+            executionSnapshotRepository = snapshotRepo,
+            transactionRunner = transactionRunner
         )
 
         val result = useCase("r1")
 
         assertThat(result.isFailure).isTrue()
+        assertThat(result.exceptionOrNull()?.message)
+            .isEqualTo(ExecutionActionCopyCatalog.undoStartExpired("2025-12"))
+        coVerify(exactly = 0) { snapshotRepo.deleteByRecordId(any()) }
+        coVerify(exactly = 0) { recordRepo.revertToDraft(any()) }
+    }
+
+    @Test
+    fun undoStart_failsWhenRecordIsNotExecuting() = runTest {
+        val recordRepo = mockk<ExecutionRecordRepository>()
+        val snapshotRepo = mockk<ExecutionSnapshotRepository>(relaxed = true)
+        val transactionRunner = object : ExecutionTransitionTransactionRunner {
+            override suspend fun <T> run(block: suspend () -> T): T = block()
+        }
+
+        val now = System.currentTimeMillis()
+        val record = ExecutionRecord(
+            id = "r1",
+            planId = "p1",
+            monthLabel = "2025-12",
+            status = ExecutionStatus.DRAFT,
+            startedAtMillis = now - 60_000,
+            closedAtMillis = null,
+            canUndoUntilMillis = null,
+            createdAtMillis = now - 60_000,
+            updatedAtMillis = now - 60_000
+        )
+        coEvery { recordRepo.getRecordById("r1") } returns record
+
+        val useCase = UndoStartExecutionUseCase(
+            executionRecordRepository = recordRepo,
+            executionSnapshotRepository = snapshotRepo,
+            transactionRunner = transactionRunner
+        )
+
+        val result = useCase("r1")
+        assertThat(result.isFailure).isTrue()
+        assertThat(result.exceptionOrNull()?.message)
+            .isEqualTo(ExecutionActionCopyCatalog.undoStartExpired("2025-12"))
         coVerify(exactly = 0) { snapshotRepo.deleteByRecordId(any()) }
         coVerify(exactly = 0) { recordRepo.revertToDraft(any()) }
     }
 }
-

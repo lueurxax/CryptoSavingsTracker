@@ -1,0 +1,27 @@
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/assets/AssetSharingScreen.kt:171:                            tint = Color(0xFFFF9800)
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/assets/AssetSharingScreen.kt:177:                            color = Color(0xFFFF9800)
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/charts/ForecastChart.kt:298:                        color = if (daysRemaining < 30) Color(0xFFFF9800) else MaterialTheme.colorScheme.onSurface
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/charts/ForecastChart.kt:54:    REALISTIC("Realistic", Color(0xFF2196F3)), // Blue
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/charts/ProgressRingChart.kt:124:                        colors = listOf(Color(0xFF9C27B0), Color(0xFFE91E63))
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/charts/ProgressRingChart.kt:218:        clampedProgress < 0.5f -> Color(0xFFFF9800)
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/charts/ProgressRingChart.kt:57:        clampedProgress < 0.5f -> Color(0xFFFF9800) // Orange
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/charts/ProgressRingChart.kt:70:        clampedProgress >= 0.25f -> listOf(Color(0xFFFF9800), AccessibleYellow)
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/charts/ProgressRingChart.kt:71:        else -> listOf(AccessibleRed, Color(0xFFFF9800))
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/charts/SparklineChart.kt:183:        trend < -0.01 -> Color(0xFFE53935) // Red
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/charts/SparklineChart.kt:184:        else -> Color(0xFF9E9E9E) // Gray for flat
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/components/AllocationPromptBanner.kt:69:                .shadow(Elevation.card, RoundedCornerShape(10.dp))
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/components/EmptyState.kt:220:                    Color(0xFF2196F3),
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/components/EmptyState.kt:221:                    Color(0xFFFF9800)
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/components/SwipeActions.kt:155:        color = Color(0xFF2196F3), // Blue
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/execution/ExecutionScreen.kt:360:                        tint = Color(0xFF4CAF50)
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/execution/ExecutionScreen.kt:411:                containerColor = Color(0xFF4CAF50)
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/execution/components/GoalProgressCard.kt:40:    val progressColor = if (isFulfilled) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/execution/components/GoalProgressCard.kt:42:        Color(0xFF4CAF50).copy(alpha = 0.1f)
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/execution/components/GoalProgressCard.kt:68:                        tint = Color(0xFF4CAF50),
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/execution/components/GoalProgressCard.kt:90:                trackColor = if (isFulfilled) Color(0xFF4CAF50).copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/execution/components/ProgressHeaderCard.kt:95:    val progressColor = if (progressPercent >= 100) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/goals/UnallocatedAssetsSection.kt:125:                        color = Color(0xFFFF9800)
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/goals/UnallocatedAssetsSection.kt:149:                tint = Color(0xFFFF9800),
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/goals/UnallocatedAssetsSection.kt:58:                    tint = Color(0xFFFF9800)
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/goals/UnallocatedAssetsSection.kt:64:                    color = Color(0xFFFF9800)
+android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/goals/UnallocatedAssetsSection.kt:70:                    color = Color(0xFFFF9800)

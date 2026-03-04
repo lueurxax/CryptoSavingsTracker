@@ -63,15 +63,17 @@ struct MonthlyExecutionView: View {
         .refreshable {
             await viewModel.refresh()
         }
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingCurrencyPicker) {
             SearchableCurrencyPicker(
                 selectedCurrency: $viewModel.displayCurrency,
                 pickerType: .fiat
             )
         }
+        // NAV-MOD: MOD-01
         .sheet(item: $selectedGoalSnapshot) { goalSnapshot in
             let assets = viewModel.assetsForContribution(goalId: goalSnapshot.goalId)
-            NavigationView {
+            NavigationStack {
                 Group {
                     if assets.isEmpty {
                         Text("No assets available. Add an asset first.")
@@ -137,6 +139,7 @@ struct MonthlyExecutionView: View {
                 }
             }
         }
+        // NAV-MOD: MOD-02
         .sheet(isPresented: Binding(
             get: { selectedAsset != nil },
             set: { if !$0 { selectedAsset = nil; pendingGoalSnapshot = nil } }
@@ -149,6 +152,7 @@ struct MonthlyExecutionView: View {
                 )
             }
         }
+        // NAV-MOD: MOD-01
         .sheet(item: $allocationSheetData, onDismiss: {
             selectedAllocationAsset = nil
             pendingGoalSnapshot = nil
@@ -193,7 +197,7 @@ struct MonthlyExecutionView: View {
             // Progress bar
             let pct = min(max(viewModel.overallProgress, 0), 100)
             ProgressView(value: pct, total: 100)
-                .tint(.green)
+                .tint(AccessibleColors.success)
                 .scaleEffect(y: 1.5)
 
             HStack {
@@ -225,7 +229,7 @@ struct MonthlyExecutionView: View {
             if viewModel.hasRateConversionWarning {
                 Label("Some rates unavailable. Showing goal currency for those goals.", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption2)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(AccessibleColors.warning)
             }
 
             if let focus = viewModel.currentFocusGoal {
@@ -247,7 +251,7 @@ struct MonthlyExecutionView: View {
                     Text("\(Int(viewModel.overallProgress))%")
                         .font(.title)
                         .fontWeight(.bold)
-                        .foregroundStyle(viewModel.overallProgress >= 100 ? .green : .primary)
+                        .foregroundStyle(viewModel.overallProgress >= 100 ? AccessibleColors.success : .primary)
                     Text("complete")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -287,13 +291,12 @@ struct MonthlyExecutionView: View {
             }
         }
         .padding()
-        #if os(macOS)
-        .background(Color(NSColor.windowBackgroundColor))
-        #else
-        .background(Color(.systemBackground))
-        #endif
+        .background(AccessibleColors.lightBackground)
         .cornerRadius(12)
-        .shadow(radius: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(AccessibleColors.secondaryText.opacity(0.12), lineWidth: 1)
+        )
     }
 
     // MARK: - Undo Banner
@@ -386,13 +389,12 @@ struct MonthlyExecutionView: View {
             }
         }
         .padding()
-        #if os(macOS)
-        .background(Color(NSColor.windowBackgroundColor))
-        #else
-        .background(Color(.systemBackground))
-        #endif
+        .background(AccessibleColors.lightBackground)
         .cornerRadius(12)
-        .shadow(radius: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(AccessibleColors.secondaryText.opacity(0.12), lineWidth: 1)
+        )
     }
 
     // MARK: - Completed Goals Section
@@ -404,7 +406,7 @@ struct MonthlyExecutionView: View {
                     Button(action: { showCompletedSection.toggle() }) {
                         HStack {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
+                                .foregroundStyle(AccessibleColors.success)
                             Text("Completed This Month (\(viewModel.completedGoals.count))")
                                 .font(.headline)
                             Spacer()
@@ -430,13 +432,12 @@ struct MonthlyExecutionView: View {
                     }
                 }
                 .padding()
-                #if os(macOS)
-        .background(Color(NSColor.windowBackgroundColor))
-        #else
-        .background(Color(.systemBackground))
-        #endif
+                .background(AccessibleColors.lightBackground)
                 .cornerRadius(12)
-                .shadow(radius: 2)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AccessibleColors.secondaryText.opacity(0.12), lineWidth: 1)
+                )
             }
         }
     }
@@ -540,7 +541,7 @@ struct GoalProgressCard: View {
 
                 if isFulfilled {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(AccessibleColors.success)
                 } else {
                     Text("\(progressPercentage)%")
                         .font(.caption)
@@ -553,7 +554,7 @@ struct GoalProgressCard: View {
             let total = max(goalSnapshot.plannedAmount, 0.0001)
             let safeContributed = min(max(contributed, 0), total)
             ProgressView(value: safeContributed, total: total)
-                .tint(isFulfilled ? .green : .blue)
+                .tint(isFulfilled ? AccessibleColors.success : AccessibleColors.primaryInteractive)
 
             // Amount row - simplified, no redundant "remaining"
             Text("\(formatCurrency(contributed, currency: goalSnapshot.currency)) / \(formatCurrency(goalSnapshot.plannedAmount, currency: goalSnapshot.currency))")
@@ -588,11 +589,7 @@ struct GoalProgressCard: View {
             }
         }
         .padding()
-        #if os(macOS)
-        .background(isFulfilled ? Color.green.opacity(0.1) : Color(NSColor.controlBackgroundColor))
-        #else
-        .background(isFulfilled ? Color.green.opacity(0.1) : Color(.secondarySystemBackground))
-        #endif
+        .background(isFulfilled ? AccessibleColors.successBackground : AccessibleColors.mediumBackground)
         .cornerRadius(8)
     }
 

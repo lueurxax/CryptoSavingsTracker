@@ -1,0 +1,44 @@
+{
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Components/HeroProgressViewPreview.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/HeroProgressViewPreview.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/HeroProgressViewPreview.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/HeroProgressViewPreview.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/HeroProgressViewPreview.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/HeroProgressViewPreview.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Components/HoverTooltipViewPreview.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/HoverTooltipViewPreview.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/HoverTooltipViewPreview.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/HoverTooltipViewPreview.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/HoverTooltipViewPreview.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/HoverTooltipViewPreview.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Components/ImpactPreviewCardPreview.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ImpactPreviewCardPreview.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ImpactPreviewCardPreview.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ImpactPreviewCardPreview.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ImpactPreviewCardPreview.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ImpactPreviewCardPreview.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Components/MonthlyPlanningWidgetPreview.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningWidgetPreview.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningWidgetPreview.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningWidgetPreview.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningWidgetPreview.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningWidgetPreview.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Components/ReminderConfigurationViewPreview.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ReminderConfigurationViewPreview.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ReminderConfigurationViewPreview.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ReminderConfigurationViewPreview.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ReminderConfigurationViewPreview.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ReminderConfigurationViewPreview.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Dashboard/DashboardComponentsPreview.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/DashboardComponentsPreview.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/DashboardComponentsPreview.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/DashboardComponentsPreview.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/DashboardComponentsPreview.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/DashboardComponentsPreview.swiftdeps"
+  }
+}

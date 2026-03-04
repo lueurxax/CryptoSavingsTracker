@@ -34,6 +34,10 @@ final class MonthlyExecutionRecord {
     @Relationship(deleteRule: .cascade)
     var completedExecution: CompletedExecution?
 
+    // Append-only completion history for auditability.
+    @Relationship(deleteRule: .cascade, inverse: \CompletionEvent.executionRecord)
+    var completionEvents: [CompletionEvent] = []
+
     init(monthLabel: String, goalIds: [UUID]) {
         self.id = UUID()
         self.monthLabel = monthLabel
@@ -77,19 +81,19 @@ final class MonthlyExecutionRecord {
     // MARK: - State Transitions
 
     /// Start tracking contributions (draft → executing)
-    func startTracking() {
+    func startTracking(undoWindowHours: Int = 24) {
         guard status == .draft else { return }
         status = .executing
         startedAt = Date()
-        canUndoUntil = Date().addingTimeInterval(24 * 3600) // 24 hours
+        canUndoUntil = Date().addingTimeInterval(TimeInterval(max(0, undoWindowHours) * 3600))
     }
 
     /// Mark month as complete (executing → closed)
-    func markComplete() {
+    func markComplete(undoWindowHours: Int = 24) {
         guard status == .executing else { return }
         status = .closed
         completedAt = Date()
-        canUndoUntil = Date().addingTimeInterval(24 * 3600) // 24 hours
+        canUndoUntil = Date().addingTimeInterval(TimeInterval(max(0, undoWindowHours) * 3600))
     }
 
     /// Undo completion (closed → executing)
@@ -106,6 +110,45 @@ final class MonthlyExecutionRecord {
         status = .draft
         startedAt = nil
         canUndoUntil = nil
+    }
+}
+
+@Model
+final class CompletionEvent {
+    @Attribute(.unique) var eventId: UUID
+    var executionRecordId: UUID
+    var monthLabel: String
+    var sequence: Int
+    var sourceDiscriminator: String
+    var completedAt: Date
+    var undoneAt: Date?
+    var undoReason: String?
+    var createdAt: Date
+
+    @Relationship
+    var executionRecord: MonthlyExecutionRecord?
+
+    @Relationship(deleteRule: .nullify)
+    var completionSnapshot: CompletedExecution?
+
+    init(
+        executionRecord: MonthlyExecutionRecord,
+        sequence: Int,
+        sourceDiscriminator: String,
+        completedAt: Date,
+        completionSnapshot: CompletedExecution
+    ) {
+        self.eventId = UUID()
+        self.executionRecordId = executionRecord.id
+        self.monthLabel = executionRecord.monthLabel
+        self.sequence = sequence
+        self.sourceDiscriminator = sourceDiscriminator
+        self.completedAt = completedAt
+        self.undoneAt = nil
+        self.undoReason = nil
+        self.createdAt = Date()
+        self.executionRecord = executionRecord
+        self.completionSnapshot = completionSnapshot
     }
 }
 

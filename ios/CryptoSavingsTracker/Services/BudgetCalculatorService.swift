@@ -8,6 +8,7 @@
 import Foundation
 import SwiftData
 import Combine
+import CryptoKit
 
 /// Service for computing budget calculator previews with optimal contribution sequencing.
 @MainActor
@@ -26,6 +27,7 @@ final class BudgetCalculatorService: ObservableObject {
     private var cacheCurrency: String = ""
     private var lastCacheUpdate: Date = .distantPast
     private let cacheExpiration: TimeInterval = 300 // 5 minutes
+    private var rateSnapshotCache: [String: [String: Double]] = [:]
 
     // MARK: - Published Properties
 
@@ -34,9 +36,9 @@ final class BudgetCalculatorService: ObservableObject {
 
     // MARK: - Initialization
 
-    init(exchangeRateService: ExchangeRateServiceProtocol, settings: MonthlyPlanningSettings = .shared) {
+    init(exchangeRateService: ExchangeRateServiceProtocol, settings: MonthlyPlanningSettings? = nil) {
         self.exchangeRateService = exchangeRateService
-        self.settings = settings
+        self.settings = settings ?? MonthlyPlanningSettings.shared
     }
 
     // MARK: - Public API
@@ -44,6 +46,14 @@ final class BudgetCalculatorService: ObservableObject {
     /// Calculate the minimum budget needed to meet all goal deadlines.
     /// Returns the MAX of all individual goal minimums (the binding constraint).
     func calculateMinimumBudget(goals: [Goal], currency: String) async -> Double {
+        await calculateMinimumBudget(goals: goals, currency: currency, ratesByPair: nil)
+    }
+
+    private func calculateMinimumBudget(
+        goals: [Goal],
+        currency: String,
+        ratesByPair: [String: Double]?
+    ) async -> Double {
         guard !goals.isEmpty else { return 0 }
 
         let activeGoals = goals
@@ -57,11 +67,18 @@ final class BudgetCalculatorService: ObservableObject {
         for goal in activeGoals {
             var remaining = await calculateRemaining(for: goal)
             if goal.currency != currency {
-                do {
-                    let rate = try await exchangeRateService.fetchRate(from: goal.currency, to: currency)
+                if let ratesByPair {
+                    guard let rate = ratesByPair[rateKey(from: goal.currency, to: currency)] else {
+                        continue
+                    }
                     remaining *= rate
-                } catch {
-                    AppLog.warning("Budget conversion failed: \(error.localizedDescription)", category: .exchangeRate)
+                } else {
+                    do {
+                        let rate = try await exchangeRateService.fetchRate(from: goal.currency, to: currency)
+                        remaining *= rate
+                    } catch {
+                        AppLog.warning("Budget conversion failed: \(error.localizedDescription)", category: .exchangeRate)
+                    }
                 }
             }
 
@@ -78,11 +95,20 @@ final class BudgetCalculatorService: ObservableObject {
 
     /// Check if the given budget is sufficient for all goals.
     func checkFeasibility(goals: [Goal], budget: Double, currency: String) async -> FeasibilityResult {
+        await checkFeasibility(goals: goals, budget: budget, currency: currency, ratesByPair: nil)
+    }
+
+    private func checkFeasibility(
+        goals: [Goal],
+        budget: Double,
+        currency: String,
+        ratesByPair: [String: Double]?
+    ) async -> FeasibilityResult {
         guard !goals.isEmpty else {
             return .empty
         }
 
-        let minimumRequired = await calculateMinimumBudget(goals: goals, currency: currency)
+        let minimumRequired = await calculateMinimumBudget(goals: goals, currency: currency, ratesByPair: ratesByPair)
         let isFeasible = budget >= minimumRequired && budget > 0
 
         var infeasibleGoals: [InfeasibleGoal] = []
@@ -100,7 +126,12 @@ final class BudgetCalculatorService: ObservableObject {
                 var remaining = remainingInGoalCurrency
                 var conversionRate: Double?
                 if goal.currency != currency {
-                    if let rate = try? await exchangeRateService.fetchRate(from: goal.currency, to: currency) {
+                    if let ratesByPair {
+                        if let rate = ratesByPair[rateKey(from: goal.currency, to: currency)] {
+                            remaining *= rate
+                            conversionRate = rate
+                        }
+                    } else if let rate = try? await exchangeRateService.fetchRate(from: goal.currency, to: currency) {
                         remaining *= rate
                         conversionRate = rate
                     }
@@ -171,8 +202,129 @@ final class BudgetCalculatorService: ObservableObject {
         )
     }
 
+    /// Compute an atomic budget snapshot used for save gating and preview rendering.
+    func computeBudgetSnapshot(
+        requestId: UUID,
+        goals: [Goal],
+        enteredBudget: MoneyAmount,
+        goalsSignature: String,
+        rateSnapshotId: String?
+    ) async -> BudgetComputationResult {
+        let activeGoals = goals
+            .filter { $0.lifecycleStatus == .active }
+            .sorted { $0.deadline < $1.deadline }
+        let positiveBudget = enteredBudget.minorUnitValue > 0
+
+        guard !activeGoals.isEmpty, positiveBudget else {
+            let zero = MoneyQuantizer.normalize(0, currency: enteredBudget.currency, mode: .halfUp)
+            return BudgetComputationResult(
+                requestId: requestId,
+                enteredBudgetCanonical: enteredBudget,
+                minimumRequiredCanonical: zero,
+                shortfallCanonical: zero,
+                isFeasible: false,
+                plan: nil,
+                timeline: [],
+                rateSnapshotTimestamp: nil,
+                rateSnapshotId: rateSnapshotId,
+                state: .blockedInfeasible,
+                infeasibleGoals: [],
+                suggestions: [],
+                affectedCurrencies: []
+            )
+        }
+
+        let rateState = await evaluateRateSnapshot(
+            for: activeGoals,
+            targetCurrency: enteredBudget.currency,
+            reusing: rateSnapshotId
+        )
+        if !rateState.affectedCurrencies.isEmpty {
+            BudgetPlanAnalytics.log(.blockedRatesImpression, properties: [
+                "affected_count": String(rateState.affectedCurrencies.count)
+            ])
+        }
+
+        let feasibility = await checkFeasibility(
+            goals: activeGoals,
+            budget: enteredBudget.doubleValue,
+            currency: enteredBudget.currency,
+            ratesByPair: rateState.ratesByPair
+        )
+
+        let minimumCanonical = MoneyQuantizer.normalize(
+            Decimal(feasibility.minimumRequired),
+            currency: enteredBudget.currency,
+            mode: .up
+        )
+        let shortfallCanonical: MoneyAmount
+        if MoneyQuantizer.compare(minimumCanonical, enteredBudget) == .orderedDescending {
+            shortfallCanonical = MoneyQuantizer.difference(minimumCanonical, enteredBudget)
+        } else {
+            shortfallCanonical = MoneyQuantizer.normalize(0, currency: enteredBudget.currency, mode: .halfUp)
+        }
+
+        let hasRates = rateState.affectedCurrencies.isEmpty
+        let isFeasible = hasRates && MoneyQuantizer.compare(enteredBudget, minimumCanonical) != .orderedAscending
+
+        let state: BudgetComputationState
+        if !hasRates {
+            state = .blockedRates
+        } else if isFeasible {
+            state = .readyFeasible
+        } else {
+            state = .blockedInfeasible
+        }
+
+        let plan: BudgetCalculatorPlan?
+        let timeline: [ScheduledGoalBlock]
+        if state == .readyFeasible {
+            let computedPlan = await generateSchedule(
+                goals: activeGoals,
+                budget: enteredBudget.doubleValue,
+                currency: enteredBudget.currency,
+                ratesByPair: rateState.ratesByPair
+            )
+            plan = computedPlan
+            timeline = buildTimelineBlocks(from: computedPlan, goals: activeGoals)
+        } else {
+            plan = nil
+            timeline = []
+        }
+
+        let resolvedRateSnapshotId = rateState.snapshotId ?? deterministicRateSnapshotId(
+            goalsSignature: goalsSignature,
+            currency: enteredBudget.currency
+        )
+
+        return BudgetComputationResult(
+            requestId: requestId,
+            enteredBudgetCanonical: enteredBudget,
+            minimumRequiredCanonical: minimumCanonical,
+            shortfallCanonical: shortfallCanonical,
+            isFeasible: isFeasible,
+            plan: plan,
+            timeline: timeline,
+            rateSnapshotTimestamp: rateState.lastUpdated,
+            rateSnapshotId: resolvedRateSnapshotId,
+            state: state,
+            infeasibleGoals: feasibility.infeasibleGoals,
+            suggestions: feasibility.suggestions,
+            affectedCurrencies: rateState.affectedCurrencies
+        )
+    }
+
     /// Generate the optimal contribution schedule.
     func generateSchedule(goals: [Goal], budget: Double, currency: String) async -> BudgetCalculatorPlan {
+        await generateSchedule(goals: goals, budget: budget, currency: currency, ratesByPair: nil)
+    }
+
+    private func generateSchedule(
+        goals: [Goal],
+        budget: Double,
+        currency: String,
+        ratesByPair: [String: Double]?
+    ) async -> BudgetCalculatorPlan {
         isCalculating = true
         defer { isCalculating = false }
 
@@ -205,7 +357,11 @@ final class BudgetCalculatorService: ObservableObject {
         for goal in activeGoals {
             var remaining = await calculateRemaining(for: goal)
             if goal.currency != currency {
-                if let rate = try? await exchangeRateService.fetchRate(from: goal.currency, to: currency) {
+                if let ratesByPair {
+                    if let rate = ratesByPair[rateKey(from: goal.currency, to: currency)] {
+                        remaining *= rate
+                    }
+                } else if let rate = try? await exchangeRateService.fetchRate(from: goal.currency, to: currency) {
                     remaining *= rate
                 }
             }
@@ -214,7 +370,7 @@ final class BudgetCalculatorService: ObservableObject {
         }
 
         guard budget > 0 else {
-            let minimumRequired = await calculateMinimumBudget(goals: goals, currency: currency)
+            let minimumRequired = await calculateMinimumBudget(goals: goals, currency: currency, ratesByPair: ratesByPair)
             return BudgetCalculatorPlan(
                 monthlyBudget: budget,
                 currency: currency,
@@ -288,7 +444,7 @@ final class BudgetCalculatorService: ObservableObject {
             paymentDate = Calendar.current.date(byAdding: .month, value: 1, to: paymentDate) ?? paymentDate
         }
 
-        let minimumRequired = await calculateMinimumBudget(goals: goals, currency: currency)
+        let minimumRequired = await calculateMinimumBudget(goals: goals, currency: currency, ratesByPair: ratesByPair)
         let plan = BudgetCalculatorPlan(
             monthlyBudget: budget,
             currency: currency,
@@ -363,9 +519,17 @@ final class BudgetCalculatorService: ObservableObject {
         cacheBudget = 0
         cacheCurrency = ""
         lastCacheUpdate = .distantPast
+        rateSnapshotCache = [:]
     }
 
     // MARK: - Private Helpers
+
+    private struct RateSnapshotState {
+        let lastUpdated: Date?
+        let snapshotId: String?
+        let ratesByPair: [String: Double]
+        let affectedCurrencies: [String]
+    }
 
     private func calculateRemaining(for goal: Goal) async -> Double {
         let currentTotal = await GoalCalculationService.getCurrentTotal(for: goal)
@@ -412,5 +576,79 @@ final class BudgetCalculatorService: ObservableObject {
         }
 
         return paymentDate
+    }
+
+    private func evaluateRateSnapshot(
+        for goals: [Goal],
+        targetCurrency: String,
+        reusing preferredSnapshotId: String?
+    ) async -> RateSnapshotState {
+        let targetCurrencyUpper = targetCurrency.uppercased()
+        let conversions = Set(goals.map { $0.currency.uppercased() }.filter { $0 != targetCurrencyUpper })
+        guard !conversions.isEmpty else {
+            return RateSnapshotState(lastUpdated: Date(), snapshotId: nil, ratesByPair: [:], affectedCurrencies: [])
+        }
+
+        let requiredKeys = conversions
+            .sorted()
+            .map { rateKey(from: $0, to: targetCurrencyUpper) }
+
+        if let preferredSnapshotId,
+           let cachedRates = rateSnapshotCache[preferredSnapshotId],
+           requiredKeys.allSatisfy({ cachedRates[$0] != nil }) {
+            return RateSnapshotState(
+                lastUpdated: Date(),
+                snapshotId: preferredSnapshotId,
+                ratesByPair: cachedRates,
+                affectedCurrencies: []
+            )
+        }
+
+        var failed: [String] = []
+        var ratesByPair: [String: Double] = [:]
+        var snapshotEntries: [RateSnapshotEntry] = []
+        let timestampFormatter = ISO8601DateFormatter()
+        let snapshotDate = Date()
+        let snapshotTimestamp = timestampFormatter.string(from: snapshotDate)
+
+        for source in conversions.sorted() {
+            do {
+                let rate = try await exchangeRateService.fetchRate(from: source, to: targetCurrency)
+                ratesByPair[rateKey(from: source, to: targetCurrencyUpper)] = rate
+                snapshotEntries.append(
+                    RateSnapshotEntry(
+                        from: source,
+                        to: targetCurrencyUpper,
+                        rate: Decimal(rate),
+                        timestampISO8601: snapshotTimestamp
+                    )
+                )
+            } catch {
+                failed.append(source)
+            }
+        }
+
+        if !failed.isEmpty {
+            return RateSnapshotState(lastUpdated: nil, snapshotId: nil, ratesByPair: [:], affectedCurrencies: failed.sorted())
+        }
+
+        let snapshotId = BudgetSnapshotIdentity.rateSnapshotId(fromRates: snapshotEntries)
+        rateSnapshotCache[snapshotId] = ratesByPair
+        return RateSnapshotState(
+            lastUpdated: snapshotDate,
+            snapshotId: snapshotId,
+            ratesByPair: ratesByPair,
+            affectedCurrencies: []
+        )
+    }
+
+    private func rateKey(from: String, to: String) -> String {
+        "\(from.uppercased())->\(to.uppercased())"
+    }
+
+    private func deterministicRateSnapshotId(goalsSignature: String, currency: String) -> String {
+        let payload = "\(goalsSignature)|\(currency.uppercased())|no-rates"
+        let digest = SHA256.hash(data: Data(payload.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }

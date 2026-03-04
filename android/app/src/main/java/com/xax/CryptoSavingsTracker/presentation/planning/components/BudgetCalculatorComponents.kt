@@ -57,6 +57,7 @@ import com.xax.CryptoSavingsTracker.domain.model.ScheduledGoalBlock
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleGreen
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleRed
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleYellow
+import com.xax.CryptoSavingsTracker.presentation.theme.VisualComponentDefaults
 import java.text.NumberFormat
 import java.util.Currency
 import java.time.LocalDate
@@ -81,9 +82,10 @@ fun BudgetEntryCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-        )
+        shape = MaterialTheme.shapes.medium,
+        colors = VisualComponentDefaults.planningHeaderCardColors(),
+        border = VisualComponentDefaults.planningHeaderCardBorder(),
+        elevation = VisualComponentDefaults.planningHeaderCardElevation()
     ) {
         Row(
             modifier = Modifier
@@ -126,9 +128,10 @@ fun BudgetSummaryCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
-        )
+        shape = MaterialTheme.shapes.medium,
+        colors = VisualComponentDefaults.planningHeaderCardColors(),
+        border = VisualComponentDefaults.planningHeaderCardBorder(),
+        elevation = VisualComponentDefaults.planningHeaderCardElevation()
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -224,9 +227,10 @@ fun BudgetNoticeCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f)
-        )
+        shape = MaterialTheme.shapes.medium,
+        colors = VisualComponentDefaults.planningHeaderCardColors(),
+        border = VisualComponentDefaults.planningHeaderCardBorder(),
+        elevation = VisualComponentDefaults.planningHeaderCardElevation()
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

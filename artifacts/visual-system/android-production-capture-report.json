@@ -1,0 +1,44 @@
+{
+  "reportVersion": "v1",
+  "platform": "android",
+  "captureMode": "production-flow",
+  "artifactRoot": "docs/screenshots/review-visual-system-unification-r4/production/android",
+  "artifacts": [
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/android/dashboard/default.png",
+      "sha256": "0f76afb600985e365ff51c482af4c1076e1ee52e4702a41994df6ac130ee4a7a"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/android/dashboard/error.png",
+      "sha256": "77ae480ae7eb50f57d2bad7dea08b00d2ab1ddc50c9e403f82fbed3884c4571d"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/android/dashboard/recovery.png",
+      "sha256": "572cf7022aa58782a9121650d15e5b0b59f7d701c2618cba76920c91075e2299"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/android/planning/default.png",
+      "sha256": "8523cf05beb55ab2d012f4c55125449a52a5ed5cf6d9be3675f5af2bae30c362"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/android/planning/error.png",
+      "sha256": "714b75feab0b9eec1ad00e4dd690e5fcfe139f88e3295ced722c6133ad3f6ee5"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/android/planning/recovery.png",
+      "sha256": "1b9f6929dd5f0e64fdfc663414879db15e7265ec713d6047b7e4dbb48fd39736"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/android/settings/default.png",
+      "sha256": "6d9b5b6c8b4bfc8f3c656a836db9a99052b72175ebd85d443b9287bf2c66e610"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/android/settings/error.png",
+      "sha256": "290be95e3e34baea8b1fbe95c3bf84d7328ca0dce23abb82d91be882515a1a42"
+    },
+    {
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/android/settings/recovery.png",
+      "sha256": "1e02487cf4ff38de2b538ac4a873fe0321252637acbcc80f472261cc3d06d035"
+    }
+  ]
+}

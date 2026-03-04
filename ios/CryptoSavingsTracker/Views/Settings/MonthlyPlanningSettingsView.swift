@@ -58,7 +58,7 @@ struct MonthlyPlanningSettingsView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             settingsContent
                 .navigationTitle("Monthly Planning Settings")
                 #if os(iOS)
@@ -107,6 +107,7 @@ struct MonthlyPlanningSettingsView: View {
                 await loadPreviewTotal()
             }
         }
+        // NAV-MOD: MOD-02
         .sheet(isPresented: $showingBudgetEditor) {
             BudgetEditorSheet(
                 currentAmount: settings.monthlyBudget,
@@ -220,6 +221,7 @@ struct MonthlyPlanningSettingsView: View {
         .accessibilityLabel("Display currency for monthly planning")
         .accessibilityHint("Double tap to select currency for showing total requirements")
         .accessibilityValue("Currently \(settings.displayCurrency)")
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingCurrencyPicker) {
             // For monthly planning, we want fiat currency options like in goal settings
             SearchableCurrencyPicker(selectedCurrency: $settings.displayCurrency, pickerType: .fiat)
@@ -302,6 +304,7 @@ struct MonthlyPlanningSettingsView: View {
         .accessibilityLabel("Payment cycle deadline")
         .accessibilityHint("Select which day of the month payments are due")
         .accessibilityValue("Currently \(settings.paymentDay)\(settings.paymentDay.ordinalSuffix) of every month")
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingPaymentDayPicker) {
             PaymentDayPickerSheet(selectedDay: $settings.paymentDay)
         }
@@ -321,8 +324,8 @@ struct MonthlyPlanningSettingsView: View {
                 Text("\(settings.daysUntilPayment) days remaining")
                     .font(.caption)
                     .foregroundColor(
-                        settings.daysUntilPayment <= 3 ? .red :
-                        settings.daysUntilPayment <= 7 ? .orange :
+                        settings.daysUntilPayment <= 3 ? AccessibleColors.error :
+                        settings.daysUntilPayment <= 7 ? AccessibleColors.warning :
                             .secondary
                     )
             }
@@ -430,16 +433,16 @@ struct MonthlyPlanningSettingsView: View {
             if settings.validatePaymentDay() {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark")
-                        .foregroundColor(.green)
+                        .foregroundColor(AccessibleColors.success)
                     Text("Valid")
-                        .foregroundColor(.green)
+                        .foregroundColor(AccessibleColors.success)
                 }
             } else {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle")
-                        .foregroundColor(.orange)
+                        .foregroundColor(AccessibleColors.warning)
                     Text("Check settings")
-                        .foregroundColor(.orange)
+                        .foregroundColor(AccessibleColors.warning)
                 }
             }
         }
@@ -488,7 +491,7 @@ struct PaymentDayPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 ForEach(1...28, id: \.self) { day in
                     HStack {
@@ -614,7 +617,7 @@ struct BudgetEditorSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 Section {
                     HStack(spacing: 12) {
@@ -685,7 +688,7 @@ struct BudgetEditorSheet: View {
                             onClear()
                             dismiss()
                         }
-                        .foregroundColor(.red)
+                        .foregroundColor(AccessibleColors.error)
                     }
                 }
                 #else
@@ -695,12 +698,13 @@ struct BudgetEditorSheet: View {
                             onClear()
                             dismiss()
                         }
-                        .foregroundColor(.red)
+                        .foregroundColor(AccessibleColors.error)
                     }
                 }
                 #endif
             }
         }
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingCurrencyPicker) {
             SearchableCurrencyPicker(selectedCurrency: $selectedCurrency, pickerType: .fiat)
         }
@@ -734,10 +738,3 @@ private extension Int {
 }
 
 // MARK: - Preview
-
-#Preview {
-    let goal1 = SimpleGoal(name: "Bitcoin Savings", currency: "USD", targetAmount: 50000, deadline: Date().addingTimeInterval(86400 * 90))
-    let goal2 = SimpleGoal(name: "Ethereum Fund", currency: "EUR", targetAmount: 25000, deadline: Date().addingTimeInterval(86400 * 60))
-    
-    MonthlyPlanningSettingsView(goals: [goal1, goal2])
-}

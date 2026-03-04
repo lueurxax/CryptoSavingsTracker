@@ -1,0 +1,37 @@
+{
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Utilities/MonthlyCycleCopyCatalog.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleCopyCatalog.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleCopyCatalog.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleCopyCatalog.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleCopyCatalog.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleCopyCatalog.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Utilities/NotificationNames.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/NotificationNames.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/NotificationNames.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/NotificationNames.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/NotificationNames.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/NotificationNames.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Utilities/OnboardingManager.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/OnboardingManager.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/OnboardingManager.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/OnboardingManager.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/OnboardingManager.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/OnboardingManager.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Utilities/RateLimiter.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/RateLimiter.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/RateLimiter.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/RateLimiter.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/RateLimiter.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/RateLimiter.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Utilities/StartupThrottler.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/StartupThrottler.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/StartupThrottler.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/StartupThrottler.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/StartupThrottler.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/ios/DerivedDataVisualCapture/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/StartupThrottler.swiftdeps"
+  }
+}

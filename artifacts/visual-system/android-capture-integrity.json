@@ -1,0 +1,106 @@
+{
+  "totalFiles": 32,
+  "uniqueHashes": 32,
+  "duplicateFiles": 0,
+  "duplicateRatio": 0.0,
+  "largestDuplicateGroup": 1,
+  "threshold": 0.2,
+  "groups": {
+    "6bdacf7b5533dff30d83c55ca453760bacea3af4edffcffba170dedbc3b6c104": [
+      "dashboard.summary_card/default.png"
+    ],
+    "3a1fb912cdb694d8dbf68d74d45d74b73c266c2c65cd131e1bab6ce91baf97da": [
+      "dashboard.summary_card/disabled.png"
+    ],
+    "726c0ef20911f1a3ef01b1610583a74b04ff2d8235186c608a0fea39315972bb": [
+      "dashboard.summary_card/empty.png"
+    ],
+    "121e6973382450947f3750b75b3b37b96b84f6b76a73c30a5740a11192270565": [
+      "dashboard.summary_card/error.png"
+    ],
+    "de463d937ed1abbaf8437d73851006256cbb9a81de3277c4b9848d7324f13011": [
+      "dashboard.summary_card/loading.png"
+    ],
+    "8ed2ee81a7278ece2b8c2b8a0265b14bdbd15ebd3ca941a41eefdea9d66800be": [
+      "dashboard.summary_card/pressed.png"
+    ],
+    "96986cfb51d96ce12da938445bcd7792602356d88b59d69afdf0fc2dc7383944": [
+      "dashboard.summary_card/recovery.png"
+    ],
+    "8590cd2e411e9cfa8a4e8dc366a6414b089855c2665c702abf1d61f22b6eac25": [
+      "dashboard.summary_card/stale.png"
+    ],
+    "2cf67adb0a6dfb665e9e889087f6cd9be685111944edc8ed9b8798a2a330d38e": [
+      "planning.goal_row/default.png"
+    ],
+    "46b547abbdf58d742c589bf5f2a40f34fd4c0591388c5f906a16fc3e059c6941": [
+      "planning.goal_row/disabled.png"
+    ],
+    "682d47d20b06c0a53ef227323bc5624365ad09fe18c59cc08b538037322f9b43": [
+      "planning.goal_row/empty.png"
+    ],
+    "3e5391f76954e1fe4f4be9dbf8118e0337079c1d5ec842e86a0fbc9ea1c6eb77": [
+      "planning.goal_row/error.png"
+    ],
+    "9e0ad94162b7df040e3a46a4c8883844c2bc66a940caadc021168f07d12eae01": [
+      "planning.goal_row/loading.png"
+    ],
+    "81b228f1267a40b9b2aa09ca65a334dffc57088dce10250d119058b6cdf52e7f": [
+      "planning.goal_row/pressed.png"
+    ],
+    "aaf1a7dcb3aa6b46108b100d9709d1a6d0124eab72d3fcb89e6feb503170dd11": [
+      "planning.goal_row/recovery.png"
+    ],
+    "0af56acecd72d6799bfcb7635e3f35fe9c4a3d6221418d6b8eaebcdec588b05c": [
+      "planning.goal_row/stale.png"
+    ],
+    "f0f53b7e900fddc27321e7c99c5a665cc6ef2b83c9272fb77024f36902cf25b9": [
+      "planning.header_card/default.png"
+    ],
+    "aad001ed2fcdc40f61ae6e2c9d1f6034b25eb2a0e5a262894c4a03ef22fc8c0b": [
+      "planning.header_card/disabled.png"
+    ],
+    "6df71a82179ffa8b2167852ca230a4c39ca630a4f099df6c195230ce94edfcf0": [
+      "planning.header_card/empty.png"
+    ],
+    "98ad89104b74e14f30f00e818ae693cd0ca7df7218f81d8636d803eab9784851": [
+      "planning.header_card/error.png"
+    ],
+    "3173ee12593f2bade2338778b7e7d81169ccb67b0287b2b9c6cd64c98cf6c944": [
+      "planning.header_card/loading.png"
+    ],
+    "d6b8805542ffea118caaf86f818c918bd059e7394421fa4e30f1bcbb2aa94ce3": [
+      "planning.header_card/pressed.png"
+    ],
+    "413e4577c7242c2de13b0c2c89ff8a91e6eb22b31be188e640b09fb8223de1bd": [
+      "planning.header_card/recovery.png"
+    ],
+    "6f517107a5dd868a80889336286d7880461b248b7a26ca77a0b0741bce51b051": [
+      "planning.header_card/stale.png"
+    ],
+    "cde1423783fe2342fa04827d46be59170fba0f381b89edeca954695211e54af5": [
+      "settings.section_row/default.png"
+    ],
+    "93224b07c6d817a26991d9918663e3aec32d6638f12674bffd969a7b90f095b0": [
+      "settings.section_row/disabled.png"
+    ],
+    "391126857e5cda1a5327760053191e87e1b5f100160b89b0ca8947362c03afd7": [
+      "settings.section_row/empty.png"
+    ],
+    "e9e1f22cdbd6492dbd96e1975c3f38168d9281a89d1ef07300ef32450fe13cad": [
+      "settings.section_row/error.png"
+    ],
+    "9cccb545a1cf68fe5805a9f1d16adbfac21547fbe36b11dd0a981346be146562": [
+      "settings.section_row/loading.png"
+    ],
+    "fb21dae82dce14c79aa904337797d43ee6f579146922c052a1b9aa10cd7bd17c": [
+      "settings.section_row/pressed.png"
+    ],
+    "417adb185baa2d2bfde2a5c2edfe14539ed5be716d344399c029650631630917": [
+      "settings.section_row/recovery.png"
+    ],
+    "3533fe3512972666eab1e0ae718a42e002d8730cc7e27ea472da8176f4e9e072": [
+      "settings.section_row/stale.png"
+    ]
+  }
+}

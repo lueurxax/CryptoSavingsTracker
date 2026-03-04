@@ -7,6 +7,7 @@ object CompletedExecutionMapper {
     fun CompletedExecutionEntity.toDomain(): CompletedExecution = CompletedExecution(
         id = id,
         executionRecordId = executionRecordId,
+        completionEventId = completionEventId,
         goalId = goalId,
         goalName = goalName,
         currency = currency,
@@ -14,12 +15,15 @@ object CompletedExecutionMapper {
         actualAmount = actualAmount,
         completedAtMillis = completedAtUtcMillis,
         canUndoUntilMillis = canUndoUntilUtcMillis,
-        createdAtMillis = createdAtUtcMillis
+        createdAtMillis = createdAtUtcMillis,
+        undoneAtMillis = undoneAtUtcMillis,
+        undoReason = undoReason
     )
 
     fun CompletedExecution.toEntity(): CompletedExecutionEntity = CompletedExecutionEntity(
         id = id,
         executionRecordId = executionRecordId,
+        completionEventId = completionEventId,
         goalId = goalId,
         goalName = goalName,
         currency = currency,
@@ -27,7 +31,8 @@ object CompletedExecutionMapper {
         actualAmount = actualAmount,
         completedAtUtcMillis = completedAtMillis,
         canUndoUntilUtcMillis = canUndoUntilMillis,
-        createdAtUtcMillis = createdAtMillis
+        createdAtUtcMillis = createdAtMillis,
+        undoneAtUtcMillis = undoneAtMillis,
+        undoReason = undoReason
     )
 }
-

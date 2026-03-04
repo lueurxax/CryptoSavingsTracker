@@ -5,6 +5,7 @@ import com.xax.CryptoSavingsTracker.domain.model.ExecutionSnapshot
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionStatus
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionRecordRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionSnapshotRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExecutionTransitionTransactionRunner
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.repository.MonthlyPlanRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.GetGoalProgressUseCase
@@ -19,6 +20,7 @@ class StartExecutionUseCase @Inject constructor(
     private val monthlyPlanRepository: MonthlyPlanRepository,
     private val executionRecordRepository: ExecutionRecordRepository,
     private val executionSnapshotRepository: ExecutionSnapshotRepository,
+    private val transactionRunner: ExecutionTransitionTransactionRunner,
     private val goalRepository: GoalRepository,
     private val goalProgressUseCase: GetGoalProgressUseCase,
     private val monthlyGoalPlanService: MonthlyGoalPlanService,
@@ -27,13 +29,18 @@ class StartExecutionUseCase @Inject constructor(
     suspend operator fun invoke(monthLabel: String = MonthLabelUtils.nowUtc()): Result<ExecutionRecord> = runCatching {
         val existingExecuting = executionRecordRepository.getCurrentExecutingRecord().first()
         if (existingExecuting != null) {
-            throw IllegalStateException("An execution is already in progress for ${existingExecuting.monthLabel}")
+            throw IllegalStateException(
+                ExecutionActionCopyCatalog.startBlockedAlreadyExecuting(existingExecuting.monthLabel)
+            )
         }
 
         val now = System.currentTimeMillis()
         val plan = monthlyPlanRepository.getOrCreatePlan(monthLabel)
         val planId = plan.id
         val requirements = monthlyPlanningService.calculateMonthlyRequirements()
+        if (requirements.isEmpty()) {
+            throw IllegalStateException(ExecutionActionCopyCatalog.startBlockedMissingPlan())
+        }
         val requirementsByGoalId = requirements.associateBy { it.goalId }
         monthlyGoalPlanService.syncPlans(monthLabel, requirements)
         val perGoalPlans = monthlyGoalPlanService
@@ -55,7 +62,7 @@ class StartExecutionUseCase @Inject constructor(
             )
         } else {
             if (existing.status == ExecutionStatus.CLOSED) {
-                throw IllegalStateException("Execution for $monthLabel is closed. Undo or create a new month.")
+                throw IllegalStateException(ExecutionActionCopyCatalog.startBlockedClosedMonth())
             }
             existing.copy(
                 planId = planId,
@@ -66,8 +73,6 @@ class StartExecutionUseCase @Inject constructor(
                 updatedAtMillis = now
             )
         }
-
-        executionRecordRepository.upsert(record)
 
         val activeGoals = goalRepository.getActiveGoals().first()
         val snapshots = activeGoals.map { goal ->
@@ -96,7 +101,10 @@ class StartExecutionUseCase @Inject constructor(
             )
         }
 
-        executionSnapshotRepository.replaceForRecord(record.id, snapshots)
+        transactionRunner.run {
+            executionRecordRepository.upsert(record)
+            executionSnapshotRepository.replaceForRecord(record.id, snapshots)
+        }
         record
     }
 }

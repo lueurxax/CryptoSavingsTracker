@@ -64,8 +64,3 @@ struct OnboardingContentView: View {
         }
     }
 }
-
-#Preview {
-    OnboardingContentView()
-        .modelContainer(for: [Goal.self, Asset.self, Transaction.self], inMemory: true)
-}

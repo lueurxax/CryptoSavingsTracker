@@ -109,6 +109,7 @@ struct GoalsListView: View {
                 }
             }
             .navigationTitle("Crypto Goals")
+            // NAV-MOD: MOD-04
             .confirmationDialog(
                 "Update Goal Status",
                 isPresented: $showingLifecycleActions,
@@ -189,11 +190,4 @@ struct GoalsListView: View {
             }
         }
     }
-}
-
-
-
-#Preview {
-    return GoalsListView()
-        .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
 }

@@ -48,6 +48,7 @@
 		CED9DE6D2E362A2C00203A83 /* Config.example.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.example.plist; sourceTree = "<group>"; };
 		CEDD1EDF2E4698B20026BFEF /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
 		CEDD1EE12E4698B20026BFEF /* sample-data.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "sample-data.md"; sourceTree = "<group>"; };
+		CEEA82ED2F54C56500CB8681 /* COMMIT_DOCK_SCROLL_COLLAPSE_PROPOSAL_TRIAD_REVIEW_R3.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = COMMIT_DOCK_SCROLL_COLLAPSE_PROPOSAL_TRIAD_REVIEW_R3.md; sourceTree = "<group>"; };
 		CEF7B1E02E33FAB400FB26B3 /* CryptoSavingsTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CryptoSavingsTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CEF7B1F12E33FAB600FB26B3 /* CryptoSavingsTrackerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CryptoSavingsTrackerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CEF7B1FB2E33FAB600FB26B3 /* CryptoSavingsTrackerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CryptoSavingsTrackerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -120,6 +121,7 @@
 		CEDD1EE32E4698B20026BFEF /* ../docs */ = {
 			isa = PBXGroup;
 			children = (
+				CEEA82ED2F54C56500CB8681 /* COMMIT_DOCK_SCROLL_COLLAPSE_PROPOSAL_TRIAD_REVIEW_R3.md */,
 				CE1752382EF346CE00E9514F /* CLOUDKIT_MIGRATION_PLAN.md */,
 				CE0FEC132EF138D400F80950 /* CONTRIBUTION_TRACKING_REDESIGN.md */,
 				CE1FBF9B2EEEC0A4008FA3F5 /* CONTRIBUTION_FLOW.md */,

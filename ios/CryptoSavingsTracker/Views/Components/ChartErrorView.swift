@@ -172,25 +172,3 @@ struct CompactChartErrorView: View {
         .cornerRadius(8)
     }
 }
-
-#Preview("Chart Error View") {
-    VStack(spacing: 20) {
-        ChartErrorView(
-            error: .dataUnavailable("No transactions found"),
-            canRetry: true,
-            onRetry: {}
-        )
-        
-        ChartErrorView(
-            error: .networkError("Unable to fetch exchange rates"),
-            canRetry: true,
-            onRetry: {}
-        )
-        
-        CompactChartErrorView(
-            error: .insufficientData(minimum: 5, actual: 2),
-            onRetry: {}
-        )
-    }
-    .padding()
-}

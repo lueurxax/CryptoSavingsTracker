@@ -132,9 +132,3 @@ struct EmojiPickerView: View {
         }
     }
 }
-
-#Preview {
-    @Previewable @State var selectedEmoji: String? = "🎯"
-    return EmojiPickerView(selectedEmoji: $selectedEmoji)
-        .frame(width: 320, height: 400)
-}

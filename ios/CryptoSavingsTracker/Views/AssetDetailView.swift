@@ -246,6 +246,7 @@ struct AssetDetailView: View {
             .buttonStyle(.bordered)
             .tint(.purple)
         }
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingAllocationView) {
             AssetSharingView(asset: asset)
         }

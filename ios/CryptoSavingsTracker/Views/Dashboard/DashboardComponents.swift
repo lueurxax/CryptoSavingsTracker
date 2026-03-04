@@ -450,6 +450,7 @@ struct QuickActionsView: View {
                 )
         )
         .cornerRadius(16)
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingAddAsset) { AddAssetView(goal: goal) }
         .sheet(isPresented: $showingAddTransaction) {
             Group {
@@ -460,8 +461,9 @@ struct QuickActionsView: View {
                 }
             }
         }
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingAssetPicker) {
-            NavigationView {
+            NavigationStack {
                 List(goalAssets, id: \.id) { asset in
                     Button(action: {
                         selectedAsset = asset
@@ -484,6 +486,7 @@ struct QuickActionsView: View {
                 }
             }
         }
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingEditGoal) { EditGoalView(goal: goal, modelContext: modelContext) }
     }
     
@@ -563,8 +566,9 @@ struct RecentActivityView: View {
                 )
         )
         .cornerRadius(16)
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingAssetPicker) {
-            NavigationView {
+            NavigationStack {
                 List(goal.allocatedAssets, id: \.id) { asset in
                     NavigationLink(destination: TransactionHistoryView(asset: asset)) {
                         HStack {
@@ -588,15 +592,4 @@ struct RecentActivityView: View {
 struct ForecastDataPoint {
     let realistic: Double
     let date: Date
-}
-
-#Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config)
-    
-    let goal = Goal(name: "Bitcoin Savings", currency: "USD", targetAmount: 50000, deadline: Date().addingTimeInterval(86400 * 90))
-    container.mainContext.insert(goal)
-    
-    return GoalDashboardView(goal: goal)
-        .modelContainer(container)
 }

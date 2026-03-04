@@ -1,0 +1,31 @@
+# Visual System lint gates for iOS presentation layer
+included:
+  - CryptoSavingsTracker/Views
+  - CryptoSavingsTracker/ViewModels
+excluded:
+  - CryptoSavingsTracker/Utilities/AccessibleColors.swift
+  - CryptoSavingsTracker/Views/**/Previews
+  - CryptoSavingsTracker/Views/**/Preview
+  - CryptoSavingsTrackerTests
+  - CryptoSavingsTrackerUITests
+
+custom_rules:
+  no_raw_swiftui_color_literal:
+    name: "No Raw SwiftUI Color Literal"
+    regex: "\\bColor\\s*\\("
+    message: "Use semantic visual tokens instead of raw Color(...) literals in presentation code."
+    severity: error
+
+  no_raw_status_color_literals:
+    name: "No Raw Status Color Literals"
+    regex: "\\b(Color|\\.)\\s*\\.\\s*(red|green|orange|yellow)\\b"
+    message: "Use semantic status tokens instead of raw status colors (.red/.green/.orange/.yellow)."
+    severity: error
+
+  no_ad_hoc_shadow_literals:
+    name: "No Ad-hoc Shadow Literals"
+    regex: "\\.shadow\\s*\\("
+    message: "Use approved elevation/shadow presets instead of ad-hoc shadow values."
+    severity: error
+
+reporter: "xcode"

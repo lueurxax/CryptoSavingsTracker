@@ -1,0 +1,16 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Components/FlexAdjustmentSliderPreview.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Other Planning Controls",
+        "location": {
+          "startingColumn": 1,
+          "startingLine": 15
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -41,6 +42,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.xax.CryptoSavingsTracker.BuildConfig
+import com.xax.CryptoSavingsTracker.presentation.theme.VisualComponentDefaults
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -172,15 +174,26 @@ internal fun SettingsContent(
             style = MaterialTheme.typography.titleMedium
         )
 
-        Text(
-            text = "Version $versionLabel",
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onTapVersion)
-                .testTag("settingsVersion"),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+                .testTag("settings.section_row"),
+            shape = MaterialTheme.shapes.small,
+            colors = VisualComponentDefaults.settingsSectionRowColors(),
+            border = VisualComponentDefaults.settingsSectionRowBorder(),
+            elevation = VisualComponentDefaults.settingsSectionRowElevation()
+        ) {
+            Text(
+                text = "Version $versionLabel",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onTapVersion)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .testTag("settingsVersion"),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
         if (isDeveloperModeEnabled) {
             Spacer(modifier = Modifier.height(8.dp))

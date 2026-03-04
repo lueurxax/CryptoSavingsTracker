@@ -1,0 +1,32 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "424CD3F4-8E16-42BA-9C48-A1FD70C00A41",
+        "deviceName" : "iPhone 17 Pro Max",
+        "exportedFileName" : "490A1C82-30FE-411E-B7F5-9FC72F1BBB36.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "BudgetShortfallState_0_5FA94669-925F-4521-B72A-DA0B0923E9A2.png",
+        "timestamp" : 1772519337.705
+      }
+    ],
+    "testIdentifier" : "MonthlyPlanningUITests/testBudgetShortfallVisualState()",
+    "testIdentifierURL" : "test://com.apple.xcode/CryptoSavingsTracker/CryptoSavingsTrackerUITests/MonthlyPlanningUITests/testBudgetShortfallVisualState"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "424CD3F4-8E16-42BA-9C48-A1FD70C00A41",
+        "deviceName" : "iPhone 17 Pro Max",
+        "exportedFileName" : "773C73DA-91EE-48BE-B1E8-DEAA50E8F2FD.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "MonthlyPlanningShortfallAfterCancel_0_B2F76C72-D163-46E6-B404-2EEF7690D511.png",
+        "timestamp" : 1772519357.789
+      }
+    ],
+    "testIdentifier" : "MonthlyPlanningUITests/testMonthlyPlanningShortfallAfterBudgetCancel()",
+    "testIdentifierURL" : "test://com.apple.xcode/CryptoSavingsTracker/CryptoSavingsTrackerUITests/MonthlyPlanningUITests/testMonthlyPlanningShortfallAfterBudgetCancel"
+  }
+]

@@ -110,7 +110,7 @@ class ExecutionViewModel @Inject constructor(
         .map { items ->
             val now = System.currentTimeMillis()
             items
-                .filter { it.canUndoUntilMillis > now }
+                .filter { it.undoneAtMillis == null && it.canUndoUntilMillis > now }
                 .map { it.executionRecordId }
                 .distinct()
                 .firstOrNull()
@@ -201,10 +201,15 @@ class ExecutionViewModel @Inject constructor(
         )
     }
 
-    fun startExecution() {
+    fun startExecution(monthLabel: String? = null) {
         viewModelScope.launch {
             _isBusy.value = true
-            startExecutionUseCase().fold(
+            val result = if (monthLabel.isNullOrBlank()) {
+                startExecutionUseCase()
+            } else {
+                startExecutionUseCase(monthLabel)
+            }
+            result.fold(
                 onSuccess = { /* session flow updates */ },
                 onFailure = { e -> _error.value = e.message ?: "Failed to start execution" }
             )

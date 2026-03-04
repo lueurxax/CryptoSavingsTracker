@@ -651,8 +651,3 @@ struct StatPreview: View {
         .frame(maxWidth: .infinity)
     }
 }
-
-#Preview {
-    OnboardingWelcomeView()
-        .padding()
-}

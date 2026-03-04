@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "owner": "Mobile Platform Team",
+  "lastUpdated": "2026-03-03",
+  "notes": "Temporary exemptions list for migration waves. Keep empty by default; add only justified, time-boxed exceptions.",
+  "exemptions": []
+}

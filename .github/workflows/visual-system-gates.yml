@@ -1,0 +1,223 @@
+name: visual-system-gates
+
+on:
+  pull_request:
+    paths:
+      - "docs/design/**"
+      - "docs/proposals/VISUAL_SYSTEM_UNIFICATION_PROPOSAL.md"
+      - "docs/runbooks/visual-system-rollback.md"
+      - "docs/testing/visual-motion-accessibility-checklist.md"
+      - "docs/release/visual-system/**"
+      - "docs/screenshots/review-visual-system-unification-r4/**"
+      - "scripts/**"
+      - "ios/**"
+      - "android/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/workflows/visual-system-gates.yml"
+  push:
+    branches:
+      - "release/**"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Gate mode"
+        required: false
+        type: choice
+        options:
+          - pr
+          - release
+        default: pr
+      wave:
+        description: "Visual system wave (required for release mode)"
+        required: false
+        type: choice
+        options:
+          - wave1
+          - wave2
+          - wave3
+      runtime_accessibility_command:
+        description: "Release accessibility command that writes runtime test-results artifact"
+        required: false
+        type: string
+
+jobs:
+  visual-contract-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip jsonschema
+      - run: python3 scripts/validate_visual_tokens.py
+
+  visual-token-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python3 scripts/check_visual_token_parity.py
+
+  visual-state-matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python3 scripts/validate_visual_state_matrix.py --phase design-complete --report-out artifacts/visual-system/state-matrix-pr.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-state-matrix-report
+          path: artifacts/visual-system/state-matrix-pr.json
+
+  visual-variant-expiry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python3 scripts/check_visual_variant_expiry.py --report-out artifacts/visual-system/variant-expiry-pr.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-variant-expiry-report
+          path: artifacts/visual-system/variant-expiry-pr.json
+
+  ios-visual-lint:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SwiftLint
+        run: |
+          if ! command -v swiftlint >/dev/null 2>&1; then
+            brew install swiftlint
+          fi
+      - run: swiftlint --config ios/.swiftlint.yml
+
+  android-visual-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check_android_visual_literals.sh
+
+  visual-literal-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check_ios_visual_literals.sh
+      - run: bash scripts/check_android_visual_literals.sh
+
+  visual-literal-baseline-budget:
+    runs-on: ubuntu-latest
+    env:
+      WORKFLOW_MODE: ${{ inputs.mode }}
+      VISUAL_SYSTEM_WAVE: ${{ inputs.wave || vars.VISUAL_SYSTEM_WAVE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          if [[ "${GITHUB_REF}" == refs/heads/release/* ]] || [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${WORKFLOW_MODE}" == "release" ]]; then
+            if [[ -z "${VISUAL_SYSTEM_WAVE}" ]]; then
+              echo "error: VISUAL_SYSTEM_WAVE is required for release-mode baseline budget checks"
+              exit 1
+            fi
+            WAVE="${VISUAL_SYSTEM_WAVE}"
+          else
+            WAVE="${VISUAL_SYSTEM_WAVE:-wave1}"
+          fi
+          python3 scripts/check_visual_literal_baseline_burndown.py --wave "${WAVE}" --report-out artifacts/visual-system/literal-baseline-burndown-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-literal-baseline-burndown-report
+          path: artifacts/visual-system/literal-baseline-burndown-report.json
+
+  visual-accessibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python3 scripts/run_visual_accessibility_checks.py --mode pr
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-accessibility-report
+          path: artifacts/visual-system/accessibility-report.json
+
+  visual-snapshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python3 scripts/run_visual_snapshot_checks.py --mode pr
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-snapshot-report
+          path: artifacts/visual-system/snapshot-report.json
+
+  visual-release-gates:
+    if: startsWith(github.ref, 'refs/heads/release/') || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release')
+    runs-on: ubuntu-latest
+    env:
+      VISUAL_SYSTEM_WAVE: ${{ inputs.wave || vars.VISUAL_SYSTEM_WAVE }}
+      VISUAL_ACCESSIBILITY_TEST_COMMAND: ${{ inputs.runtime_accessibility_command || vars.VISUAL_ACCESSIBILITY_TEST_COMMAND }}
+      VISUAL_ACCESSIBILITY_REQUIRED_TEST_MODE: "full"
+      VISUAL_PRODUCTION_CAPTURE_MAX_AGE_HOURS: "24"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip jsonschema
+      - name: Validate required release inputs
+        run: |
+          if [[ -z "${VISUAL_SYSTEM_WAVE}" ]]; then
+            echo "error: VISUAL_SYSTEM_WAVE is required for release mode"
+            exit 1
+          fi
+          if [[ ! "${VISUAL_SYSTEM_WAVE}" =~ ^wave[0-9]+$ ]]; then
+            echo "error: VISUAL_SYSTEM_WAVE must match ^wave[0-9]+$"
+            exit 1
+          fi
+          if [[ -z "${VISUAL_ACCESSIBILITY_TEST_COMMAND}" ]]; then
+            echo "error: VISUAL_ACCESSIBILITY_TEST_COMMAND is required for release mode"
+            exit 1
+          fi
+          if [[ "${VISUAL_ACCESSIBILITY_TEST_COMMAND}" == *"run_visual_accessibility_runtime_test_smoke.py"* ]]; then
+            echo "error: smoke runtime accessibility command is not allowed in release mode"
+            exit 1
+          fi
+      - name: Execute runtime accessibility test command and materialize test-results artifact
+        run: |
+          python3 scripts/run_visual_accessibility_runtime_tests.py \
+            --mode release \
+            --output artifacts/visual-system/runtime-accessibility-test-results.json \
+            --test-command "${VISUAL_ACCESSIBILITY_TEST_COMMAND}" \
+            --required-test-mode "${VISUAL_ACCESSIBILITY_REQUIRED_TEST_MODE}" \
+            --commit-sha "${GITHUB_SHA}" \
+            --ci-job-id "github-run-${GITHUB_RUN_ID}:job-${GITHUB_JOB}"
+      - name: Run release visual gates (includes runtime assertion generation + canonical publish sync)
+        run: bash scripts/run_visual_system_release_gates.sh
+        env:
+          VISUAL_SYSTEM_WAVE: ${{ env.VISUAL_SYSTEM_WAVE }}
+          VISUAL_ACCESSIBILITY_REQUIRED_TEST_MODE: ${{ env.VISUAL_ACCESSIBILITY_REQUIRED_TEST_MODE }}
+          VISUAL_PRODUCTION_CAPTURE_MAX_AGE_HOURS: ${{ env.VISUAL_PRODUCTION_CAPTURE_MAX_AGE_HOURS }}
+          VISUAL_ACCESSIBILITY_TEST_RESULTS_SOURCE: artifacts/visual-system/runtime-accessibility-test-results.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-release-artifacts
+          path: |
+            artifacts/visual-system
+            docs/release/visual-system/latest

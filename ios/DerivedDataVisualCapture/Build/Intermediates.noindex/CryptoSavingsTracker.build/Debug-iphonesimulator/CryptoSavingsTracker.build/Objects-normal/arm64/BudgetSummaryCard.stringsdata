@@ -1,0 +1,64 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Planning/BudgetSummaryCard.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Monthly Budget, %@",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 467
+        }
+      },
+      {
+        "comment": "",
+        "key": "Double tap to %@",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 469
+        }
+      },
+      {
+        "comment": "",
+        "key": "Monthly Budget",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 398
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 406
+        }
+      },
+      {
+        "comment": "",
+        "key": "Rate details",
+        "location": {
+          "startingColumn": 37,
+          "startingLine": 442
+        }
+      },
+      {
+        "comment": "",
+        "key": "Monthly Budget, %@",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 569
+        }
+      },
+      {
+        "comment": "",
+        "key": "Double tap to %@",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 570
+        }
+      }
+    ]
+  },
+  "version": 1
+}

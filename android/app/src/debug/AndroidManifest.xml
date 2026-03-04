@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name=".debug.VisualStateCaptureActivity"
+            android:exported="true"
+            android:theme="@style/Theme.CryptoSavingsTracker" />
+        <activity
+            android:name=".debug.ProductionFlowCaptureActivity"
+            android:exported="true"
+            android:theme="@style/Theme.CryptoSavingsTracker" />
+    </application>
+</manifest>

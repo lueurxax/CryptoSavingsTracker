@@ -1,0 +1,302 @@
+{
+  "matrixVersion": "v1",
+  "updatedAt": "2026-03-03",
+  "requiredStates": [
+    "default",
+    "pressed",
+    "disabled",
+    "error",
+    "loading",
+    "empty",
+    "stale",
+    "recovery"
+  ],
+  "releaseBlockingComponents": [
+    "planning.header_card",
+    "planning.goal_row",
+    "dashboard.summary_card",
+    "settings.section_row"
+  ],
+  "components": {
+    "planning.header_card": {
+      "ios": {
+        "default": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/default.png"
+        },
+        "pressed": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/pressed.png"
+        },
+        "disabled": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/disabled.png"
+        },
+        "error": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/error.png"
+        },
+        "loading": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/loading.png"
+        },
+        "empty": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/empty.png"
+        },
+        "stale": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/stale.png"
+        },
+        "recovery": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/recovery.png"
+        }
+      },
+      "android": {
+        "default": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/default.png"
+        },
+        "pressed": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/pressed.png"
+        },
+        "disabled": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/disabled.png"
+        },
+        "error": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/error.png"
+        },
+        "loading": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/loading.png"
+        },
+        "empty": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/empty.png"
+        },
+        "stale": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/stale.png"
+        },
+        "recovery": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/recovery.png"
+        }
+      }
+    },
+    "planning.goal_row": {
+      "ios": {
+        "default": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/default.png"
+        },
+        "pressed": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/pressed.png"
+        },
+        "disabled": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/disabled.png"
+        },
+        "error": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/error.png"
+        },
+        "loading": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/loading.png"
+        },
+        "empty": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/empty.png"
+        },
+        "stale": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/stale.png"
+        },
+        "recovery": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/recovery.png"
+        }
+      },
+      "android": {
+        "default": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/default.png"
+        },
+        "pressed": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/pressed.png"
+        },
+        "disabled": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/disabled.png"
+        },
+        "error": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/error.png"
+        },
+        "loading": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/loading.png"
+        },
+        "empty": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/empty.png"
+        },
+        "stale": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/stale.png"
+        },
+        "recovery": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/recovery.png"
+        }
+      }
+    },
+    "dashboard.summary_card": {
+      "ios": {
+        "default": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/default.png"
+        },
+        "pressed": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/pressed.png"
+        },
+        "disabled": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/disabled.png"
+        },
+        "error": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/error.png"
+        },
+        "loading": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/loading.png"
+        },
+        "empty": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/empty.png"
+        },
+        "stale": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/stale.png"
+        },
+        "recovery": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/recovery.png"
+        }
+      },
+      "android": {
+        "default": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/default.png"
+        },
+        "pressed": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/pressed.png"
+        },
+        "disabled": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/disabled.png"
+        },
+        "error": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/error.png"
+        },
+        "loading": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/loading.png"
+        },
+        "empty": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/empty.png"
+        },
+        "stale": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/stale.png"
+        },
+        "recovery": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/recovery.png"
+        }
+      }
+    },
+    "settings.section_row": {
+      "ios": {
+        "default": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/default.png"
+        },
+        "pressed": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/pressed.png"
+        },
+        "disabled": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/disabled.png"
+        },
+        "error": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/error.png"
+        },
+        "loading": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/loading.png"
+        },
+        "empty": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/empty.png"
+        },
+        "stale": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/stale.png"
+        },
+        "recovery": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/recovery.png"
+        }
+      },
+      "android": {
+        "default": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/default.png"
+        },
+        "pressed": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/pressed.png"
+        },
+        "disabled": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/disabled.png"
+        },
+        "error": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/error.png"
+        },
+        "loading": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/loading.png"
+        },
+        "empty": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/empty.png"
+        },
+        "stale": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/stale.png"
+        },
+        "recovery": {
+          "status": "captured",
+          "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/recovery.png"
+        }
+      }
+    }
+  }
+}

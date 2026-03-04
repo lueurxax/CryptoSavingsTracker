@@ -1,0 +1,21 @@
+{
+  "matrixPath": "docs/testing/navigation-parity-matrix.v1.json",
+  "requiredJourneyIds": [
+    "goal-create-edit",
+    "monthly-budget-adjust",
+    "destructive-delete-confirmation",
+    "goal-contribution-edit-cancel",
+    "planning-flow-cancel-recovery"
+  ],
+  "requiredSteps": [
+    "entry",
+    "action",
+    "cancel",
+    "validationError",
+    "recovery",
+    "confirmation"
+  ],
+  "passed": true,
+  "issueCount": 0,
+  "issues": []
+}

@@ -657,9 +657,9 @@ final class ExecutionUserFlowUITests: XCTestCase {
 
         if app.buttons["startTrackingButton"].waitForExistence(timeout: 6) {
             app.buttons["startTrackingButton"].tap()
-            let startAlert = app.alerts["Start Tracking?"]
+            let startAlert = app.alerts.matching(NSPredicate(format: "label BEGINSWITH %@", "Start Tracking")).firstMatch
             if startAlert.waitForExistence(timeout: 2) {
-                startAlert.buttons["Start Tracking"].firstMatch.tap()
+                startAlert.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Start Tracking")).firstMatch.tap()
             }
         }
 

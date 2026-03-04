@@ -1,0 +1,47 @@
+{
+  "reportVersion": "v1",
+  "generatedAt": "2026-03-03T21:51:00.653050Z",
+  "sourceCommitSha": "b6f443283405fefff67b775b9d03f734cd233cf7",
+  "sourceCiRunId": "github-run-local:release-gates",
+  "releaseCertifiable": true,
+  "failedSteps": [],
+  "failedReports": [],
+  "checks": {
+    "stepStatus": {
+      "validateTokens": true,
+      "tokenParity": true,
+      "variantExpiry": true,
+      "stateMatrix": true,
+      "literalBaselineBudget": true,
+      "iosLiteralGuard": true,
+      "androidLiteralGuard": true,
+      "snapshot": true,
+      "runtimeAccessibilityTests": true,
+      "accessibility": true,
+      "uxMetrics": true,
+      "certificationFreshness": true
+    },
+    "reports": {
+      "snapshot": {
+        "passed": true,
+        "message": "ok"
+      },
+      "accessibility": {
+        "passed": true,
+        "message": "ok"
+      },
+      "uxMetrics": {
+        "passed": true,
+        "message": "ok"
+      },
+      "variantExpiry": {
+        "passed": true,
+        "message": "ok"
+      },
+      "stateMatrix": {
+        "passed": true,
+        "message": "ok"
+      }
+    }
+  }
+}

@@ -237,13 +237,3 @@ struct GeneralChartSkeleton: View {
         .cornerRadius(12)
     }
 }
-
-#Preview {
-    VStack(spacing: 20) {
-        ChartSkeletonView(height: 200, type: .line)
-        ChartSkeletonView(height: 150, type: .ring)
-        ChartSkeletonView(height: 120, type: .bar)
-        ChartSkeletonView(height: 100, type: .heatmap)
-    }
-    .padding()
-}

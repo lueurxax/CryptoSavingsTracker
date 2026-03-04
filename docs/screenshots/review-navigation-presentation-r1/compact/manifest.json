@@ -1,0 +1,32 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "25182707-FBCC-4CDB-BFA1-E57A0422E9FE",
+        "deviceName" : "iPhone 16e",
+        "exportedFileName" : "7795A0D0-099B-4371-AA69-F961A6EEB8DE.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "BudgetShortfallState_0_4D52034C-6882-40C7-A4FA-66AFE7106816.png",
+        "timestamp" : 1772488447.596
+      }
+    ],
+    "testIdentifier" : "MonthlyPlanningUITests/testBudgetShortfallVisualState()",
+    "testIdentifierURL" : "test://com.apple.xcode/CryptoSavingsTracker/CryptoSavingsTrackerUITests/MonthlyPlanningUITests/testBudgetShortfallVisualState"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "25182707-FBCC-4CDB-BFA1-E57A0422E9FE",
+        "deviceName" : "iPhone 16e",
+        "exportedFileName" : "D17D6D5E-1477-455E-B180-9F803D2AABA3.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "MonthlyPlanningShortfallAfterCancel_0_BD34501A-5CD1-4FF5-9455-189E2161E9A3.png",
+        "timestamp" : 1772488470.81
+      }
+    ],
+    "testIdentifier" : "MonthlyPlanningUITests/testMonthlyPlanningShortfallAfterBudgetCancel()",
+    "testIdentifierURL" : "test://com.apple.xcode/CryptoSavingsTracker/CryptoSavingsTrackerUITests/MonthlyPlanningUITests/testMonthlyPlanningShortfallAfterBudgetCancel"
+  }
+]

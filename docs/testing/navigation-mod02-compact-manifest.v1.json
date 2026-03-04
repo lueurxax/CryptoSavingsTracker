@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "owner": "QA Lead",
+  "lastUpdated": "2026-03-03",
+  "mod02FileMap": [
+    {
+      "path": "ios/CryptoSavingsTracker/Views/Planning/PlanningView.swift",
+      "journeys": [
+        "monthly-budget-adjust",
+        "planning-flow-cancel-recovery"
+      ]
+    },
+    {
+      "path": "ios/CryptoSavingsTracker/Views/Planning/BudgetCalculatorSheet.swift",
+      "journeys": [
+        "monthly-budget-adjust",
+        "planning-flow-cancel-recovery"
+      ]
+    }
+  ],
+  "requiredCompactScenarios": [
+    {
+      "id": "monthly-budget-adjust-compact",
+      "journeys": [
+        "monthly-budget-adjust"
+      ],
+      "baselineArtifact": "docs/screenshots/review-navigation-presentation-r3/compact/monthly-budget-sheet-01-shortfall-iphone16e-light-reuse.png"
+    },
+    {
+      "id": "planning-flow-cancel-recovery-compact",
+      "journeys": [
+        "planning-flow-cancel-recovery"
+      ],
+      "baselineArtifact": "docs/screenshots/review-navigation-presentation-r3/compact/monthly-planning-02-after-cancel-shortfall-card-iphone16e-light-reuse.png"
+    }
+  ]
+}

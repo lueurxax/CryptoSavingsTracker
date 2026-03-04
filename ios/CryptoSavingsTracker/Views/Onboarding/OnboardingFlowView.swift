@@ -15,7 +15,7 @@ struct OnboardingFlowView: View {
     @State private var isCreatingGoal = false
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 // Background gradient
                 LinearGradient(
@@ -321,9 +321,4 @@ struct OnboardingNavigationView: View {
             return "Continue"
         }
     }
-}
-
-#Preview {
-    OnboardingFlowView()
-        .modelContainer(for: [Goal.self, Asset.self, Transaction.self], inMemory: true)
 }

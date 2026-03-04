@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "changedOnly": true,
+  "baseRef": "origin/main",
+  "roots": [
+    "ios/CryptoSavingsTracker",
+    "android/app/src/main/java/com/xax/CryptoSavingsTracker"
+  ],
+  "extensions": [
+    ".java",
+    ".kt",
+    ".kts",
+    ".swift"
+  ],
+  "scannedFileCount": 0,
+  "scannedFiles": [],
+  "issueCount": 0,
+  "issues": []
+}

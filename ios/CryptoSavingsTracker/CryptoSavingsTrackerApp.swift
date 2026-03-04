@@ -32,6 +32,7 @@ struct CryptoSavingsTrackerApp: App {
             AllocationHistory.self,
             MonthlyExecutionRecord.self,
             CompletedExecution.self,
+            CompletionEvent.self,
             ExecutionSnapshot.self
         ])
         let fileManager = FileManager.default
@@ -140,6 +141,14 @@ struct CryptoSavingsTrackerApp: App {
 
             // Check for automated monthly execution transitions
             Task { @MainActor in
+                do {
+                    let service = DIContainer.shared.executionTrackingService(
+                        modelContext: CryptoSavingsTrackerApp.sharedModelContainer.mainContext
+                    )
+                    _ = try service.backfillCompletionEventsIfNeeded()
+                } catch {
+                    AppLog.warning("CompletionEvent backfill skipped: \(error)", category: .executionTracking)
+                }
                 await CryptoSavingsTrackerApp.checkAutomation()
             }
         }
@@ -435,12 +444,22 @@ struct CryptoSavingsTrackerApp: App {
     var body: some Scene {
         WindowGroup {
             let args = ProcessInfo.processInfo.arguments
+            let environment = ProcessInfo.processInfo.environment
             let isXCTestRun = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            let captureMode = environment["VISUAL_CAPTURE_MODE"]?.lowercased()
+            let productionFlow = environment["VISUAL_PRODUCTION_FLOW"]
+            let productionState = environment["VISUAL_PRODUCTION_STATE"]
+            let captureComponent = environment["VISUAL_CAPTURE_COMPONENT"]
+            let captureState = environment["VISUAL_CAPTURE_STATE"]
             UITestBootstrapView {
                 // Keep the app headless only for unit/integration tests.
                 // UI tests rely on UITEST_* launch arguments and need real UI rendered.
                 if isXCTestRun && !UITestFlags.isEnabled {
                     Color.clear
+                } else if captureMode == "production", let productionFlow {
+                    VisualProductionCaptureView(flow: productionFlow, state: productionState ?? "default")
+                } else if let captureComponent, let captureState {
+                    VisualStateCaptureView(component: captureComponent, state: captureState)
                 } else if args.contains("UITEST_SEED_SHARED_ASSET")
                     || args.contains("UITEST_SEED_BUDGET_SHORTFALL")
                     || args.contains("UITEST_SEED_MANY_GOALS")
@@ -476,4 +495,227 @@ struct CryptoSavingsTrackerApp: App {
         #endif
     }
     
+}
+
+private enum VisualCaptureState: String {
+    case `default`
+    case pressed
+    case disabled
+    case error
+    case loading
+    case empty
+    case stale
+    case recovery
+}
+
+private struct VisualStateCaptureView: View {
+    let component: String
+    let state: VisualCaptureState
+
+    init(component: String, state: String) {
+        self.component = component
+        self.state = VisualCaptureState(rawValue: state) ?? .default
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Visual State Capture")
+                .font(.title2)
+                .fontWeight(.bold)
+            Text("\(component) • \(state.rawValue)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Text("CAPTURE:\(component):\(state.rawValue)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            componentCard
+                .opacity(state == .disabled ? 0.45 : 1)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(canvasBackground)
+    }
+
+    @ViewBuilder
+    private var componentCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            switch component {
+            case "planning.header_card":
+                Text("Monthly Planning")
+                    .font(.headline)
+                Text("Required: 1,250 USD")
+                    .font(.subheadline)
+            case "planning.goal_row":
+                Text("Emergency Fund")
+                    .font(.headline)
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.gray.opacity(0.2))
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(stateTint)
+                            .frame(width: geo.size.width * 0.62)
+                    }
+                }
+                .frame(height: 8)
+            case "dashboard.summary_card":
+                Text("Projected Progress")
+                    .font(.headline)
+                HStack(spacing: 16) {
+                    metric("63%", "This month")
+                    metric("1", "At risk goals")
+                }
+            case "settings.section_row":
+                HStack {
+                    Circle()
+                        .fill(stateTint)
+                        .frame(width: 10, height: 10)
+                    Text("Budget Notifications")
+                        .font(.body)
+                    Spacer()
+                    Text("Enabled")
+                        .foregroundStyle(.secondary)
+                }
+            default:
+                Text(component)
+                    .font(.headline)
+            }
+
+            stateFooter
+        }
+        .padding(16)
+        .background(cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    @ViewBuilder
+    private var stateFooter: some View {
+        switch state {
+        case .loading:
+            HStack(spacing: 8) {
+                ProgressView()
+                    .scaleEffect(0.8)
+                Text("Loading latest values")
+                    .font(.caption)
+            }
+        case .empty:
+            Text("No items available")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .stale:
+            Text("Data may be stale")
+                .font(.caption)
+                .foregroundStyle(AccessibleColors.warning)
+                .fontWeight(.semibold)
+        case .error:
+            Text("Action required")
+                .font(.caption)
+                .foregroundStyle(AccessibleColors.error)
+                .fontWeight(.semibold)
+        case .recovery:
+            Text("Recovered successfully")
+                .font(.caption)
+                .foregroundStyle(AccessibleColors.success)
+                .fontWeight(.semibold)
+        default:
+            Text("State: \(state.rawValue)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func metric(_ value: String, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.headline)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var stateTint: Color {
+        switch state {
+        case .error:
+            return AccessibleColors.error
+        case .stale:
+            return AccessibleColors.warning
+        case .recovery:
+            return AccessibleColors.success
+        case .pressed, .loading, .default:
+            return AccessibleColors.primaryInteractive
+        case .disabled:
+            return AccessibleColors.disabled
+        case .empty:
+            return AccessibleColors.tertiaryText
+        }
+    }
+
+    private var canvasBackground: Color {
+        #if os(macOS)
+        Color(NSColor.windowBackgroundColor)
+        #else
+        Color(.systemBackground)
+        #endif
+    }
+
+    private var cardBackground: Color {
+        #if os(macOS)
+        Color(NSColor.controlBackgroundColor)
+        #else
+        Color(.secondarySystemBackground)
+        #endif
+    }
+}
+
+private enum VisualProductionFlow: String {
+    case planning
+    case dashboard
+    case settings
+}
+
+private enum VisualProductionState: String {
+    case `default`
+    case error
+    case recovery
+}
+
+private struct VisualProductionCaptureView: View {
+    let flow: VisualProductionFlow
+    let state: VisualProductionState
+
+    init(flow: String, state: String) {
+        self.flow = VisualProductionFlow(rawValue: flow) ?? .planning
+        self.state = VisualProductionState(rawValue: state) ?? .default
+    }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            flowContent
+            Text("PRODUCTION_CAPTURE:\(flow.rawValue):\(state.rawValue)")
+                .font(.caption2.monospaced())
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .padding(12)
+        }
+        .task {
+            OnboardingManager.shared.completeOnboarding()
+        }
+    }
+
+    @ViewBuilder
+    private var flowContent: some View {
+        switch flow {
+        case .planning:
+            MonthlyPlanningContainer()
+        case .dashboard:
+            DashboardView()
+        case .settings:
+            SettingsView()
+        }
+    }
 }

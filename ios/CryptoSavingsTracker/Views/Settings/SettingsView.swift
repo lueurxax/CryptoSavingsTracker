@@ -41,26 +41,26 @@ struct SettingsView: View {
                 }
 
                 Section("Monthly Planning") {
-                    HStack {
-                        Label("Display Currency", systemImage: "dollarsign.circle")
-                        Spacer()
-                        Text(monthlySettings.displayCurrency)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    HStack {
-                        Label("Payment Day", systemImage: "calendar")
-                        Spacer()
-                        Text("\(monthlySettings.paymentDay)\(monthlySettings.paymentDay.ordinalSuffix) of month")
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    HStack {
-                        Label("Next Payment", systemImage: "clock")
-                        Spacer()
-                        Text("\(monthlySettings.daysUntilPayment) days")
-                            .foregroundColor(.secondary)
-                    }
+                    SettingsSectionRow(
+                        title: "Display Currency",
+                        systemImage: "dollarsign.circle",
+                        value: monthlySettings.displayCurrency,
+                        accessibilityIdentifier: "settings.section_row"
+                    )
+
+                    SettingsSectionRow(
+                        title: "Payment Day",
+                        systemImage: "calendar",
+                        value: "\(monthlySettings.paymentDay)\(monthlySettings.paymentDay.ordinalSuffix) of month",
+                        accessibilityIdentifier: "settings.section_row.payment_day"
+                    )
+
+                    SettingsSectionRow(
+                        title: "Next Payment",
+                        systemImage: "clock",
+                        value: "\(monthlySettings.daysUntilPayment) days",
+                        accessibilityIdentifier: "settings.section_row.next_payment"
+                    )
                     
                     Button("Configure Monthly Planning") {
                         showingMonthlyPlanningSettings = true
@@ -99,6 +99,36 @@ struct SettingsView: View {
         } message: {
             Text(exportErrorMessage ?? "Unknown error")
         }
+    }
+}
+
+private struct SettingsSectionRow: View {
+    let title: String
+    let systemImage: String
+    let value: String
+    let accessibilityIdentifier: String
+
+    var body: some View {
+        HStack {
+            Label(title, systemImage: systemImage)
+            Spacer()
+            Text(value)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: VisualComponentTokens.settingsRowCornerRadius)
+                .fill(VisualComponentTokens.settingsRowFill)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: VisualComponentTokens.settingsRowCornerRadius)
+                .stroke(VisualComponentTokens.financeSurfaceStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: VisualComponentTokens.settingsRowCornerRadius))
+        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+        .listRowBackground(Color.clear)
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 }
 

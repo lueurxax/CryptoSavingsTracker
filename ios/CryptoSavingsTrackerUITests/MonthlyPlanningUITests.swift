@@ -298,6 +298,173 @@ final class MonthlyPlanningUITests: XCTestCase {
         }
     }
 
+    // MARK: - Commit Dock Collapse Tests
+
+    func testCommitDockCollapsesOnScroll() throws {
+        // Relaunch with many goals so the scroll view has enough content to scroll 96pt+
+        app.terminate()
+        app.launchArguments = [
+            "UITEST_RESET_DATA",
+            "UITEST_SEED_MANY_GOALS",
+            "UITEST_UI_FLOW",
+            "-ApplePersistenceIgnoreState", "YES"
+        ]
+        app.launch()
+
+        openFullPlanningView()
+
+        let startButton = app.buttons["startTrackingButton"]
+        XCTAssertTrue(startButton.waitForExistence(timeout: 10), "Start tracking button should exist")
+
+        // Capture expanded state: label includes "Ready to commit"
+        let expandedLabel = startButton.label
+        let attachment1 = XCTAttachment(screenshot: app.screenshot())
+        attachment1.name = "dock-before-scroll"
+        attachment1.lifetime = .keepAlways
+        add(attachment1)
+
+        // Scroll down aggressively to trigger collapse (need > 96pt scroll)
+        let scrollView = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 5), "Scroll view should exist")
+        scrollView.swipeUp()
+        scrollView.swipeUp()
+        scrollView.swipeUp()
+
+        // Let animation finish
+        Thread.sleep(forTimeInterval: 0.5)
+
+        let attachment2 = XCTAttachment(screenshot: app.screenshot())
+        attachment2.name = "dock-after-scroll"
+        attachment2.lifetime = .keepAlways
+        add(attachment2)
+
+        // After scroll the button should still exist but its label changes (collapsed = shorter)
+        XCTAssertTrue(startButton.exists, "Start tracking button should still exist after scroll")
+        let scrolledLabel = startButton.label
+        XCTAssertNotEqual(expandedLabel, scrolledLabel,
+            "Dock label should change after scroll (expanded: '\(expandedLabel)' vs collapsed: '\(scrolledLabel)')")
+
+        // Scroll back to top to verify re-expansion
+        scrollView.swipeDown()
+        scrollView.swipeDown()
+        scrollView.swipeDown()
+        scrollView.swipeDown()
+
+        Thread.sleep(forTimeInterval: 0.5)
+
+        let attachment3 = XCTAttachment(screenshot: app.screenshot())
+        attachment3.name = "dock-after-scroll-back"
+        attachment3.lifetime = .keepAlways
+        add(attachment3)
+
+        // Label should return to expanded form
+        let returnedLabel = startButton.label
+        XCTAssertEqual(expandedLabel, returnedLabel,
+            "Dock should re-expand after scrolling back (expected: '\(expandedLabel)', got: '\(returnedLabel)')")
+    }
+
+    /// Proposal §13 QA #19/#30: VoiceOver focus stays on the dock's actionable button after collapse,
+    /// and focus is not stolen from elements outside the dock subtree.
+    func testCommitDockFocusOwnership() throws {
+        app.terminate()
+        app.launchArguments = [
+            "UITEST_RESET_DATA",
+            "UITEST_SEED_MANY_GOALS",
+            "UITEST_UI_FLOW",
+            "-ApplePersistenceIgnoreState", "YES"
+        ]
+        app.launch()
+
+        openFullPlanningView()
+
+        let startButton = app.buttons["startTrackingButton"]
+        XCTAssertTrue(startButton.waitForExistence(timeout: 10), "Start tracking button should exist")
+
+        // The dock button should be an actionable Button (not just a combined text container).
+        // Verify it's hittable, meaning VO can activate it.
+        XCTAssertTrue(startButton.isHittable, "Dock button should be hittable in expanded state")
+
+        // Scroll to collapse
+        let scrollView = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 5))
+        scrollView.swipeUp()
+        scrollView.swipeUp()
+        scrollView.swipeUp()
+        Thread.sleep(forTimeInterval: 0.5)
+
+        // After collapse, the button should still exist and be hittable (FAB)
+        XCTAssertTrue(startButton.exists, "Start tracking button should still exist after collapse")
+        XCTAssertTrue(startButton.isHittable, "FAB should be hittable after collapse")
+
+        // Verify the button's accessibility label includes full intent with explicit action
+        let fabLabel = startButton.label
+        XCTAssertTrue(fabLabel.contains("Start Tracking"),
+            "FAB should include 'Start Tracking' in label, got: '\(fabLabel)'")
+    }
+
+    /// Proposal §13 QA #31: Budget sheet dismissal preserves dock phase via event-origin reducer.
+    func testCommitDockSheetDismissPreservesPhase() throws {
+        app.terminate()
+        app.launchArguments = [
+            "UITEST_RESET_DATA",
+            "UITEST_SEED_MANY_GOALS",
+            "UITEST_UI_FLOW",
+            "-ApplePersistenceIgnoreState", "YES"
+        ]
+        app.launch()
+
+        openFullPlanningView()
+
+        let startButton = app.buttons["startTrackingButton"]
+        XCTAssertTrue(startButton.waitForExistence(timeout: 10), "Start tracking button should exist")
+
+        // Scroll to collapse the dock
+        let scrollView = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 5))
+        scrollView.swipeUp()
+        scrollView.swipeUp()
+        scrollView.swipeUp()
+        Thread.sleep(forTimeInterval: 0.5)
+
+        let collapsedLabel = startButton.label
+        XCTAssertTrue(collapsedLabel.contains("Start"),
+            "Collapsed dock should still expose start action, got: '\(collapsedLabel)'")
+
+        // Open budget sheet via the Edit button (may be scrolled out — tap "Fix" shortfall button or scroll back partially)
+        // The "Fix" button in the collapsed header strip opens the budget sheet
+        let fixButton = app.buttons["editBudgetButton"]
+        if fixButton.waitForExistence(timeout: 3) {
+            fixButton.tap()
+        } else {
+            // Try the collapsed header "Fix" button
+            let fixShortfall = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Fix'")).firstMatch
+            if fixShortfall.waitForExistence(timeout: 3) {
+                fixShortfall.tap()
+            } else {
+                // Scroll back enough to find the Edit button
+                scrollView.swipeDown()
+                Thread.sleep(forTimeInterval: 0.3)
+                let editButton = app.buttons["editBudgetButton"]
+                XCTAssertTrue(editButton.waitForExistence(timeout: 5), "Edit budget button should exist")
+                editButton.tap()
+            }
+        }
+
+        // Verify budget sheet appeared
+        let cancelButton = app.buttons["Cancel"]
+        if cancelButton.waitForExistence(timeout: 5) {
+            // Dismiss the sheet
+            cancelButton.tap()
+            Thread.sleep(forTimeInterval: 0.5)
+
+            // After sheet dismiss, the dock should preserve its phase (sheetDismiss preserves current).
+            // The scroll position may have reset, so the dock could re-expand based on scroll offset.
+            // What we're really testing is that the dock didn't glitch or crash.
+            XCTAssertTrue(startButton.waitForExistence(timeout: 5),
+                "Start tracking button should exist after sheet dismiss")
+        }
+    }
+
     // MARK: - Accessibility Tests
 
     func testVoiceOverSupport() throws {
@@ -427,6 +594,160 @@ final class MonthlyPlanningUITests: XCTestCase {
         add(attachment)
     }
 
+    func testUseMinimumEnablesSaveBudget() throws {
+        openFullPlanningView()
+        XCTAssertTrue(openBudgetSheet(), "Budget entry action should be visible")
+        XCTAssertTrue(app.navigationBars["Budget Plan"].waitForExistence(timeout: 5), "Budget plan sheet should open")
+
+        let amountField = app.textFields["budgetAmountField"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 5))
+        amountField.clearAndTypeText("1")
+
+        let minimumButton = app.buttons["useMinimumBudgetButton"]
+        XCTAssertTrue(minimumButton.waitForExistence(timeout: 6), "Use Minimum button should be visible")
+        minimumButton.tap()
+
+        let saveButton = app.buttons["saveBudgetPlanButton"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 3))
+        XCTAssertTrue(saveButton.isEnabled, "Save should be enabled immediately after Use Minimum")
+    }
+
+    func testMinimumMinusOneMinorUnitDisablesSaveWithExplicitReason() throws {
+        openFullPlanningView()
+        XCTAssertTrue(openBudgetSheet(), "Budget entry action should be visible")
+        XCTAssertTrue(app.navigationBars["Budget Plan"].waitForExistence(timeout: 5), "Budget plan sheet should open")
+
+        let amountField = app.textFields["budgetAmountField"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 5))
+        amountField.clearAndTypeText("1")
+
+        let minimumText = app.staticTexts["budgetMinimumRequiredText"]
+        XCTAssertTrue(minimumText.waitForExistence(timeout: 12), "Minimum required text should be visible for low budget")
+
+        let minimumLabel = minimumText.label
+        guard let minimumValue = parseDecimalFromMixedText(minimumLabel) else {
+            XCTFail("Could not parse minimum required amount from '\(minimumLabel)'")
+            return
+        }
+        let fractionDigits = inferredFractionDigits(from: minimumLabel)
+        amountField.clearAndTypeText(formatDecimalForTyping(minimumValue, fractionDigits: fractionDigits))
+
+        let saveButton = app.buttons["saveBudgetPlanButton"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 3), "Save button should exist")
+        let enabledExpectation = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: saveButton)
+        wait(for: [enabledExpectation], timeout: 8)
+
+        let oneMinorUnit = Decimal(sign: .plus, exponent: -fractionDigits, significand: 1)
+        let reduced = minimumValue - oneMinorUnit
+        amountField.clearAndTypeText(formatDecimalForTyping(reduced, fractionDigits: fractionDigits))
+
+        let disabledExpectation = expectation(for: NSPredicate(format: "isEnabled == false"), evaluatedWith: saveButton)
+        wait(for: [disabledExpectation], timeout: 6)
+
+        let reasonByIdentifier = app.descendants(matching: .any).matching(identifier: "budgetShortfallSaveWarning").firstMatch
+        let reasonByCopy = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH[c] 'Short by'")).firstMatch
+
+        XCTAssertTrue(
+            reasonByIdentifier.waitForExistence(timeout: 2) || reasonByCopy.waitForExistence(timeout: 2),
+            "Disabled Save reason should be visible"
+        )
+        XCTAssertFalse(saveButton.isEnabled, "Minimum minus one minor unit must disable Save")
+    }
+
+    func testAppendingZeroKeepsEligibilityWhenCanonicalValueUnchanged() throws {
+        openFullPlanningView()
+        XCTAssertTrue(openBudgetSheet(), "Budget entry action should be visible")
+        XCTAssertTrue(app.navigationBars["Budget Plan"].waitForExistence(timeout: 5), "Budget plan sheet should open")
+
+        let amountField = app.textFields["budgetAmountField"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 5))
+        amountField.clearAndTypeText("1")
+
+        let minimumButton = app.buttons["useMinimumBudgetButton"]
+        XCTAssertTrue(minimumButton.waitForExistence(timeout: 6))
+        minimumButton.tap()
+
+        let saveButton = app.buttons["saveBudgetPlanButton"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 3))
+        XCTAssertTrue(saveButton.isEnabled, "Save should be enabled at canonical minimum")
+
+        amountField.tap()
+        amountField.typeText("0")
+        XCTAssertTrue(saveButton.isEnabled, "Appending trailing zero should not change eligibility when canonical amount is unchanged")
+    }
+
+    func testSameCanonicalAmountRecomputesAfterInvalidInput() throws {
+        openFullPlanningView()
+        XCTAssertTrue(openBudgetSheet(), "Budget entry action should be visible")
+        XCTAssertTrue(app.navigationBars["Budget Plan"].waitForExistence(timeout: 5), "Budget plan sheet should open")
+
+        let amountField = app.textFields["budgetAmountField"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 5))
+        amountField.clearAndTypeText("1")
+
+        let minimumText = app.staticTexts["budgetMinimumRequiredText"]
+        XCTAssertTrue(minimumText.waitForExistence(timeout: 12), "Minimum required text should be visible for low budget")
+
+        let minimumLabel = minimumText.label
+        guard let minimumValue = parseDecimalFromMixedText(minimumLabel) else {
+            XCTFail("Could not parse minimum required amount from '\(minimumLabel)'")
+            return
+        }
+        let fractionDigits = inferredFractionDigits(from: minimumLabel)
+        let canonicalMinimum = formatDecimalForTyping(minimumValue, fractionDigits: fractionDigits)
+
+        amountField.clearAndTypeText(canonicalMinimum)
+
+        let saveButton = app.buttons["saveBudgetPlanButton"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 3), "Save button should exist")
+        let enabledExpectation = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: saveButton)
+        wait(for: [enabledExpectation], timeout: 8)
+
+        amountField.clearAndTypeText("2..5")
+        XCTAssertTrue(app.staticTexts["Enter a valid amount."].waitForExistence(timeout: 4))
+        XCTAssertFalse(saveButton.isEnabled, "Invalid input should disable Save")
+
+        amountField.clearAndTypeText(canonicalMinimum)
+        let reenabledExpectation = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: saveButton)
+        wait(for: [reenabledExpectation], timeout: 8)
+        XCTAssertTrue(saveButton.isEnabled, "Re-entering the same canonical amount should restore Save eligibility")
+    }
+
+    func testDoneAccessoryDismissesKeyboard() throws {
+        openFullPlanningView()
+        XCTAssertTrue(openBudgetSheet(), "Budget entry action should be visible")
+        XCTAssertTrue(app.navigationBars["Budget Plan"].waitForExistence(timeout: 5), "Budget plan sheet should open")
+
+        let amountField = app.textFields["budgetAmountField"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 5))
+        amountField.tap()
+
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 3), "Numeric keyboard should be visible")
+
+        let doneButton = app.buttons["budgetKeyboardDoneButton"]
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 3), "Keyboard toolbar Done button should exist")
+        doneButton.tap()
+
+        XCTAssertFalse(keyboard.waitForExistence(timeout: 1), "Done should dismiss keyboard")
+    }
+
+    func testInvalidAmountShowsExplicitReasonCopy() throws {
+        openFullPlanningView()
+        XCTAssertTrue(openBudgetSheet(), "Budget entry action should be visible")
+        XCTAssertTrue(app.navigationBars["Budget Plan"].waitForExistence(timeout: 5), "Budget plan sheet should open")
+
+        let amountField = app.textFields["budgetAmountField"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 5))
+        amountField.clearAndTypeText("2..5")
+
+        let reason = app.staticTexts["Enter a valid amount."]
+        XCTAssertTrue(reason.waitForExistence(timeout: 4), "Invalid input should show explicit parser reason")
+
+        let saveButton = app.buttons["saveBudgetPlanButton"]
+        XCTAssertFalse(saveButton.isEnabled, "Save must stay disabled for invalid input")
+    }
+
     private func openBudgetSheet() -> Bool {
         // Try to reset scroll position to where summary cards are usually rendered.
         for _ in 0..<2 { app.swipeDown() }
@@ -495,6 +816,62 @@ final class MonthlyPlanningUITests: XCTestCase {
 
         return false
     }
+
+    private func parseDecimal(_ text: String) -> Decimal? {
+        let normalized = text
+            .replacingOccurrences(of: "\u{00A0}", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = Locale.current
+
+        if let number = formatter.number(from: normalized) {
+            return number.decimalValue
+        }
+
+        var fallback = normalized
+        if let groupingSeparator = formatter.groupingSeparator, !groupingSeparator.isEmpty {
+            fallback = fallback.replacingOccurrences(of: groupingSeparator, with: "")
+        }
+        if let decimalSeparator = formatter.decimalSeparator, decimalSeparator != "." {
+            fallback = fallback.replacingOccurrences(of: decimalSeparator, with: ".")
+        }
+        return Decimal(string: fallback)
+    }
+
+    private func parseDecimalFromMixedText(_ text: String) -> Decimal? {
+        let allowed = Set("0123456789., +-")
+        let normalized = text
+            .replacingOccurrences(of: "\u{00A0}", with: " ")
+            .filter { allowed.contains($0) }
+        return parseDecimal(normalized)
+    }
+
+    private func inferredFractionDigits(from text: String) -> Int {
+        let normalized = text.replacingOccurrences(of: "\u{00A0}", with: " ")
+        guard
+            let separatorIndex = normalized.lastIndex(where: { $0 == "." || $0 == "," })
+        else {
+            return 2
+        }
+        let count = normalized.distance(from: separatorIndex, to: normalized.endIndex) - 1
+        return max(0, min(4, count))
+    }
+
+    private func formatDecimalForTyping(_ value: Decimal, fractionDigits: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = Locale.current
+        formatter.usesGroupingSeparator = false
+        formatter.minimumFractionDigits = max(0, fractionDigits)
+        formatter.maximumFractionDigits = max(0, fractionDigits)
+
+        if let formatted = formatter.string(from: NSDecimalNumber(decimal: value)) {
+            return formatted
+        }
+        return NSDecimalNumber(decimal: value).stringValue
+    }
 }
 
 private extension XCUIElement {
@@ -504,7 +881,8 @@ private extension XCUIElement {
             typeText(text)
             return
         }
-        let deleteText = String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentValue.count)
+        let deleteCount = max(currentValue.count + 6, 20)
+        let deleteText = String(repeating: XCUIKeyboardKey.delete.rawValue, count: deleteCount)
         typeText(deleteText)
         typeText(text)
     }

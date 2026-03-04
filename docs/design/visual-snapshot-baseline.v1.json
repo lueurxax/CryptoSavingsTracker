@@ -1,0 +1,455 @@
+{
+  "baselineVersion": "v1",
+  "generatedAt": "2026-03-03",
+  "artifactCount": 64,
+  "artifacts": [
+    {
+      "component": "dashboard.summary_card",
+      "platform": "android",
+      "state": "default",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/default.png",
+      "sha256": "6bdacf7b5533dff30d83c55ca453760bacea3af4edffcffba170dedbc3b6c104"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "android",
+      "state": "disabled",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/disabled.png",
+      "sha256": "3a1fb912cdb694d8dbf68d74d45d74b73c266c2c65cd131e1bab6ce91baf97da"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "android",
+      "state": "empty",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/empty.png",
+      "sha256": "726c0ef20911f1a3ef01b1610583a74b04ff2d8235186c608a0fea39315972bb"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "android",
+      "state": "error",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/error.png",
+      "sha256": "121e6973382450947f3750b75b3b37b96b84f6b76a73c30a5740a11192270565"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "android",
+      "state": "loading",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/loading.png",
+      "sha256": "de463d937ed1abbaf8437d73851006256cbb9a81de3277c4b9848d7324f13011"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "android",
+      "state": "pressed",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/pressed.png",
+      "sha256": "8ed2ee81a7278ece2b8c2b8a0265b14bdbd15ebd3ca941a41eefdea9d66800be"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "android",
+      "state": "recovery",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/recovery.png",
+      "sha256": "96986cfb51d96ce12da938445bcd7792602356d88b59d69afdf0fc2dc7383944"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "android",
+      "state": "stale",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/dashboard.summary_card/stale.png",
+      "sha256": "8590cd2e411e9cfa8a4e8dc366a6414b089855c2665c702abf1d61f22b6eac25"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "android",
+      "state": "default",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/default.png",
+      "sha256": "2cf67adb0a6dfb665e9e889087f6cd9be685111944edc8ed9b8798a2a330d38e"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "android",
+      "state": "disabled",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/disabled.png",
+      "sha256": "46b547abbdf58d742c589bf5f2a40f34fd4c0591388c5f906a16fc3e059c6941"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "android",
+      "state": "empty",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/empty.png",
+      "sha256": "682d47d20b06c0a53ef227323bc5624365ad09fe18c59cc08b538037322f9b43"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "android",
+      "state": "error",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/error.png",
+      "sha256": "3e5391f76954e1fe4f4be9dbf8118e0337079c1d5ec842e86a0fbc9ea1c6eb77"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "android",
+      "state": "loading",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/loading.png",
+      "sha256": "9e0ad94162b7df040e3a46a4c8883844c2bc66a940caadc021168f07d12eae01"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "android",
+      "state": "pressed",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/pressed.png",
+      "sha256": "81b228f1267a40b9b2aa09ca65a334dffc57088dce10250d119058b6cdf52e7f"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "android",
+      "state": "recovery",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/recovery.png",
+      "sha256": "aaf1a7dcb3aa6b46108b100d9709d1a6d0124eab72d3fcb89e6feb503170dd11"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "android",
+      "state": "stale",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.goal_row/stale.png",
+      "sha256": "0af56acecd72d6799bfcb7635e3f35fe9c4a3d6221418d6b8eaebcdec588b05c"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "android",
+      "state": "default",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/default.png",
+      "sha256": "f0f53b7e900fddc27321e7c99c5a665cc6ef2b83c9272fb77024f36902cf25b9"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "android",
+      "state": "disabled",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/disabled.png",
+      "sha256": "aad001ed2fcdc40f61ae6e2c9d1f6034b25eb2a0e5a262894c4a03ef22fc8c0b"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "android",
+      "state": "empty",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/empty.png",
+      "sha256": "6df71a82179ffa8b2167852ca230a4c39ca630a4f099df6c195230ce94edfcf0"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "android",
+      "state": "error",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/error.png",
+      "sha256": "98ad89104b74e14f30f00e818ae693cd0ca7df7218f81d8636d803eab9784851"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "android",
+      "state": "loading",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/loading.png",
+      "sha256": "3173ee12593f2bade2338778b7e7d81169ccb67b0287b2b9c6cd64c98cf6c944"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "android",
+      "state": "pressed",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/pressed.png",
+      "sha256": "d6b8805542ffea118caaf86f818c918bd059e7394421fa4e30f1bcbb2aa94ce3"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "android",
+      "state": "recovery",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/recovery.png",
+      "sha256": "413e4577c7242c2de13b0c2c89ff8a91e6eb22b31be188e640b09fb8223de1bd"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "android",
+      "state": "stale",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/planning.header_card/stale.png",
+      "sha256": "6f517107a5dd868a80889336286d7880461b248b7a26ca77a0b0741bce51b051"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "android",
+      "state": "default",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/default.png",
+      "sha256": "cde1423783fe2342fa04827d46be59170fba0f381b89edeca954695211e54af5"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "android",
+      "state": "disabled",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/disabled.png",
+      "sha256": "93224b07c6d817a26991d9918663e3aec32d6638f12674bffd969a7b90f095b0"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "android",
+      "state": "empty",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/empty.png",
+      "sha256": "391126857e5cda1a5327760053191e87e1b5f100160b89b0ca8947362c03afd7"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "android",
+      "state": "error",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/error.png",
+      "sha256": "e9e1f22cdbd6492dbd96e1975c3f38168d9281a89d1ef07300ef32450fe13cad"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "android",
+      "state": "loading",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/loading.png",
+      "sha256": "9cccb545a1cf68fe5805a9f1d16adbfac21547fbe36b11dd0a981346be146562"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "android",
+      "state": "pressed",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/pressed.png",
+      "sha256": "fb21dae82dce14c79aa904337797d43ee6f579146922c052a1b9aa10cd7bd17c"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "android",
+      "state": "recovery",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/recovery.png",
+      "sha256": "417adb185baa2d2bfde2a5c2edfe14539ed5be716d344399c029650631630917"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "android",
+      "state": "stale",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/android/settings.section_row/stale.png",
+      "sha256": "3533fe3512972666eab1e0ae718a42e002d8730cc7e27ea472da8176f4e9e072"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "ios",
+      "state": "default",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/default.png",
+      "sha256": "52126bd4e10af5f41a744c4cfbdc4e7dfe38321cc68ee75c0cbf1f9b16733aec"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "ios",
+      "state": "disabled",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/disabled.png",
+      "sha256": "6d9a4026ad42ae5fbe6ca2cac9bc9cf3b41bda6f42b7170b8b57452c9855d0ea"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "ios",
+      "state": "empty",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/empty.png",
+      "sha256": "31e1faec20d5a2665a33c913a59133480451888170fba318501fa43c2ff0a70a"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "ios",
+      "state": "error",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/error.png",
+      "sha256": "0b9b34052d610fcdf877341a7199897c696a5d43e8347c8b1f3bddc557d1d64d"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "ios",
+      "state": "loading",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/loading.png",
+      "sha256": "97df9a2fe16fdab9b45f1fc871dd79e70cc5e80b656727eb46f5c2137960b35f"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "ios",
+      "state": "pressed",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/pressed.png",
+      "sha256": "a0723558464d996ff9bb1360d9b6a415cba9a1986f2e42100e0823e575b4c0b9"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "ios",
+      "state": "recovery",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/recovery.png",
+      "sha256": "1bbe3b272bf699c0991280ad6982b6b58d625de26d4e00536db23e4379c7f780"
+    },
+    {
+      "component": "dashboard.summary_card",
+      "platform": "ios",
+      "state": "stale",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/dashboard.summary_card/stale.png",
+      "sha256": "a06df777a4b02905d3af11c359367fe33123d8adc79845b21e1e39438fd16607"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "ios",
+      "state": "default",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/default.png",
+      "sha256": "000a22a8176889a063195c135c6e20a3f96bc67ef52abd8037b2eae37ab21f31"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "ios",
+      "state": "disabled",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/disabled.png",
+      "sha256": "430d6bb1942699ded52f4718af2a94b91de7674bdf2ad9996ae63616ffaeb368"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "ios",
+      "state": "empty",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/empty.png",
+      "sha256": "95b38eabfa4f9110f4613510cd856e5399dbed88a2f47771f3730318691a1634"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "ios",
+      "state": "error",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/error.png",
+      "sha256": "260d9ad8d75ef3384cc8432e26b5143a3a3ab4e3ae9f06009cf2ac009b166f42"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "ios",
+      "state": "loading",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/loading.png",
+      "sha256": "a0a910b90ff89c6b6643b89d8f08b7e923504c275b93fed155d54f9dc31100c9"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "ios",
+      "state": "pressed",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/pressed.png",
+      "sha256": "64652f3f2738996850ec5d57f1dc2812f209447f1944c9216b369017e843793a"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "ios",
+      "state": "recovery",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/recovery.png",
+      "sha256": "71a359e01523a424391bc437a418005fde40c50a8610fbdf06dd2985c9a35dbd"
+    },
+    {
+      "component": "planning.goal_row",
+      "platform": "ios",
+      "state": "stale",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.goal_row/stale.png",
+      "sha256": "31e1faec20d5a2665a33c913a59133480451888170fba318501fa43c2ff0a70a"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "ios",
+      "state": "default",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/default.png",
+      "sha256": "5c02fcc2c4455cc7e8bdf78d80f46db7841052d234aa69600b07a026ef7e1450"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "ios",
+      "state": "disabled",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/disabled.png",
+      "sha256": "a82bd7fe5e45a1da7bde0a92b42a187dac7e1361ac2b9e57b6bc047d579ba4a5"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "ios",
+      "state": "empty",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/empty.png",
+      "sha256": "b6fca1ca7fe6311a0d51573708c835b289a35d4a20160180109f41734bb2b8ce"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "ios",
+      "state": "error",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/error.png",
+      "sha256": "1203ba43c33492d0b3e6e3a4dd1bf9a54702ee3f7d64818ccffbd6bee847f42c"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "ios",
+      "state": "loading",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/loading.png",
+      "sha256": "dc49d58981c8eb849c370f25736931a6f385f02233188bf5015bd3506bd0bae4"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "ios",
+      "state": "pressed",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/pressed.png",
+      "sha256": "7f81c65253408464b55a761f4953a6428790826fbcd7015a0cc0598bf7eb2b2b"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "ios",
+      "state": "recovery",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/recovery.png",
+      "sha256": "712e76c993e195e62b7e3098942c70f2b13c7a4201d08feda217b2ea625e8f7d"
+    },
+    {
+      "component": "planning.header_card",
+      "platform": "ios",
+      "state": "stale",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/planning.header_card/stale.png",
+      "sha256": "4e01d91cc9e928c02e5e3f3f1221925ce3d1e2cc13280cc2b330aae5c3977392"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "ios",
+      "state": "default",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/default.png",
+      "sha256": "ca37b280df4f4e2440fea7b45109d4029f445a77cda42bd50d83d02016557569"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "ios",
+      "state": "disabled",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/disabled.png",
+      "sha256": "1d2bdbed979012b78f8983bb3b7835337a72b1604e31e69b04a46fc2815122f3"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "ios",
+      "state": "empty",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/empty.png",
+      "sha256": "046cfa0a62f4b9dd827107b8d56f697e8ae12227525e7680c82b277b7416a425"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "ios",
+      "state": "error",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/error.png",
+      "sha256": "9544d511f00315f266e32194f4a5fc57dbd971b11d5f13c22196752d5278a0e4"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "ios",
+      "state": "loading",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/loading.png",
+      "sha256": "9544d511f00315f266e32194f4a5fc57dbd971b11d5f13c22196752d5278a0e4"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "ios",
+      "state": "pressed",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/pressed.png",
+      "sha256": "2cfe92c3ae5e5ae9d41ca97519b32fb3465eb8113360d007751fe2ff7485913c"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "ios",
+      "state": "recovery",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/recovery.png",
+      "sha256": "5a897b3ed44657fa1d65f3a1ad100ee79fd9d21df913a29aecd1d3835a50bb4d"
+    },
+    {
+      "component": "settings.section_row",
+      "platform": "ios",
+      "state": "stale",
+      "artifactRef": "docs/screenshots/review-visual-system-unification-r4/ios/settings.section_row/stale.png",
+      "sha256": "452d8d60b75d8238bbd9a3ae5ba3bde18f82774a31099c3c6047d6b9152389a2"
+    }
+  ]
+}

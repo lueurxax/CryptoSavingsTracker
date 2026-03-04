@@ -73,6 +73,7 @@ struct AllocationPromptBanner: View {
                     }
                 }
             }
+            // NAV-MOD: MOD-01
             .sheet(isPresented: $showingAllocationView) {
                 AssetSharingView(asset: asset)
             }

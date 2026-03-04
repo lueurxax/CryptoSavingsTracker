@@ -3,7 +3,6 @@ package com.xax.CryptoSavingsTracker.presentation.planning
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionRecord
-import com.xax.CryptoSavingsTracker.domain.model.ExecutionStatus
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.CompleteExecutionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionGoalProgress
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionSession
@@ -59,14 +58,6 @@ data class MonthlyExecutionUiState(
     /** Month label from record */
     val monthLabel: String
         get() = record?.monthLabel ?: ""
-
-    /** Whether execution is in progress */
-    val isExecuting: Boolean
-        get() = record?.status == ExecutionStatus.EXECUTING
-
-    /** Whether execution is closed/completed */
-    val isClosed: Boolean
-        get() = record?.status == ExecutionStatus.CLOSED
 }
 
 /**

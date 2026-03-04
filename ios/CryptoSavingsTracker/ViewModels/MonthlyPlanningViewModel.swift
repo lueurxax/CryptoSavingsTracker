@@ -74,6 +74,12 @@ final class MonthlyPlanningViewModel: ObservableObject {
     /// Budget preview error message.
     @Published var budgetPreviewError: String?
 
+    /// Atomic snapshot for the latest budget preview computation.
+    @Published var budgetComputationResult: BudgetComputationResult?
+
+    /// User-visible reason when Save is disabled in budget sheet.
+    @Published var budgetSaveDisabledReason: String?
+
     /// One-time migration notice flag (view-level).
     @Published var showBudgetMigrationNotice = false
 
@@ -239,6 +245,11 @@ final class MonthlyPlanningViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var currentPlans: [MonthlyPlan] = []
     private var isApplyingBudgetMigration = false
+    private var latestBudgetRequestId: UUID?
+    private var budgetPreviewTask: Task<Void, Never>?
+    private var latestPreviewGoalsSignature: String?
+    private var latestPreviewCurrency: String?
+    private var latestPreviewRateSnapshotId: String?
 
     private struct BudgetRateState {
         let isStale: Bool
@@ -339,35 +350,96 @@ final class MonthlyPlanningViewModel: ObservableObject {
 
     /// Prepare preview data for the budget calculator sheet.
     func previewBudget(amount: Double, currency: String) async {
-        let normalizedAmount = max(0, amount)
+        let canonical = MoneyQuantizer.normalize(Decimal(max(0, amount)), currency: currency, mode: .halfUp)
+        await previewBudget(amount: canonical, currency: currency)
+    }
+
+    /// Prepare preview data for the budget calculator sheet with canonical money type.
+    func previewBudget(amount: MoneyAmount, currency: String) async {
         let eligibleGoals = budgetEligibleGoals()
 
-        guard normalizedAmount > 0, !eligibleGoals.isEmpty else {
+        guard amount.minorUnitValue > 0, !eligibleGoals.isEmpty else {
+            budgetPreviewTask?.cancel()
             budgetPreviewPlan = nil
             budgetPreviewTimeline = []
             budgetFeasibility = .empty
+            budgetComputationResult = nil
+            budgetSaveDisabledReason = "Enter a valid amount."
+            latestPreviewRateSnapshotId = nil
+            latestPreviewGoalsSignature = nil
+            latestPreviewCurrency = nil
             return
         }
 
+        let goalsSignature = budgetSignature(for: eligibleGoals)
+        if latestPreviewGoalsSignature != goalsSignature || latestPreviewCurrency != amount.currency {
+            latestPreviewRateSnapshotId = nil
+        }
+        latestPreviewGoalsSignature = goalsSignature
+        latestPreviewCurrency = amount.currency
+
+        let requestId = UUID()
+        latestBudgetRequestId = requestId
+        budgetPreviewTask?.cancel()
         isBudgetPreviewLoading = true
         budgetPreviewError = nil
+        budgetSaveDisabledReason = "Calculating latest amount..."
 
-        let feasibility = await budgetCalculatorService.checkFeasibility(
-            goals: eligibleGoals,
-            budget: normalizedAmount,
-            currency: currency
-        )
-        let plan = await budgetCalculatorService.generateSchedule(
-            goals: eligibleGoals,
-            budget: normalizedAmount,
-            currency: currency
-        )
-        let timeline = budgetCalculatorService.buildTimelineBlocks(from: plan, goals: eligibleGoals)
+        let rateSnapshotId = latestPreviewRateSnapshotId
+        budgetPreviewTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
 
-        budgetFeasibility = feasibility
-        budgetPreviewPlan = plan
-        budgetPreviewTimeline = timeline
+            let result = await self.budgetCalculatorService.computeBudgetSnapshot(
+                requestId: requestId,
+                goals: eligibleGoals,
+                enteredBudget: amount,
+                goalsSignature: goalsSignature,
+                rateSnapshotId: rateSnapshotId
+            )
+
+            await MainActor.run {
+                guard self.latestBudgetRequestId == result.requestId else {
+                    BudgetPlanAnalytics.log(.snapshotStaleResultDropped)
+                    return
+                }
+
+                self.applyBudgetSnapshot(result)
+            }
+        }
+    }
+
+    private func applyBudgetSnapshot(_ result: BudgetComputationResult) {
+        budgetComputationResult = result
+        latestPreviewRateSnapshotId = result.rateSnapshotId
+        budgetPreviewPlan = result.plan
+        budgetPreviewTimeline = result.timeline
+        budgetFeasibility = FeasibilityResult(
+            isFeasible: result.isFeasible,
+            minimumRequired: result.minimumRequiredCanonical.doubleValue,
+            currency: result.minimumRequiredCanonical.currency,
+            infeasibleGoals: result.infeasibleGoals,
+            suggestions: result.suggestions
+        )
         isBudgetPreviewLoading = false
+
+        switch result.state {
+        case .readyFeasible:
+            budgetSaveDisabledReason = nil
+        case .blockedInfeasible:
+            if MoneyQuantizer.compare(result.enteredBudgetCanonical, result.minimumRequiredCanonical) == .orderedSame {
+                BudgetPlanAnalytics.log(.displayValidationMismatchDetected, properties: [
+                    "currency": result.enteredBudgetCanonical.currency
+                ])
+            }
+            let shortfallText = CurrencyFormatter.format(amount: result.shortfallCanonical)
+            budgetSaveDisabledReason = "Short by \(shortfallText). Tap Use Minimum or increase budget."
+            BudgetPlanAnalytics.log(.saveBlockedReasonShown, properties: ["reason": "blocked_infeasible"])
+        case .blockedRates:
+            budgetSaveDisabledReason = "Rates unavailable for conversion. Refresh rates to validate this budget."
+            BudgetPlanAnalytics.log(.saveBlockedReasonShown, properties: ["reason": "blocked_rates"])
+        }
     }
 
     /// Apply a feasibility suggestion that modifies goals and refreshes the preview.
@@ -730,7 +802,13 @@ final class MonthlyPlanningViewModel: ObservableObject {
 
     private func refreshBudgetStatus() async {
         guard hasBudget else {
+            budgetPreviewTask?.cancel()
             budgetFeasibility = .empty
+            budgetComputationResult = nil
+            budgetSaveDisabledReason = nil
+            latestPreviewRateSnapshotId = nil
+            latestPreviewGoalsSignature = nil
+            latestPreviewCurrency = nil
             showBudgetRecalculationPrompt = false
             budgetHasStaleRates = false
             budgetRateLastUpdated = nil
@@ -741,6 +819,11 @@ final class MonthlyPlanningViewModel: ObservableObject {
         let eligibleGoals = budgetEligibleGoals()
         guard !eligibleGoals.isEmpty else {
             budgetFeasibility = .empty
+            budgetComputationResult = nil
+            budgetSaveDisabledReason = nil
+            latestPreviewRateSnapshotId = nil
+            latestPreviewGoalsSignature = nil
+            latestPreviewCurrency = nil
             budgetHasStaleRates = false
             budgetRateLastUpdated = nil
             budgetRateAffectedCurrencies = []
@@ -806,14 +889,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
     }
 
     private func budgetSignature(for goals: [Goal]) -> String {
-        let formatter = ISO8601DateFormatter()
-        return goals
-            .sorted { $0.id.uuidString < $1.id.uuidString }
-            .map { goal in
-                let deadline = formatter.string(from: goal.deadline)
-                return "\(goal.id.uuidString)|\(goal.currency)|\(goal.targetAmount)|\(deadline)"
-            }
-            .joined(separator: ";")
+        BudgetSnapshotIdentity.goalsSignature(goals: goals, skippedGoalIds: skippedGoalIds)
     }
 
     private func evaluateBudgetRateState(for goals: [Goal], budgetCurrency: String) async -> BudgetRateState {

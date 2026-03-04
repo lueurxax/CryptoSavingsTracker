@@ -26,6 +26,7 @@ final class ExecutionProgressCalculatorTests: XCTestCase {
             AllocationHistory.self,
             MonthlyExecutionRecord.self,
             CompletedExecution.self,
+            CompletionEvent.self,
             ExecutionSnapshot.self
         ])
         let config = ModelConfiguration(

@@ -341,3 +341,27 @@ enum FeasibilityLevel {
         }
     }
 }
+
+// MARK: - Budget Computation Snapshot
+
+enum BudgetComputationState: Equatable {
+    case readyFeasible
+    case blockedInfeasible
+    case blockedRates
+}
+
+struct BudgetComputationResult: Equatable {
+    let requestId: UUID
+    let enteredBudgetCanonical: MoneyAmount
+    let minimumRequiredCanonical: MoneyAmount
+    let shortfallCanonical: MoneyAmount
+    let isFeasible: Bool
+    let plan: BudgetCalculatorPlan?
+    let timeline: [ScheduledGoalBlock]
+    let rateSnapshotTimestamp: Date?
+    let rateSnapshotId: String?
+    let state: BudgetComputationState
+    let infeasibleGoals: [InfeasibleGoal]
+    let suggestions: [FeasibilitySuggestion]
+    let affectedCurrencies: [String]
+}

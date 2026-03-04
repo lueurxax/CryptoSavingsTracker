@@ -1,0 +1,23 @@
+{
+  "manifestPath": "docs/testing/navigation-mod02-compact-manifest.v1.json",
+  "diffReportPath": "docs/screenshots/review-navigation-presentation-r3/compact/mod02-diff-report.json",
+  "changedOnly": true,
+  "baseRef": null,
+  "gateRequired": true,
+  "impactedFiles": [
+    "ios/CryptoSavingsTracker/Views/Planning/BudgetCalculatorSheet.swift",
+    "ios/CryptoSavingsTracker/Views/Planning/PlanningView.swift"
+  ],
+  "impactedJourneys": [
+    "monthly-budget-adjust",
+    "planning-flow-cancel-recovery"
+  ],
+  "requiredScenarioIds": [
+    "monthly-budget-adjust-compact",
+    "planning-flow-cancel-recovery-compact"
+  ],
+  "maxDiffRatio": 0.02,
+  "passed": true,
+  "issueCount": 0,
+  "issues": []
+}

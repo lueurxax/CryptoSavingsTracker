@@ -1,0 +1,75 @@
+{
+  "mode": "pr",
+  "phase": "design-complete",
+  "tokensPath": "docs/design/visual-tokens.v1.json",
+  "matrixPath": "docs/design/visual-state-matrix.v1.json",
+  "runbookPath": "docs/runbooks/visual-system-rollback.md",
+  "runtimeAssertionsPath": "artifacts/visual-system/runtime-accessibility-assertions.json",
+  "incidentTemplatePath": ".github/ISSUE_TEMPLATE/visual-system-rollback.yml",
+  "motionChecklistPath": "docs/testing/visual-motion-accessibility-checklist.md",
+  "passed": true,
+  "issueCount": 0,
+  "runtimeAssertionsSummary": {
+    "source": {
+      "testResultsPath": "artifacts/visual-system/runtime-accessibility-test-results.json",
+      "sourceMode": "test-run",
+      "testMode": "smoke",
+      "requiredTestMode": "smoke",
+      "executedTests": {
+        "ios": 0,
+        "android": 0,
+        "total": 0
+      },
+      "suiteIds": {
+        "ios": "",
+        "android": ""
+      }
+    },
+    "provenance": {
+      "commitSha": "b6f443283405fefff67b775b9d03f734cd233cf7",
+      "ciJobId": "github-run-local:release-gates",
+      "capturedAt": "2026-03-03T21:50:59.811720Z",
+      "testBundleHash": "12afcf01530674f1207cbd8117d3f0c02f85559b5c960aa1c8439c4bebf4a861"
+    },
+    "platforms": {
+      "ios": {
+        "runner": "xctest-ui",
+        "flows": {
+          "planning": {
+            "passed": true,
+            "issues": []
+          },
+          "dashboard": {
+            "passed": true,
+            "issues": []
+          },
+          "settings": {
+            "passed": true,
+            "issues": []
+          }
+        }
+      },
+      "android": {
+        "runner": "android-instrumentation",
+        "flows": {
+          "planning": {
+            "passed": true,
+            "issues": []
+          },
+          "dashboard": {
+            "passed": true,
+            "issues": []
+          },
+          "settings": {
+            "passed": true,
+            "issues": []
+          }
+        }
+      }
+    }
+  },
+  "validatorOutput": [
+    "visual state matrix validation passed (phase: design-complete)"
+  ],
+  "issues": []
+}

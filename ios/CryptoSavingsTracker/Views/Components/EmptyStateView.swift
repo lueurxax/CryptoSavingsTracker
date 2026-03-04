@@ -419,14 +419,3 @@ extension EmptyStateView {
         )
     }
 }
-
-#Preview {
-    VStack(spacing: 40) {
-        EmptyStateView.noGoals(onCreateGoal: {})
-            .frame(height: 300)
-        
-        EmptyStateView.noAssets(onAddAsset: {})
-            .frame(height: 300)
-    }
-    .padding()
-}

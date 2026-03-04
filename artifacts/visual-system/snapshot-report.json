@@ -1,0 +1,73 @@
+{
+  "mode": "pr",
+  "phase": "design-complete",
+  "matrixPath": "docs/design/visual-state-matrix.v1.json",
+  "tokensPath": "docs/design/visual-tokens.v1.json",
+  "baselinePath": "docs/design/visual-snapshot-baseline.v1.json",
+  "productionManifestPath": "docs/screenshots/review-visual-system-unification-r4/production/manifest.v1.json",
+  "baselineUpdated": false,
+  "passed": true,
+  "issueCount": 0,
+  "statusCounts": {
+    "planned": 0,
+    "captured": 64
+  },
+  "capturedArtifactCount": 64,
+  "validatorOutput": [
+    "visual state matrix validation passed (phase: design-complete)"
+  ],
+  "policyConformance": {
+    "planning.header_card": {
+      "passed": true,
+      "checks": {
+        "surfaceRole": {
+          "required": "surface.base",
+          "passed": true
+        },
+        "elevationRole": {
+          "required": "elevation.card",
+          "passed": true
+        }
+      },
+      "issues": []
+    },
+    "planning.goal_row": {
+      "passed": true,
+      "checks": {
+        "surfaceRole": {
+          "required": "surface.base",
+          "passed": true
+        }
+      },
+      "issues": []
+    },
+    "dashboard.summary_card": {
+      "passed": true,
+      "checks": {
+        "surfaceRole": {
+          "required": "surface.base",
+          "passed": true
+        },
+        "elevationRole": {
+          "required": "elevation.card",
+          "passed": true
+        }
+      },
+      "issues": []
+    },
+    "settings.section_row": {
+      "passed": true,
+      "checks": {
+        "surfaceRole": {
+          "required": "surface.base",
+          "passed": true
+        }
+      },
+      "issues": []
+    }
+  },
+  "baselineDiffSummary": {},
+  "duplicateSummary": {},
+  "productionEvidenceSummary": {},
+  "issues": []
+}

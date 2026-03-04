@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "issueCount": 0,
+  "issues": [],
+  "wave": "wave1",
+  "targetsPath": "docs/design/visual-literal-baseline-targets.v1.json",
+  "iosBaselinePath": "docs/design/baselines/ios-visual-literals-baseline.txt",
+  "androidBaselinePath": "docs/design/baselines/android-visual-literals-baseline.txt",
+  "counts": {
+    "ios": 206,
+    "android": 27
+  },
+  "limits": {
+    "iosMax": 210,
+    "androidMax": 30
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "manifestPath": "docs/testing/navigation-mod02-compact-manifest.v1.json",
+  "diffReportPath": "docs/screenshots/review-navigation-presentation-r3/compact/mod02-diff-report.json",
+  "changedOnly": true,
+  "baseRef": "origin/main",
+  "gateRequired": false,
+  "impactedFiles": [],
+  "impactedJourneys": [],
+  "requiredScenarioIds": [],
+  "maxDiffRatio": 0.02,
+  "passed": true,
+  "issueCount": 0,
+  "issues": []
+}

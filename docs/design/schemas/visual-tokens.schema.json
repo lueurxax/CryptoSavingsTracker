@@ -1,0 +1,370 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cryptosavingstracker.local/schemas/visual-tokens.schema.json",
+  "title": "Visual Token Contract",
+  "type": "object",
+  "required": [
+    "contractVersion",
+    "updatedAt",
+    "status",
+    "requiredStates",
+    "roles",
+    "governance"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contractVersion": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "updatedAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "baseline",
+        "active",
+        "deprecated"
+      ]
+    },
+    "requiredStates": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "default",
+          "pressed",
+          "disabled",
+          "error",
+          "loading",
+          "empty",
+          "stale",
+          "recovery"
+        ]
+      }
+    },
+    "roles": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/roleDefinition"
+      }
+    },
+    "governance": {
+      "type": "object",
+      "required": [
+        "owner",
+        "coApprover",
+        "platformDelegates",
+        "escalation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coApprover": {
+          "type": "string",
+          "minLength": 1
+        },
+        "platformDelegates": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "escalation": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/escalationStep"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"
+    },
+    "roleDefinition": {
+      "type": "object",
+      "required": [
+        "roleType",
+        "usageScope",
+        "componentScope",
+        "ios",
+        "android",
+        "parity"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "roleType": {
+          "type": "string",
+          "enum": [
+            "color",
+            "surface",
+            "elevation"
+          ]
+        },
+        "usageScope": {
+          "type": "string",
+          "enum": [
+            "global",
+            "finance-critical",
+            "data-viz"
+          ]
+        },
+        "componentScope": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "planning.header_card",
+              "planning.goal_row",
+              "dashboard.summary_card",
+              "dashboard.empty_card",
+              "settings.section_row",
+              "navigation.chrome",
+              "charts"
+            ]
+          }
+        },
+        "ios": {
+          "$ref": "#/$defs/platformRole"
+        },
+        "android": {
+          "$ref": "#/$defs/platformRole"
+        },
+        "parity": {
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "aligned",
+                "approved_variant"
+              ]
+            },
+            "approvalTicket": {
+              "type": "string"
+            },
+            "expiresAt": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "rationale": {
+              "type": "string"
+            },
+            "preExpiryCheckpointAt": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "closureIssue": {
+              "type": "string",
+              "minLength": 1
+            },
+            "closurePullRequest": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "approved_variant"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "approvalTicket",
+                  "expiresAt",
+                  "rationale",
+                  "preExpiryCheckpointAt",
+                  "closureIssue"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "platformRole": {
+      "type": "object",
+      "required": [
+        "tokenRef",
+        "sourceFile",
+        "spec"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tokenRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceFile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "spec": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/colorSpec"
+            },
+            {
+              "$ref": "#/$defs/surfaceSpec"
+            },
+            {
+              "$ref": "#/$defs/elevationSpec"
+            }
+          ]
+        }
+      }
+    },
+    "colorSpec": {
+      "type": "object",
+      "required": [
+        "kind",
+        "light",
+        "dark",
+        "alpha",
+        "nonColorCueRequired"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "color"
+        },
+        "light": {
+          "$ref": "#/$defs/hexColor"
+        },
+        "dark": {
+          "$ref": "#/$defs/hexColor"
+        },
+        "alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "nonColorCueRequired": {
+          "type": "boolean"
+        }
+      }
+    },
+    "surfaceSpec": {
+      "type": "object",
+      "required": [
+        "kind",
+        "lightStyle",
+        "darkStyle",
+        "strokeToken",
+        "shadowPreset"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "surface"
+        },
+        "lightStyle": {
+          "type": "string",
+          "enum": [
+            "material.regular",
+            "solid.neutral",
+            "solid.elevated"
+          ]
+        },
+        "darkStyle": {
+          "type": "string",
+          "enum": [
+            "material.regular",
+            "solid.neutral",
+            "solid.elevated"
+          ]
+        },
+        "strokeToken": {
+          "type": "string",
+          "minLength": 1
+        },
+        "shadowPreset": {
+          "type": "string",
+          "enum": [
+            "none",
+            "card",
+            "raised",
+            "modal"
+          ]
+        }
+      }
+    },
+    "elevationSpec": {
+      "type": "object",
+      "required": [
+        "kind",
+        "defaultDp",
+        "pressedDp"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "elevation"
+        },
+        "defaultDp": {
+          "type": "number",
+          "minimum": 0
+        },
+        "pressedDp": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "escalationStep": {
+      "type": "object",
+      "required": [
+        "severity",
+        "responseSlaMinutes",
+        "primaryApprover",
+        "fallbackApprover"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": [
+            "sev3",
+            "sev2",
+            "sev1"
+          ]
+        },
+        "responseSlaMinutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "primaryApprover": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fallbackApprover": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

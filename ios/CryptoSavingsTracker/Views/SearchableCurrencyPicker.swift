@@ -471,7 +471,3 @@ struct SearchableCurrencyPicker: View {
         }
     }
 }
-
-#Preview {
-    SearchableCurrencyPicker(selectedCurrency: .constant("BTC"))
-}

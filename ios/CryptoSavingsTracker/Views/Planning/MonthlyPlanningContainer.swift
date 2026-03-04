@@ -39,8 +39,15 @@ private struct MonthlyPlanningContainerContent: View {
     @State private var showStartTrackingConfirmation = false
     @State private var showReturnToPlanningConfirmation = false
     @State private var showFinishMonthConfirmation = false
+    @State private var showActionErrorAlert = false
+    @State private var actionErrorMessage = ""
     @State private var hasInitiallyLoaded = false
     @State private var isExecuting = false  // Local @State synced from coordinator
+    @State private var cycleState: UiCycleState = .planning(
+        month: MonthlyExecutionRecord.monthLabel(from: Date()),
+        source: .currentMonth
+    )
+    @State private var dockPhase: DockPhase = .expanded
     @StateObject private var executionCoordinator = ExecutionStateCoordinator()
     @StateObject private var planningViewModel: MonthlyPlanningViewModel
 
@@ -52,8 +59,8 @@ private struct MonthlyPlanningContainerContent: View {
     var body: some View {
         VStack(spacing: 0) {
             // State indicator banner
-            if let record = executionRecord {
-                stateIndicatorBanner(for: record, planningMonthLabel: planningViewModel.planningMonthLabel)
+            if !isLoading {
+                stateIndicatorBanner(cycleState: cycleState)
             }
 
             // Use AND logic: show execution only if BOTH local @State AND coordinator say so
@@ -112,7 +119,6 @@ private struct MonthlyPlanningContainerContent: View {
             // Update record from notification object for banner update
             if let record = notification.object as? MonthlyExecutionRecord {
                 executionRecord = record
-                updatePlanningMonthLabel()
             }
 
             // Also reload from database to ensure consistent state
@@ -121,129 +127,96 @@ private struct MonthlyPlanningContainerContent: View {
                 await planningViewModel.loadMonthlyRequirements()
             }
         }
-        .alert("Return to Planning Mode?", isPresented: $showReturnToPlanningConfirmation) {
+        .alert("Back to Planning \(formattedActionMonth())?", isPresented: $showReturnToPlanningConfirmation) {
             Button("Cancel", role: .cancel) {}
-            Button("Return to Planning") {
+            Button("Back to Planning \(formattedActionMonth())") {
                 Task {
                     await returnToPlanning()
                 }
             }
         } message: {
-            Text("This will move this month back to planning mode and stop execution tracking. You can start tracking again later.")
+            Text("This will return \(formattedActionMonth()) to planning mode and stop execution tracking.")
         }
-        .alert("Complete this month?", isPresented: $showFinishMonthConfirmation) {
+        .alert("Finish \(formattedActionMonth())?", isPresented: $showFinishMonthConfirmation) {
             Button("Cancel", role: .cancel) {}
-            Button("Finish Month") {
+            Button("Finish \(formattedActionMonth())") {
                 Task {
                     await finishMonth()
                 }
             }
         } message: {
-            Text("This will mark the current month as complete and move to planning mode for next month.")
+            Text("This will close \(formattedActionMonth()) and open planning for the next month.")
+        }
+        .alert("Action unavailable", isPresented: $showActionErrorAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(actionErrorMessage)
         }
     }
 
     private var planningViewWithStartButton: some View {
         PlanningView(viewModel: planningViewModel)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                startTrackingDock
+            .onPreferenceChange(DockPhasePreferenceKey.self) { newPhase in
+                dockPhase = newPhase
             }
-        .alert("Start Tracking?", isPresented: $showStartTrackingConfirmation) {
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if allowsStartTracking {
+                    CommitDock(
+                        phase: dockPhase,
+                        showConfirmation: $showStartTrackingConfirmation,
+                        planningMonthLabel: planningMonthLabelForStartTracking()
+                    )
+                }
+            }
+        .alert("Start Tracking \(formattedPlanningMonth())?", isPresented: $showStartTrackingConfirmation) {
             Button("Cancel", role: .cancel) {}
-            Button("Start Tracking") {
+            Button("Start Tracking \(formattedPlanningMonth())") {
                 Task {
                     await startTracking()
                 }
             }
         } message: {
-            Text("This will begin tracking your contributions for this month. You can undo this action within 24 hours.")
+            Text("This starts tracking for \(formattedPlanningMonth()). You can undo within \(MonthlyPlanningSettings.shared.undoWindowString).")
         }
-    }
-
-    private var startTrackingDock: some View {
-        VStack(spacing: 8) {
-            Divider()
-
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
-                    .font(.title3)
-
-                Text("Ready to commit to this plan?")
-                    .font(.headline)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-
-                Spacer()
-            }
-
-            Text("This will lock in your monthly amounts and enable contribution tracking. You can undo this action within 24 hours.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .lineLimit(2)
-                .minimumScaleFactor(0.9)
-
-            Button {
-                showStartTrackingConfirmation = true
-            } label: {
-                Label("Lock Plan & Start Tracking", systemImage: "lock.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.regular)
-            .accessibilityIdentifier("startTrackingButton")
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 12)
-        .background(.regularMaterial)
     }
 
     // MARK: - State Indicator Banner
 
-    @ViewBuilder
-    private func stateIndicatorBanner(for record: MonthlyExecutionRecord, planningMonthLabel: String) -> some View {
-        let isTracking = record.status == .executing
-        let isClosed = record.status == .closed
-        let planningLabel = formatMonthLabel(planningMonthLabel)
-        let trackingLabel = formatMonthLabel(record.monthLabel)
+    private var allowsStartTracking: Bool {
+        if case .planning = cycleState {
+            return true
+        }
+        return false
+    }
 
+    @ViewBuilder
+    private func stateIndicatorBanner(cycleState: UiCycleState) -> some View {
         VStack(spacing: 12) {
-            // Top row: Status info
             HStack(spacing: 12) {
-                Image(systemName: isTracking ? "chart.line.uptrend.xyaxis" : "doc.text")
+                Image(systemName: iconName(for: cycleState))
                     .font(.title3)
-                    .foregroundColor(isTracking ? .blue : (isClosed ? .green : .secondary))
+                    .foregroundColor(iconColor(for: cycleState))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(isTracking ? "Tracking Mode" : (isClosed ? "Month Complete" : "Planning Mode"))
+                    Text(titleText(for: cycleState))
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .accessibilityIdentifier("executionStatusLabel")
 
-                    Text(isTracking ? "Recording contributions for \(trackingLabel)" : "Planning for \(planningLabel)")
+                    Text(subtitleText(for: cycleState))
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .accessibilityIdentifier("planningMonthLabel")
                 }
 
                 Spacer()
-
-                if isClosed {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                        .font(.title3)
-                }
-
             }
 
-            // Bottom row: Action buttons (full width)
-            if record.status == .executing {
+            if case .executing(let month, _, let canUndoStart) = cycleState {
                 VStack(spacing: 8) {
-                    // Finish Month button - in UI tests, tapping this runs directly in Container context
                     Button {
                         if UITestFlags.isEnabled {
-                            // In UI tests: complete immediately (no confirmation dialog)
                             Task {
                                 await finishMonth()
                             }
@@ -251,7 +224,7 @@ private struct MonthlyPlanningContainerContent: View {
                             showFinishMonthConfirmation = true
                         }
                     } label: {
-                        Label("Finish This Month", systemImage: "checkmark.circle.fill")
+                        Label("Finish \(formatMonthLabel(month))", systemImage: "checkmark.circle.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -261,20 +234,35 @@ private struct MonthlyPlanningContainerContent: View {
                     Button {
                         showReturnToPlanningConfirmation = true
                     } label: {
-                        Label("Return to Planning", systemImage: "arrow.uturn.backward")
+                        Label("Back to Planning \(formatMonthLabel(month))", systemImage: "arrow.uturn.backward")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
+                    .disabled(!canUndoStart)
                     .accessibilityIdentifier("returnToPlanningButton")
                 }
+            } else if case .closed(let month, let canUndoCompletion) = cycleState, canUndoCompletion {
+                Button {
+                    Task {
+                        await undoCompletion()
+                    }
+                } label: {
+                    Label("Undo Finish \(formatMonthLabel(month))", systemImage: "arrow.uturn.backward.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .tint(.orange)
+                .accessibilityIdentifier("undoFinishButton")
             }
         }
         .padding()
-        .background(isTracking ? Color.blue.opacity(0.1) : Color.gray.opacity(0.05))
+        .background(backgroundColor(for: cycleState))
     }
 
     private func formatMonthLabel(_ label: String) -> String {
         let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.timeZone = TimeZone(identifier: "UTC")
         formatter.dateFormat = "yyyy-MM"
         if let date = formatter.date(from: label) {
             formatter.dateFormat = "MMMM yyyy"
@@ -283,10 +271,82 @@ private struct MonthlyPlanningContainerContent: View {
         return label
     }
 
+    private func titleText(for state: UiCycleState) -> String {
+        switch state {
+        case .planning:
+            return "Planning Mode"
+        case .executing:
+            return "Tracking Mode"
+        case .closed:
+            return "Month Complete"
+        case .conflict:
+            return "State Conflict"
+        }
+    }
+
+    private func subtitleText(for state: UiCycleState) -> String {
+        switch state {
+        case .planning(let month, _):
+            return "Planning for \(formatMonthLabel(month))"
+        case .executing(let month, _, _):
+            return "Recording contributions for \(formatMonthLabel(month))"
+        case .closed(let month, let canUndo):
+            if canUndo {
+                return "Undo available for \(formatMonthLabel(month))"
+            }
+            return "\(formatMonthLabel(month)) is completed"
+        case .conflict(let month, _):
+            if let month {
+                return "Monthly state conflict for \(formatMonthLabel(month)). Refresh required."
+            }
+            return "Monthly state conflict. Refresh required."
+        }
+    }
+
+    private func iconName(for state: UiCycleState) -> String {
+        switch state {
+        case .planning:
+            return "doc.text"
+        case .executing:
+            return "chart.line.uptrend.xyaxis"
+        case .closed:
+            return "checkmark.circle.fill"
+        case .conflict:
+            return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private func iconColor(for state: UiCycleState) -> Color {
+        switch state {
+        case .planning:
+            return .secondary
+        case .executing:
+            return .blue
+        case .closed:
+            return .green
+        case .conflict:
+            return .orange
+        }
+    }
+
+    private func backgroundColor(for state: UiCycleState) -> Color {
+        switch state {
+        case .planning:
+            return Color.gray.opacity(0.05)
+        case .executing:
+            return Color.blue.opacity(0.1)
+        case .closed:
+            return Color.green.opacity(0.08)
+        case .conflict:
+            return Color.orange.opacity(0.12)
+        }
+    }
+
     // MARK: - Actions
 
     private func loadExecutionRecord() async {
         isLoading = true
+        dockPhase = .expanded
         // Only reset on initial load in UI tests, not on reloads after state changes
         if UITestFlags.isEnabled && !hasInitiallyLoaded {
             executionRecord = nil
@@ -297,28 +357,66 @@ private struct MonthlyPlanningContainerContent: View {
 
         do {
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
-            if let activeRecord = try executionService.getActiveRecord() {
-                executionRecord = activeRecord
-                let newValue = activeRecord.status == .executing
-                isExecuting = newValue
-                executionCoordinator.isExecuting = newValue
-            } else {
-                executionRecord = try executionService.getCurrentMonthRecord()
-                let newValue = executionRecord?.status == .executing
-                isExecuting = newValue
-                executionCoordinator.isExecuting = newValue
+            let allRecords = try executionService.getAllRecords()
+            let currentStorageMonth = MonthlyExecutionRecord.monthLabel(from: Date())
+            let resolverInput = ResolverInput(
+                nowUtc: Date(),
+                displayTimeZone: .current,
+                currentStorageMonthLabelUtc: currentStorageMonth,
+                records: allRecords.map {
+                    ExecutionRecordSnapshot(
+                        monthLabel: $0.monthLabel,
+                        status: $0.status,
+                        completedAt: $0.completedAt,
+                        startedAt: $0.startedAt,
+                        canUndoUntil: $0.canUndoUntil
+                    )
+                },
+                undoWindowSeconds: TimeInterval(MonthlyPlanningSettings.shared.undoGracePeriodHours * 3600)
+            )
+
+            cycleState = MonthlyCycleStateResolver().resolve(resolverInput)
+
+            switch cycleState {
+            case .planning(let month, _):
+                planningViewModel.planningMonthLabel = month
+                executionRecord = allRecords
+                    .filter { $0.monthLabel == month }
+                    .sorted(by: { ($0.createdAt) > ($1.createdAt) })
+                    .first
+                isExecuting = false
+                executionCoordinator.isExecuting = false
+            case .executing(let month, _, _):
+                executionRecord = allRecords.first(where: { $0.monthLabel == month && $0.status == .executing })
+                planningViewModel.planningMonthLabel = month
+                isExecuting = true
+                executionCoordinator.isExecuting = true
+            case .closed(let month, _):
+                executionRecord = allRecords
+                    .filter { $0.monthLabel == month && $0.status == .closed }
+                    .sorted(by: { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) })
+                    .first
+                planningViewModel.planningMonthLabel = currentStorageMonth
+                isExecuting = false
+                executionCoordinator.isExecuting = false
+            case .conflict:
+                executionRecord = nil
+                planningViewModel.planningMonthLabel = currentStorageMonth
+                isExecuting = false
+                executionCoordinator.isExecuting = false
             }
         } catch {
             print("Error loading execution record: \(error)")
             isExecuting = false
             executionCoordinator.isExecuting = false
         }
-
-        updatePlanningMonthLabel()
         isLoading = false
     }
 
     private func startTracking() async {
+        guard canPerform(.startTracking) else {
+            return
+        }
         do {
             AppLog.info("startTracking: Step 1 - Fetching active goals", category: .executionTracking)
             // 1. Fetch active goals
@@ -339,6 +437,11 @@ private struct MonthlyPlanningContainerContent: View {
             AppLog.info("startTracking: Step 3 - Getting/creating plans for \(monthLabel)", category: .executionTracking)
             // 3. Get or create plans (serialized via AsyncSerialExecutor)
             let plans = try await planService.getOrCreatePlans(for: monthLabel, goals: goals)
+
+            if plans.isEmpty {
+                showActionError(MonthlyCycleCopyCatalog.startBlockedMissingPlan())
+                return
+            }
 
             // 3.5. Check if plans are already in non-draft state and reset if needed
             let nonDraftPlans = plans.filter { $0.state != .draft }
@@ -385,18 +488,32 @@ private struct MonthlyPlanningContainerContent: View {
             )
 
             executionRecord = record
+            cycleState = .executing(
+                month: monthLabel,
+                canFinish: true,
+                canUndoStart: true
+            )
             isExecuting = true
             executionCoordinator.isExecuting = true
             AppLog.info("startTracking: Successfully started tracking for \(monthLabel)", category: .executionTracking)
 
         } catch {
             AppLog.error("Failed to start tracking: \(error)", category: .executionTracking)
+            showActionError(error.localizedDescription)
         }
     }
 
     /// Return from execution mode to planning by undoing tracking and resetting plan state.
     private func returnToPlanning() async {
-        guard let record = executionRecord else { return }
+        guard canPerform(.undoStart) else { return }
+        guard let record = executionRecord else {
+            showActionError(MonthlyCycleCopyCatalog.recordConflict())
+            return
+        }
+        guard record.status == .executing else {
+            showActionError(MonthlyCycleCopyCatalog.undoStartExpired(month: formatMonthLabel(record.monthLabel)))
+            return
+        }
         isLoading = true
 
         do {
@@ -411,12 +528,23 @@ private struct MonthlyPlanningContainerContent: View {
             // Undo start tracking (respects undo window)
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
             try executionService.undoStartTracking(record)
+            cycleState = .planning(
+                month: record.monthLabel,
+                source: .currentMonth
+            )
 
             // Refresh state and planning data
             executionRecord = record
             await loadExecutionRecord()
             await planningViewModel.loadMonthlyRequirements()
         } catch {
+            AppLog.error("Failed to return to planning: \(error)", category: .executionTracking)
+            if let executionError = error as? ExecutionTrackingService.ExecutionError,
+               case .undoPeriodExpired = executionError {
+                showActionError(MonthlyCycleCopyCatalog.undoStartExpired(month: formatMonthLabel(record.monthLabel)))
+            } else {
+                showActionError(error.localizedDescription)
+            }
         }
 
         isLoading = false
@@ -424,7 +552,15 @@ private struct MonthlyPlanningContainerContent: View {
 
     /// Complete the current month and transition to planning for next month.
     private func finishMonth() async {
-        guard let record = executionRecord else { return }
+        guard canPerform(.finishMonth) else { return }
+        guard let record = executionRecord else {
+            showActionError(MonthlyCycleCopyCatalog.recordConflict())
+            return
+        }
+        guard record.status == .executing else {
+            showActionError(MonthlyCycleCopyCatalog.finishBlockedNoExecuting())
+            return
+        }
 
         // Set states FIRST to immediately switch view (before async work)
         isExecuting = false
@@ -433,6 +569,11 @@ private struct MonthlyPlanningContainerContent: View {
         do {
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
             try await executionService.markComplete(record)
+            let nextMonth = nextMonthLabel(after: record.monthLabel) ?? MonthlyExecutionRecord.monthLabel(from: Date())
+            cycleState = .planning(
+                month: nextMonth,
+                source: .nextMonthAfterClosed
+            )
 
             // Update record and reload state
             executionRecord = record
@@ -442,36 +583,134 @@ private struct MonthlyPlanningContainerContent: View {
             // If completion fails, restore executing state
             isExecuting = true
             executionCoordinator.isExecuting = true
+            showActionError(error.localizedDescription)
         }
     }
 
-    private func updatePlanningMonthLabel() {
-        let fallbackLabel = monthLabel(from: Date())
+    private func undoCompletion() async {
+        guard canPerform(.undoCompletion) else { return }
         guard let record = executionRecord else {
-            planningViewModel.planningMonthLabel = fallbackLabel
+            showActionError(MonthlyCycleCopyCatalog.recordConflict())
             return
         }
+        isLoading = true
 
-        if record.status == .closed {
-            planningViewModel.planningMonthLabel = nextMonthLabel(from: record.monthLabel) ?? fallbackLabel
-        } else {
-            planningViewModel.planningMonthLabel = fallbackLabel
+        do {
+            let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
+            try executionService.undoCompletion(record)
+            cycleState = .executing(
+                month: record.monthLabel,
+                canFinish: true,
+                canUndoStart: record.canUndo
+            )
+            await loadExecutionRecord()
+            await planningViewModel.loadMonthlyRequirements()
+        } catch {
+            AppLog.error("Failed to undo completion: \(error)", category: .executionTracking)
+            if let executionError = error as? ExecutionTrackingService.ExecutionError,
+               case .undoPeriodExpired = executionError {
+                showActionError(MonthlyCycleCopyCatalog.undoCompletionExpired(month: formatMonthLabel(record.monthLabel)))
+            } else {
+                showActionError(error.localizedDescription)
+            }
+        }
+
+        isLoading = false
+    }
+
+    private func formattedPlanningMonth() -> String {
+        switch cycleState {
+        case .planning(let month, _):
+            return formatMonthLabel(month)
+        case .executing(let month, _, _):
+            return formatMonthLabel(month)
+        case .closed(let month, _):
+            return formatMonthLabel(month)
+        case .conflict:
+            return formatMonthLabel(MonthlyExecutionRecord.monthLabel(from: Date()))
         }
     }
 
-    private func nextMonthLabel(from monthLabel: String) -> String? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        guard let date = formatter.date(from: monthLabel),
-              let nextDate = Calendar.current.date(byAdding: .month, value: 1, to: date) else {
-            return nil
+    private func planningMonthLabelForStartTracking() -> String {
+        if case .planning(let month, _) = cycleState {
+            return month
         }
-        return formatter.string(from: nextDate)
+        if !planningViewModel.planningMonthLabel.isEmpty {
+            return planningViewModel.planningMonthLabel
+        }
+        return MonthlyExecutionRecord.monthLabel(from: Date())
     }
 
-    private func monthLabel(from date: Date) -> String {
+    private func formattedActionMonth() -> String {
+        switch cycleState {
+        case .executing(let month, _, _):
+            return formatMonthLabel(month)
+        case .closed(let month, _):
+            return formatMonthLabel(month)
+        case .planning(let month, _):
+            return formatMonthLabel(month)
+        case .conflict:
+            return formatMonthLabel(MonthlyExecutionRecord.monthLabel(from: Date()))
+        }
+    }
+
+    private func showActionError(_ message: String) {
+        actionErrorMessage = message
+        showActionErrorAlert = true
+    }
+
+    private func canPerform(_ action: MonthlyCycleAction) -> Bool {
+        let decision = MonthlyCycleActionGate.evaluate(state: cycleState, action: action)
+        guard !decision.allowed else { return true }
+        showActionError(blockedActionMessage(for: decision, state: cycleState))
+        return false
+    }
+
+    private func blockedActionMessage(for decision: MonthlyCycleActionDecision, state: UiCycleState) -> String {
+        let monthDisplay = displayMonth(for: state)
+        switch decision.blockedCopyKey {
+        case .startBlockedAlreadyExecuting:
+            return MonthlyCycleCopyCatalog.startBlockedAlreadyExecuting(month: monthDisplay)
+        case .startBlockedClosedMonth:
+            return MonthlyCycleCopyCatalog.startBlockedClosedMonth()
+        case .finishBlockedNoExecuting:
+            return MonthlyCycleCopyCatalog.finishBlockedNoExecuting()
+        case .undoStartExpired:
+            return MonthlyCycleCopyCatalog.undoStartExpired(month: monthDisplay)
+        case .undoCompletionExpired:
+            return MonthlyCycleCopyCatalog.undoCompletionExpired(month: monthDisplay)
+        case .recordConflict:
+            return MonthlyCycleCopyCatalog.recordConflict()
+        case nil:
+            return decision.blockedMessage ?? MonthlyCycleCopyCatalog.recordConflict()
+        }
+    }
+
+    private func displayMonth(for state: UiCycleState) -> String {
+        switch state {
+        case .planning(let month, _):
+            return formatMonthLabel(month)
+        case .executing(let month, _, _):
+            return formatMonthLabel(month)
+        case .closed(let month, _):
+            return formatMonthLabel(month)
+        case .conflict(let month, _):
+            if let month {
+                return formatMonthLabel(month)
+            }
+            return formatMonthLabel(MonthlyExecutionRecord.monthLabel(from: Date()))
+        }
+    }
+
+    private func nextMonthLabel(after monthLabel: String) -> String? {
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
         formatter.dateFormat = "yyyy-MM"
-        return formatter.string(from: date)
+        guard let date = formatter.date(from: monthLabel) else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        guard let next = calendar.date(byAdding: .month, value: 1, to: date) else { return nil }
+        return formatter.string(from: next)
     }
 }

@@ -1,0 +1,29 @@
+{
+  "displayTimeZone": "Asia/Nicosia",
+  "nowUtc": "2026-03-02T08:00:00Z",
+  "currentStorageMonthLabelUtc": "2026-03",
+  "undoWindowSeconds": 86400,
+  "records": [
+    {
+      "monthLabel": "bad",
+      "status": "draft",
+      "startedAt": null,
+      "completedAt": null,
+      "canUndoUntil": null
+    },
+    {
+      "monthLabel": "2026-03",
+      "status": "executing",
+      "startedAt": "2026-03-01T08:00:00Z",
+      "completedAt": null,
+      "canUndoUntil": "2026-03-03T08:00:00Z"
+    }
+  ],
+  "expected": {
+    "state": "conflict",
+    "conflict": {
+      "month": null,
+      "reason": "invalidMonthLabel"
+    }
+  }
+}

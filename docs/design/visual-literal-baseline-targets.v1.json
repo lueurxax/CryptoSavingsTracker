@@ -1,0 +1,18 @@
+{
+  "version": "v1",
+  "description": "Wave-level maximum allowed baseline literal counts. Counts must monotonically decrease by wave.",
+  "waves": {
+    "wave1": {
+      "iosMax": 210,
+      "androidMax": 30
+    },
+    "wave2": {
+      "iosMax": 180,
+      "androidMax": 24
+    },
+    "wave3": {
+      "iosMax": 140,
+      "androidMax": 20
+    }
+  }
+}

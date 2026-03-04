@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -27,7 +26,6 @@ import androidx.compose.ui.unit.dp
 internal fun EmptyExecutionState(
     canUndo: Boolean,
     isBusy: Boolean,
-    onStart: () -> Unit,
     onUndo: () -> Unit
 ) {
     Column(
@@ -56,17 +54,8 @@ internal fun EmptyExecutionState(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 24.dp)
         )
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(
-            onClick = onStart,
-            enabled = !isBusy
-        ) {
-            Icon(Icons.Default.PlayArrow, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Start Execution")
-        }
         if (canUndo) {
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = onUndo,
                 enabled = !isBusy,

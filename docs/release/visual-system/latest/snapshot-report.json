@@ -1,0 +1,122 @@
+{
+  "mode": "release",
+  "phase": "release-candidate",
+  "matrixPath": "docs/design/visual-state-matrix.v1.json",
+  "tokensPath": "docs/design/visual-tokens.v1.json",
+  "baselinePath": "docs/design/visual-snapshot-baseline.v1.json",
+  "productionManifestPath": "docs/screenshots/review-visual-system-unification-r4/production/manifest.v1.json",
+  "baselineUpdated": false,
+  "passed": true,
+  "issueCount": 0,
+  "statusCounts": {
+    "planned": 0,
+    "captured": 64
+  },
+  "capturedArtifactCount": 64,
+  "validatorOutput": [
+    "visual state matrix validation passed (phase: release-candidate)"
+  ],
+  "policyConformance": {
+    "planning.header_card": {
+      "passed": true,
+      "checks": {
+        "surfaceRole": {
+          "required": "surface.base",
+          "passed": true
+        },
+        "elevationRole": {
+          "required": "elevation.card",
+          "passed": true
+        }
+      },
+      "issues": []
+    },
+    "planning.goal_row": {
+      "passed": true,
+      "checks": {
+        "surfaceRole": {
+          "required": "surface.base",
+          "passed": true
+        }
+      },
+      "issues": []
+    },
+    "dashboard.summary_card": {
+      "passed": true,
+      "checks": {
+        "surfaceRole": {
+          "required": "surface.base",
+          "passed": true
+        },
+        "elevationRole": {
+          "required": "elevation.card",
+          "passed": true
+        }
+      },
+      "issues": []
+    },
+    "settings.section_row": {
+      "passed": true,
+      "checks": {
+        "surfaceRole": {
+          "required": "surface.base",
+          "passed": true
+        }
+      },
+      "issues": []
+    }
+  },
+  "baselineDiffSummary": {
+    "checkedArtifacts": 64,
+    "changedArtifacts": 0,
+    "missingInBaseline": 0,
+    "changedArtifactRefs": [],
+    "missingArtifactRefs": []
+  },
+  "duplicateSummary": {
+    "threshold": 0.2,
+    "platforms": {
+      "ios": {
+        "totalFiles": 32,
+        "uniqueHashes": 30,
+        "duplicateFiles": 2,
+        "duplicateRatio": 0.0625,
+        "largestDuplicateGroup": 2
+      },
+      "android": {
+        "totalFiles": 32,
+        "uniqueHashes": 32,
+        "duplicateFiles": 0,
+        "duplicateRatio": 0.0,
+        "largestDuplicateGroup": 1
+      }
+    }
+  },
+  "productionEvidenceSummary": {
+    "flowCount": 3,
+    "requiredStates": [
+      "default",
+      "error",
+      "recovery"
+    ],
+    "evidenceCommitSha": "b6f443283405fefff67b775b9d03f734cd233cf7",
+    "capturedAt": "2026-03-03T21:14:40.040990Z",
+    "capturedAgeHours": 0.6054241102777778,
+    "maxAllowedAgeHours": 24.0,
+    "flows": {
+      "planning": {
+        "passed": true,
+        "issues": []
+      },
+      "dashboard": {
+        "passed": true,
+        "issues": []
+      },
+      "settings": {
+        "passed": true,
+        "issues": []
+      }
+    }
+  },
+  "issues": []
+}

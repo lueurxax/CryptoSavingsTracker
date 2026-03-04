@@ -1,0 +1,34 @@
+build:
+  maxIssues: 0
+
+config:
+  validation: true
+
+processors:
+  active: true
+
+console-reports:
+  active: true
+
+output-reports:
+  active: true
+
+style:
+  ForbiddenMethodCall:
+    active: true
+    methods:
+      - 'androidx.compose.ui.graphics.Color'
+
+  ForbiddenImport:
+    active: true
+    imports:
+      - 'android.graphics.Color'
+
+  MagicNumber:
+    active: false
+
+comments:
+  active: false
+
+complexity:
+  active: true

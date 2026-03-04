@@ -465,9 +465,11 @@ struct AssetRowView: View {
         .task {
             await loadInitialData()
         }
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingAddTransaction) {
             AddTransactionView(asset: asset)
         }
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingAllocationView) {
             AssetSharingView(asset: asset, currentGoalId: goal?.id)
         }

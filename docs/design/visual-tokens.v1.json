@@ -1,0 +1,402 @@
+{
+  "contractVersion": "v1",
+  "updatedAt": "2026-03-03",
+  "status": "active",
+  "requiredStates": [
+    "default",
+    "pressed",
+    "disabled",
+    "error",
+    "loading",
+    "empty",
+    "stale",
+    "recovery"
+  ],
+  "roles": {
+    "interactive.primary": {
+      "roleType": "color",
+      "usageScope": "global",
+      "componentScope": [
+        "planning.header_card",
+        "dashboard.summary_card",
+        "settings.section_row"
+      ],
+      "ios": {
+        "tokenRef": "AccessibleColors.primaryInteractive",
+        "sourceFile": "ios/CryptoSavingsTracker/Utilities/AccessibleColors.swift",
+        "spec": {
+          "kind": "color",
+          "light": "#007ACC",
+          "dark": "#66B3FF",
+          "alpha": 1,
+          "nonColorCueRequired": false
+        }
+      },
+      "android": {
+        "tokenRef": "Primary",
+        "sourceFile": "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/theme/Color.kt",
+        "spec": {
+          "kind": "color",
+          "light": "#0066CC",
+          "dark": "#66B3FF",
+          "alpha": 1,
+          "nonColorCueRequired": false
+        }
+      },
+      "parity": {
+        "status": "approved_variant",
+        "approvalTicket": "VSU-001",
+        "expiresAt": "2026-06-30",
+        "rationale": "Legacy iOS primary hue differs from Android by approved brand-safe delta; convergence planned in Wave 2.",
+        "preExpiryCheckpointAt": "2026-05-31",
+        "closureIssue": "VSU-201"
+      }
+    },
+    "interactive.secondary": {
+      "roleType": "color",
+      "usageScope": "global",
+      "componentScope": [
+        "planning.goal_row",
+        "settings.section_row"
+      ],
+      "ios": {
+        "tokenRef": "AccessibleColors.secondaryInteractive",
+        "sourceFile": "ios/CryptoSavingsTracker/Utilities/AccessibleColors.swift",
+        "spec": {
+          "kind": "color",
+          "light": "#008F8F",
+          "dark": "#66D9A3",
+          "alpha": 1,
+          "nonColorCueRequired": false
+        }
+      },
+      "android": {
+        "tokenRef": "Secondary",
+        "sourceFile": "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/theme/Color.kt",
+        "spec": {
+          "kind": "color",
+          "light": "#00875A",
+          "dark": "#66D9A3",
+          "alpha": 1,
+          "nonColorCueRequired": false
+        }
+      },
+      "parity": {
+        "status": "approved_variant",
+        "approvalTicket": "VSU-001",
+        "expiresAt": "2026-06-30",
+        "rationale": "Secondary hue differs to preserve existing platform contrast envelopes; temporary variance approved.",
+        "preExpiryCheckpointAt": "2026-05-31",
+        "closureIssue": "VSU-202"
+      }
+    },
+    "status.success": {
+      "roleType": "color",
+      "usageScope": "finance-critical",
+      "componentScope": [
+        "planning.header_card",
+        "planning.goal_row",
+        "dashboard.summary_card"
+      ],
+      "ios": {
+        "tokenRef": "AccessibleColors.success",
+        "sourceFile": "ios/CryptoSavingsTracker/Utilities/AccessibleColors.swift",
+        "spec": {
+          "kind": "color",
+          "light": "#009900",
+          "dark": "#52D673",
+          "alpha": 1,
+          "nonColorCueRequired": true
+        }
+      },
+      "android": {
+        "tokenRef": "AccessibleGreen",
+        "sourceFile": "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/theme/Color.kt",
+        "spec": {
+          "kind": "color",
+          "light": "#00875A",
+          "dark": "#66D9A3",
+          "alpha": 1,
+          "nonColorCueRequired": true
+        }
+      },
+      "parity": {
+        "status": "approved_variant",
+        "approvalTicket": "VSU-001",
+        "expiresAt": "2026-06-30",
+        "rationale": "Approved platform-specific success shades retained until finance-wide semantic color refresh.",
+        "preExpiryCheckpointAt": "2026-05-31",
+        "closureIssue": "VSU-203"
+      }
+    },
+    "status.warning": {
+      "roleType": "color",
+      "usageScope": "finance-critical",
+      "componentScope": [
+        "planning.header_card",
+        "planning.goal_row",
+        "dashboard.summary_card",
+        "settings.section_row"
+      ],
+      "ios": {
+        "tokenRef": "AccessibleColors.warning",
+        "sourceFile": "ios/CryptoSavingsTracker/Utilities/AccessibleColors.swift",
+        "spec": {
+          "kind": "color",
+          "light": "#D98000",
+          "dark": "#FFBD40",
+          "alpha": 1,
+          "nonColorCueRequired": true
+        }
+      },
+      "android": {
+        "tokenRef": "AccessibleYellow",
+        "sourceFile": "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/theme/Color.kt",
+        "spec": {
+          "kind": "color",
+          "light": "#B84D00",
+          "dark": "#FFBD40",
+          "alpha": 1,
+          "nonColorCueRequired": true
+        }
+      },
+      "parity": {
+        "status": "approved_variant",
+        "approvalTicket": "VSU-001",
+        "expiresAt": "2026-06-30",
+        "rationale": "Warning hue offsets are approved while maintaining non-color status cues and contrast targets.",
+        "preExpiryCheckpointAt": "2026-05-31",
+        "closureIssue": "VSU-204"
+      }
+    },
+    "status.error": {
+      "roleType": "color",
+      "usageScope": "finance-critical",
+      "componentScope": [
+        "planning.header_card",
+        "planning.goal_row",
+        "dashboard.summary_card",
+        "settings.section_row"
+      ],
+      "ios": {
+        "tokenRef": "AccessibleColors.error",
+        "sourceFile": "ios/CryptoSavingsTracker/Utilities/AccessibleColors.swift",
+        "spec": {
+          "kind": "color",
+          "light": "#CC0000",
+          "dark": "#FF7366",
+          "alpha": 1,
+          "nonColorCueRequired": true
+        }
+      },
+      "android": {
+        "tokenRef": "AccessibleRed",
+        "sourceFile": "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/theme/Color.kt",
+        "spec": {
+          "kind": "color",
+          "light": "#CC0000",
+          "dark": "#FF7366",
+          "alpha": 1,
+          "nonColorCueRequired": true
+        }
+      },
+      "parity": {
+        "status": "aligned"
+      }
+    },
+    "text.secondary": {
+      "roleType": "color",
+      "usageScope": "global",
+      "componentScope": [
+        "planning.goal_row",
+        "dashboard.summary_card",
+        "settings.section_row"
+      ],
+      "ios": {
+        "tokenRef": "AccessibleColors.secondaryText",
+        "sourceFile": "ios/CryptoSavingsTracker/Utilities/AccessibleColors.swift",
+        "spec": {
+          "kind": "color",
+          "light": "#666666",
+          "dark": "#B3B3B3",
+          "alpha": 1,
+          "nonColorCueRequired": false
+        }
+      },
+      "android": {
+        "tokenRef": "OnSurface",
+        "sourceFile": "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/theme/Color.kt",
+        "spec": {
+          "kind": "color",
+          "light": "#1A1A1A",
+          "dark": "#E6E6E6",
+          "alpha": 0.74,
+          "nonColorCueRequired": false
+        }
+      },
+      "parity": {
+        "status": "approved_variant",
+        "approvalTicket": "VSU-002",
+        "expiresAt": "2026-06-30",
+        "rationale": "Platform text contrast stacks differ; equivalent semantic tier preserved via alpha and contrast checks.",
+        "preExpiryCheckpointAt": "2026-05-31",
+        "closureIssue": "VSU-205"
+      }
+    },
+    "surface.base": {
+      "roleType": "surface",
+      "usageScope": "finance-critical",
+      "componentScope": [
+        "planning.header_card",
+        "planning.goal_row",
+        "dashboard.summary_card",
+        "dashboard.empty_card",
+        "settings.section_row"
+      ],
+      "ios": {
+        "tokenRef": "regularMaterial",
+        "sourceFile": "ios/CryptoSavingsTracker/Views",
+        "spec": {
+          "kind": "surface",
+          "lightStyle": "material.regular",
+          "darkStyle": "material.regular",
+          "strokeToken": "baselineStroke",
+          "shadowPreset": "none"
+        }
+      },
+      "android": {
+        "tokenRef": "Surface",
+        "sourceFile": "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/theme/Color.kt",
+        "spec": {
+          "kind": "surface",
+          "lightStyle": "solid.neutral",
+          "darkStyle": "solid.neutral",
+          "strokeToken": "surfaceStroke",
+          "shadowPreset": "none"
+        }
+      },
+      "parity": {
+        "status": "approved_variant",
+        "approvalTicket": "VSU-003",
+        "expiresAt": "2026-06-30",
+        "rationale": "iOS material vs Android solid surface is a documented platform nuance for visual fidelity.",
+        "preExpiryCheckpointAt": "2026-05-31",
+        "closureIssue": "VSU-206"
+      }
+    },
+    "elevation.card": {
+      "roleType": "elevation",
+      "usageScope": "global",
+      "componentScope": [
+        "planning.header_card",
+        "dashboard.summary_card"
+      ],
+      "ios": {
+        "tokenRef": "Elevation.card",
+        "sourceFile": "docs/proposals/VISUAL_SYSTEM_UNIFICATION_PROPOSAL.md",
+        "spec": {
+          "kind": "elevation",
+          "defaultDp": 2,
+          "pressedDp": 1
+        }
+      },
+      "android": {
+        "tokenRef": "Elevation.card",
+        "sourceFile": "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/theme/Elevation.kt",
+        "spec": {
+          "kind": "elevation",
+          "defaultDp": 2,
+          "pressedDp": 1
+        }
+      },
+      "parity": {
+        "status": "aligned"
+      }
+    },
+    "elevation.raised": {
+      "roleType": "elevation",
+      "usageScope": "global",
+      "componentScope": [
+        "planning.header_card",
+        "navigation.chrome"
+      ],
+      "ios": {
+        "tokenRef": "Elevation.raised",
+        "sourceFile": "docs/proposals/VISUAL_SYSTEM_UNIFICATION_PROPOSAL.md",
+        "spec": {
+          "kind": "elevation",
+          "defaultDp": 4,
+          "pressedDp": 2
+        }
+      },
+      "android": {
+        "tokenRef": "Elevation.raised",
+        "sourceFile": "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/theme/Elevation.kt",
+        "spec": {
+          "kind": "elevation",
+          "defaultDp": 4,
+          "pressedDp": 2
+        }
+      },
+      "parity": {
+        "status": "aligned"
+      }
+    },
+    "elevation.modal": {
+      "roleType": "elevation",
+      "usageScope": "global",
+      "componentScope": [
+        "navigation.chrome"
+      ],
+      "ios": {
+        "tokenRef": "Elevation.modal",
+        "sourceFile": "docs/proposals/VISUAL_SYSTEM_UNIFICATION_PROPOSAL.md",
+        "spec": {
+          "kind": "elevation",
+          "defaultDp": 16,
+          "pressedDp": 16
+        }
+      },
+      "android": {
+        "tokenRef": "Elevation.modal",
+        "sourceFile": "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/theme/Elevation.kt",
+        "spec": {
+          "kind": "elevation",
+          "defaultDp": 16,
+          "pressedDp": 16
+        }
+      },
+      "parity": {
+        "status": "aligned"
+      }
+    }
+  },
+  "governance": {
+    "owner": "Mobile Platform Lead",
+    "coApprover": "Design Lead",
+    "platformDelegates": [
+      "iOS Lead",
+      "Android Lead"
+    ],
+    "escalation": [
+      {
+        "severity": "sev3",
+        "responseSlaMinutes": 240,
+        "primaryApprover": "iOS Lead or Android Lead",
+        "fallbackApprover": "Mobile Platform Lead"
+      },
+      {
+        "severity": "sev2",
+        "responseSlaMinutes": 120,
+        "primaryApprover": "Mobile Platform Lead",
+        "fallbackApprover": "Design Lead"
+      },
+      {
+        "severity": "sev1",
+        "responseSlaMinutes": 30,
+        "primaryApprover": "Engineering Manager",
+        "fallbackApprover": "Director of Engineering"
+      }
+    ]
+  }
+}

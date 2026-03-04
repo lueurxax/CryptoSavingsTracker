@@ -28,6 +28,7 @@ import java.util.UUID
     ],
     indices = [
         Index(value = ["execution_record_id"]),
+        Index(value = ["completion_event_id"]),
         Index(value = ["goal_id"]),
         Index(value = ["completed_at_utc_millis"])
     ]
@@ -39,6 +40,9 @@ data class CompletedExecutionEntity(
 
     @ColumnInfo(name = "execution_record_id")
     val executionRecordId: String,
+
+    @ColumnInfo(name = "completion_event_id")
+    val completionEventId: String? = null,
 
     @ColumnInfo(name = "goal_id")
     val goalId: String,
@@ -62,5 +66,11 @@ data class CompletedExecutionEntity(
     val canUndoUntilUtcMillis: Long,
 
     @ColumnInfo(name = "created_at_utc_millis")
-    val createdAtUtcMillis: Long = System.currentTimeMillis()
+    val createdAtUtcMillis: Long = System.currentTimeMillis(),
+
+    @ColumnInfo(name = "undone_at_utc_millis")
+    val undoneAtUtcMillis: Long? = null,
+
+    @ColumnInfo(name = "undo_reason")
+    val undoReason: String? = null
 )

@@ -48,11 +48,3 @@ struct CSVExportShareView: View {
         .accessibilityIdentifier("csvExportShareView")
     }
 }
-
-#Preview {
-    CSVExportShareView(fileURLs: [
-        URL(fileURLWithPath: "/tmp/goals.csv"),
-        URL(fileURLWithPath: "/tmp/assets.csv"),
-        URL(fileURLWithPath: "/tmp/value_changes.csv")
-    ])
-}

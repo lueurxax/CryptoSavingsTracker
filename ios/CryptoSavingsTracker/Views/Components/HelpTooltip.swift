@@ -35,6 +35,7 @@ struct HelpTooltip: View {
         .buttonStyle(PlainButtonStyle())
         .accessibilityLabel("Help: \(title)")
         .accessibilityHint("Double tap to show explanation")
+        // NAV-MOD: MOD-01
         .popover(isPresented: $showTooltip, arrowEdge: .top) {
             TooltipContent(title: title, description: description)
                 .presentationCompactAdaptation(.popover)
@@ -75,7 +76,10 @@ struct TooltipContent: View {
         .frame(maxWidth: 300)
         .background(AccessibleColors.lightBackground)
         .cornerRadius(12)
-        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(AccessibleColors.secondaryText.opacity(0.2), lineWidth: 1)
+        )
     }
 }
 
@@ -174,18 +178,4 @@ extension View {
     func helpTooltip(title: String, description: String, icon: String = "questionmark.circle") -> some View {
         helpTooltip(HelpTooltip(title: title, description: description, icon: icon))
     }
-}
-
-#Preview {
-    VStack(spacing: 20) {
-        Text("Current Total: $5,000")
-            .helpTooltip(MetricTooltips.currentTotal)
-        
-        Text("Daily Target: $50")
-            .helpTooltip(MetricTooltips.dailyTarget)
-        
-        Text("Days Remaining: 45")
-            .helpTooltip(MetricTooltips.daysRemaining)
-    }
-    .padding()
 }

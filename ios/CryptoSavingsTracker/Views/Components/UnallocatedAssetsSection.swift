@@ -28,7 +28,7 @@ struct UnallocatedAssetsSection: View {
                 HStack {
                     Label("Unallocated Assets", systemImage: "exclamationmark.triangle.fill")
                         .font(.headline)
-                        .foregroundColor(.orange)
+                        .foregroundColor(AccessibleColors.warning)
                     
                     Spacer()
                     
@@ -36,7 +36,7 @@ struct UnallocatedAssetsSection: View {
                         .font(.caption)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.orange.opacity(0.2))
+                        .background(AccessibleColors.warningBackground)
                         .cornerRadius(8)
                 }
                 .padding(.horizontal)
@@ -60,8 +60,9 @@ struct UnallocatedAssetsSection: View {
                 }
             }
             .padding(.vertical)
-            .background(Color.orange.opacity(0.05))
+            .background(AccessibleColors.warningBackground.opacity(0.5))
             .cornerRadius(12)
+            // NAV-MOD: MOD-01
             .sheet(isPresented: $showingAllocationView) {
                 if let asset = selectedAsset {
                     AssetSharingView(asset: asset)
@@ -87,7 +88,7 @@ struct UnallocatedAssetCard: View {
                         
                         Text("• \(Int(unallocatedPercentage * 100))% unallocated")
                             .font(.caption)
-                            .foregroundColor(.orange)
+                            .foregroundColor(AccessibleColors.warning)
                     }
                     
                     if let address = asset.address {
@@ -107,18 +108,21 @@ struct UnallocatedAssetCard: View {
                 
                 VStack(alignment: .trailing) {
                     Image(systemName: "arrow.right.circle.fill")
-                        .foregroundColor(.orange)
+                        .foregroundColor(AccessibleColors.warning)
                         .imageScale(.large)
-                    
+
                     Text("Allocate")
                         .font(.caption2)
-                        .foregroundColor(.orange)
+                        .foregroundColor(AccessibleColors.warning)
                 }
             }
             .padding()
-            .background(Color.white.opacity(0.8))
+            .background(AccessibleColors.lightBackground.opacity(0.8))
             .cornerRadius(10)
-            .shadow(radius: 2)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(AccessibleColors.secondaryText.opacity(0.12), lineWidth: 1)
+            )
         }
         .buttonStyle(PlainButtonStyle())
         .padding(.horizontal)

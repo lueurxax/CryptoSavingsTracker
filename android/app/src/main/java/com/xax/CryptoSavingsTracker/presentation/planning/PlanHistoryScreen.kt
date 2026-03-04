@@ -14,10 +14,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +55,7 @@ fun PlanHistoryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val expandedByMonth = remember { mutableStateMapOf<String, Boolean>() }
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
@@ -73,7 +77,7 @@ fun PlanHistoryScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        if (uiState.rows.isEmpty()) {
+        if (uiState.groups.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -94,11 +98,16 @@ fun PlanHistoryScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(uiState.rows, key = { it.recordId }) { row ->
-                    HistoryCard(
-                        row = row,
+                items(uiState.groups, key = { it.monthLabel }) { group ->
+                    MonthGroupCard(
+                        group = group,
+                        expanded = expandedByMonth[group.monthLabel] ?: false,
+                        onToggleExpanded = {
+                            val current = expandedByMonth[group.monthLabel] ?: false
+                            expandedByMonth[group.monthLabel] = !current
+                        },
                         isUndoing = uiState.isUndoing,
-                        onRequestUndo = { viewModel.requestUndo(row.recordId) }
+                        onRequestUndo = { recordId -> viewModel.requestUndo(recordId) }
                     )
                 }
             }
@@ -113,7 +122,9 @@ fun PlanHistoryScreen(
                     TextButton(
                         onClick = viewModel::confirmUndo,
                         enabled = !uiState.isUndoing
-                    ) { Text("Undo") }
+                    ) {
+                        Text("Undo")
+                    }
                 },
                 dismissButton = {
                     TextButton(onClick = viewModel::dismissUndo) { Text("Cancel") }
@@ -124,15 +135,17 @@ fun PlanHistoryScreen(
 }
 
 @Composable
-private fun HistoryCard(
-    row: PlanHistoryRow,
+private fun MonthGroupCard(
+    group: PlanHistoryMonthGroup,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
     isUndoing: Boolean,
-    onRequestUndo: () -> Unit
+    onRequestUndo: (String) -> Unit
 ) {
     val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy 'at' HH:mm").withZone(ZoneId.systemDefault())
-    val completedText = formatter.format(Instant.ofEpochMilli(row.completedAtMillis))
+    val completedText = formatter.format(Instant.ofEpochMilli(group.latestCompletedAtMillis))
 
-    val delta = row.totalActual - row.totalRequired
+    val delta = group.summaryActual - group.summaryRequired
     val deltaText = if (delta >= 0) "+${String.format("%,.2f", delta)}" else "-${String.format("%,.2f", abs(delta))}"
 
     Card(
@@ -141,7 +154,7 @@ private fun HistoryCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = row.monthLabel,
+                text = group.monthLabel,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
@@ -153,11 +166,11 @@ private fun HistoryCard(
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "Required: ${String.format("%,.2f", row.totalRequired)}",
+                text = "Required: ${String.format("%,.2f", group.summaryRequired)}",
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                text = "Actual: ${String.format("%,.2f", row.totalActual)}",
+                text = "Actual: ${String.format("%,.2f", group.summaryActual)}",
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(modifier = Modifier.height(6.dp))
@@ -167,7 +180,15 @@ private fun HistoryCard(
                 fontWeight = FontWeight.Bold,
                 color = if (delta >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
             )
-            if (row.isUndoAvailable) {
+            Spacer(modifier = Modifier.height(6.dp))
+            TextButton(onClick = onToggleExpanded) {
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null
+                )
+                Text(if (expanded) "Hide events" else "Show events")
+            }
+            group.undoRecordId?.let { undoRecordId ->
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -180,13 +201,57 @@ private fun HistoryCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Button(
-                        onClick = onRequestUndo,
+                        onClick = { onRequestUndo(undoRecordId) },
                         enabled = !isUndoing
                     ) {
                         Text("Undo")
                     }
                 }
             }
+            if (expanded) {
+                Spacer(modifier = Modifier.height(8.dp))
+                group.events.forEach { event ->
+                    EventRow(event = event, formatter = formatter)
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun EventRow(
+    event: PlanHistoryRow,
+    formatter: DateTimeFormatter
+) {
+    val completedText = formatter.format(Instant.ofEpochMilli(event.completedAtMillis))
+    Text(
+        text = completedText,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Text(
+        text = "Event #${event.sequence}",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    if (event.isUndone) {
+        val undoneText = event.undoneAtMillis?.let { formatter.format(Instant.ofEpochMilli(it)) } ?: "unknown time"
+        Text(
+            text = "Undone at $undoneText",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.tertiary
+        )
+    } else {
+        Text(
+            text = if (event.isUndoAvailable) "Undo available" else "Undo expired",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (event.isUndoAvailable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    Text(
+        text = "Required ${String.format("%,.2f", event.totalRequired)} · Actual ${String.format("%,.2f", event.totalActual)}",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(8.dp))
 }

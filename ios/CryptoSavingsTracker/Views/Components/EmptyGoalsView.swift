@@ -47,7 +47,3 @@ struct EmptyGoalsView: View {
         .padding()
     }
 }
-
-#Preview {
-    EmptyGoalsView(onCreateGoal: {})
-}
