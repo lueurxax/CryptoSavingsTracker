@@ -15,7 +15,8 @@ import SwiftData
 
 #Preview("Detailed Style (iOS)") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config)
+    let container = (try? ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config))
+        ?? CryptoSavingsTrackerApp.sharedModelContainer
     
     let goal = Goal(
         name: "Emergency Fund",
@@ -35,7 +36,8 @@ import SwiftData
 
 #Preview("Compact Style (macOS)") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config)
+    let container = (try? ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config))
+        ?? CryptoSavingsTrackerApp.sharedModelContainer
     
     let goal = Goal(
         name: "Bitcoin Savings",
@@ -54,7 +56,8 @@ import SwiftData
 
 #Preview("Minimal Style") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config)
+    let container = (try? ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config))
+        ?? CryptoSavingsTrackerApp.sharedModelContainer
     
     let goal = Goal(
         name: "Vacation Fund",

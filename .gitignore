@@ -28,6 +28,7 @@ ios/build/
 ios/DerivedData/
 ios/DerivedDataCodex/
 ios/DerivedDataSim/
+ios/DerivedData*/
 ios/*.moved-aside
 ios/*.pbxuser
 !ios/default.pbxuser
@@ -119,6 +120,8 @@ android/keystore.properties
 
 ## Fleet
 .fleet/
+.junie/
+.air/
 
 # =============================================================================
 # Build outputs
@@ -128,6 +131,7 @@ android/keystore.properties
 *.tmp
 build_output.txt
 build_content_error.txt
+tmp-figma-*.png
 
 # =============================================================================
 # Secrets and credentials

@@ -191,9 +191,10 @@ struct CryptoSavingsTrackerApp: App {
         let shouldSeedGoalsOnly = args.contains("UITEST_SEED_GOALS")
         let shouldSeedManyGoals = args.contains("UITEST_SEED_MANY_GOALS")
         let shouldSeed = args.contains("UITEST_SEED_SHARED_ASSET")
+        let shouldSeedPresentationFlow = args.contains("UITEST_PRESENTATION_FLOW")
         let shouldReshare = args.contains("UITEST_RESHARE_ASSET")
         let shouldSeedBudgetShortfall = args.contains("UITEST_SEED_BUDGET_SHORTFALL")
-        guard shouldSeedGoalsOnly || shouldSeedManyGoals || shouldSeed || shouldReshare || shouldSeedBudgetShortfall else { return }
+        guard shouldSeedGoalsOnly || shouldSeedManyGoals || shouldSeed || shouldSeedPresentationFlow || shouldReshare || shouldSeedBudgetShortfall else { return }
         didRunUITestSeed = true
 
         OnboardingManager.shared.completeOnboarding()
@@ -211,6 +212,10 @@ struct CryptoSavingsTrackerApp: App {
         }
 
         if shouldSeed {
+            await seedUITestData(context: context)
+        }
+
+        if shouldSeedPresentationFlow {
             await seedUITestData(context: context)
         }
 
@@ -460,6 +465,8 @@ struct CryptoSavingsTrackerApp: App {
                     VisualProductionCaptureView(flow: productionFlow, state: productionState ?? "default")
                 } else if let captureComponent, let captureState {
                     VisualStateCaptureView(component: captureComponent, state: captureState)
+                } else if args.contains("UITEST_PRESENTATION_FLOW") {
+                    ContentView()
                 } else if args.contains("UITEST_SEED_SHARED_ASSET")
                     || args.contains("UITEST_SEED_BUDGET_SHORTFALL")
                     || args.contains("UITEST_SEED_MANY_GOALS")

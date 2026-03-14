@@ -25,6 +25,9 @@ class GoalViewModel: ObservableObject {
         self.goal = goal
         self.tatumService = tatumService
         self.exchangeRateService = exchangeRateService
+        self.currentTotal = goal.manualTotal
+        self.progress = goal.manualProgress
+        self.suggestedDeposit = goal.suggestedDailyDeposit
     }
     
     // Convenience initializer that uses DI container for backward compatibility

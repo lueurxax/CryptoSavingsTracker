@@ -32,6 +32,10 @@ class GoalRowViewModel: ObservableObject {
     init(goal: Goal) {
         self.goal = goal
         self.displayEmoji = goal.emoji
+        self.asyncCurrentTotal = goal.manualTotal
+        self.asyncProgress = goal.manualProgress
+        self.progressAnimation = goal.manualProgress
+        self.hasLoadedInitialData = goal.manualTotal > 0
         
         // Start shimmer animation
         withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {

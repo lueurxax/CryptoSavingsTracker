@@ -9,7 +9,8 @@ import Foundation
     struct PreviewWrapper: View {
         var body: some View {
             let config = ModelConfiguration(isStoredInMemoryOnly: true)
-            let container = try! ModelContainer(for: Goal.self, configurations: config)
+            let container = (try? ModelContainer(for: Goal.self, configurations: config))
+                ?? CryptoSavingsTrackerApp.sharedModelContainer
             
             let goal = Goal(
                 name: "Emergency Fund",

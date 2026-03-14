@@ -14,7 +14,8 @@ import Combine
 
 #Preview("Flex Slider") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, MonthlyPlan.self, configurations: config)
+    let container = (try? ModelContainer(for: Goal.self, Asset.self, Transaction.self, MonthlyPlan.self, configurations: config))
+        ?? CryptoSavingsTrackerApp.sharedModelContainer
     let context = container.mainContext
     
     let viewModel = MonthlyPlanningViewModel(modelContext: context)

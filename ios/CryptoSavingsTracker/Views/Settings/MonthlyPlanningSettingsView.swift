@@ -31,11 +31,18 @@ struct MonthlyPlanningSettingsView: View {
     
     // For preview calculations - simplified to avoid dependencies
     let goals: [SimpleGoal]
+
+    init(goals: [SimpleGoal]) {
+        self.goals = goals
+        let total = goals.reduce(0) { $0 + $1.targetAmount }
+        self._previewTotal = State(initialValue: total)
+        self._isLoadingPreview = State(initialValue: false)
+    }
     
     // Convenience initializer for actual Goal objects
     init(goals: [Any]) {
         // Convert any Goal-like objects to SimpleGoal for preview
-        self.goals = goals.compactMap { goal in
+        let simplifiedGoals = goals.compactMap { goal in
             // Use reflection to extract properties safely
             let mirror = Mirror(reflecting: goal)
             var name = "Unknown"
@@ -55,6 +62,7 @@ struct MonthlyPlanningSettingsView: View {
             
             return SimpleGoal(name: name, currency: currency, targetAmount: targetAmount, deadline: deadline)
         }
+        self.init(goals: simplifiedGoals)
     }
     
     var body: some View {

@@ -13,7 +13,8 @@ import SwiftData
 
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config)
+    let container = (try? ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config))
+        ?? CryptoSavingsTrackerApp.sharedModelContainer
     
     let goal = Goal(name: "Emergency Fund", currency: "EUR", targetAmount: 1600, deadline: Date().addingTimeInterval(86400 * 85))
     container.mainContext.insert(goal)

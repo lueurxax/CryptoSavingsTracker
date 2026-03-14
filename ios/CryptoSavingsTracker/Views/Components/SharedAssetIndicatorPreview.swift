@@ -7,13 +7,13 @@ import SwiftData
 struct SharedAssetIndicator_Previews: PreviewProvider {
     static var previews: some View {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(
+        let container = (try? ModelContainer(
             for: Goal.self,
             Asset.self,
             Transaction.self,
             AssetAllocation.self,
             configurations: config
-        )
+        )) ?? CryptoSavingsTrackerApp.sharedModelContainer
 
         let goal = Goal(
             name: "Test Goal",

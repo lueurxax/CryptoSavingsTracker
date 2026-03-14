@@ -6,39 +6,39 @@
   "artifacts": [
     {
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/dashboard/default.png",
-      "sha256": "c8f6713edcdd76097488a9729c117fdf7dbb8899d3cb0148f3bf04ac24e608a9"
+      "sha256": "e156d733858223c06663bcea8a998ceed0e5d5c613bccca9944886a931dbb6e3"
     },
     {
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/dashboard/error.png",
-      "sha256": "fc64dd21392588d29f9ba2ce8362294697d1d81cecef9aea8dac7896c7532436"
+      "sha256": "218db0ba8be4dca583fa1541ebde50e4d009751c9152c2be3d2b4e2a0279201d"
     },
     {
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/dashboard/recovery.png",
-      "sha256": "31a9ad8eeba896eb2b12df5c6424ef5a79a180fe642faffe8ef128d3a526d34f"
+      "sha256": "794120e8557f42f46bd110b02ad35a9e8ffb959c8113b3f682688bd94d87917f"
     },
     {
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/planning/default.png",
-      "sha256": "ddb30b3386b68c6dcc474428565a4a07a13b13b26f6f9f8aff9e489cc58b7851"
+      "sha256": "075244182a46594e135b2f63929aab959f789ce970d74146233cf32dbb4ab22d"
     },
     {
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/planning/error.png",
-      "sha256": "86a589bf918978acf112ea27f4bd004fa9892987bfd10179a9fbdd06255ae9f2"
+      "sha256": "3135335fcd96de21e6ca200eacaf48f13f44debaef7b31df59797ffe87373c14"
     },
     {
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/planning/recovery.png",
-      "sha256": "2dd1dc6b9eabdc25b664872ef315a8eb64e4c74b639ff3564e66b0711c87a420"
+      "sha256": "b3568ea509414227cbb8c0dd21f603ae9c4fd55213157aa247ef078fa9665ef0"
     },
     {
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/settings/default.png",
-      "sha256": "1d664afbc504f328606f6291c37fd4ff1721e0bee056eb8ccc5ce88e65239115"
+      "sha256": "b4ec071371ab563b9ce078a7700b39591b27223e0dd54354db6e75f84258742f"
     },
     {
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/settings/error.png",
-      "sha256": "64c8891671e03f7e9a25faa8d775cc435f4fce0a8331fd461379bd38bc22033b"
+      "sha256": "8a08d45ae83e9bcadc441c067675ba1372ddf1dd5e029d0d938da5ab5ab15ac4"
     },
     {
       "artifactRef": "docs/screenshots/review-visual-system-unification-r4/production/ios/settings/recovery.png",
-      "sha256": "85659105399fbf71ec7e363c0ccdb8c48c4d5cc2436dff9d52b7e5d5e4af21f9"
+      "sha256": "779b1a20c1b1251c6cd6d8f6d0197154a1ed7f5a5f6d9b5fb219084b4bde15ae"
     }
   ]
 }

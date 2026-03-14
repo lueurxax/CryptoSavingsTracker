@@ -258,7 +258,7 @@ struct GoalDetailView: View {
     @ViewBuilder
     private var progressRingSection: some View {
         ZStack {
-            if goalViewModel.isLoading {
+            if goalViewModel.isLoading && goalViewModel.currentTotal == 0 && goalViewModel.progress == 0 {
                 // Show loading indicator while data is being fetched
                 VStack(spacing: 12) {
                     ProgressView()

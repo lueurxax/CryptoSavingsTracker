@@ -33,6 +33,9 @@ struct ProgressRingView: View {
         self.currency = currency
         self.lineWidth = lineWidth
         self.showLabels = showLabels
+        self._animatedProgress = State(initialValue: min(max(progress, 0), 1.5))
+        self._animatedCurrent = State(initialValue: current)
+        self._animatedTarget = State(initialValue: target)
     }
     
     private var progressColor: Color {
