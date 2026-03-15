@@ -374,7 +374,7 @@ private fun MonthlyPlanningContent(
             item {
                 BudgetNoticeCard(
                     title = "Budget Needs Review",
-                    message = "Your goals or month changed. Recalculate budget allocations?",
+                    message = "Goals changed, review this plan",
                     primaryActionLabel = "Recalculate",
                     onPrimaryAction = onOpenBudgetSheet,
                     secondaryActionLabel = "Keep current",

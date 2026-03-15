@@ -12,11 +12,14 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var monthlySettings = MonthlyPlanningSettings.shared
+    @StateObject private var cloudKitMigrationController = CloudKitMigrationController.shared
     @State private var showingMonthlyPlanningSettings = false
     @State private var settingsVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .settings)
     @State private var exportResult: CSVExportResult?
     @State private var exportErrorMessage: String?
     @State private var showingExportError = false
+    @State private var cloudKitMigrationMessage: String?
+    @State private var showingCloudKitMigrationAlert = false
     
     var body: some View {
         NavigationStack {
@@ -39,6 +42,43 @@ struct SettingsView: View {
                     Button("Import Data") {
                         // Import functionality
                     }
+                }
+
+                Section {
+                    if settingsVisualEnabled {
+                        SettingsSectionRow(
+                            title: "CloudKit Migration Status",
+                            systemImage: "icloud",
+                            value: cloudKitMigrationController.snapshot.statusSummary,
+                            accessibilityIdentifier: "settings.cloudkit.status"
+                        )
+                    } else {
+                        LegacySettingsValueRow(
+                            title: "CloudKit Migration Status",
+                            value: cloudKitMigrationController.snapshot.statusSummary,
+                            accessibilityIdentifier: "settings.cloudkit.status"
+                        )
+                    }
+
+                    NavigationLink("Migration Diagnostics") {
+                        CloudKitMigrationStatusView(controller: cloudKitMigrationController)
+                    }
+                    .accessibilityIdentifier("settings.cloudkit.diagnostics")
+
+                    Button(cloudKitMigrationController.snapshot.migrationActionTitle) {
+                        do {
+                            try cloudKitMigrationController.attemptMigration()
+                            cloudKitMigrationMessage = "CloudKit migration flow is not wired yet."
+                        } catch {
+                            cloudKitMigrationMessage = error.localizedDescription
+                        }
+                        showingCloudKitMigrationAlert = true
+                    }
+                    .accessibilityIdentifier("settings.cloudkit.migrate")
+                } header: {
+                    Text("iCloud Migration")
+                } footer: {
+                    Text("Bridge controls stay hidden until CloudKit migration completes and the runtime is CloudKit-only.")
                 }
 
                 Section("Monthly Planning") {
@@ -118,8 +158,14 @@ struct SettingsView: View {
         } message: {
             Text(exportErrorMessage ?? "Unknown error")
         }
+        .alert("CloudKit Migration", isPresented: $showingCloudKitMigrationAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(cloudKitMigrationMessage ?? "Unknown state")
+        }
         .onAppear {
             settingsVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .settings)
+            cloudKitMigrationController.refresh()
         }
     }
 }

@@ -188,13 +188,14 @@ struct CryptoSavingsTrackerApp: App {
     static func runUITestSeedIfNeeded(context: ModelContext) async {
         guard !didRunUITestSeed else { return }
         let args = ProcessInfo.processInfo.arguments
-        let shouldSeedGoalsOnly = args.contains("UITEST_SEED_GOALS")
-        let shouldSeedManyGoals = args.contains("UITEST_SEED_MANY_GOALS")
-        let shouldSeed = args.contains("UITEST_SEED_SHARED_ASSET")
+        let shouldSeedGoalsOnly = UITestFlags.shouldSeedGoals
+        let shouldSeedManyGoals = UITestFlags.shouldSeedManyGoals
+        let shouldSeed = UITestFlags.shouldSeedSharedAsset
         let shouldSeedPresentationFlow = args.contains("UITEST_PRESENTATION_FLOW")
         let shouldReshare = args.contains("UITEST_RESHARE_ASSET")
-        let shouldSeedBudgetShortfall = args.contains("UITEST_SEED_BUDGET_SHORTFALL")
-        guard shouldSeedGoalsOnly || shouldSeedManyGoals || shouldSeed || shouldSeedPresentationFlow || shouldReshare || shouldSeedBudgetShortfall else { return }
+        let shouldSeedBudgetShortfall = UITestFlags.shouldSeedBudgetShortfall
+        let shouldSeedStaleDrafts = UITestFlags.shouldSeedStaleDrafts
+        guard shouldSeedGoalsOnly || shouldSeedManyGoals || shouldSeed || shouldSeedPresentationFlow || shouldReshare || shouldSeedBudgetShortfall || shouldSeedStaleDrafts else { return }
         didRunUITestSeed = true
 
         OnboardingManager.shared.completeOnboarding()
@@ -228,6 +229,13 @@ struct CryptoSavingsTrackerApp: App {
                 await seedUITestGoals(context: context, count: 1)
             }
             await seedUITestBudgetShortfall()
+        }
+
+        if shouldSeedStaleDrafts {
+            if !didSeedGoals {
+                await seedUITestGoals(context: context, count: 1)
+            }
+            await seedUITestStaleDrafts(context: context)
         }
     }
 
@@ -284,6 +292,53 @@ struct CryptoSavingsTrackerApp: App {
         settings.budgetAppliedMonthLabel = nil
         settings.budgetAppliedSignature = nil
         AppLog.info("UITest shortfall budget seeded", category: .ui)
+    }
+
+    @MainActor
+    private static func seedUITestStaleDrafts(context: ModelContext) async {
+        do {
+            let goals = try context.fetch(FetchDescriptor<Goal>())
+            let goal: Goal
+            if let existingGoal = goals.first(where: { $0.name == "UI Goal Seed" }) ?? goals.first {
+                goal = existingGoal
+            } else {
+                let newGoal = Goal(
+                    name: "UI Goal Seed",
+                    currency: "USD",
+                    targetAmount: 1800,
+                    deadline: Calendar.current.date(byAdding: .month, value: 4, to: Date())
+                        ?? Date().addingTimeInterval(86400 * 120)
+                )
+                context.insert(newGoal)
+                goal = newGoal
+            }
+
+            let previousMonth = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+            let monthLabel = MonthlyExecutionRecord.monthLabel(from: previousMonth)
+            let existingPlans = try context.fetch(FetchDescriptor<MonthlyPlan>())
+            let alreadySeeded = existingPlans.contains { plan in
+                plan.goalId == goal.id && plan.monthLabel == monthLabel && plan.state == .draft
+            }
+
+            if !alreadySeeded {
+                let stalePlan = MonthlyPlan(
+                    goalId: goal.id,
+                    monthLabel: monthLabel,
+                    requiredMonthly: 275,
+                    remainingAmount: 1_650,
+                    monthsRemaining: 6,
+                    currency: goal.currency,
+                    status: .attention,
+                    state: .draft
+                )
+                context.insert(stalePlan)
+            }
+
+            try context.save()
+            AppLog.info("UITest stale draft seed complete", category: .ui)
+        } catch {
+            AppLog.error("UITest stale draft seed failed: \(error)", category: .ui)
+        }
     }
 
     @MainActor

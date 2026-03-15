@@ -8,6 +8,13 @@
 import Foundation
 import SwiftData
 
+enum GoalValidationField: String, CaseIterable, Hashable {
+    case name
+    case targetAmount
+    case deadline
+    case startDate
+}
+
 // MARK: - Goal Editing Extensions
 extension Goal {
     // Lifecycle helpers (soft-delete / cancel / finish)
@@ -66,30 +73,34 @@ extension Goal {
     
     // Validation
     func validate() -> [String] {
-        var errors: [String] = []
-        
+        let fieldErrors = validationErrorsByField()
+        return GoalValidationField.allCases.compactMap { fieldErrors[$0] }
+    }
+
+    func validationErrorsByField(referenceDate: Date = Date()) -> [GoalValidationField: String] {
+        var errors: [GoalValidationField: String] = [:]
+
         if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            errors.append("Goal name is required")
+            errors[.name] = "Goal name is required"
         }
-        
+
         if targetAmount <= 0 {
-            errors.append("Target amount must be greater than zero")
+            errors[.targetAmount] = "Target amount must be greater than zero"
         }
-        
-        if deadline <= Date() {
-            errors.append("Deadline must be in the future")
+
+        if deadline <= referenceDate {
+            errors[.deadline] = "Deadline must be in the future"
+        } else {
+            let daysRemaining = Calendar.current.dateComponents([.day], from: referenceDate, to: deadline).day ?? 0
+            if daysRemaining < 7 {
+                errors[.deadline] = "Deadline should be at least 7 days from now"
+            }
         }
-        
+
         if startDate > deadline {
-            errors.append("Start date must be before deadline")
+            errors[.startDate] = "Start date must be before deadline"
         }
-        
-        // Check if deadline gives reasonable time
-        let daysRemaining = Calendar.current.dateComponents([.day], from: Date(), to: deadline).day ?? 0
-        if daysRemaining < 7 {
-            errors.append("Deadline should be at least 7 days from now")
-        }
-        
+
         return errors
     }
     

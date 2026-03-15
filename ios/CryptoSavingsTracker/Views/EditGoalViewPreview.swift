@@ -5,29 +5,58 @@ import SwiftUI
 import SwiftData
 import Foundation
 
-#Preview {
-    struct PreviewWrapper: View {
-        var body: some View {
-            let config = ModelConfiguration(isStoredInMemoryOnly: true)
-            let container = (try? ModelContainer(for: Goal.self, configurations: config))
-                ?? CryptoSavingsTrackerApp.sharedModelContainer
-            
-            let goal = Goal(
-                name: "Emergency Fund",
-                currency: "USD", 
-                targetAmount: 5000.0,
-                deadline: Date().addingTimeInterval(86400 * 180) // 6 months
-            )
-            goal.reminderFrequency = ReminderFrequency.weekly.rawValue
-            goal.reminderTime = Date()
-            
-            container.mainContext.insert(goal)
-            
-            return EditGoalView(goal: goal, modelContext: container.mainContext)
-        }
-    }
-    
-    return PreviewWrapper()
+private func makeEditGoalPreviewContainer() -> ModelContainer {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    return (try? ModelContainer(for: Goal.self, configurations: config))
+        ?? CryptoSavingsTrackerApp.sharedModelContainer
+}
+
+private func makeEditGoalPreviewGoal(in container: ModelContainer) -> Goal {
+    let goal = Goal(
+        name: "Emergency Fund",
+        currency: "USD",
+        targetAmount: 5000.0,
+        deadline: Date().addingTimeInterval(86400 * 180)
+    )
+    goal.reminderFrequency = ReminderFrequency.weekly.rawValue
+    goal.reminderTime = Date()
+    container.mainContext.insert(goal)
+    return goal
+}
+
+#Preview("Edit Goal Default") {
+    let container = makeEditGoalPreviewContainer()
+    let goal = makeEditGoalPreviewGoal(in: container)
+
+    return EditGoalView(goal: goal, modelContext: container.mainContext)
+}
+
+#Preview("Edit Goal Invalid") {
+    let container = makeEditGoalPreviewContainer()
+    let goal = makeEditGoalPreviewGoal(in: container)
+
+    return EditGoalView(
+        goal: goal,
+        modelContext: container.mainContext,
+        previewState: .init(
+            goalName: "",
+            targetAmount: 0,
+            hasAttemptedSubmit: true
+        )
+    )
+}
+
+#Preview("Edit Goal Save Error") {
+    let container = makeEditGoalPreviewContainer()
+    let goal = makeEditGoalPreviewGoal(in: container)
+
+    return EditGoalView(
+        goal: goal,
+        modelContext: container.mainContext,
+        previewState: .init(
+            saveErrorMessage: "Unable to save this goal right now. Please try again."
+        )
+    )
 }
 
 // MARK: - Customization Section

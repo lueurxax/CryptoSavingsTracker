@@ -299,7 +299,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
 
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
             let hasActiveExecution = (try? executionService.getActiveRecord()) != nil
-            if !hasActiveExecution {
+            if !hasActiveExecution && !UITestFlags.shouldSeedStaleDrafts {
                 _ = try await planService.rollForwardDraftPlans(to: targetMonthLabel)
             }
 

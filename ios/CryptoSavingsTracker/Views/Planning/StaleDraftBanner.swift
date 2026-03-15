@@ -17,6 +17,7 @@ import UIKit
 /// Banner component for managing stale draft plans from past months
 struct StaleDraftBanner: View {
     let stalePlans: [MonthlyPlan]
+    let goalNamesByID: [UUID: String]
     let onMarkCompleted: (MonthlyPlan) -> Void
     let onMarkSkipped: (MonthlyPlan) -> Void
     let onDelete: (MonthlyPlan) -> Void
@@ -66,7 +67,7 @@ struct StaleDraftBanner: View {
                                     .font(.subheadline)
                                     .fontWeight(.medium)
 
-                                Text("Tap to review and resolve")
+                                Text("Review each draft and decide how to handle it")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -91,6 +92,7 @@ struct StaleDraftBanner: View {
                     }
                     .buttonStyle(.plain)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .accessibilityIdentifier("staleDraftBannerToggle")
 
                     if showingDetails {
                         VStack(alignment: .leading, spacing: 12) {
@@ -107,7 +109,7 @@ struct StaleDraftBanner: View {
                                         .font(.caption)
                                         .frame(width: 16)
 
-                                    Text("**Mark Completed**: Count as fulfilled (contributed the planned amount)")
+                                    Text("**Mark completed**: Keep this draft as fulfilled for that month")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -118,7 +120,7 @@ struct StaleDraftBanner: View {
                                         .font(.caption)
                                         .frame(width: 16)
 
-                                    Text("**Mark Skipped**: Count as intentionally skipped (didn't contribute)")
+                                    Text("**Mark skipped**: Keep the month in history but mark it as intentionally skipped")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -129,7 +131,7 @@ struct StaleDraftBanner: View {
                                         .font(.caption)
                                         .frame(width: 16)
 
-                                    Text("**Delete**: Remove plan entirely (no record of this month)")
+                                    Text("**Delete**: Remove the draft entirely with no historical record for that month")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -146,6 +148,7 @@ struct StaleDraftBanner: View {
                             ForEach(currentPagePlans, id: \.id) { plan in
                                 StalePlanRow(
                                     plan: plan,
+                                    goalName: goalNamesByID[plan.goalId] ?? "Unknown goal",
                                     onMarkCompleted: { onMarkCompleted(plan) },
                                     onMarkSkipped: { onMarkSkipped(plan) },
                                     onDelete: { onDelete(plan) }
@@ -210,11 +213,13 @@ struct StaleDraftBanner: View {
 /// Individual row for a stale plan
 struct StalePlanRow: View {
     let plan: MonthlyPlan
+    let goalName: String
     let onMarkCompleted: () -> Void
     let onMarkSkipped: () -> Void
     let onDelete: () -> Void
 
-    @State private var showingActionSheet = false
+    @State private var showingResolveActions = false
+    @State private var showingDeleteConfirmation = false
     @State private var hovering = false
 
     private var baselineStroke: Color {
@@ -227,27 +232,33 @@ struct StalePlanRow: View {
         #endif
     }
 
-    // Get goal name from relationship or use "Unknown Goal"
-    private var goalName: String {
-        // This would need to be passed in or fetched via relationship
-        "Goal"  // Placeholder - in real usage, this would come from plan relationship
+    private var monthTitle: String {
+        formatMonthLabel(plan.monthLabel)
     }
 
     var body: some View {
         HStack(spacing: 12) {
-            // Status indicator
-            Circle()
-                .fill(AccessibleColors.warningBackground)
-                .frame(width: 8, height: 8)
+            Image(systemName: "doc.text")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AccessibleColors.warning)
+                .frame(width: 20, height: 20)
 
             VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(formatMonthLabel(plan.monthLabel))
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                }
+                Text(goalName)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
 
                 HStack(spacing: 8) {
+                    Text(monthTitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+
                     Text("Planned: \(plan.formattedEffectiveAmount())")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -256,33 +267,16 @@ struct StalePlanRow: View {
 
             Spacer()
 
-            // Action menu
-            Menu {
-                Button {
-                    onMarkCompleted()
-                } label: {
-                    Label("Mark as Completed", systemImage: "checkmark.circle")
-                }
-
-                Button {
-                    onMarkSkipped()
-                } label: {
-                    Label("Mark as Skipped", systemImage: "forward.fill")
-                }
-
-                Divider()
-
-                Button(role: .destructive) {
-                    onDelete()
-                } label: {
-                    Label("Delete Plan", systemImage: "trash")
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-                    .font(.title3)
-                    .foregroundStyle(hovering ? .primary : .secondary)
-                    .scaleEffect(hovering ? 1.1 : 1.0)
+            Button("Resolve") {
+                showingResolveActions = true
             }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AccessibleColors.primaryInteractive)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(AccessibleColors.primaryInteractive.opacity(0.08))
+            .clipShape(Capsule())
+            .accessibilityIdentifier("staleDraftResolve_\(plan.id.uuidString)")
             .onHover { isHovering in
                 withAnimation(.easeInOut(duration: 0.15)) {
                     hovering = isHovering
@@ -296,6 +290,39 @@ struct StalePlanRow: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(baselineStroke, lineWidth: 1)
         )
+        .accessibilityIdentifier("staleDraftRow_\(plan.id.uuidString)")
+        .confirmationDialog(
+            "Resolve \(goalName) draft for \(monthTitle)",
+            isPresented: $showingResolveActions,
+            titleVisibility: .visible
+        ) {
+            Button("Mark completed") {
+                onMarkCompleted()
+            }
+
+            Button("Mark skipped") {
+                onMarkSkipped()
+            }
+
+            Button("Delete draft", role: .destructive) {
+                showingDeleteConfirmation = true
+            }
+
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Choose how to handle the saved draft for \(goalName) in \(monthTitle).")
+        }
+        .alert(
+            "Delete \(goalName) draft for \(monthTitle)?",
+            isPresented: $showingDeleteConfirmation
+        ) {
+            Button("Delete Draft", role: .destructive) {
+                onDelete()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This removes the draft for \(monthTitle) with no historical record kept.")
+        }
     }
 
     private func formatMonthLabel(_ monthLabel: String) -> String {

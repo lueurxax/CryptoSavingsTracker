@@ -35,6 +35,7 @@ import UIKit
     return VStack {
         StaleDraftBanner(
             stalePlans: plans,
+            goalNamesByID: Dictionary(uniqueKeysWithValues: plans.map { ($0.goalId, "Goal \($0.monthLabel)") }),
             onMarkCompleted: { plan in
                 print("Mark completed: \(plan.monthLabel)")
             },
@@ -71,6 +72,7 @@ import UIKit
 
     return StalePlanRow(
         plan: plan,
+        goalName: "School Fund",
         onMarkCompleted: { print("Completed") },
         onMarkSkipped: { print("Skipped") },
         onDelete: { print("Deleted") }

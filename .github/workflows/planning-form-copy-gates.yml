@@ -1,0 +1,49 @@
+name: planning-form-copy-gates
+
+on:
+  pull_request:
+    paths:
+      - "docs/copy/FINANCIAL_COPY_DICTIONARY.md"
+      - "ios/CryptoSavingsTracker/Views/Planning/BudgetSummaryCard.swift"
+      - "ios/CryptoSavingsTracker/Views/Planning/CompactGoalRequirementRow.swift"
+      - "ios/CryptoSavingsTracker/Views/Planning/MonthlyPlanningContainer.swift"
+      - "ios/CryptoSavingsTracker/Views/AddGoalView.swift"
+      - "ios/CryptoSavingsTracker/Views/EditGoalView.swift"
+      - "ios/CryptoSavingsTracker/Views/Goals/GoalFormSupport.swift"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/planning/MonthlyPlanningContainer.kt"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/planning/MonthlyPlanningScreen.kt"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/planning/components/BudgetCalculatorComponents.kt"
+      - "scripts/validate_copy_contracts.py"
+      - ".github/workflows/planning-form-copy-gates.yml"
+  push:
+    branches:
+      - "release/**"
+    paths:
+      - "docs/copy/FINANCIAL_COPY_DICTIONARY.md"
+      - "ios/CryptoSavingsTracker/Views/Planning/BudgetSummaryCard.swift"
+      - "ios/CryptoSavingsTracker/Views/Planning/CompactGoalRequirementRow.swift"
+      - "ios/CryptoSavingsTracker/Views/Planning/MonthlyPlanningContainer.swift"
+      - "ios/CryptoSavingsTracker/Views/AddGoalView.swift"
+      - "ios/CryptoSavingsTracker/Views/EditGoalView.swift"
+      - "ios/CryptoSavingsTracker/Views/Goals/GoalFormSupport.swift"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/planning/MonthlyPlanningContainer.kt"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/planning/MonthlyPlanningScreen.kt"
+      - "android/app/src/main/java/com/xax/CryptoSavingsTracker/presentation/planning/components/BudgetCalculatorComponents.kt"
+      - "scripts/validate_copy_contracts.py"
+      - ".github/workflows/planning-form-copy-gates.yml"
+  workflow_dispatch:
+
+jobs:
+  validate-planning-form-copy-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python3 scripts/validate_copy_contracts.py --report-out artifacts/copy-contracts/planning-form-copy-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: planning-form-copy-report
+          path: artifacts/copy-contracts/planning-form-copy-report.json

@@ -14,6 +14,8 @@ struct PlanningView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.modelContext) private var modelContext
     @Query private var allPlans: [MonthlyPlan]
+    @Query(sort: \Goal.name) private var allGoals: [Goal]
+    @State private var loggedUnresolvedGoalIDs: Set<UUID> = []
 
     // Get stale draft plans (past months that are still in draft state)
     private var staleDrafts: [MonthlyPlan] {
@@ -22,17 +24,53 @@ struct PlanningView: View {
             .sorted { $0.monthLabel > $1.monthLabel } // Most recent first
     }
 
+    private var staleDraftGoalNames: [UUID: String] {
+        Dictionary(uniqueKeysWithValues: allGoals.map { ($0.id, $0.name) })
+    }
+
+    private var unresolvedStaleDraftGoalIDs: [UUID] {
+        let resolvedIDs = Set(staleDraftGoalNames.keys)
+        let staleIDs = Set(staleDrafts.map(\.goalId))
+        return staleIDs.subtracting(resolvedIDs).sorted { $0.uuidString < $1.uuidString }
+    }
+
     var body: some View {
         Group {
             #if os(iOS)
             if horizontalSizeClass == .compact {
-                iOSCompactPlanningView(viewModel: viewModel, staleDrafts: staleDrafts)
+                iOSCompactPlanningView(
+                    viewModel: viewModel,
+                    staleDrafts: staleDrafts,
+                    goalNamesByID: staleDraftGoalNames
+                )
             } else {
                 iOSRegularPlanningView(viewModel: viewModel, staleDrafts: staleDrafts)
             }
             #else
-            macOSPlanningView(viewModel: viewModel, staleDrafts: staleDrafts)
+            macOSPlanningView(
+                viewModel: viewModel,
+                staleDrafts: staleDrafts,
+                goalNamesByID: staleDraftGoalNames
+            )
             #endif
+        }
+        .onAppear(perform: logMissingStaleDraftGoalNames)
+        .onChange(of: staleDraftLogSignature) { _, _ in
+            logMissingStaleDraftGoalNames()
+        }
+    }
+
+    private var staleDraftLogSignature: String {
+        unresolvedStaleDraftGoalIDs.map(\.uuidString).joined(separator: "|")
+    }
+
+    private func logMissingStaleDraftGoalNames() {
+        for goalID in unresolvedStaleDraftGoalIDs where !loggedUnresolvedGoalIDs.contains(goalID) {
+            AppLog.warning(
+                "Stale draft goal name unresolved for goalId \(goalID.uuidString); using fallback.",
+                category: .monthlyPlanning
+            )
+            loggedUnresolvedGoalIDs.insert(goalID)
         }
     }
 }
@@ -53,6 +91,7 @@ struct DockPhasePreferenceKey: PreferenceKey {
 struct iOSCompactPlanningView: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
     let staleDrafts: [MonthlyPlan]
+    let goalNamesByID: [UUID: String]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTab = 0
@@ -114,6 +153,7 @@ struct iOSCompactPlanningView: View {
             if !staleDrafts.isEmpty {
                 StaleDraftBanner(
                     stalePlans: staleDrafts,
+                    goalNamesByID: goalNamesByID,
                     onMarkCompleted: { plan in
                         plan.state = .completed
                         plan.isSkipped = false
@@ -203,8 +243,7 @@ struct iOSCompactPlanningView: View {
                 onPrimaryAction: { showingBudgetSheet = true },
                 onEdit: { showingBudgetSheet = true }
             )
-
-            consolidatedHeader
+            compactConsolidatedHeader
         }
         .scaleEffect(headerCardScale, anchor: .top)
         .opacity(headerCardOpacity)
@@ -329,6 +368,56 @@ struct iOSCompactPlanningView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
+    @ViewBuilder
+    private var compactConsolidatedHeader: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Monthly total")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+
+                    Text(formatAmount(viewModel.adjustedTotal, currency: viewModel.displayCurrency))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                        .fixedSize(horizontal: true, vertical: false)
+
+                    if viewModel.flexAdjustment != 1.0 {
+                        Text("\(Int(viewModel.flexAdjustment * 100))% adjusted")
+                            .font(.caption2)
+                            .foregroundColor(AccessibleColors.secondaryInteractive)
+                    }
+                }
+
+                Spacer()
+
+                if let deadline = viewModel.statistics.shortestDeadline {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("Next due")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+
+                        Text(deadline, format: .dateTime.month(.abbreviated).day())
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+                }
+            }
+
+            if viewModel.statistics.onTrackCount > 0 || viewModel.statistics.attentionCount > 0 || viewModel.statistics.criticalCount > 0 {
+                statusSummaryRow
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
     // MARK: - Status Summary Row (replaces legend)
 
     @ViewBuilder
@@ -406,7 +495,7 @@ struct iOSCompactPlanningView: View {
                     .padding(.bottom, 2)
 
                 ForEach(viewModel.monthlyRequirements) { requirement in
-                    GoalRequirementRow(
+                    CompactGoalRequirementRow(
                         requirement: requirement,
                         flexState: viewModel.getFlexState(for: requirement.goalId),
                         adjustedAmount: viewModel.getEffectiveAmount(for: requirement.goalId),
@@ -919,6 +1008,7 @@ struct iOSRegularPlanningView: View {
 struct macOSPlanningView: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
     let staleDrafts: [MonthlyPlan]
+    let goalNamesByID: [UUID: String]
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
@@ -955,6 +1045,7 @@ struct macOSPlanningView: View {
                             if !staleDrafts.isEmpty {
                                 StaleDraftBanner(
                                     stalePlans: staleDrafts,
+                                    goalNamesByID: goalNamesByID,
                                     onMarkCompleted: { plan in
                                         plan.state = .completed
                                         plan.isSkipped = false

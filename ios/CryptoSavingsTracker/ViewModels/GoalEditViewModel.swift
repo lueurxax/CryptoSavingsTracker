@@ -16,6 +16,7 @@ class GoalEditViewModel: ObservableObject {
     @Published var goal: Goal
     @Published var isDirty: Bool = false
     @Published var validationErrors: [String] = []
+    @Published var fieldErrors: [GoalValidationField: String] = [:]
     @Published var isSaving: Bool = false
     @Published var showingImpactPreview: Bool = false
     @Published var showingEmojiPicker: Bool = false
@@ -28,11 +29,15 @@ class GoalEditViewModel: ObservableObject {
     
     // MARK: - Computed Properties
     var hasValidationErrors: Bool {
-        !validationErrors.isEmpty
+        !fieldErrors.isEmpty
     }
     
     var canSave: Bool {
-        isDirty && !hasValidationErrors && !isSaving
+        !hasValidationErrors && !isSaving
+    }
+
+    var firstInvalidField: GoalValidationField? {
+        GoalValidationField.allCases.first { fieldErrors[$0] != nil }
     }
     
     var impactSummary: GoalImpact {
@@ -93,12 +98,13 @@ class GoalEditViewModel: ObservableObject {
     
     // MARK: - Public Methods
     func validate() {
-        validationErrors = goal.validate()
+        fieldErrors = goal.validationErrorsByField()
+        validationErrors = GoalValidationField.allCases.compactMap { fieldErrors[$0] }
     }
     
     func save() async throws {
-        guard canSave else {
-            throw GoalEditError.cannotSave("Goal is not in a saveable state")
+        guard !isSaving else {
+            throw GoalEditError.cannotSave("Goal save is already in progress")
         }
 
         isSaving = true
@@ -112,6 +118,14 @@ class GoalEditViewModel: ObservableObject {
             validate()
             guard !hasValidationErrors else {
                 throw GoalEditError.validationFailed(validationErrors)
+            }
+
+            if !isDirty {
+                return
+            }
+
+            if UITestFlags.consumeSimulatedGoalSaveFailureIfNeeded() {
+                throw GoalEditError.cannotSave("Simulated UI test save failure")
             }
 
             // Handle notification updates if reminder settings changed

@@ -102,9 +102,9 @@ extension BudgetHealthState {
         case .healthy:
             return "All deadlines achievable"
         case .notApplied:
-            return "Budget saved, not applied this month"
+            return "Budget saved, not applied to this month yet"
         case .needsRecalculation:
-            return "Your goals or month changed"
+            return "Goals changed, review this plan"
         case .atRisk(_, let goalsAtRisk):
             return goalsAtRisk == 1 ? "1 goal at risk" : "\(goalsAtRisk) goals at risk"
         case .severeRisk(_, let goalsAtRisk):
@@ -215,9 +215,9 @@ extension BudgetHealthState {
         case .healthy:
             return "Budget is on track"
         case .notApplied:
-            return "Budget is not applied for this month"
+            return "Budget saved, not applied to this month yet"
         case .needsRecalculation:
-            return "Budget requires recalculation"
+            return "Goals changed, review this plan"
         case .atRisk:
             return "Budget is at risk"
         case .severeRisk:
@@ -237,9 +237,9 @@ extension BudgetHealthState {
         case .healthy:
             return conversionContext
         case .notApplied:
-            return "Apply this budget to activate monthly allocations."
+            return "Finish this budget setup to activate this month's allocations."
         case .needsRecalculation:
-            return "Recalculate allocations to reflect current goals."
+            return "Review this plan and recalculate allocations with your latest goals."
         case .atRisk(let shortfall, _), .severeRisk(let shortfall, _):
             let shortText = CurrencyFormatter.format(amount: shortfall, currency: currency, maximumFractionDigits: 2)
             if let conversionContext {
@@ -267,7 +267,7 @@ extension BudgetHealthState {
         case .healthy:
             return "On track"
         case .notApplied:
-            return "Budget not applied"
+            return "Budget saved, not applied to this month yet"
         case .needsRecalculation:
             return "Needs review"
         case .atRisk(let shortfall, _), .severeRisk(let shortfall, _):

@@ -1,0 +1,22 @@
+[
+  {
+    "gate_id": "COPY-DICT-001",
+    "passed": true,
+    "details": "Dictionary shape is valid."
+  },
+  {
+    "gate_id": "COPY-PATH-001",
+    "passed": true,
+    "details": "All declared copy paths exist."
+  },
+  {
+    "gate_id": "COPY-LITERAL-001",
+    "passed": true,
+    "details": "All dictionary entries resolve to declared file paths."
+  },
+  {
+    "gate_id": "COPY-LITERAL-002",
+    "passed": true,
+    "details": "No unmanaged inline literals were found in audited planning/form surfaces."
+  }
+]

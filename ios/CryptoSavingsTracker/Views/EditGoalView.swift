@@ -17,9 +17,36 @@ struct EditGoalView: View {
     @State private var showingArchiveConfirmation = false
     @State private var showingDiscardConfirmation = false
     @State private var hasStartedTelemetryFlow = false
+    @State private var hasAttemptedSubmit = false
+    @State private var saveErrorMessage: String?
+    @FocusState private var focusedField: GoalValidationField?
+
+    struct PreviewState {
+        var goalName: String? = nil
+        var targetAmount: Double? = nil
+        var deadline: Date? = nil
+        var startDate: Date? = nil
+        var hasAttemptedSubmit: Bool = false
+        var saveErrorMessage: String? = nil
+    }
     
-    init(goal: Goal, modelContext: ModelContext) {
+    init(goal: Goal, modelContext: ModelContext, previewState: PreviewState = PreviewState()) {
+        if let goalName = previewState.goalName {
+            goal.name = goalName
+        }
+        if let targetAmount = previewState.targetAmount {
+            goal.targetAmount = targetAmount
+        }
+        if let deadline = previewState.deadline {
+            goal.deadline = deadline
+        }
+        if let startDate = previewState.startDate {
+            goal.startDate = startDate
+        }
+
         self._viewModel = StateObject(wrappedValue: GoalEditViewModel(goal: goal, modelContext: modelContext))
+        self._hasAttemptedSubmit = State(initialValue: previewState.hasAttemptedSubmit)
+        self._saveErrorMessage = State(initialValue: previewState.saveErrorMessage)
     }
     
     private var isCompact: Bool {
@@ -41,12 +68,60 @@ struct EditGoalView: View {
         .primaryAction
 #endif
     }
+
+    private var goalNameBinding: Binding<String> {
+        Binding(
+            get: { viewModel.goal.name },
+            set: { newValue in
+                viewModel.goal.name = newValue
+                handleFormChange()
+            }
+        )
+    }
+
+    private var targetAmountBinding: Binding<Double> {
+        Binding(
+            get: { viewModel.goal.targetAmount },
+            set: { newValue in
+                viewModel.goal.targetAmount = newValue
+                handleFormChange()
+            }
+        )
+    }
+
+    private var startDateBinding: Binding<Date> {
+        Binding(
+            get: { viewModel.goal.startDate },
+            set: { newValue in
+                viewModel.goal.startDate = newValue
+                handleFormChange()
+            }
+        )
+    }
+
+    private var deadlineBinding: Binding<Date> {
+        Binding(
+            get: { viewModel.goal.deadline },
+            set: { newValue in
+                viewModel.goal.deadline = newValue
+                handleFormChange()
+            }
+        )
+    }
+
+    private var shouldShowValidationFeedback: Bool {
+        hasAttemptedSubmit || viewModel.hasValidationErrors
+    }
+
+    private var focusedFieldIdentifier: String? {
+        focusedField?.rawValue
+    }
     
     var body: some View {
         NavigationStack {
-            
-            ScrollView {
-                LazyVStack(spacing: 24, pinnedViews: []) {
+            ScrollViewReader { scrollProxy in
+                ScrollView {
+                    LazyVStack(spacing: 24, pinnedViews: []) {
                     // Impact Preview (if changes detected)
                     if viewModel.showingImpactPreview {
                         VStack(spacing: 16) {
@@ -68,33 +143,49 @@ struct EditGoalView: View {
                     ) {
                         // Goal Name
                         FormField(label: "Goal Name") {
-                            TextField("Enter goal name", text: $viewModel.goal.name)
-                                .textFieldStyle(.roundedBorder)
-                                .accessibilityLabel("Goal name")
-                                .accessibilityHint("Enter a descriptive name for your savings goal")
+                            VStack(alignment: .leading, spacing: 6) {
+                                TextField("Enter goal name", text: goalNameBinding)
+                                    .textFieldStyle(.roundedBorder)
+                                    .accessibilityLabel("Goal name")
+                                    .accessibilityHint("Enter a descriptive name for your savings goal")
+                                    .focused($focusedField, equals: .name)
+
+                                if shouldShowValidationFeedback, let error = viewModel.fieldErrors[.name] {
+                                    GoalFormInlineError(message: error)
+                                }
+                            }
+                            .id(GoalValidationField.name)
                         }
                         
                         // Target Amount
                         FormField(label: "Target Amount") {
-                            HStack(spacing: 12) {
-                                Text(viewModel.goal.currency)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(AccessibleColors.lightBackground)
-                                    .cornerRadius(8)
-                                    .font(.body.monospaced())
-                                
-                                TextField(
-                                    "0.00",
-                                    value: $viewModel.goal.targetAmount,
-                                    format: .number.precision(.fractionLength(2))
-                                )
-                                .textFieldStyle(.roundedBorder)
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack(spacing: 12) {
+                                    Text(viewModel.goal.currency)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(AccessibleColors.lightBackground)
+                                        .cornerRadius(8)
+                                        .font(.body.monospaced())
+                                    
+                                    TextField(
+                                        "0.00",
+                                        value: targetAmountBinding,
+                                        format: .number.precision(.fractionLength(2))
+                                    )
+                                    .textFieldStyle(.roundedBorder)
 #if os(iOS)
-                                .keyboardType(.decimalPad)
+                                    .keyboardType(.decimalPad)
 #endif
-                                .accessibilityLabel("Target amount in \(viewModel.goal.currency)")
+                                    .accessibilityLabel("Target amount in \(viewModel.goal.currency)")
+                                    .focused($focusedField, equals: .targetAmount)
+                                }
+
+                                if shouldShowValidationFeedback, let error = viewModel.fieldErrors[.targetAmount] {
+                                    GoalFormInlineError(message: error)
+                                }
                             }
+                            .id(GoalValidationField.targetAmount)
                         }
                     }
                     
@@ -127,27 +218,39 @@ struct EditGoalView: View {
                                 
                                 DatePicker(
                                     "Start Date",
-                                    selection: $viewModel.goal.startDate,
+                                    selection: startDateBinding,
                                     displayedComponents: .date
                                 )
                                 .datePickerStyle(.compact)
                                 .disabled(!viewModel.goal.allocatedAssets.isEmpty)
                                 .accessibilityLabel("Goal start date")
                                 .accessibilityHint(!viewModel.goal.allocatedAssets.isEmpty ? "Cannot change start date when transactions exist" : "Select when you want to start this goal")
+
+                                if shouldShowValidationFeedback, let error = viewModel.fieldErrors[.startDate] {
+                                    GoalFormInlineError(message: error)
+                                }
                             }
+                            .id(GoalValidationField.startDate)
                         }
                         
                         // Deadline
                         FormField(label: "Target Date") {
-                            DatePicker(
-                                "Deadline",
-                                selection: $viewModel.goal.deadline,
-                                in: Date()...,
-                                displayedComponents: .date
-                            )
-                            .datePickerStyle(.compact)
-                            .accessibilityLabel("Goal deadline")
-                            .accessibilityHint("Select when you want to complete this goal")
+                            VStack(alignment: .leading, spacing: 6) {
+                                DatePicker(
+                                    "Deadline",
+                                    selection: deadlineBinding,
+                                    in: Date()...,
+                                    displayedComponents: .date
+                                )
+                                .datePickerStyle(.compact)
+                                .accessibilityLabel("Goal deadline")
+                                .accessibilityHint("Select when you want to complete this goal")
+
+                                if shouldShowValidationFeedback, let error = viewModel.fieldErrors[.deadline] {
+                                    GoalFormInlineError(message: error)
+                                }
+                            }
+                            .id(GoalValidationField.deadline)
                         }
                         
                         // Days Remaining Display
@@ -171,25 +274,19 @@ struct EditGoalView: View {
                             isEnabled: Binding(
                                 get: { viewModel.goal.isReminderEnabled },
                                 set: { newValue in
-                                    // Setting reminder enabled to newValue
                                     if newValue {
-                                        // Enable reminders
                                         if viewModel.goal.reminderFrequency == nil {
                                             viewModel.goal.reminderFrequency = ReminderFrequency.weekly.rawValue
-                                            // Set reminderFrequency to weekly
                                         }
                                         if viewModel.goal.reminderTime == nil {
                                             viewModel.goal.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
-                                            // Set reminderTime to 9:00 AM
                                         }
                                     } else {
-                                        // Disable reminders
                                         viewModel.goal.reminderFrequency = nil
                                         viewModel.goal.reminderTime = nil
                                         viewModel.goal.firstReminderDate = nil
-                                        // Disabled reminders, cleared all reminder data
                                     }
-                                    // isReminderEnabled state updated
+                                    handleFormChange()
                                 }
                             ),
                             frequency: Binding(
@@ -202,25 +299,27 @@ struct EditGoalView: View {
                                 },
                                 set: { newValue in
                                     viewModel.goal.reminderFrequency = newValue.rawValue
+                                    handleFormChange()
                                 }
                             ),
                             reminderTime: Binding(
                                 get: { viewModel.goal.reminderTime },
-                                set: { viewModel.goal.reminderTime = $0 }
+                                set: {
+                                    viewModel.goal.reminderTime = $0
+                                    handleFormChange()
+                                }
                             ),
                             firstReminderDate: Binding(
                                 get: { viewModel.goal.firstReminderDate },
-                                set: { viewModel.goal.firstReminderDate = $0 }
+                                set: {
+                                    viewModel.goal.firstReminderDate = $0
+                                    handleFormChange()
+                                }
                             ),
                             startDate: viewModel.goal.startDate,
                             deadline: viewModel.goal.deadline,
                             showAdvancedOptions: true
                         )
-                    }
-                        
-                    // Validation Errors
-                    if viewModel.hasValidationErrors {
-                        ValidationErrorsView(errors: viewModel.validationErrors)
                     }
                     
                     // Archive Section (if not archived)
@@ -232,17 +331,17 @@ struct EditGoalView: View {
                     Rectangle()
                         .fill(Color.clear)
                         .frame(height: 16)
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 16)
                 }
-                .padding(.horizontal)
-                .padding(.top, 16)
-            }
-            .scrollContentBackground(.hidden)
-            .navigationTitle("Edit Goal")
+                .scrollContentBackground(.hidden)
+                .navigationTitle("Edit Goal")
 #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+                .navigationBarTitleDisplayMode(.inline)
 #endif
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
+                .navigationBarBackButtonHidden(true)
+                .toolbar {
                 ToolbarItem(placement: cancelButtonPlacement) {
                     Button("Cancel") {
                         if viewModel.isDirty {
@@ -266,7 +365,8 @@ struct EditGoalView: View {
                     }
                     .foregroundColor(.blue)
                 }
-                
+
+#if !os(iOS)
                 ToolbarItem(placement: saveButtonPlacement) {
                     Button("Save") {
                         Task {
@@ -290,7 +390,26 @@ struct EditGoalView: View {
                     .fontWeight(viewModel.canSave ? .semibold : .regular)
                     .foregroundColor(viewModel.canSave ? .blue : .gray)
                 }
+#endif
+                }
+#if os(iOS)
+                .safeAreaInset(edge: .bottom) {
+                    GoalFormBottomActionBar(
+                        validationIssues: shouldShowValidationFeedback ? viewModel.validationErrors : [],
+                        saveErrorMessage: saveErrorMessage,
+                        isSaving: viewModel.isSaving,
+                        primaryButtonTitle: saveErrorMessage == nil ? "Save Changes" : "Retry Save",
+                        primaryButtonIdentifier: "saveGoalChangesButton",
+                        focusedFieldIdentifier: focusedFieldIdentifier,
+                        onRetry: saveErrorMessage == nil ? nil : { Task { await attemptSave(using: scrollProxy) } },
+                        onPrimaryAction: { Task { await attemptSave(using: scrollProxy) } }
+                    )
+                }
+#endif
             }
+        }
+        .overlay(alignment: .topLeading) {
+            GoalFormUITestHooks(focusedFieldIdentifier: focusedFieldIdentifier)
         }
         .interactiveDismissDisabled(viewModel.isDirty)
         .onAppear {
@@ -334,6 +453,73 @@ struct EditGoalView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This goal will be moved to your archived goals. You can restore it anytime from the archived goals list.")
+        }
+    }
+
+    private func handleFormChange() {
+        saveErrorMessage = nil
+        viewModel.triggerChangeDetection()
+    }
+
+    @MainActor
+    private func attemptSave(using scrollProxy: ScrollViewProxy) async {
+        hasAttemptedSubmit = true
+        saveErrorMessage = nil
+        viewModel.validate()
+
+        if viewModel.hasValidationErrors {
+            focusFirstInvalidField(using: scrollProxy)
+            DIContainer.shared.navigationTelemetryTracker.recoveryCompleted(
+                journeyID: NavigationJourney.goalCreateEdit,
+                recoveryPath: "validation_error",
+                success: false
+            )
+            return
+        }
+
+        if !viewModel.isDirty {
+            dismiss()
+            return
+        }
+
+        do {
+            try await viewModel.save()
+            DIContainer.shared.navigationTelemetryTracker.flowCompleted(
+                journeyID: NavigationJourney.goalCreateEdit,
+                result: "saved"
+            )
+            dismiss()
+        } catch GoalEditError.validationFailed {
+            focusFirstInvalidField(using: scrollProxy)
+            DIContainer.shared.navigationTelemetryTracker.recoveryCompleted(
+                journeyID: NavigationJourney.goalCreateEdit,
+                recoveryPath: "validation_error",
+                success: false
+            )
+        } catch {
+            saveErrorMessage = "Unable to save this goal right now. Please try again."
+            DIContainer.shared.navigationTelemetryTracker.recoveryCompleted(
+                journeyID: NavigationJourney.goalCreateEdit,
+                recoveryPath: "save_error",
+                success: false
+            )
+        }
+    }
+
+    private func focusFirstInvalidField(using scrollProxy: ScrollViewProxy) {
+        guard let firstInvalidField = viewModel.firstInvalidField else { return }
+
+        withAnimation(.easeInOut(duration: 0.2)) {
+            scrollProxy.scrollTo(firstInvalidField, anchor: .center)
+        }
+
+        switch firstInvalidField {
+        case .name:
+            focusedField = .name
+        case .targetAmount:
+            focusedField = .targetAmount
+        case .deadline, .startDate:
+            focusedField = nil
         }
     }
     

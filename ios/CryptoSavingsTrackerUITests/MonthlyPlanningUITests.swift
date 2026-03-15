@@ -12,21 +12,17 @@ import XCTest
 final class MonthlyPlanningUITests: XCTestCase {
 
     var app: XCUIApplication!
+    private let baseLaunchArguments = [
+        "UITEST_RESET_DATA",
+        "UITEST_SEED_GOALS",
+        "UITEST_UI_FLOW",
+        "-ApplePersistenceIgnoreState",
+        "YES"
+    ]
 
     override func setUpWithError() throws {
         continueAfterFailure = false
-        app = XCUIApplication()
-
-        // Configure test environment
-        app.launchArguments += [
-            "UITEST_RESET_DATA",
-            "UITEST_SEED_GOALS",
-            "UITEST_UI_FLOW",
-            "-ApplePersistenceIgnoreState",
-            "YES"
-        ]
-
-        app.launch()
+        launchApp()
     }
 
     override func tearDownWithError() throws {
@@ -74,6 +70,24 @@ final class MonthlyPlanningUITests: XCTestCase {
         return hasGoalsTab && (hasTrackingCTA || hasBudgetCard)
     }
 
+    private func launchApp(extraArguments: [String] = []) {
+        app = XCUIApplication()
+        app.launchArguments = baseLaunchArguments + extraArguments
+        app.launch()
+    }
+
+    private func relaunch(extraArguments: [String] = []) {
+        app.terminate()
+        launchApp(extraArguments: extraArguments)
+    }
+
+    private func previousMonthTitle() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        let previousMonth = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+        return formatter.string(from: previousMonth)
+    }
+
     // MARK: - Monthly Planning Widget Tests
 
     func testMonthlyPlanningWidgetExpansion() throws {
@@ -109,6 +123,67 @@ final class MonthlyPlanningUITests: XCTestCase {
         if backButton.exists {
             backButton.tap()
             XCTAssertTrue(app.buttons["planningWidgetExpandButton"].waitForExistence(timeout: 5))
+        }
+    }
+
+    func testCompactPlanningShowsFirstGoalRowAboveFoldWithoutStaleDrafts() throws {
+        openFullPlanningView()
+
+        let goalActionsButton = app.buttons["Goal Actions"].firstMatch
+        XCTAssertTrue(goalActionsButton.waitForExistence(timeout: 5), "First goal row should render without scrolling")
+        XCTAssertTrue(goalActionsButton.isHittable, "First goal row should remain visible above the fold on compact iPhone")
+    }
+
+    func testCompactPlanningShowsStaleBannerAndFirstGoalRowAboveFold() throws {
+        relaunch(extraArguments: ["UITEST_SEED_STALE_DRAFTS"])
+        openFullPlanningView()
+
+        let staleBannerText = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "stale draft plan")).firstMatch
+        XCTAssertTrue(staleBannerText.waitForExistence(timeout: 5), "Stale draft banner should be visible before scrolling")
+
+        let goalActionsButton = app.buttons["Goal Actions"].firstMatch
+        XCTAssertTrue(goalActionsButton.waitForExistence(timeout: 5), "Goal row should still render when stale drafts exist")
+        XCTAssertTrue(goalActionsButton.isHittable, "First goal row should remain visible above the fold alongside the stale draft banner")
+    }
+
+    func testStaleDraftDeleteConfirmationShowsGoalAndMonthAtRuntime() throws {
+        relaunch(extraArguments: ["UITEST_SEED_STALE_DRAFTS"])
+        openFullPlanningView()
+
+        let staleBannerText = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "stale draft plan")).firstMatch
+        XCTAssertTrue(staleBannerText.waitForExistence(timeout: 5), "Stale draft banner should exist")
+        staleBannerText.tap()
+
+        let resolveButton = app.buttons["Resolve"].firstMatch
+        XCTAssertTrue(resolveButton.waitForExistence(timeout: 5), "Resolve button should appear after expanding stale drafts")
+        resolveButton.tap()
+
+        let deleteDraftOptionLower = app.buttons["Delete draft"].firstMatch
+        let deleteDraftOptionUpper = app.buttons["Delete Draft"].firstMatch
+        let deleteDraftOption: XCUIElement
+        if deleteDraftOptionLower.waitForExistence(timeout: 3) {
+            deleteDraftOption = deleteDraftOptionLower
+        } else {
+            XCTAssertTrue(deleteDraftOptionUpper.waitForExistence(timeout: 3), "Delete draft action should be available in resolve actions")
+            deleteDraftOption = deleteDraftOptionUpper
+        }
+        deleteDraftOption.tap()
+
+        let expectedTitle = "Delete UI Goal Seed draft for \(previousMonthTitle())?"
+        let exactTitle = app.staticTexts[expectedTitle]
+        let fallbackTitle = app.alerts.firstMatch.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "UI Goal Seed")).firstMatch
+        XCTAssertTrue(
+            exactTitle.waitForExistence(timeout: 3) || fallbackTitle.waitForExistence(timeout: 3),
+            "Delete confirmation should include goal name and month context"
+        )
+        XCTAssertTrue(
+            app.buttons["Delete Draft"].waitForExistence(timeout: 3) ||
+            app.buttons["Cancel"].waitForExistence(timeout: 3),
+            "Delete confirmation should expose destructive runtime wording"
+        )
+
+        if app.buttons["Cancel"].exists {
+            app.buttons["Cancel"].tap()
         }
     }
 

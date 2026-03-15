@@ -206,7 +206,7 @@ fun BudgetSummaryCard(
 
             if (!isApplied) {
                 Text(
-                    text = "Budget is set but not applied to this month yet.",
+                    text = "Budget saved, not applied to this month yet",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

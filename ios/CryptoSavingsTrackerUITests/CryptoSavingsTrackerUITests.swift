@@ -10,20 +10,16 @@ import XCTest
 final class CryptoSavingsTrackerUITests: XCTestCase {
 
     var app: XCUIApplication!
+    private let baseLaunchArguments = [
+        "UITEST_RESET_DATA",
+        "UITEST_UI_FLOW",
+        "-ApplePersistenceIgnoreState",
+        "YES"
+    ]
 
     override func setUpWithError() throws {
         continueAfterFailure = false
-        
-        app = XCUIApplication()
-        
-        // Clear any existing data and enable UI test helpers
-        app.launchArguments = [
-            "UITEST_RESET_DATA",
-            "UITEST_UI_FLOW",
-            "-ApplePersistenceIgnoreState",
-            "YES"
-        ]
-        app.launch()
+        launchApp()
     }
 
     override func tearDownWithError() throws {
@@ -144,13 +140,32 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         openAddGoalForm()
         
         // Try to save without filling required fields
-        let saveButton = app.buttons["saveGoalButton"].exists ? app.buttons["saveGoalButton"] : app.buttons["Save"]
-        if saveButton.exists {
-            saveButton.tap()
-            
-            // Should stay on the form (validation failed)
-            XCTAssertTrue(app.navigationBars["New Goal"].exists || app.navigationBars["Add Goal"].exists)
+        let primarySaveButton = app.buttons["saveGoalButton"]
+        let fallbackSaveGoalButton = app.buttons["Save Goal"]
+        let fallbackSaveButton = app.buttons["Save"]
+        let saveButton: XCUIElement
+        if primarySaveButton.waitForExistence(timeout: 3) {
+            saveButton = primarySaveButton
+        } else if fallbackSaveGoalButton.waitForExistence(timeout: 2) {
+            saveButton = fallbackSaveGoalButton
+        } else {
+            XCTAssertTrue(fallbackSaveButton.waitForExistence(timeout: 2), "A save action should be visible on the goal form")
+            saveButton = fallbackSaveButton
         }
+
+        saveButton.tap()
+
+        // Should stay on the form (validation failed)
+        XCTAssertTrue(app.navigationBars["New Goal"].exists || app.navigationBars["Add Goal"].exists)
+        XCTAssertTrue(
+            primarySaveButton.exists || fallbackSaveGoalButton.exists || fallbackSaveButton.exists,
+            "Primary save CTA should remain visible after validation failure"
+        )
+        XCTAssertTrue(
+            app.staticTexts["Review this goal"].waitForExistence(timeout: 2) ||
+            app.staticTexts["Goal name is required"].waitForExistence(timeout: 2),
+            "Validation summary or first validation reason should appear after attempting to save an invalid goal"
+        )
         
         // Cancel and return
         let cancelButton = app.buttons["Cancel"]
@@ -160,6 +175,59 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
             // Try swipe down to dismiss on iOS
             app.swipeDown()
         }
+    }
+
+    @MainActor
+    func testAddGoalInvalidSaveFocusesFirstInvalidField() throws {
+        openAddGoalForm()
+
+        let saveButton = app.buttons["saveGoalButton"].exists ? app.buttons["saveGoalButton"] : app.buttons["Save Goal"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 3))
+        saveButton.tap()
+
+        let focusedField = app.otherElements["goalFormFocusedField"]
+        XCTAssertTrue(focusedField.waitForExistence(timeout: 2), "Focused field hook should be available after validation failure")
+        XCTAssertEqual(focusedField.label, "name", "First invalid field should receive focus after invalid submit")
+        XCTAssertTrue(
+            app.staticTexts["Review this goal"].waitForExistence(timeout: 2) ||
+            app.staticTexts["Goal name is required"].waitForExistence(timeout: 2),
+            "Validation feedback should be visible after invalid submit"
+        )
+    }
+
+    @MainActor
+    func testGoalFormPersistenceFailureRetryFlow() throws {
+        relaunch(extraArguments: ["UITEST_SIMULATE_GOAL_SAVE_FAILURE"])
+        openAddGoalForm()
+
+        let nameField = app.textFields["goalNameField"].exists ? app.textFields["goalNameField"] : app.textFields["Goal Name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 3))
+        nameField.tap()
+        nameField.typeText("Retry Goal")
+
+        setGoalCurrency("USD")
+
+        let amountField = app.textFields["targetAmountField"].exists ? app.textFields["targetAmountField"] : app.textFields["Target Amount"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 3))
+        amountField.tap()
+        amountField.typeText("2500")
+
+        let saveButton = app.buttons["saveGoalButton"].exists ? app.buttons["saveGoalButton"] : app.buttons["Save Goal"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 3))
+        saveButton.tap()
+
+        let saveErrorText = app.staticTexts["Unable to save this goal right now. Please try again."]
+        XCTAssertTrue(saveErrorText.waitForExistence(timeout: 5), "Save failure should surface a blocking error")
+        let retryButton = app.buttons["goalFormRetryButton"].exists ? app.buttons["goalFormRetryButton"] : app.buttons["Retry"]
+        XCTAssertTrue(retryButton.waitForExistence(timeout: 3), "Retry CTA should be visible after save failure")
+
+        retryButton.tap()
+
+        let navExists = app.navigationBars["Goals"].waitForExistence(timeout: 5) ||
+            app.navigationBars["Crypto Goals"].waitForExistence(timeout: 5) ||
+            app.navigationBars["Retry Goal"].waitForExistence(timeout: 5)
+        XCTAssertTrue(navExists, "Retry should eventually complete the save flow")
+        XCTAssertFalse(saveErrorText.exists, "Save error should disappear after a successful retry")
     }
 
     @MainActor
@@ -534,6 +602,17 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         }
 
         return false
+    }
+
+    private func launchApp(extraArguments: [String] = []) {
+        app = XCUIApplication()
+        app.launchArguments = baseLaunchArguments + extraArguments
+        app.launch()
+    }
+
+    private func relaunch(extraArguments: [String] = []) {
+        app.terminate()
+        launchApp(extraArguments: extraArguments)
     }
 
     private func clearTextField(_ element: XCUIElement) {
