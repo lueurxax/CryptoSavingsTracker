@@ -16,105 +16,9 @@ import UIKit
 
 @main
 struct CryptoSavingsTrackerApp: App {
-    static let sharedModelContainer: ModelContainer = {
-        let args = ProcessInfo.processInfo.arguments
-        let isXCTestRun = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-        let isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
-        let isPreviewRun = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
-        let isTestRun = isXCTestRun || isUITestRun || isPreviewRun
+    static let previewModelContainer: ModelContainer = PersistenceStackFactory.makePreviewContainer()
 
-        let schema = Schema([
-            Goal.self,
-            Asset.self,
-            Transaction.self,
-            MonthlyPlan.self,
-            AssetAllocation.self,
-            AllocationHistory.self,
-            MonthlyExecutionRecord.self,
-            CompletedExecution.self,
-            CompletionEvent.self,
-            ExecutionSnapshot.self
-        ])
-        let fileManager = FileManager.default
-        let appSupport = isTestRun ? nil : fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-        if let appSupport {
-            // Ensure the Application Support directory exists before SwiftData tries to create the SQLite store.
-            // This avoids sporadic CoreData errors about failing to stat/create `default.store`.
-            try? fileManager.createDirectory(at: appSupport, withIntermediateDirectories: true)
-        }
-
-        let modelConfiguration = ModelConfiguration(
-            "default",
-            schema: schema,
-            isStoredInMemoryOnly: isTestRun,
-            allowsSave: true,
-            groupContainer: .none,
-            cloudKitDatabase: .none  // CloudKit requires model changes (optional attrs, inverse relationships)
-        )
-
-        @discardableResult
-        func backupStoreFilesIfPresent() -> Int {
-            guard !isTestRun else { return 0 }
-            guard let appSupport else { return 0 }
-
-            let storeURL = appSupport.appendingPathComponent("default.store")
-            let candidatePaths = [
-                storeURL.path,
-                storeURL.path + "-shm",
-                storeURL.path + "-wal",
-                storeURL.path + "-journal"
-            ]
-
-            let existingPaths = candidatePaths.filter { fileManager.fileExists(atPath: $0) }
-            guard !existingPaths.isEmpty else { return 0 }
-
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            let timestamp = formatter.string(from: Date())
-                .replacingOccurrences(of: ":", with: "-")
-                .replacingOccurrences(of: ".", with: "-")
-
-            let backupRoot = appSupport.appendingPathComponent("StoreBackups", isDirectory: true)
-            let backupFolder = backupRoot.appendingPathComponent("default.store.backup-\(timestamp)", isDirectory: true)
-            try? fileManager.createDirectory(at: backupFolder, withIntermediateDirectories: true)
-
-            var copiedCount = 0
-            for path in existingPaths {
-                let fileName = URL(fileURLWithPath: path).lastPathComponent
-                let destination = backupFolder.appendingPathComponent(fileName)
-                guard !fileManager.fileExists(atPath: destination.path) else { continue }
-                do {
-                    try fileManager.copyItem(atPath: path, toPath: destination.path)
-                    copiedCount += 1
-                } catch {
-                    // Best effort only; backup failures should not block app startup.
-                }
-            }
-            return copiedCount
-        }
-
-        // Safety net: take a best-effort backup once per app build before attempting migrations/open.
-        if !isTestRun {
-            let defaults = UserDefaults.standard
-            let currentBuild = (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "unknown"
-            let backupKey = "StoreBackups.lastBackedUpBuild"
-            if defaults.string(forKey: backupKey) != currentBuild {
-                let copied = backupStoreFilesIfPresent()
-                if copied > 0 {
-                    defaults.set(currentBuild, forKey: backupKey)
-                }
-            }
-        }
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            // Never auto-delete user data on load/migration failures.
-            // If the store fails to load, keep the files intact so a future build can migrate/recover them.
-            _ = backupStoreFilesIfPresent()
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    @StateObject private var persistenceController = PersistenceController.shared
 
     init() {
         // Suppress haptic feedback warnings in iOS Simulator
@@ -143,7 +47,7 @@ struct CryptoSavingsTrackerApp: App {
             Task { @MainActor in
                 do {
                     let service = DIContainer.shared.executionTrackingService(
-                        modelContext: CryptoSavingsTrackerApp.sharedModelContainer.mainContext
+                        modelContext: PersistenceController.shared.activeMainContext
                     )
                     _ = try service.backfillCompletionEventsIfNeeded()
                 } catch {
@@ -164,7 +68,7 @@ struct CryptoSavingsTrackerApp: App {
         let isPreviewRun = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
         if isXCTestRun || isUITestRun || isPreviewRun { return }
 
-        let scheduler = AutomationScheduler(modelContext: CryptoSavingsTrackerApp.sharedModelContainer.mainContext)
+        let scheduler = AutomationScheduler(modelContext: PersistenceController.shared.activeMainContext)
 
         do {
             // Check if automation should trigger
@@ -534,7 +438,7 @@ struct CryptoSavingsTrackerApp: App {
                 }
             }
         }
-        .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
+        .modelContainer(persistenceController.activeContainer)
         #if os(macOS)
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1100, height: 700)
@@ -545,13 +449,14 @@ struct CryptoSavingsTrackerApp: App {
         WindowGroup("Goal Comparison", id: "goal-comparison") {
             GoalComparisonView()
         }
-        .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
+        .modelContainer(persistenceController.activeContainer)
         .defaultSize(width: 1200, height: 800)
 
         // Settings window
         WindowGroup("Settings", id: "settings") {
             SettingsView()
         }
+        .modelContainer(persistenceController.activeContainer)
         .windowResizability(.contentSize)
         .defaultSize(width: 600, height: 400)
         #endif

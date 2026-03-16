@@ -13,15 +13,15 @@ import SwiftData
 final class MonthlyPlan {
     
     // MARK: - Primary Properties
-    @Attribute(.unique) var id: UUID
-    var goalId: UUID
-    var monthLabel: String // "yyyy-MM" format (e.g., "2025-11")
-    var requiredMonthly: Double
-    var remainingAmount: Double
-    var monthsRemaining: Int
-    var currency: String
-    var statusRawValue: String
-    var lastCalculated: Date
+    var id: UUID = UUID()
+    var goalId: UUID = UUID()
+    var monthLabel: String = "" // "yyyy-MM" format (e.g., "2025-11")
+    var requiredMonthly: Double = 0.0
+    var remainingAmount: Double = 0.0
+    var monthsRemaining: Int = 0
+    var currency: String = ""
+    var statusRawValue: String = RequirementStatus.onTrack.rawValue
+    var lastCalculated: Date = Date()
 
     // MARK: - Lifecycle State
     var stateRawValue: String = "draft" // draft, executing, completed
@@ -37,8 +37,8 @@ final class MonthlyPlan {
     var isSkipped: Bool = false // Temporarily skip this month
 
     // MARK: - Metadata
-    var createdDate: Date
-    var lastModifiedDate: Date
+    var createdDate: Date = Date()
+    var lastModifiedDate: Date = Date()
     // Initial-schema-only strategy: no legacy migration flags needed.
     
     // MARK: - Computed Properties

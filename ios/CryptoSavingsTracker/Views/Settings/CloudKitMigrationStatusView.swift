@@ -18,6 +18,11 @@ struct CloudKitMigrationStatusView: View {
                 }
                 .accessibilityIdentifier("cloudkitMigration.runtime")
 
+                LabeledContent("Selected Mode") {
+                    Text(controller.snapshot.persistence.selectedMode.displayName)
+                }
+                .accessibilityIdentifier("cloudkitMigration.selectedMode")
+
                 LabeledContent("Migration Status") {
                     Text(controller.snapshot.statusSummary)
                 }
@@ -41,6 +46,30 @@ struct CloudKitMigrationStatusView: View {
                     .padding(.vertical, 4)
                     .accessibilityIdentifier("cloudkitMigration.blocker.\(blocker.id)")
                 }
+            }
+
+            Section("Store Topology") {
+                LabeledContent("Active Store") {
+                    Text(controller.snapshot.persistence.activeStoreKind.displayName)
+                }
+                .accessibilityIdentifier("cloudkitMigration.activeStore")
+
+                LabeledContent("CloudKit") {
+                    Text(controller.snapshot.persistence.cloudKitEnabled ? "Enabled" : "Disabled")
+                }
+                .accessibilityIdentifier("cloudkitMigration.cloudKitEnabled")
+
+                LabeledContent("Local Store Path") {
+                    Text(controller.snapshot.persistence.localStorePath ?? "In-memory / unavailable")
+                        .multilineTextAlignment(.trailing)
+                }
+                .accessibilityIdentifier("cloudkitMigration.localStorePath")
+
+                LabeledContent("Cloud Store Path") {
+                    Text(controller.snapshot.persistence.cloudStorePath ?? "Unavailable")
+                        .multilineTextAlignment(.trailing)
+                }
+                .accessibilityIdentifier("cloudkitMigration.cloudStorePath")
             }
 
             Section("Exit Criteria") {

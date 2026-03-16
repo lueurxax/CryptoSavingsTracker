@@ -49,7 +49,7 @@ struct AssetRowView: View {
     }
     
     private var assetTransactions: [Transaction] {
-        allTransactions.filter { $0.asset.id == asset.id }
+        allTransactions.filter { $0.asset?.id == asset.id }
     }
     
     private var totalBalance: Double {
@@ -102,7 +102,7 @@ struct AssetRowView: View {
         self.onDelete = onDelete
         let assetId = asset.id
         self._allTransactions = Query(filter: #Predicate<Transaction> { transaction in
-            transaction.asset.id == assetId
+            transaction.asset?.id == assetId
         }, sort: \Transaction.date, order: .reverse)
     }
     
@@ -476,37 +476,9 @@ struct AssetRowView: View {
     }
 
     private func allocateAllUnallocated(to goal: Goal) {
-        let remaining = unallocatedAmountForAllocationUI
-        guard remaining > 0.0000001 else { return }
-
-        let newAmount: Double
-        if let existing = asset.allocations.first(where: { $0.goal?.id == goal.id }) {
-            newAmount = existing.amountValue + remaining
-            existing.updateAmount(newAmount)
-        } else {
-            let allocation = AssetAllocation(asset: asset, goal: goal, amount: remaining)
-            modelContext.insert(allocation)
-            if !asset.allocations.contains(where: { $0.id == allocation.id }) {
-                asset.allocations.append(allocation)
-            }
-            if !goal.allocations.contains(where: { $0.id == allocation.id }) {
-                goal.allocations.append(allocation)
-            }
-            newAmount = remaining
-        }
-
-        modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: newAmount, timestamp: Date()))
-        try? modelContext.save()
-
-        NotificationCenter.default.post(name: .goalUpdated, object: nil, userInfo: ["assetId": asset.id])
-        NotificationCenter.default.post(
-            name: .monthlyPlanningAssetUpdated,
-            object: asset,
-            userInfo: [
-                "assetId": asset.id,
-                "goalIds": asset.allocations.compactMap { $0.goal?.id }
-            ]
-        )
+        let bestKnownBalance = max(asset.currentAmount, totalBalance)
+        try? DIContainer.shared.makeAssetMutationService(modelContext: modelContext)
+            .allocateAllUnallocated(of: asset, to: goal, bestKnownBalance: bestKnownBalance)
     }
     
     private func loadInitialData() async {
@@ -527,8 +499,7 @@ struct AssetRowView: View {
     }
     
     private func deleteTransaction(_ transaction: Transaction) {
-        modelContext.delete(transaction)
-        try? modelContext.save()
+        try? DIContainer.shared.makeTransactionMutationService(modelContext: modelContext).deleteTransaction(transaction)
     }
     
     @MainActor

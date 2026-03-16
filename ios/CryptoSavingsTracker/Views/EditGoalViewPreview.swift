@@ -8,7 +8,7 @@ import Foundation
 private func makeEditGoalPreviewContainer() -> ModelContainer {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     return (try? ModelContainer(for: Goal.self, configurations: config))
-        ?? CryptoSavingsTrackerApp.sharedModelContainer
+        ?? CryptoSavingsTrackerApp.previewModelContainer
 }
 
 private func makeEditGoalPreviewGoal(in container: ModelContainer) -> Goal {

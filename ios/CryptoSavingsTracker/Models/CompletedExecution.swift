@@ -24,9 +24,9 @@ struct CompletedExecutionContributionSnapshot: Codable, Sendable {
 
 @Model
 final class CompletedExecution {
-    @Attribute(.unique) var id: UUID
-    var monthLabel: String
-    var completedAt: Date
+    var id: UUID = UUID()
+    var monthLabel: String = ""
+    var completedAt: Date = Date()
 
     // SwiftData doesn't reliably persist [String: Double] dictionaries, so store encoded Data.
     var exchangeRatesSnapshotData: Data?

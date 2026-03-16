@@ -239,7 +239,7 @@ private struct PlanningStatsPresentationScreen: View {
         AssetAllocation.self,
         MonthlyPlan.self,
         configurations: config
-    )) ?? CryptoSavingsTrackerApp.sharedModelContainer
+    )) ?? CryptoSavingsTrackerApp.previewModelContainer
 
     let viewModel = makePlanningPresentationPreviewViewModel(container: container)
     viewModel.flexAdjustment = 0.94
@@ -255,7 +255,7 @@ private struct PlanningStatsPresentationScreen: View {
         AssetAllocation.self,
         MonthlyPlan.self,
         configurations: config
-    )) ?? CryptoSavingsTrackerApp.sharedModelContainer
+    )) ?? CryptoSavingsTrackerApp.previewModelContainer
 
     let viewModel = makePlanningPresentationPreviewViewModel(container: container)
     return PlanningStatsPresentationScreen(container: container, viewModel: viewModel)

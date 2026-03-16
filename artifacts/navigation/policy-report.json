@@ -3,7 +3,7 @@
   "changedOnly": true,
   "baseRef": "origin/main",
   "strictModTags": true,
-  "strictPreviewSegregation": false,
+  "strictPreviewSegregation": true,
   "allowlistPath": "docs/testing/navigation-policy-allowlist.v1.json",
   "allowlistedCount": 0,
   "scannedFileCount": 0,

@@ -12,10 +12,10 @@ import Foundation
 /// Per-month execution tracking record that links to existing MonthlyPlans
 @Model
 final class MonthlyExecutionRecord {
-    @Attribute(.unique) var id: UUID
-    var monthLabel: String              // "2025-09"
-    var statusRawValue: String          // For SwiftData predicate support
-    var createdAt: Date
+    var id: UUID = UUID()
+    var monthLabel: String = ""              // "2025-09"
+    var statusRawValue: String = ExecutionStatus.draft.rawValue          // For SwiftData predicate support
+    var createdAt: Date = Date()
     var startedAt: Date?                // When user clicked "Start Tracking"
     var completedAt: Date?              // When marked complete
 
@@ -24,7 +24,7 @@ final class MonthlyExecutionRecord {
 
     // Link to existing plans (NOT relationship - uses goalId lookup)
     // SwiftData doesn't support [UUID] arrays, so we encode to Data
-    var trackedGoalIds: Data            // Codable [UUID]
+    var trackedGoalIds: Data = Data()            // Codable [UUID]
 
     // Snapshot
     @Relationship(deleteRule: .cascade)
@@ -115,15 +115,15 @@ final class MonthlyExecutionRecord {
 
 @Model
 final class CompletionEvent {
-    @Attribute(.unique) var eventId: UUID
-    var executionRecordId: UUID
-    var monthLabel: String
-    var sequence: Int
-    var sourceDiscriminator: String
-    var completedAt: Date
+    var eventId: UUID = UUID()
+    var executionRecordId: UUID = UUID()
+    var monthLabel: String = ""
+    var sequence: Int = 0
+    var sourceDiscriminator: String = ""
+    var completedAt: Date = Date()
     var undoneAt: Date?
     var undoReason: String?
-    var createdAt: Date
+    var createdAt: Date = Date()
 
     @Relationship
     var executionRecord: MonthlyExecutionRecord?

@@ -734,31 +734,12 @@ struct AddAssetView: View {
         }
         
         do {
-            let newAsset = Asset(
+            _ = try await DIContainer.shared.makeAssetMutationService(modelContext: modelContext).createAsset(
                 currency: currency.uppercased(),
                 address: finalAddress,
-                chainId: finalChainId
+                chainId: finalChainId,
+                goal: goal
             )
-            
-            modelContext.insert(newAsset)
-            
-            // Create a dedicated allocation record for this asset to the goal.
-            // Start at current balance (typically 0) and auto-expand on deposits while fully allocated.
-            let allocation = AssetAllocation(asset: newAsset, goal: goal, amount: newAsset.currentAmount)
-            modelContext.insert(allocation)
-
-            // Ensure relationship collections update immediately (SwiftData may not back-propagate without explicit inverse).
-            if !goal.allocations.contains(where: { $0.id == allocation.id }) {
-                goal.allocations.append(allocation)
-            }
-            if !newAsset.allocations.contains(where: { $0.id == allocation.id }) {
-                newAsset.allocations.append(allocation)
-            }
-
-            // Record initial allocation state for execution tracking.
-            modelContext.insert(AllocationHistory(asset: newAsset, goal: goal, amount: allocation.amountValue))
-            
-            try modelContext.save()
             
             print("✅ Asset saved successfully with 100% allocation to goal")
             print("   Goal allocations count after save: \(goal.allocations.count)")

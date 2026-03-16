@@ -8,7 +8,7 @@ import Foundation
 #Preview("Compact") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = (try? ModelContainer(for: Goal.self, Asset.self, Transaction.self, MonthlyPlan.self, configurations: config))
-        ?? CryptoSavingsTrackerApp.sharedModelContainer
+        ?? CryptoSavingsTrackerApp.previewModelContainer
     let context = container.mainContext
     
     let viewModel = MonthlyPlanningViewModel(modelContext: context)

@@ -63,6 +63,7 @@
 | [CONTRIBUTION_FLOW.md](CONTRIBUTION_FLOW.md) | Timestamp-based execution tracking architecture and contribution derivation | Developers |
 | [CONTRIBUTION_TRACKING_REDESIGN.md](CONTRIBUTION_TRACKING_REDESIGN.md) | AllocationHistory, contribution tracking architecture decisions | Developers |
 | [CLOUDKIT_MIGRATION_PLAN.md](CLOUDKIT_MIGRATION_PLAN.md) | CloudKit/iCloud sync migration requirements and plan | Developers |
+| [CLOUDKIT_PHASE1_WORKTREE_EXECUTION_PLAN.md](CLOUDKIT_PHASE1_WORKTREE_EXECUTION_PLAN.md) | Worktree split, merge waves, and ownership rules for CloudKit Phase 0/1/1.5 | Developers |
 | [STYLE_GUIDE.md](STYLE_GUIDE.md) | Documentation style standards and conventions | All |
 | [sample-data.md](sample-data.md) | Sample data for testing and development | Developers, QA |
 

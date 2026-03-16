@@ -224,7 +224,10 @@ struct TrendSparklineView: View {
         .background(.regularMaterial)
         .cornerRadius(12)
         .task {
-            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
+            await viewModel.loadData(
+                for: goal,
+                modelContext: ModelContext(goal.modelContext?.container ?? PersistenceController.shared.activeContainer)
+            )
         }
     }
 }
@@ -668,7 +671,10 @@ struct CustomWidgetsGrid: View {
             }
         }
         .task {
-            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
+            await viewModel.loadData(
+                for: goal,
+                modelContext: ModelContext(goal.modelContext?.container ?? PersistenceController.shared.activeContainer)
+            )
             let calc = DIContainer.shared.goalCalculationService
             let total = await calc.getCurrentTotal(for: goal)
             let progress = await calc.getProgress(for: goal)

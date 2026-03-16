@@ -317,7 +317,7 @@ struct GoalDashboardSceneAssembler {
         let rows = dashboardViewModel.recentTransactions.map { transaction in
             ActivityRow(
                 id: transaction.id,
-                assetCurrency: transaction.asset.currency,
+                assetCurrency: transaction.asset?.currency ?? "Unknown",
                 amount: Decimal(transaction.amount),
                 date: transaction.date,
                 note: transaction.comment
@@ -352,7 +352,7 @@ struct GoalDashboardSceneAssembler {
             .filter { $0.date >= start && $0.date < end && $0.amount > 0 }
             .reduce(Decimal(0)) { partial, tx in
                 let amount = Decimal(tx.amount)
-                if tx.asset.currency.uppercased() == goal.currency.uppercased() {
+                if tx.asset?.currency.uppercased() == goal.currency.uppercased() {
                     return partial + amount
                 }
                 return partial

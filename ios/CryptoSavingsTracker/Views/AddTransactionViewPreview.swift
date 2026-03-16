@@ -10,7 +10,7 @@ import AppKit
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = (try? ModelContainer(for: Goal.self, Asset.self, Transaction.self, configurations: config))
-        ?? CryptoSavingsTrackerApp.sharedModelContainer
+        ?? CryptoSavingsTrackerApp.previewModelContainer
     
     let goal = Goal(name: "Sample Goal", currency: "USD", targetAmount: 10000.0, deadline: Date().addingTimeInterval(86400 * 30))
     let asset = Asset(currency: "BTC")

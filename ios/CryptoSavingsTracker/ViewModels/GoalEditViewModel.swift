@@ -25,6 +25,7 @@ class GoalEditViewModel: ObservableObject {
     private let originalSnapshot: GoalSnapshot
     private let modelContext: ModelContext
     private let notificationManager = NotificationManager.shared
+    private let goalMutationService: GoalMutationServiceProtocol
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Computed Properties
@@ -53,6 +54,7 @@ class GoalEditViewModel: ObservableObject {
         self.goal = goal
         self.originalSnapshot = goal.createSnapshot()
         self.modelContext = modelContext
+        self.goalMutationService = DIContainer.shared.makeGoalMutationService(modelContext: modelContext)
         
         setupChangeDetection()
         validateImmediately()
@@ -138,8 +140,7 @@ class GoalEditViewModel: ObservableObject {
 
             // Log goal save attempt with detailed field values
 
-            // Save to SwiftData
-            try modelContext.save()
+            try await goalMutationService.saveGoal(goal)
 
             // Recalculate monthly plan if deadline or target amount changed
             if planNeedsRecalculation {
@@ -208,8 +209,7 @@ class GoalEditViewModel: ObservableObject {
             // Archive the goal
             goal.archive()
             
-            // Save
-            try modelContext.save()
+            try await goalMutationService.archiveGoal(goal)
             
             AppLog.info("Goal '\(goal.name)' archived successfully", category: .goalEdit)
             
@@ -234,8 +234,7 @@ class GoalEditViewModel: ObservableObject {
                 try await scheduleNotifications()
             }
             
-            // Save
-            try modelContext.save()
+            try await goalMutationService.restoreGoal(goal)
             
             AppLog.info("Goal '\(goal.name)' restored successfully", category: .goalEdit)
             

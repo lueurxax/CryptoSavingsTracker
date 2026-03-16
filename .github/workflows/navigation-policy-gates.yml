@@ -99,6 +99,60 @@ jobs:
           name: nav-policy-hard-cutover-report
           path: artifacts/navigation/hard-cutover-report.json
 
+  policy-swiftdata-runtime-write-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - name: Run SwiftData write-boundary gate (PR changed files)
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 scripts/check_swiftdata_runtime_write_boundary.py \
+            --changed-only \
+            --base-ref "origin/${{ github.base_ref }}" \
+            --report-out artifacts/navigation/swiftdata-write-boundary-report.json
+      - name: Run SwiftData write-boundary gate (release baseline)
+        if: github.event_name != 'pull_request'
+        run: |
+          python3 scripts/check_swiftdata_runtime_write_boundary.py \
+            --report-out artifacts/navigation/swiftdata-write-boundary-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nav-policy-swiftdata-write-boundary-report
+          path: artifacts/navigation/swiftdata-write-boundary-report.json
+
+  policy-runtime-persistence-controller:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - name: Run runtime persistence-controller gate (PR changed files)
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 scripts/check_runtime_persistence_controller.py \
+            --changed-only \
+            --base-ref "origin/${{ github.base_ref }}" \
+            --report-out artifacts/navigation/runtime-persistence-controller-report.json
+      - name: Run runtime persistence-controller gate (release baseline)
+        if: github.event_name != 'pull_request'
+        run: |
+          python3 scripts/check_runtime_persistence_controller.py \
+            --report-out artifacts/navigation/runtime-persistence-controller-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nav-policy-runtime-persistence-controller-report
+          path: artifacts/navigation/runtime-persistence-controller-report.json
+
   policy-nav-mod02-compact-snapshots:
     runs-on: ubuntu-latest
     steps:

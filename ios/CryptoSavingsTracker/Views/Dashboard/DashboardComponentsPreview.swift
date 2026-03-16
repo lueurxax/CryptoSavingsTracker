@@ -7,7 +7,7 @@ import SwiftData
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = (try? ModelContainer(for: Goal.self, Asset.self, Transaction.self, AssetAllocation.self, configurations: config))
-        ?? CryptoSavingsTrackerApp.sharedModelContainer
+        ?? CryptoSavingsTrackerApp.previewModelContainer
 
     let goal = Goal(name: "Bitcoin Savings", currency: "USD", targetAmount: 50000, deadline: Date().addingTimeInterval(86400 * 90))
     let asset = Asset(currency: "USD")

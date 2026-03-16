@@ -625,20 +625,14 @@ struct AddGoalView: View {
             newGoal.firstReminderDate = nil
         }
         
-        modelContext.insert(newGoal)
-        
         do {
-            try modelContext.save()
+            try await DIContainer.shared.makeGoalMutationService(modelContext: modelContext).createGoal(newGoal)
             DIContainer.shared.navigationTelemetryTracker.flowCompleted(
                 journeyID: NavigationJourney.goalCreateEdit,
                 result: "saved"
             )
-            Task {
-                await NotificationManager.shared.scheduleReminders(for: newGoal)
-            }
             dismiss()
         } catch {
-            modelContext.delete(newGoal)
             saveErrorMessage = "Unable to save this goal right now. Please try again."
             DIContainer.shared.navigationTelemetryTracker.recoveryCompleted(
                 journeyID: NavigationJourney.goalCreateEdit,

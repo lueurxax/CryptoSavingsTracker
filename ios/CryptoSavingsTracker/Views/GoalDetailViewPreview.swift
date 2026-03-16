@@ -8,7 +8,7 @@ import Foundation
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = (try? ModelContainer(for: Goal.self, Asset.self, Transaction.self, AssetAllocation.self, configurations: config))
-        ?? CryptoSavingsTrackerApp.sharedModelContainer
+        ?? CryptoSavingsTrackerApp.previewModelContainer
 
     let goal = Goal(
         name: "Bitcoin Reserve",

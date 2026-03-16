@@ -155,18 +155,16 @@ struct iOSCompactPlanningView: View {
                     stalePlans: staleDrafts,
                     goalNamesByID: goalNamesByID,
                     onMarkCompleted: { plan in
-                        plan.state = .completed
-                        plan.isSkipped = false
-                        try? modelContext.save()
+                        try? DIContainer.shared.makePlanningMutationService(modelContext: modelContext)
+                            .markPlanCompleted(plan)
                     },
                     onMarkSkipped: { plan in
-                        plan.isSkipped = true
-                        plan.state = .completed
-                        try? modelContext.save()
+                        try? DIContainer.shared.makePlanningMutationService(modelContext: modelContext)
+                            .markPlanSkipped(plan)
                     },
                     onDelete: { plan in
-                        modelContext.delete(plan)
-                        try? modelContext.save()
+                        try? DIContainer.shared.makePlanningMutationService(modelContext: modelContext)
+                            .deletePlan(plan)
                     }
                 )
                 .padding(.horizontal)
@@ -1047,18 +1045,16 @@ struct macOSPlanningView: View {
                                     stalePlans: staleDrafts,
                                     goalNamesByID: goalNamesByID,
                                     onMarkCompleted: { plan in
-                                        plan.state = .completed
-                                        plan.isSkipped = false
-                                        try? modelContext.save()
+                                        try? DIContainer.shared.makePlanningMutationService(modelContext: modelContext)
+                                            .markPlanCompleted(plan)
                                     },
                                     onMarkSkipped: { plan in
-                                        plan.isSkipped = true
-                                        plan.state = .completed
-                                        try? modelContext.save()
+                                        try? DIContainer.shared.makePlanningMutationService(modelContext: modelContext)
+                                            .markPlanSkipped(plan)
                                     },
                                     onDelete: { plan in
-                                        modelContext.delete(plan)
-                                        try? modelContext.save()
+                                        try? DIContainer.shared.makePlanningMutationService(modelContext: modelContext)
+                                            .deletePlan(plan)
                                     }
                                 )
                                 .padding(.bottom)

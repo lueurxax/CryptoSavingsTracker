@@ -147,38 +147,8 @@ struct OnboardingFlowView: View {
         
         Task {
             do {
-                // Create goal from template
-                let goalData = template.createGoal()
-                let goal = Goal(
-                    name: goalData.name,
-                    currency: goalData.currency,
-                    targetAmount: goalData.targetAmount,
-                    deadline: goalData.deadline,
-                    startDate: Date()
-                )
-                
-                // Set up notifications if user selected a preference
-                if onboardingManager.userProfile.experienceLevel != .beginner {
-                    goal.reminderFrequency = ReminderFrequency.weekly.rawValue
-                    goal.reminderTime = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: Date())
-                }
-                
-                modelContext.insert(goal)
-                
-                // Create recommended assets with allocations
-                let assetRecommendations = template.generateAssets()
-                for recommendation in assetRecommendations.prefix(3) { // Limit to 3 assets for simplicity
-                    let asset = Asset(
-                        currency: recommendation.currency
-                    )
-                    modelContext.insert(asset)
-                    
-                    // Create 100% allocation to this goal
-                    let allocation = AssetAllocation(asset: asset, goal: goal, amount: asset.currentAmount)
-                    modelContext.insert(allocation)
-                }
-                
-                try modelContext.save()
+                try await DIContainer.shared.makeOnboardingMutationService(modelContext: modelContext)
+                    .createGoalFromTemplate(template, userProfile: onboardingManager.userProfile)
                 
                 // Mark achievements
                 await MainActor.run {

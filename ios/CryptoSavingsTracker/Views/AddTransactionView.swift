@@ -138,12 +138,6 @@ struct AddTransactionView: View {
     private func saveTransaction() async {
         guard let depositAmount = Double(amount) else { return }
 
-        let epsilon = 0.0000001
-        let preBalance = asset.currentAmount
-        let preIsFullyAllocated = asset.isFullyAllocated
-        let preWasDedicatedToSingleGoal = asset.allocations.count == 1
-        let singleAllocation = asset.allocations.first
-
         print("💾 Saving new transaction:")
         print("   Amount: \(depositAmount)")
         print("   Asset: \(asset.currency)")
@@ -151,47 +145,20 @@ struct AddTransactionView: View {
         print("   Asset ID: \(asset.id)")
         print("   Current transaction count for asset: \(asset.transactions.count)")
         
-        let newTransaction = Transaction(amount: depositAmount, asset: asset, comment: comment.isEmpty ? nil : comment)
-
-        // Explicitly establish the relationship on both sides
-        asset.transactions.append(newTransaction)
-
-        modelContext.insert(newTransaction)
-
-        if let autoAllocateGoalId {
-            applyContributionAllocation(goalId: autoAllocateGoalId, depositAmount: depositAmount, timestamp: newTransaction.date)
-        } else if preIsFullyAllocated, preWasDedicatedToSingleGoal, let allocation = singleAllocation, let goal = allocation.goal {
-            // Auto-allocation rule: if the asset was fully allocated to exactly one goal,
-            // keep it fully allocated after the deposit by increasing its allocation target.
-            let newTarget = max(0, preBalance + depositAmount)
-            if abs(newTarget - allocation.amountValue) > epsilon {
-                allocation.updateAmount(newTarget)
-                modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: newTarget, timestamp: newTransaction.date))
-            }
-        }
-
         do {
-            // SwiftData will automatically trigger UI updates through @Query
-            try modelContext.save()
+            _ = try DIContainer.shared.makeTransactionMutationService(modelContext: modelContext).createTransaction(
+                for: asset,
+                amount: depositAmount,
+                comment: comment.isEmpty ? nil : comment,
+                autoAllocateGoalId: autoAllocateGoalId
+            )
             print("✅ Transaction saved successfully")
             print("   New transaction count for asset: \(asset.transactions.count)")
-
         } catch {
             print("❌ Failed to save transaction: \(error)")
             // Show user-friendly error message
             // TODO: Add error state display to UI
         }
-
-        // Trigger refresh of goal totals/progress and monthly planning/execution views.
-        NotificationCenter.default.post(name: .goalProgressRefreshed, object: nil)
-        NotificationCenter.default.post(
-            name: .monthlyPlanningAssetUpdated,
-            object: asset,
-            userInfo: [
-                "assetId": asset.id,
-                "goalIds": asset.allocations.compactMap { $0.goal?.id }
-            ]
-        )
         
         Task {
             // Schedule reminders for all goals this asset is allocated to
@@ -202,27 +169,6 @@ struct AddTransactionView: View {
             }
         }
         dismiss()
-    }
-
-    private func applyContributionAllocation(goalId: UUID, depositAmount: Double, timestamp: Date) {
-        guard depositAmount > 0.0000001 else { return }
-
-        if let allocation = asset.allocations.first(where: { $0.goal?.id == goalId }),
-           let goal = allocation.goal {
-            let newTarget = max(0, allocation.amountValue + depositAmount)
-            allocation.updateAmount(newTarget)
-            modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: newTarget, timestamp: timestamp))
-            return
-        }
-
-        let predicate = #Predicate<Goal> { goal in
-            goal.id == goalId
-        }
-        if let goal = try? modelContext.fetch(FetchDescriptor<Goal>(predicate: predicate)).first {
-            let allocation = AssetAllocation(asset: asset, goal: goal, amount: depositAmount)
-            modelContext.insert(allocation)
-            modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: depositAmount, timestamp: timestamp))
-        }
     }
 
     private static func formatAmount(_ amount: Double) -> String {

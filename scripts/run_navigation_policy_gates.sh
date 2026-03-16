@@ -13,7 +13,7 @@ if [[ -n "${2:-}" ]]; then
   MODE="$2"
 fi
 
-echo "[1/4] iOS navigation policy gate (forbidden APIs + NAV-MOD tags)"
+echo "[1/6] iOS navigation policy gate (forbidden APIs + NAV-MOD tags)"
 if [[ "${MODE}" == "release" ]]; then
   python3 scripts/check_navigation_policy.py \
     --strict-mod-tags \
@@ -30,7 +30,7 @@ else
     --report-out artifacts/navigation/policy-report.json
 fi
 
-echo "[2/4] Hard-cutover gate (no migration runtime layer)"
+echo "[2/6] Hard-cutover gate (no migration runtime layer)"
 if [[ "${MODE}" == "release" ]]; then
   python3 scripts/check_navigation_hard_cutover.py \
     --report-out artifacts/navigation/hard-cutover-report.json
@@ -41,18 +41,40 @@ else
     --report-out artifacts/navigation/hard-cutover-report.json
 fi
 
-echo "[3/4] Android top-journey parity matrix gate"
+echo "[3/6] SwiftData runtime write-boundary gate"
+if [[ "${MODE}" == "release" ]]; then
+  python3 scripts/check_swiftdata_runtime_write_boundary.py \
+    --report-out artifacts/navigation/swiftdata-write-boundary-report.json
+else
+  python3 scripts/check_swiftdata_runtime_write_boundary.py \
+    --changed-only \
+    --base-ref "${BASE_REF}" \
+    --report-out artifacts/navigation/swiftdata-write-boundary-report.json
+fi
+
+echo "[4/6] Runtime persistence-controller ownership gate"
+if [[ "${MODE}" == "release" ]]; then
+  python3 scripts/check_runtime_persistence_controller.py \
+    --report-out artifacts/navigation/runtime-persistence-controller-report.json
+else
+  python3 scripts/check_runtime_persistence_controller.py \
+    --changed-only \
+    --base-ref "${BASE_REF}" \
+    --report-out artifacts/navigation/runtime-persistence-controller-report.json
+fi
+
+echo "[5/6] Android top-journey parity matrix gate"
 python3 scripts/check_android_navigation_parity_matrix.py \
   --report-out artifacts/navigation/android-parity-matrix-report.json
 
-echo "[4/4] MOD-02 compact screenshot artifact gate"
+echo "[6/6] MOD-02 compact screenshot artifact gate"
 python3 scripts/check_mod02_compact_artifacts.py \
   --changed-only \
   --base-ref "${BASE_REF}" \
   --report-out artifacts/navigation/mod02-compact-gate-report.json
 
 if [[ "${MODE}" == "release" ]]; then
-  echo "[5/5] Navigation release evidence package gate"
+  echo "[7/7] Navigation release evidence package gate"
   python3 scripts/check_navigation_release_evidence.py \
     --release-dir docs/release/navigation/latest \
     --schema docs/testing/navigation-telemetry-schema.v1.json \

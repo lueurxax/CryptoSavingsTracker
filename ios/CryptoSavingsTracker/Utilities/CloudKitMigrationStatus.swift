@@ -24,18 +24,13 @@ enum CloudKitMigrationReadinessState: String, Equatable, Sendable {
     }
 }
 
-struct CloudKitMigrationBlocker: Identifiable, Equatable, Sendable {
-    let id: String
-    let title: String
-    let detail: String
-}
-
 struct CloudKitMigrationStatusSnapshot: Equatable, Sendable {
     let runtimeState: CloudKitRuntimeState
     let readinessState: CloudKitMigrationReadinessState
-    let blockers: [CloudKitMigrationBlocker]
+    let blockers: [PersistenceRuntimeBlocker]
     let exitCriteria: [String]
     let lastEvaluatedAt: Date
+    let persistence: PersistenceRuntimeSnapshot
 
     var migrationActionTitle: String {
         readinessState == .complete ? "Migration Complete" : "Migrate to iCloud"
@@ -59,43 +54,40 @@ struct CloudKitMigrationStatusSnapshot: Equatable, Sendable {
         readinessState.isActionAvailable
     }
 
+    @MainActor
     static func current() -> Self {
-        // Keep this status in sync with the live ModelConfiguration while CloudKit remains disabled
-        // via `cloudKitDatabase: .none` in CryptoSavingsTrackerApp.
-        let blockers = [
-            CloudKitMigrationBlocker(
-                id: "runtime-disabled",
-                title: "CloudKit runtime is still disabled",
-                detail: "The live app still mounts the SwiftData container with local-only storage."
-            ),
-            CloudKitMigrationBlocker(
-                id: "model-compatibility",
-                title: "SwiftData model compatibility blockers remain open",
-                detail: "Unique constraints, non-optional properties without defaults, and missing inverse relationships still need CloudKit-safe changes."
-            ),
-            CloudKitMigrationBlocker(
-                id: "container-validation",
-                title: "CloudKit development-container validation is incomplete",
-                detail: "Schema deployment and validation in the development container must pass before migration can start."
-            ),
-            CloudKitMigrationBlocker(
-                id: "local-migration-path",
-                title: "Local-store migration path is not implemented",
-                detail: "Existing local data still needs a verified migration flow into the CloudKit-backed runtime without data loss."
-            )
-        ]
+        let persistence = PersistenceController.shared.snapshot
+        let runtimeState: CloudKitRuntimeState
+        switch persistence.activeMode {
+        case .localOnly:
+            runtimeState = .localOnly
+        case .cloudPrimaryWithLocalMirror:
+            runtimeState = persistence.migrationBlockers.isEmpty ? .cloudKitOnlyReady : .cloudKitPrimary
+        case .cloudRollbackBlocked:
+            runtimeState = .cloudKitPrimary
+        }
+
+        let readinessState: CloudKitMigrationReadinessState
+        if persistence.cloudKitEnabled && persistence.migrationBlockers.isEmpty {
+            readinessState = .complete
+        } else if persistence.migrationBlockers.isEmpty {
+            readinessState = .ready
+        } else {
+            readinessState = .blocked
+        }
 
         return CloudKitMigrationStatusSnapshot(
-            runtimeState: .localOnly,
-            readinessState: .blocked,
-            blockers: blockers,
+            runtimeState: runtimeState,
+            readinessState: readinessState,
+            blockers: persistence.migrationBlockers,
             exitCriteria: [
                 "Close the remaining CloudKit model-compatibility blockers from CLOUDKIT_MIGRATION_PLAN.md.",
                 "Validate the schema in the CloudKit development container.",
                 "Implement and verify migration from the existing local store without data loss.",
                 "Switch production runtime to CloudKit before any bridge work becomes visible."
             ],
-            lastEvaluatedAt: Date()
+            lastEvaluatedAt: Date(),
+            persistence: persistence
         )
     }
 }
@@ -122,6 +114,7 @@ final class CloudKitMigrationController: ObservableObject {
     }
 
     func refresh() {
+        PersistenceController.shared.refresh()
         snapshot = .current()
     }
 
@@ -133,6 +126,12 @@ final class CloudKitMigrationController: ObservableObject {
             throw CloudKitMigrationControllerError.blocked
         }
 
-        AppLog.info("CloudKit migration requested", category: .swiftData)
+        do {
+            try PersistenceController.shared.activate(mode: .cloudPrimaryWithLocalMirror)
+            AppLog.info("CloudKit migration requested", category: .swiftData)
+        } catch {
+            AppLog.warning("Blocked CloudKit migration activation attempt: \(error)", category: .swiftData)
+            throw CloudKitMigrationControllerError.blocked
+        }
     }
 }

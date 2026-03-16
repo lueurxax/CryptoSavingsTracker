@@ -144,7 +144,7 @@ struct SwiftDataQueries {
     static func transactionsForAsset(assetId: UUID) -> FetchDescriptor<Transaction> {
         FetchDescriptor<Transaction>(
             predicate: #Predicate { transaction in
-                transaction.asset.id == assetId
+                transaction.asset?.id == assetId
             },
             sortBy: [
                 SortDescriptor(\.date, order: .reverse)
