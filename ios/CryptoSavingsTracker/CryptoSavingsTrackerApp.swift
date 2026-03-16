@@ -41,6 +41,9 @@ struct CryptoSavingsTrackerApp: App {
 
             if !isTestRun {
                 _ = await NotificationManager.shared.requestPermission()
+                await MainActor.run {
+                    DIContainer.shared.cloudKitHealthMonitor.startMonitoring()
+                }
             }
 
             // Check for automated monthly execution transitions

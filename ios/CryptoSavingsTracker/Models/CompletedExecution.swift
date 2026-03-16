@@ -28,6 +28,9 @@ final class CompletedExecution {
     var monthLabel: String = ""
     var completedAt: Date = Date()
 
+    // Back-reference to the execution record that owns this completion
+    @Relationship var executionRecord: MonthlyExecutionRecord?
+
     // SwiftData doesn't reliably persist [String: Double] dictionaries, so store encoded Data.
     var exchangeRatesSnapshotData: Data?
     // Snapshot of goals and contributions at completion for immutability.

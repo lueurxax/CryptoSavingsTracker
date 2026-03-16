@@ -62,30 +62,42 @@ struct CloudKitMigrationStatusSnapshot: Equatable, Sendable {
         case .localOnly:
             runtimeState = .localOnly
         case .cloudPrimaryWithLocalMirror:
-            runtimeState = persistence.migrationBlockers.isEmpty ? .cloudKitOnlyReady : .cloudKitPrimary
-        case .cloudRollbackBlocked:
             runtimeState = .cloudKitPrimary
+        case .cloudRollbackBlocked:
+            runtimeState = .cloudKitOnlyReady
         }
 
         let readinessState: CloudKitMigrationReadinessState
-        if persistence.cloudKitEnabled && persistence.migrationBlockers.isEmpty {
+        switch runtimeState {
+        case .cloudKitPrimary, .cloudKitOnlyReady:
             readinessState = .complete
-        } else if persistence.migrationBlockers.isEmpty {
+        case .localOnly:
+            // Ready if iCloud account is available (checked at migration time)
             readinessState = .ready
-        } else {
-            readinessState = .blocked
+        }
+
+        let exitCriteria: [String]
+        switch readinessState {
+        case .complete:
+            exitCriteria = ["Migration complete. CloudKit is the active persistence layer."]
+        case .ready:
+            exitCriteria = [
+                "Tap 'Migrate to iCloud' to copy local data to CloudKit.",
+                "Ensure you are signed into iCloud on this device.",
+                "A backup will be created automatically before migration."
+            ]
+        case .blocked:
+            exitCriteria = [
+                "Sign in to iCloud in device Settings.",
+                "Ensure a stable network connection."
+            ]
         }
 
         return CloudKitMigrationStatusSnapshot(
             runtimeState: runtimeState,
             readinessState: readinessState,
             blockers: persistence.migrationBlockers,
-            exitCriteria: [
-                "Close the remaining CloudKit model-compatibility blockers from CLOUDKIT_MIGRATION_PLAN.md.",
-                "Validate the schema in the CloudKit development container.",
-                "Implement and verify migration from the existing local store without data loss.",
-                "Switch production runtime to CloudKit before any bridge work becomes visible."
-            ],
+            exitCriteria: exitCriteria,
             lastEvaluatedAt: Date(),
             persistence: persistence
         )
@@ -108,6 +120,9 @@ final class CloudKitMigrationController: ObservableObject {
     static let shared = CloudKitMigrationController(snapshot: .current())
 
     @Published private(set) var snapshot: CloudKitMigrationStatusSnapshot
+    @Published private(set) var cutoverState: CloudKitCutoverCoordinator.CutoverState = .idle
+
+    private lazy var cutoverCoordinator = DIContainer.shared.makeCutoverCoordinator()
 
     init(snapshot: CloudKitMigrationStatusSnapshot) {
         self.snapshot = snapshot
@@ -118,20 +133,32 @@ final class CloudKitMigrationController: ObservableObject {
         snapshot = .current()
     }
 
-    func attemptMigration() throws {
+    func attemptMigration() async throws {
         refresh()
 
         guard snapshot.isMigrationActionAvailable else {
-            AppLog.warning("Blocked CloudKit migration attempt while prerequisites remain open", category: .swiftData)
+            AppLog.warning("Blocked CloudKit migration attempt", category: .swiftData)
             throw CloudKitMigrationControllerError.blocked
         }
 
-        do {
-            try PersistenceController.shared.activate(mode: .cloudPrimaryWithLocalMirror)
-            AppLog.info("CloudKit migration requested", category: .swiftData)
-        } catch {
-            AppLog.warning("Blocked CloudKit migration activation attempt: \(error)", category: .swiftData)
-            throw CloudKitMigrationControllerError.blocked
+        // Observe cutover coordinator state
+        let coordinator = cutoverCoordinator
+        let observation = coordinator.$state.sink { [weak self] newState in
+            self?.cutoverState = newState
         }
+
+        do {
+            try await coordinator.performCutover(
+                sourceContainer: PersistenceController.shared.activeContainer
+            )
+            AppLog.info("CloudKit migration completed successfully", category: .swiftData)
+            refresh()
+        } catch {
+            AppLog.error("CloudKit migration failed: \(error)", category: .swiftData)
+            refresh()
+            throw error
+        }
+
+        _ = observation // Keep alive until migration completes
     }
 }

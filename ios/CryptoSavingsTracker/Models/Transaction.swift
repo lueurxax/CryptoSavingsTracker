@@ -12,7 +12,7 @@ import Foundation
 final class Transaction {
     init(
         amount: Double,
-        asset: Asset,
+        asset: Asset? = nil,
         date: Date = Date(),
         source: TransactionSource = .manual,
         externalId: String? = nil,

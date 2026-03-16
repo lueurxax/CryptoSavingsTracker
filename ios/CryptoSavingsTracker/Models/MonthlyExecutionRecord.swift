@@ -31,8 +31,12 @@ final class MonthlyExecutionRecord {
     var snapshot: ExecutionSnapshot?    // Created when tracking starts
 
     // Completion metadata (exchange rates snapshot, etc.)
-    @Relationship(deleteRule: .cascade)
+    @Relationship(deleteRule: .cascade, inverse: \CompletedExecution.executionRecord)
     var completedExecution: CompletedExecution?
+
+    // Plans linked to this execution record
+    @Relationship(inverse: \MonthlyPlan.executionRecord)
+    var plans: [MonthlyPlan] = []
 
     // Append-only completion history for auditability.
     @Relationship(deleteRule: .cascade, inverse: \CompletionEvent.executionRecord)
