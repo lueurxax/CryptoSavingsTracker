@@ -1,12 +1,20 @@
 # CryptoSavingsTracker — Claude Code Guide
 
+> Multi-platform app (SwiftUI on iOS/macOS, Jetpack Compose on Android) for tracking cryptocurrency savings goals
+
+| Metadata | Value |
+|----------|-------|
+| Status | ✅ Current |
+| Last Updated | 2026-03-14 |
+| Platform | Shared |
+| Audience | Developers |
+
 ## Project overview
 
 CryptoSavingsTracker is a multi-platform SwiftUI application for tracking cryptocurrency savings goals. Users create goals denominated in crypto, link on-chain wallets, allocate assets, and follow a monthly planning/execution cycle to measure progress.
 
-**Platforms:** iOS 18.0+ (production), macOS 14.0+ (production), Android (90% complete), visionOS (planned)
+**Platforms:** iOS 18.0+ (production), macOS 15.5+ (production), Android (~90% complete), visionOS (platform capabilities defined; UI not yet implemented)
 **Bundle ID:** `xax.CryptoSavingsTracker`
-**Build:** iOS 25 (current)
 
 ---
 
@@ -133,7 +141,7 @@ open ios/CryptoSavingsTracker.xcodeproj
 # Target: iPhone 16 simulator (iOS 18+) or physical device
 ```
 
-No external package dependencies — the project uses only Apple frameworks.
+The iOS app has no external package dependencies — it uses only Apple frameworks. The Android app uses standard Jetpack libraries (AndroidX, Compose, Room, Hilt, Retrofit, OkHttp, etc.) declared in `android/app/build.gradle.kts`.
 
 ---
 
