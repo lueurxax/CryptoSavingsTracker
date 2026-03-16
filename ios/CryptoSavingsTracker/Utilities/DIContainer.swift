@@ -346,6 +346,31 @@ class DIContainer: ObservableObject {
         OnboardingMutationService(modelContext: modelContext)
     }
     
+    // MARK: - CloudKit Services
+
+    private var _deduplicationService: DeduplicationService?
+    var deduplicationService: DeduplicationService {
+        if let svc = _deduplicationService { return svc }
+        let svc = DeduplicationService()
+        _deduplicationService = svc
+        return svc
+    }
+
+    private var _cloudKitHealthMonitor: CloudKitHealthMonitor?
+    var cloudKitHealthMonitor: CloudKitHealthMonitor {
+        if let svc = _cloudKitHealthMonitor { return svc }
+        let svc = CloudKitHealthMonitor()
+        _cloudKitHealthMonitor = svc
+        return svc
+    }
+
+    func makeCutoverCoordinator() -> CloudKitCutoverCoordinator {
+        CloudKitCutoverCoordinator(
+            stackFactory: PersistenceController.shared.stackFactory,
+            storageModeRegistry: UserDefaultsStorageModeRegistry()
+        )
+    }
+
     // MARK: - ViewModel Factories with Error Recovery
     func makeGoalViewModel(for goal: Goal) -> GoalViewModel {
         let viewModel = GoalViewModel(

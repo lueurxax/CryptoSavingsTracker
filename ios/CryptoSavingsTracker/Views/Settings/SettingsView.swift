@@ -18,8 +18,7 @@ struct SettingsView: View {
     @State private var exportResult: CSVExportResult?
     @State private var exportErrorMessage: String?
     @State private var showingExportError = false
-    @State private var cloudKitMigrationMessage: String?
-    @State private var showingCloudKitMigrationAlert = false
+    @StateObject private var healthMonitor = DIContainer.shared.cloudKitHealthMonitor
     
     var body: some View {
         NavigationStack {
@@ -65,16 +64,19 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("settings.cloudkit.diagnostics")
 
-                    Button(cloudKitMigrationController.snapshot.migrationActionTitle) {
-                        do {
-                            try cloudKitMigrationController.attemptMigration()
-                            cloudKitMigrationMessage = "CloudKit migration flow is not wired yet."
-                        } catch {
-                            cloudKitMigrationMessage = error.localizedDescription
+                    if cloudKitMigrationController.snapshot.readinessState != .complete {
+                        NavigationLink(cloudKitMigrationController.snapshot.migrationActionTitle) {
+                            CloudKitMigrationProgressView(controller: cloudKitMigrationController)
                         }
-                        showingCloudKitMigrationAlert = true
+                        .disabled(!cloudKitMigrationController.snapshot.isMigrationActionAvailable)
+                        .accessibilityIdentifier("settings.cloudkit.migrate")
+                    } else {
+                        LabeledContent("Migration") {
+                            Text("Complete")
+                                .foregroundStyle(.green)
+                        }
+                        .accessibilityIdentifier("settings.cloudkit.migrate")
                     }
-                    .accessibilityIdentifier("settings.cloudkit.migrate")
                 } header: {
                     Text("iCloud Migration")
                 } footer: {
@@ -157,11 +159,6 @@ struct SettingsView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(exportErrorMessage ?? "Unknown error")
-        }
-        .alert("CloudKit Migration", isPresented: $showingCloudKitMigrationAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(cloudKitMigrationMessage ?? "Unknown state")
         }
         .onAppear {
             settingsVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .settings)

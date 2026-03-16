@@ -253,16 +253,28 @@ struct PersistenceStackFactory {
 
     func makeContainer(for mode: AppStorageMode) throws -> ModelContainer {
         ensureApplicationSupportDirectoryExists()
-        backupStoreFilesIfNeededForCurrentBuild(descriptor: localPrimaryDescriptor)
 
-        let activeDescriptor = localPrimaryDescriptor
+        let activeDescriptor: PersistenceStoreDescriptor
+        let cloudKitSetting: ModelConfiguration.CloudKitDatabase
+
+        switch mode {
+        case .localOnly:
+            activeDescriptor = localPrimaryDescriptor
+            cloudKitSetting = .none
+        case .cloudPrimaryWithLocalMirror, .cloudRollbackBlocked:
+            activeDescriptor = cloudPrimaryDescriptor
+            cloudKitSetting = .automatic
+        }
+
+        backupStoreFilesIfNeededForCurrentBuild(descriptor: activeDescriptor)
+
         let modelConfiguration = ModelConfiguration(
             activeDescriptor.storeName,
             schema: Self.schema,
             isStoredInMemoryOnly: environment.isTestRun,
             allowsSave: true,
             groupContainer: .none,
-            cloudKitDatabase: .none
+            cloudKitDatabase: cloudKitSetting
         )
 
         do {
@@ -278,60 +290,43 @@ struct PersistenceStackFactory {
         selectedMode: AppStorageMode,
         lastModeUpdatedAt: Date?
     ) -> PersistenceRuntimeSnapshot {
-        PersistenceRuntimeSnapshot(
+        let storeKind: PersistenceStoreKind
+        let cloudKitEnabled: Bool
+        switch activeMode {
+        case .localOnly:
+            storeKind = .localPrimary
+            cloudKitEnabled = false
+        case .cloudPrimaryWithLocalMirror, .cloudRollbackBlocked:
+            storeKind = .cloudPrimary
+            cloudKitEnabled = true
+        }
+
+        return PersistenceRuntimeSnapshot(
             activeMode: activeMode,
             selectedMode: selectedMode,
-            activeStoreKind: .localPrimary,
+            activeStoreKind: storeKind,
             localStorePath: localPrimaryDescriptor.storeURL?.path,
             cloudStorePath: cloudPrimaryDescriptor.storeURL?.path,
-            cloudKitEnabled: false,
+            cloudKitEnabled: cloudKitEnabled,
             migrationBlockers: migrationBlockers(activeMode: activeMode, selectedMode: selectedMode),
             lastModeUpdatedAt: lastModeUpdatedAt
         )
     }
 
     func migrationBlockers(activeMode: AppStorageMode, selectedMode: AppStorageMode) -> [PersistenceRuntimeBlocker] {
+        // If already running on CloudKit, no blockers
+        if activeMode == .cloudPrimaryWithLocalMirror || activeMode == .cloudRollbackBlocked {
+            return []
+        }
+
+        // In local-only mode, report what's needed to migrate
         var blockers: [PersistenceRuntimeBlocker] = []
 
-        if activeMode == .localOnly {
-            blockers.append(
-                PersistenceRuntimeBlocker(
-                    id: "runtime-disabled",
-                    title: "CloudKit runtime is still disabled",
-                    detail: "The active persistence controller still mounts the local primary store with CloudKit disabled."
-                )
-            )
-        }
-
-        if selectedMode != .localOnly {
-            blockers.append(
-                PersistenceRuntimeBlocker(
-                    id: "stored-mode-blocked",
-                    title: "Stored non-local mode cannot be activated yet",
-                    detail: "The selected storage mode is \(selectedMode.rawValue), but runtime activation stays blocked until cutover infrastructure is implemented."
-                )
-            )
-        }
-
         blockers.append(
             PersistenceRuntimeBlocker(
-                id: "model-compatibility",
-                title: "SwiftData model compatibility blockers remain open",
-                detail: "CloudKit-safe schema validation still requires model and migration follow-up before runtime activation."
-            )
-        )
-        blockers.append(
-            PersistenceRuntimeBlocker(
-                id: "container-validation",
-                title: "CloudKit development-container validation is incomplete",
-                detail: "Schema deployment and development-container validation must pass before CloudKit activation is allowed."
-            )
-        )
-        blockers.append(
-            PersistenceRuntimeBlocker(
-                id: "local-migration-path",
-                title: "Local-store migration path is not implemented",
-                detail: "Existing local data still needs a verified migration path into the future cloud primary store without loss."
+                id: "runtime-disabled",
+                title: "CloudKit runtime is not active",
+                detail: "The app is running in local-only mode. Use 'Migrate to iCloud' in Settings to enable CloudKit sync."
             )
         )
 
@@ -352,8 +347,8 @@ final class PersistenceController: ObservableObject {
     let activeContainer: ModelContainer
 
     private let storageModeRegistry: StorageModeRegistry
-    private let stackFactory: PersistenceStackFactory
-    private let activeMode: AppStorageMode = .localOnly
+    let stackFactory: PersistenceStackFactory
+    private(set) var activeMode: AppStorageMode
 
     var activeMainContext: ModelContext {
         activeContainer.mainContext
@@ -372,10 +367,12 @@ final class PersistenceController: ObservableObject {
     ) {
         self.storageModeRegistry = storageModeRegistry
         self.stackFactory = stackFactory
-        self.activeContainer = try! stackFactory.makeContainer(for: .localOnly)
+        let mode = storageModeRegistry.currentMode
+        self.activeMode = mode
+        self.activeContainer = try! stackFactory.makeContainer(for: mode)
         self.snapshot = stackFactory.runtimeSnapshot(
-            activeMode: .localOnly,
-            selectedMode: storageModeRegistry.currentMode,
+            activeMode: mode,
+            selectedMode: mode,
             lastModeUpdatedAt: storageModeRegistry.lastUpdatedAt
         )
     }
@@ -389,11 +386,15 @@ final class PersistenceController: ObservableObject {
     }
 
     func activate(mode: AppStorageMode) throws {
-        guard mode == .localOnly else {
+        // Mode changes require app restart — the container is created at init time.
+        // This method validates that the requested mode is achievable and updates the registry.
+        if mode != .localOnly && activeMode == .localOnly {
+            // Cutover coordinator handles the actual migration. This just validates.
             let blockers = stackFactory
                 .migrationBlockers(activeMode: activeMode, selectedMode: mode)
-                .map(\.detail)
-            throw PersistenceControllerError.activationBlocked(mode, blockers)
+            if !blockers.isEmpty {
+                throw PersistenceControllerError.activationBlocked(mode, blockers.map(\.detail))
+            }
         }
 
         refresh()

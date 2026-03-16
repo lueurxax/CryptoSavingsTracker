@@ -95,11 +95,8 @@ struct PersistenceControllerTests {
 
         #expect(controller.snapshot.activeMode == .localOnly)
         #expect(controller.snapshot.selectedMode == .localOnly)
-        #expect(controller.snapshot.migrationBlockers.isEmpty == false)
-
-        #expect(throws: PersistenceControllerError.self) {
-            try controller.activate(mode: .cloudPrimaryWithLocalMirror)
-        }
+        // In local-only mode there is exactly 1 informational blocker
+        #expect(controller.snapshot.migrationBlockers.count == 1)
 
         controller.refresh()
         #expect(controller.snapshot.activeMode == .localOnly)

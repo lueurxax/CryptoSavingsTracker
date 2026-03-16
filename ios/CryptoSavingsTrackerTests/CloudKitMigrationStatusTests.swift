@@ -4,23 +4,25 @@ import Testing
 @MainActor
 struct CloudKitMigrationStatusTests {
 
-    @Test("current snapshot reports local-only runtime and blocked migration")
-    func currentSnapshotReflectsBlockedState() {
+    @Test("current snapshot reports local-only runtime and ready migration")
+    func currentSnapshotReflectsReadyState() {
         let snapshot = CloudKitMigrationStatusSnapshot.current()
 
         #expect(snapshot.runtimeState == .localOnly)
-        #expect(snapshot.readinessState == .blocked)
-        #expect(snapshot.isMigrationActionAvailable == false)
-        #expect(snapshot.blockers.count >= 4)
-        #expect(snapshot.exitCriteria.count == 4)
+        #expect(snapshot.readinessState == .ready)
+        #expect(snapshot.isMigrationActionAvailable == true)
+        #expect(snapshot.exitCriteria.count == 3)
     }
 
-    @Test("migration attempt is rejected while prerequisites remain open")
-    func migrationAttemptBlocked() {
-        let controller = CloudKitMigrationController(snapshot: .current())
+    @Test("snapshot status summary returns readiness raw value")
+    func snapshotStatusSummary() {
+        let snapshot = CloudKitMigrationStatusSnapshot.current()
+        #expect(snapshot.statusSummary == "Ready")
+    }
 
-        #expect(throws: CloudKitMigrationControllerError.self) {
-            try controller.attemptMigration()
-        }
+    @Test("migration action title reflects readiness state")
+    func migrationActionTitle() {
+        let snapshot = CloudKitMigrationStatusSnapshot.current()
+        #expect(snapshot.migrationActionTitle == "Migrate to iCloud")
     }
 }
