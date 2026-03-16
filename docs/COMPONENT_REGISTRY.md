@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-01-04 |
+| Last Updated | 2026-03-16 |
 | Platform | iOS |
 | Audience | Developers |
 
@@ -176,3 +176,21 @@ This document provides a registry of all reusable UI components in the CryptoSav
 *   **File**: `/Views/Components/ExchangeRateWarningView.swift`
 *   **Purpose**: A badge that indicates the status of the exchange rates.
 *   **Dependencies**: `DIContainer`
+
+### CompactGoalRequirementRow
+
+*   **File**: `/Views/Planning/CompactGoalRequirementRow.swift`
+*   **Purpose**: iOS-only compact row wrapper for monthly planning goal requirements on iPhone. Shows goal name, monthly amount, deadline/risk signal, progress summary, and a single "Goal Actions" entry point.
+*   **Dependencies**: `GoalRequirementRow` (shared data), `MonthlyPlanningViewModel`
+
+### StaleDraftBanner
+
+*   **File**: `/Views/Planning/StaleDraftBanner.swift`
+*   **Purpose**: Banner showing unresolved stale draft plans with goal name, month, and a visible "Resolve" entry point. Delete confirmation includes goal name and month context.
+*   **Dependencies**: `MonthlyPlanningViewModel`
+
+### GoalDashboardScreen
+
+*   **File**: `/Views/Dashboard/GoalDashboardScreen.swift`
+*   **Purpose**: Canonical goal dashboard entry point. Decision-first screen with six module slots consuming `GoalDashboardSceneModel` slices.
+*   **Dependencies**: `GoalDashboardViewModel`, `GoalDashboardSceneAssembler`

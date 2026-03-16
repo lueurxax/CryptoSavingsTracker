@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-01-05 |
+| Last Updated | 2026-03-16 |
 | Platform | Shared |
 | Audience | Developers |
 
@@ -273,6 +273,48 @@ Budget settings appear in the Monthly Planning settings screen:
 - **Monthly Budget**: Current amount with Edit option
 - **Use calculated minimum**: Sets budget to the minimum required
 - **Clear budget**: Removes the budget and returns to standard planning
+
+## Money Domain Types
+
+The budget flow uses domain types instead of raw `Double` for all financial gating decisions.
+
+### MoneyAmount
+
+```swift
+struct MoneyAmount: Equatable {
+    let value: Decimal
+    let currency: String
+}
+```
+
+All comparisons in the budget flow use `MoneyAmount`. Canonicalization occurs immediately after parse and after every service result. `Double` may exist only at external adapters (legacy APIs, chart display), never in feasibility or save-gating logic.
+
+### MoneyQuantizer
+
+Located in `Utilities/MoneyQuantizer.swift`. Handles currency-aware normalization:
+
+- `normalize(_ value: Decimal, currency: String, mode: RoundingMode) -> MoneyAmount`
+- `compare(_ lhs: MoneyAmount, _ rhs: MoneyAmount) -> ComparisonResult`
+
+Minor-unit policy: USD/EUR/GBP = 2, JPY/KRW = 0, KWD/BHD = 3, fallback = ISO-4217 default then 2.
+
+### Budget Sheet State Machine
+
+| UI State | Save | Status | Helper |
+|----------|------|--------|--------|
+| `invalidInput` | Disabled | Invalid amount | Enter a valid amount |
+| `calculatingLatest` | Disabled | Calculating | Calculating latest amount... |
+| `readyFeasible` | Enabled | On track | All deadlines achievable |
+| `blockedInfeasible` | Disabled | At risk | Short by X. Tap Use Minimum or increase budget. |
+| `blockedRates` | Disabled | Rates unavailable | Rates unavailable for conversion. Refresh rates to validate this budget. |
+
+Save is never disabled without a visible reason string.
+
+### Input Parser
+
+Located in `Utilities/MoneyInputParser.swift`. Locale-aware parsing that handles currency symbols, group separators, non-breaking spaces, and excess decimal digits. Explicit failure copy for each failure class (invalid format, ambiguous separators, excess decimals, unsupported characters).
+
+---
 
 ## Source Files
 

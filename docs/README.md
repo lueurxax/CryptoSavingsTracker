@@ -47,6 +47,7 @@
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Development plans, feature roadmaps, refactoring strategies | iOS Developers |
 | [MONTHLY_PLANNING.md](MONTHLY_PLANNING.md) | Monthly planning feature documentation and implementation | Developers, QA |
 | [MONTHLY_PLANNING_BUDGET_HEALTH_WIDGET.md](MONTHLY_PLANNING_BUDGET_HEALTH_WIDGET.md) | Budget Health Widget specification: states, visual rules, accessibility, API reference | Developers |
+| [GOAL_DASHBOARD.md](GOAL_DASHBOARD.md) | Goal dashboard architecture: scene model, next-action resolver, module contract | Developers |
 | [NAVIGATION_PRESENTATION_CONSISTENCY.md](NAVIGATION_PRESENTATION_CONSISTENCY.md) | Navigation architecture, modal policy (MOD-01...MOD-05), CI enforcement | Developers |
 | [VISUAL_SYSTEM_UNIFICATION.md](VISUAL_SYSTEM_UNIFICATION.md) | Visual token contract, surface/elevation policy, CI gates, release certification | Developers |
 | [USER_GUIDES.md](USER_GUIDES.md) | Testing guide, migration guide, troubleshooting | Developers, QA |
@@ -65,11 +66,17 @@
 | [STYLE_GUIDE.md](STYLE_GUIDE.md) | Documentation style standards and conventions | All |
 | [sample-data.md](sample-data.md) | Sample data for testing and development | Developers, QA |
 
+### Copy and Content
+
+| Document | Purpose | Audience |
+|----------|---------|----------|
+| [copy/FINANCIAL_COPY_DICTIONARY.md](copy/FINANCIAL_COPY_DICTIONARY.md) | Source of truth for planning/form user-facing language and copy keys | Developers, Content |
+
 ### Historical Documentation
 
 | Directory | Contents |
 |-----------|----------|
-| [proposals/](proposals/) | Active proposal documents grouped by topic |
+| [proposals/](proposals/) | Active proposal documents (drafts and ADRs) |
 | [archive/2026-01/](archive/2026-01/) | Archived proposals from January 2026 (now implemented) |
 | [archive/2025-11/](archive/2025-11/) | Archived proposals, fixes, and plans from August-November 2025 |
 
@@ -465,11 +472,11 @@ let container = try ModelContainer(for:
 
 | Document | Last Updated | Status | Coverage |
 |----------|--------------|--------|----------|
-| README.md | 2026-01-04 | ✅ Current | Complete |
+| README.md | 2026-03-16 | ✅ Current | Complete |
 | STYLE_GUIDE.md | 2026-01-04 | ✅ Current | Complete |
 | ANDROID_DEVELOPMENT_PLAN.md | 2026-01-04 | ✅ Current | Complete |
 | ARCHITECTURE.md | 2026-01-04 | ✅ Current | Complete |
-| BUDGET_CALCULATOR.md | 2026-01-04 | ✅ Current | Complete |
+| BUDGET_CALCULATOR.md | 2026-03-16 | ✅ Current | Complete |
 | CONTRIBUTION_PROCESS.md | 2026-01-04 | ✅ Current | Complete |
 | CONTRIBUTION_FLOW.md | 2026-01-04 | ✅ Current | Complete |
 | CONTRIBUTION_TRACKING_REDESIGN.md | 2026-01-04 | ✅ Current | Complete |
@@ -480,10 +487,12 @@ let container = try ModelContainer(for:
 | API_INTEGRATIONS.md | 2026-01-04 | ✅ Current | Complete |
 | NAVIGATION_PRESENTATION_CONSISTENCY.md | 2026-03-04 | ✅ Current | Complete |
 | VISUAL_SYSTEM_UNIFICATION.md | 2026-03-04 | ✅ Current | Complete |
-| COMPONENT_REGISTRY.md | 2026-01-04 | ✅ Current | iOS Only |
+| GOAL_DASHBOARD.md | 2026-03-16 | ✅ Current | Complete |
+| COMPONENT_REGISTRY.md | 2026-03-16 | ✅ Current | iOS Only |
 | sample-data.md | 2026-01-04 | ✅ Current | Complete |
 
 ### Recent Updates
+- **2026-03-16**: Converted 4 implemented proposals to documentation (Goal Dashboard, Budget Flow Hardening, Commit Dock Scroll Collapse, UI/UX Incremental Improvements); removed 16 proposal/review files
 - **2026-03-04**: Converted implemented Navigation and Visual System proposals to proper documentation
 - **2026-03-02**: Added MONTHLY_PLANNING_BUDGET_HEALTH_WIDGET.md from implemented proposal
 - **2026-01-04**: Created STYLE_GUIDE.md and standardized all documentation
@@ -502,4 +511,4 @@ let container = try ModelContainer(for:
 
 ---
 
-*Last updated: 2026-03-04*
+*Last updated: 2026-03-16*

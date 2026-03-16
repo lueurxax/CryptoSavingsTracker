@@ -6,7 +6,7 @@ Operational gate for `Goal Dashboard v2` rollout and rollback.
 
 ## Rollback thresholds (authoritative mirror)
 
-Use the same thresholds defined in `docs/proposals/GOAL_DASHBOARD_REDESIGN_PROPOSAL.md` section `8.3`:
+Use the same thresholds defined in `docs/GOAL_DASHBOARD.md` section "Rollback Thresholds":
 
 1. Crash-free rate delta <= `-0.30` percentage points vs previous stable release over rolling `24h` window with at least `2,000` dashboard sessions.
 2. Duplicate-load rate > `0.50%` over rolling `6h` window with at least `500` dashboard opens.
