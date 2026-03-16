@@ -438,6 +438,7 @@ private struct MonthlyPlanningContainerContent: View {
 
             // 2. Get MonthlyPlanService through DI
             let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
+            let planningMutationService = DIContainer.shared.makePlanningMutationService(modelContext: modelContext)
             let monthLabel = planningViewModel.planningMonthLabel.isEmpty
                 ? planService.currentMonthLabel()
                 : planningViewModel.planningMonthLabel
@@ -451,31 +452,13 @@ private struct MonthlyPlanningContainerContent: View {
                 return
             }
 
-            // 3.5. Check if plans are already in non-draft state and reset if needed
-            let nonDraftPlans = plans.filter { $0.state != .draft }
-            if !nonDraftPlans.isEmpty {
-                AppLog.info("startTracking: Resetting \(nonDraftPlans.count) non-draft plans to draft", category: .executionTracking)
-                for plan in nonDraftPlans {
-                    plan.state = .draft
-                }
-                try modelContext.save()
-            }
-
             // Note: We do NOT call applyBulkFlexAdjustment here.
             // The plans already have their correct customAmount values from:
             // - Budget Calculator allocations
             // - User's flex slider adjustments (applied when slider changes)
             // Calling it again would overwrite user's budget with calculated requiredMonthly values.
 
-            // 4. Auto-skip plans with zero effective amount (goal already funded or no remaining)
-            let zeroAmountPlans = plans.filter { !$0.isSkipped && $0.effectiveAmount <= 0 }
-            if !zeroAmountPlans.isEmpty {
-                AppLog.info("startTracking: Auto-skipping \(zeroAmountPlans.count) plans with zero effective amount", category: .executionTracking)
-                for plan in zeroAmountPlans {
-                    plan.isSkipped = true
-                }
-                try modelContext.save()
-            }
+            try planningMutationService.preparePlansForExecution(plans)
 
             AppLog.info("startTracking: Step 5 - Validating plans", category: .executionTracking)
             // 5. Validate plans before transition
@@ -528,10 +511,7 @@ private struct MonthlyPlanningContainerContent: View {
             // Reset plan states to draft for this month
             let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
             let plans = try planService.fetchPlans(for: record.monthLabel)
-            for plan in plans {
-                plan.state = .draft
-            }
-            try modelContext.save()
+            try DIContainer.shared.makePlanningMutationService(modelContext: modelContext).resetPlansToDraft(plans)
 
             // Undo start tracking (respects undo window)
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)

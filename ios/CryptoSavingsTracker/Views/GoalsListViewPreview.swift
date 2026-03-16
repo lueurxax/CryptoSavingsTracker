@@ -7,5 +7,5 @@ import Foundation
 
 #Preview {
     return GoalsListView()
-        .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
+        .modelContainer(CryptoSavingsTrackerApp.previewModelContainer)
 }

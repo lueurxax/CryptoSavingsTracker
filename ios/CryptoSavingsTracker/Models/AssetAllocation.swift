@@ -10,15 +10,15 @@ import Foundation
 
 @Model
 final class AssetAllocation {
-    @Attribute(.unique) var id: UUID
+    var id: UUID = UUID()
     // Fixed amount allocated in the asset's native currency.
-    var amount: Double
-    var createdDate: Date
-    var lastModifiedDate: Date
+    var amount: Double = 0.0
+    var createdDate: Date = Date()
+    var lastModifiedDate: Date = Date()
 
     // Relationships
-    var asset: Asset?
-    var goal: Goal?
+    @Relationship var asset: Asset?
+    @Relationship var goal: Goal?
 
     init(asset: Asset, goal: Goal, amount: Double) {
         self.id = UUID()

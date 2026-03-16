@@ -3,14 +3,13 @@
   "changedOnly": true,
   "baseRef": "origin/main",
   "roots": [
-    "ios/CryptoSavingsTracker",
-    "android/app/src/main/java/com/xax/CryptoSavingsTracker"
+    "ios/CryptoSavingsTracker"
   ],
   "extensions": [
-    ".java",
-    ".kt",
-    ".kts",
     ".swift"
+  ],
+  "excludedFilePatterns": [
+    "Preview.swift$"
   ],
   "scannedFileCount": 0,
   "scannedFiles": [],

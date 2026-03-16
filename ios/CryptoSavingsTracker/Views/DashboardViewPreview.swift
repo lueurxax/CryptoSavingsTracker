@@ -8,7 +8,7 @@ import SwiftData
     return NavigationStack {
         DashboardView()
     }
-    .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
+    .modelContainer(CryptoSavingsTrackerApp.previewModelContainer)
 }
 
     // MARK: - Mobile Components (moved from ImprovedDashboardView)
@@ -118,7 +118,7 @@ struct ChartSection: View {
                 .fill(.regularMaterial)
         )
         .task {
-            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
+            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.previewModelContainer))
         }
     }
 }
@@ -258,7 +258,7 @@ struct MobileInsightsSection: View {
     var body: some View {
         InsightsView(viewModel: viewModel, goal: goal)
             .task {
-                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
+                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.previewModelContainer))
             }
     }
 }
@@ -270,7 +270,7 @@ struct MobileStatsSection: View {
     var body: some View {
         EnhancedStatsGrid(viewModel: viewModel, goal: goal)
             .task {
-                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
+                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.previewModelContainer))
             }
     }
 }
@@ -343,12 +343,12 @@ struct MobileForecastSection: View {
         )
         .task {
             await updateData()
-            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
+            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.previewModelContainer))
         }
         .onChange(of: goal.allocations) { _, _ in
             Task { 
                 await updateData()
-                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
+                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.previewModelContainer))
             }
         }
     }
@@ -429,11 +429,11 @@ struct DesktopForecastSection: View {
         .background(.regularMaterial)
         .cornerRadius(12)
         .task {
-            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
+            await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.previewModelContainer))
         }
         .onChange(of: goal.allocations) { _, _ in
             Task { 
-                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.sharedModelContainer))
+                await viewModel.loadData(for: goal, modelContext: ModelContext(goal.modelContext?.container ?? CryptoSavingsTrackerApp.previewModelContainer))
             }
         }
     }

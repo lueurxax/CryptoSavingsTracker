@@ -523,7 +523,7 @@ struct RecentActivityView: View {
                 ForEach(viewModel.recentTransactions.prefix(5), id: \.id) { tx in
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(tx.asset.currency)
+                            Text(tx.asset?.currency ?? "Unknown")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                             if let note = tx.comment, !note.isEmpty {

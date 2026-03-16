@@ -115,6 +115,27 @@ final class ExecutionTrackingService {
         return records.first
     }
 
+    func ensureRuntimeMetadata(for record: MonthlyExecutionRecord) throws {
+        guard record.status == .executing else { return }
+
+        var didChange = false
+        if record.startedAt == nil {
+            record.startedAt = Date()
+            record.canUndoUntil = Date().addingTimeInterval(24 * 3600)
+            didChange = true
+        }
+        if record.goalIds.isEmpty,
+           let snapshot = record.snapshot,
+           let encoded = try? JSONEncoder().encode(snapshot.goalSnapshots.map { $0.goalId }) {
+            record.trackedGoalIds = encoded
+            didChange = true
+        }
+
+        if didChange {
+            try modelContext.save()
+        }
+    }
+
     // MARK: - Lifecycle Operations
 
     /// Create execution record from current monthly plans

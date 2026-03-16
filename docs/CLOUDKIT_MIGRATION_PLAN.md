@@ -15,6 +15,8 @@
 
 This document outlines the changes required to make the SwiftData models compatible with CloudKit for iCloud sync.
 
+Execution sequencing across multiple git worktrees for Phase 0, Phase 1, and Phase 1.5 is tracked in [CLOUDKIT_PHASE1_WORKTREE_EXECUTION_PLAN.md](CLOUDKIT_PHASE1_WORKTREE_EXECUTION_PLAN.md).
+
 > **Architecture Note:** As of the contribution tracking redesign, the app no longer uses a persisted `Contribution` model. Contributions are now **timestamp-derived** from `Transaction.date` and `AllocationHistory.timestamp` during active execution, then frozen into `CompletedExecution` snapshots on completion. See `CONTRIBUTION_TRACKING_REDESIGN.md` for details.
 
 ## CloudKit Requirements

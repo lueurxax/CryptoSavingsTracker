@@ -240,8 +240,7 @@ struct TransactionHistoryView: View {
     
     private func deleteTransaction(_ transaction: Transaction) {
         withAnimation {
-            modelContext.delete(transaction)
-            try? modelContext.save()
+            try? DIContainer.shared.makeTransactionMutationService(modelContext: modelContext).deleteTransaction(transaction)
         }
     }
 }

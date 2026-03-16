@@ -29,15 +29,15 @@ final class Transaction {
         self.counterparty = counterparty
     }
 
-    @Attribute(.unique) var id: UUID
-    var amount: Double
-    var date: Date
+    var id: UUID = UUID()
+    var amount: Double = 0.0
+    var date: Date = Date()
     var sourceRawValue: String = TransactionSource.manual.rawValue
     var externalId: String?
     var counterparty: String?
     var comment: String?
     
-    var asset: Asset
+    var asset: Asset?
 
     var source: TransactionSource {
         TransactionSource(rawValue: sourceRawValue) ?? .manual

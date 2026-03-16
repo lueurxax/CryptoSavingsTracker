@@ -13,7 +13,7 @@ struct SharedAssetIndicator_Previews: PreviewProvider {
             Transaction.self,
             AssetAllocation.self,
             configurations: config
-        )) ?? CryptoSavingsTrackerApp.sharedModelContainer
+        )) ?? CryptoSavingsTrackerApp.previewModelContainer
 
         let goal = Goal(
             name: "Test Goal",

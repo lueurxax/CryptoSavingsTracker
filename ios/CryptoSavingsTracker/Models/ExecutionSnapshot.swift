@@ -12,10 +12,10 @@ import Foundation
 /// Captures the state of all MonthlyPlans when execution starts
 @Model
 final class ExecutionSnapshot {
-    @Attribute(.unique) var id: UUID
-    var capturedAt: Date
-    var totalPlanned: Double            // Sum of all goals' planned amounts
-    var snapshotData: Data              // Codable array of GoalSnapshots
+    var id: UUID = UUID()
+    var capturedAt: Date = Date()
+    var totalPlanned: Double = 0.0            // Sum of all goals' planned amounts
+    var snapshotData: Data = Data()              // Codable array of GoalSnapshots
 
     // Relationship
     @Relationship(inverse: \MonthlyExecutionRecord.snapshot)

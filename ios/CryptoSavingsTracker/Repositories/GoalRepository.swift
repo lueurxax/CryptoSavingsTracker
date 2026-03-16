@@ -173,7 +173,7 @@ class TransactionRepository: TransactionRepositoryProtocol {
     
     func fetchTransactions(for assetId: UUID) async throws -> [Transaction] {
         let predicate = #Predicate<Transaction> { transaction in
-            transaction.asset.id == assetId
+            transaction.asset?.id == assetId
         }
         let descriptor = FetchDescriptor<Transaction>(
             predicate: predicate,

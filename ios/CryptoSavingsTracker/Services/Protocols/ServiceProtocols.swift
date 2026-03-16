@@ -115,3 +115,75 @@ protocol TatumServiceProtocol {
 protocol TransactionServiceProtocol {
     func fetchTransactionHistory(chainId: String, address: String, currency: String?, limit: Int, forceRefresh: Bool) async throws -> [TatumTransaction]
 }
+
+enum PersistenceMutationError: LocalizedError {
+    case validationFailed(String)
+    case objectNotFound(String)
+    case saveFailed(String, underlying: Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .validationFailed(let message):
+            return message
+        case .objectNotFound(let message):
+            return message
+        case .saveFailed(let context, let underlying):
+            return "\(context): \(underlying.localizedDescription)"
+        }
+    }
+}
+
+@MainActor
+protocol GoalMutationServiceProtocol {
+    func createGoal(_ goal: Goal) async throws
+    func saveGoal(_ goal: Goal) async throws
+    func archiveGoal(_ goal: Goal) async throws
+    func restoreGoal(_ goal: Goal) async throws
+    func resumeGoal(_ goal: Goal) throws
+}
+
+@MainActor
+protocol AssetMutationServiceProtocol {
+    @discardableResult
+    func createAsset(
+        currency: String,
+        address: String?,
+        chainId: String?,
+        goal: Goal
+    ) async throws -> Asset
+    func allocateAllUnallocated(of asset: Asset, to goal: Goal, bestKnownBalance: Double) throws
+    func deleteAsset(_ asset: Asset) throws
+    func deleteAssets(_ assets: [Asset]) throws
+}
+
+@MainActor
+protocol TransactionMutationServiceProtocol {
+    @discardableResult
+    func createTransaction(
+        for asset: Asset,
+        amount: Double,
+        comment: String?,
+        autoAllocateGoalId: UUID?
+    ) throws -> Transaction
+    func deleteTransaction(_ transaction: Transaction) throws
+}
+
+@MainActor
+protocol PlanningMutationServiceProtocol {
+    func markPlanCompleted(_ plan: MonthlyPlan) throws
+    func markPlanSkipped(_ plan: MonthlyPlan) throws
+    func deletePlan(_ plan: MonthlyPlan) throws
+    func preparePlansForExecution(_ plans: [MonthlyPlan]) throws
+    func resetPlansToDraft(_ plans: [MonthlyPlan]) throws
+    func applyFeasibilitySuggestion(_ suggestion: FeasibilitySuggestion, goals: [Goal]) throws -> Bool
+    func applyBudgetPlan(
+        _ plan: BudgetCalculatorPlan,
+        currentPlans: [MonthlyPlan],
+        budgetCurrency: String
+    ) async throws
+}
+
+@MainActor
+protocol OnboardingMutationServiceProtocol {
+    func createGoalFromTemplate(_ template: GoalTemplate, userProfile: UserProfile) async throws
+}

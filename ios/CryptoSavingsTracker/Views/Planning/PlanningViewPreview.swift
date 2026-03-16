@@ -104,7 +104,7 @@ func makePlanningPresentationPreviewViewModel(container: ModelContainer) -> Mont
 #Preview("iOS Compact") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = (try? ModelContainer(for: Goal.self, Asset.self, Transaction.self, AssetAllocation.self, MonthlyPlan.self, configurations: config))
-        ?? CryptoSavingsTrackerApp.sharedModelContainer
+        ?? CryptoSavingsTrackerApp.previewModelContainer
     return PlanningPreviewHost(
         container: container,
         viewModel: makePlanningPresentationPreviewViewModel(container: container)
@@ -112,7 +112,7 @@ func makePlanningPresentationPreviewViewModel(container: ModelContainer) -> Mont
 }
 
 #Preview("macOS") {
-    let modelContext = CryptoSavingsTrackerApp.sharedModelContainer.mainContext
+    let modelContext = CryptoSavingsTrackerApp.previewModelContainer.mainContext
     NavigationStack {
         macOSPlanningView(
             viewModel: MonthlyPlanningViewModel(modelContext: modelContext),
@@ -120,6 +120,6 @@ func makePlanningPresentationPreviewViewModel(container: ModelContainer) -> Mont
             goalNamesByID: [:]
         )
     }
-    .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
+    .modelContainer(CryptoSavingsTrackerApp.previewModelContainer)
     .frame(width: 800, height: 600)
 }

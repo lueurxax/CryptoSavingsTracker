@@ -19,13 +19,14 @@ final class Asset {
         self.allocations = []
     }
 
-    @Attribute(.unique) var id: UUID
-    var currency: String
+    var id: UUID = UUID()
+    var currency: String = ""
     var address: String?
     var chainId: String?
     
     @Relationship(deleteRule: .cascade, inverse: \Transaction.asset) var transactions: [Transaction] = []
     @Relationship(deleteRule: .cascade, inverse: \AssetAllocation.asset) var allocations: [AssetAllocation] = []
+    @Relationship(deleteRule: .nullify, inverse: \AllocationHistory.asset) var allocationHistory: [AllocationHistory] = []
     
     var manualBalance: Double {
         transactions

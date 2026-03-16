@@ -25,11 +25,11 @@ final class Goal {
         self.link = link
     }
 
-    @Attribute(.unique) var id: UUID
-    var name: String
+    var id: UUID = UUID()
+    var name: String = ""
     var currency: String = "USD"
     var targetAmount: Double = 0.0
-    var deadline: Date
+    var deadline: Date = Date()
     var startDate: Date = Date()
     
     // Lifecycle and modification tracking
@@ -48,6 +48,7 @@ final class Goal {
     var link: String?
     
     @Relationship(deleteRule: .cascade, inverse: \AssetAllocation.goal) var allocations: [AssetAllocation] = []
+    @Relationship(deleteRule: .nullify, inverse: \AllocationHistory.goal) var allocationHistory: [AllocationHistory] = []
 
     // MARK: - Computed Properties
 

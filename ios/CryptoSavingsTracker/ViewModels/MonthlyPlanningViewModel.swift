@@ -240,6 +240,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
     private let planService: MonthlyPlanService
     private let exchangeRateService: ExchangeRateServiceProtocol
     private let budgetCalculatorService: BudgetCalculatorService
+    private let planningMutationService: PlanningMutationServiceProtocol
     private let modelContext: ModelContext
     private var flexService: FlexAdjustmentService?
     private var cancellables = Set<AnyCancellable>()
@@ -264,6 +265,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
         self.planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
         self.exchangeRateService = DIContainer.shared.exchangeRateService
         self.budgetCalculatorService = DIContainer.shared.budgetCalculatorService(modelContext: modelContext)
+        self.planningMutationService = DIContainer.shared.makePlanningMutationService(modelContext: modelContext)
         self.flexService = DIContainer.shared.makeFlexAdjustmentService(modelContext: modelContext)
         self.planningMonthLabel = planService.currentMonthLabel()
         
@@ -453,20 +455,13 @@ final class MonthlyPlanningViewModel: ObservableObject {
             return false
         case .editGoal:
             return false
-        case .extendDeadline(let goalId, _, let months):
-            guard let goal = goals.first(where: { $0.id == goalId }) else { return false }
-            if let updated = Calendar.current.date(byAdding: .month, value: months, to: goal.deadline) {
-                goal.deadline = updated
-            } else {
-                return false
-            }
-        case .reduceTarget(let goalId, _, let to, _):
-            guard let goal = goals.first(where: { $0.id == goalId }) else { return false }
-            goal.targetAmount = to
+        case .extendDeadline, .reduceTarget:
+            break
         }
 
         do {
-            try modelContext.save()
+            let didApply = try planningMutationService.applyFeasibilitySuggestion(suggestion, goals: goals)
+            guard didApply else { return false }
         } catch {
             self.error = error
             return false
@@ -491,37 +486,14 @@ final class MonthlyPlanningViewModel: ObservableObject {
     ) async -> Bool {
         guard !currentPlans.isEmpty else { return false }
 
-        let contributionMap = Dictionary(
-            uniqueKeysWithValues: (plan.schedule.first?.contributions ?? []).map { ($0.goalId, $0.amount) }
-        )
-
-        var conversionFailed = false
-        for plan in currentPlans {
-            guard !plan.isSkipped else { continue }
-            let plannedAmount = contributionMap[plan.goalId] ?? 0
-            var converted = plannedAmount
-
-            if plannedAmount > 0, plan.currency != currency {
-                if let rate = try? await exchangeRateService.fetchRate(from: currency, to: plan.currency) {
-                    converted = plannedAmount * rate
-                } else {
-                    conversionFailed = true
-                    continue
-                }
-            }
-
-            plan.setCustomAmount(plannedAmount > 0 ? converted : 0)
-        }
-
-        if conversionFailed {
-            budgetPreviewError = "Missing exchange rates for some goals."
-            return false
-        }
-
         do {
-            try modelContext.save()
+            try await planningMutationService.applyBudgetPlan(
+                plan,
+                currentPlans: currentPlans,
+                budgetCurrency: currency
+            )
         } catch {
-            budgetPreviewError = "Failed to apply budget to plans."
+            budgetPreviewError = error.localizedDescription
             return false
         }
 

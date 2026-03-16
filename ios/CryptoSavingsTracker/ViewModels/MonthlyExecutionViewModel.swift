@@ -184,20 +184,7 @@ final class MonthlyExecutionViewModel: ObservableObject {
             let record = try executionService.getActiveRecord() ?? executionService.getCurrentMonthRecord()
             executionRecord = record
             if let record = record {
-                // Backfill missing metadata on older records so undo + goal tracking work
-                if record.status == .executing {
-                    if record.startedAt == nil {
-                        record.startedAt = Date()
-                        record.canUndoUntil = Date().addingTimeInterval(24 * 3600)
-                        try? modelContext.save()
-                    }
-                    if record.goalIds.isEmpty, let snap = record.snapshot {
-                        if let encoded = try? JSONEncoder().encode(snap.goalSnapshots.map { $0.goalId }) {
-                            record.trackedGoalIds = encoded
-                            try? modelContext.save()
-                        }
-                    }
-                }
+                try executionService.ensureRuntimeMetadata(for: record)
 
                 snapshot = record.snapshot
                 await loadContributedTotals(for: record)

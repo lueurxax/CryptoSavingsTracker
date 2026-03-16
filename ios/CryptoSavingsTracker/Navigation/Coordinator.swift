@@ -386,10 +386,6 @@ struct CreateGoalWrapper: View {
     
     var body: some View {
         EditGoalView(goal: newGoal, modelContext: modelContext)
-            .onAppear {
-                // Insert the new goal into context
-                modelContext.insert(newGoal)
-            }
     }
 }
 

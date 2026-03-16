@@ -593,8 +593,7 @@ struct GoalDashboardScreen: View {
         case "view_diagnostics":
             showingDiagnostics = true
         case "resume_goal":
-            goal.restoreToActive()
-            try? modelContext.save()
+            try? DIContainer.shared.makeGoalMutationService(modelContext: modelContext).resumeGoal(goal)
             Task { await viewModel.load() }
         case "plan_this_month":
             actionInfoMessage = "Open Monthly Planning to rebalance this goal for the current month."

@@ -6,5 +6,5 @@ import SwiftData
 
 #Preview {
     return ContentView()
-        .modelContainer(CryptoSavingsTrackerApp.sharedModelContainer)
+        .modelContainer(CryptoSavingsTrackerApp.previewModelContainer)
 }

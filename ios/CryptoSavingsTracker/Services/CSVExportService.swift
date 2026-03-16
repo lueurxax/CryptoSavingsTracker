@@ -204,16 +204,20 @@ private extension CSVExportService {
 
         for tx in transactions {
             let asset = tx.asset
+            let assetId = asset?.id.uuidString ?? ""
+            let assetCurrency = asset?.currency ?? ""
+            let assetChainId = asset?.chainId ?? ""
+            let assetAddress = asset?.address ?? ""
             let row = [
                 "transaction",
                 tx.id.uuidString,
                 CSVFormatting.date(tx.date),
                 CSVFormatting.double(tx.amount),
                 "delta",
-                asset.id.uuidString,
-                asset.currency,
-                asset.chainId ?? "",
-                asset.address ?? "",
+                assetId,
+                assetCurrency,
+                assetChainId,
+                assetAddress,
                 "",
                 "",
                 tx.sourceRawValue,

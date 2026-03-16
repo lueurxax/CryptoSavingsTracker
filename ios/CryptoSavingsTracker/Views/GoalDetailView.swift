@@ -327,12 +327,7 @@ struct GoalDetailView: View {
                         onDelete: {
                             withAnimation(.default) {
                                 expandedAssets.remove(asset.id)
-                                modelContext.delete(asset)
-                                do {
-                                    try modelContext.save()
-                                } catch {
-                                    print("Failed to delete asset: \(error)")
-                                }
+                                try? DIContainer.shared.makeAssetMutationService(modelContext: modelContext).deleteAsset(asset)
                             }
                         }
                     )
@@ -493,17 +488,7 @@ struct GoalDetailView: View {
                 expandedAssets.remove(asset.id)
             }
             
-                // Delete the assets from the model context
-            for asset in assetsToDelete {
-                modelContext.delete(asset)
-            }
-            
-                // Save the context
-            do {
-                try modelContext.save()
-            } catch {
-                    // Asset deletion failed - consider showing user feedback
-            }
+            try? DIContainer.shared.makeAssetMutationService(modelContext: modelContext).deleteAssets(assetsToDelete)
         }
     }
     

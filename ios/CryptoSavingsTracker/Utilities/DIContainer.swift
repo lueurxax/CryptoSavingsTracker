@@ -321,6 +321,30 @@ class DIContainer: ObservableObject {
             exchangeRateService: exchangeRateService
         )
     }
+
+    // MARK: - Persistence Mutation Service Factories
+    func makeGoalMutationService(modelContext: ModelContext) -> GoalMutationServiceProtocol {
+        GoalMutationService(modelContext: modelContext)
+    }
+
+    func makeAssetMutationService(modelContext: ModelContext) -> AssetMutationServiceProtocol {
+        AssetMutationService(modelContext: modelContext)
+    }
+
+    func makeTransactionMutationService(modelContext: ModelContext) -> TransactionMutationServiceProtocol {
+        TransactionMutationService(modelContext: modelContext)
+    }
+
+    func makePlanningMutationService(modelContext: ModelContext) -> PlanningMutationServiceProtocol {
+        PlanningMutationService(
+            modelContext: modelContext,
+            exchangeRateService: exchangeRateService
+        )
+    }
+
+    func makeOnboardingMutationService(modelContext: ModelContext) -> OnboardingMutationServiceProtocol {
+        OnboardingMutationService(modelContext: modelContext)
+    }
     
     // MARK: - ViewModel Factories with Error Recovery
     func makeGoalViewModel(for goal: Goal) -> GoalViewModel {
