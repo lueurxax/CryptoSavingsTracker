@@ -32,7 +32,7 @@ enum FamilyShareCloudKitError: LocalizedError {
 
 protocol FamilyShareCloudSyncing {
     func publishProjection(_ payload: FamilyShareProjectionPayload) async throws
-    func prepareShare(for request: FamilyShareCloudSharingRequest) async throws -> (share: CKShare, container: CKContainer)
+    func prepareShare(for request: FamilyShareCloudSharingPreparationRequest) async throws -> (share: CKShare, container: CKContainer)
     func fetchAcceptedProjection(from snapshot: FamilyShareInvitationMetadataSnapshot) async throws -> FamilyShareSeededNamespaceState
     func refreshProjection(namespaceID: FamilyShareNamespaceID) async throws -> FamilyShareSeededNamespaceState
     func revoke(namespaceID: FamilyShareNamespaceID) async throws
@@ -105,6 +105,7 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         guard environment.isTestRun == false else { return }
 
         let database = container.privateCloudDatabase
+        try await ensureZoneExists(for: payload.namespaceID, in: database)
         let rootRecord = rootRecord(for: payload)
         let goalRecords = payload.goals.map { goalRecord(for: $0, rootRecordID: rootRecord.recordID) }
         let existingGoalIDs = try await existingGoalRecordIDs(namespaceID: payload.namespaceID, in: database)
@@ -123,7 +124,7 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         try await modify(recordsToSave: [rootRecord] + goalRecords, recordIDsToDelete: recordIDsToDelete, in: database)
     }
 
-    func prepareShare(for request: FamilyShareCloudSharingRequest) async throws -> (share: CKShare, container: CKContainer) {
+    func prepareShare(for request: FamilyShareCloudSharingPreparationRequest) async throws -> (share: CKShare, container: CKContainer) {
         guard rollout.isEnabled() else {
             throw FamilyShareCloudKitError.rolloutDisabled
         }
@@ -131,6 +132,7 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         telemetry.track(.sharePrepareStarted, payload: ["namespace": request.namespaceID.namespaceKey])
 
         let database = container.privateCloudDatabase
+        try await ensureZoneExists(for: request.namespaceID, in: database)
         let rootID = Self.rootRecordID(for: request.namespaceID)
         let rootRecord = try await fetchRecord(recordID: rootID, in: database)
 
@@ -156,7 +158,11 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         guard rollout.isEnabled() else {
             throw FamilyShareCloudKitError.rolloutDisabled
         }
-        let rootRecordID = CKRecord.ID(recordName: snapshot.rootRecordName ?? snapshot.hierarchicalRootRecordName ?? "")
+        let rootRecordID = Self.recordID(
+            recordName: snapshot.rootRecordName ?? snapshot.hierarchicalRootRecordName ?? "",
+            zoneName: snapshot.rootZoneName ?? snapshot.hierarchicalRootZoneName,
+            zoneOwnerName: snapshot.rootZoneOwnerName ?? snapshot.hierarchicalRootZoneOwnerName
+        )
         guard rootRecordID.recordName.isEmpty == false else {
             throw FamilyShareCloudKitError.rootRecordMissing
         }
@@ -303,7 +309,19 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
 
     private func existingGoalRecordIDs(namespaceID: FamilyShareNamespaceID, in database: CKDatabase) async throws -> Set<CKRecord.ID> {
         let query = CKQuery(recordType: RecordType.goal, predicate: NSPredicate(format: "%K == %@", Field.namespaceKey, namespaceID.namespaceKey))
-        let (results, _) = try await database.records(matching: query)
+        let results: [(CKRecord.ID, Result<CKRecord, Error>)]
+        do {
+            (results, _) = try await database.records(matching: query)
+        } catch {
+            guard Self.isMissingRecordTypeError(error) else {
+                throw error
+            }
+            AppLog.warning(
+                "Family sharing bootstrap treated missing goal projection schema as empty result for namespace \(namespaceID.namespaceKey)",
+                category: .ui
+            )
+            return []
+        }
         return Set(results.compactMap { key, result in
             switch result {
             case .success:
@@ -316,7 +334,19 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
 
     private func fetchGoalRecords(namespaceID: FamilyShareNamespaceID, in database: CKDatabase) async throws -> [CKRecord] {
         let query = CKQuery(recordType: RecordType.goal, predicate: NSPredicate(format: "%K == %@", Field.namespaceKey, namespaceID.namespaceKey))
-        let (results, _) = try await database.records(matching: query)
+        let results: [(CKRecord.ID, Result<CKRecord, Error>)]
+        do {
+            (results, _) = try await database.records(matching: query)
+        } catch {
+            guard Self.isMissingRecordTypeError(error) else {
+                throw error
+            }
+            AppLog.warning(
+                "Family sharing read treated missing goal projection schema as empty result for namespace \(namespaceID.namespaceKey)",
+                category: .ui
+            )
+            return []
+        }
         return results.compactMap { _, result in
             switch result {
             case let .success(record):
@@ -392,6 +422,22 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         }
     }
 
+    private func ensureZoneExists(for namespaceID: FamilyShareNamespaceID, in database: CKDatabase) async throws {
+        let zone = CKRecordZone(zoneID: Self.zoneID(for: namespaceID))
+        try await withCheckedThrowingContinuation { continuation in
+            let operation = CKModifyRecordZonesOperation(recordZonesToSave: [zone], recordZoneIDsToDelete: [])
+            operation.modifyRecordZonesResultBlock = { result in
+                switch result {
+                case .success:
+                    continuation.resume()
+                case let .failure(error):
+                    continuation.resume(throwing: error)
+                }
+            }
+            database.add(operation)
+        }
+    }
+
     private func fetchRecord(recordID: CKRecord.ID, in database: CKDatabase) async throws -> CKRecord {
         try await withCheckedThrowingContinuation { continuation in
             let operation = CKFetchRecordsOperation(recordIDs: [recordID])
@@ -438,16 +484,60 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         return value
     }
 
+    private static func zoneID(for namespaceID: FamilyShareNamespaceID) -> CKRecordZone.ID {
+        CKRecordZone.ID(
+            zoneName: "family-share.\(namespaceID.ownerID).\(namespaceID.shareID).zone",
+            ownerName: CKCurrentUserDefaultName
+        )
+    }
+
+    private static func recordID(recordName: String, zoneName: String?, zoneOwnerName: String?) -> CKRecord.ID {
+        guard let zoneName, zoneName.isEmpty == false else {
+            return CKRecord.ID(recordName: recordName)
+        }
+        let ownerName = (zoneOwnerName?.isEmpty == false ? zoneOwnerName : nil) ?? CKCurrentUserDefaultName
+        return CKRecord.ID(
+            recordName: recordName,
+            zoneID: CKRecordZone.ID(zoneName: zoneName, ownerName: ownerName)
+        )
+    }
+
     private static func rootRecordID(for namespaceID: FamilyShareNamespaceID) -> CKRecord.ID {
-        CKRecord.ID(recordName: "family-share.\(namespaceID.ownerID).\(namespaceID.shareID).root")
+        CKRecord.ID(
+            recordName: "family-share.\(namespaceID.ownerID).\(namespaceID.shareID).root",
+            zoneID: zoneID(for: namespaceID)
+        )
     }
 
     private static func shareRecordID(for namespaceID: FamilyShareNamespaceID) -> CKRecord.ID {
-        CKRecord.ID(recordName: "family-share.\(namespaceID.ownerID).\(namespaceID.shareID).share")
+        CKRecord.ID(
+            recordName: "family-share.\(namespaceID.ownerID).\(namespaceID.shareID).share",
+            zoneID: zoneID(for: namespaceID)
+        )
     }
 
     private static func goalRecordID(for namespaceID: FamilyShareNamespaceID, goalID: String) -> CKRecord.ID {
-        CKRecord.ID(recordName: "family-share.\(namespaceID.ownerID).\(namespaceID.shareID).goal.\(goalID)")
+        CKRecord.ID(
+            recordName: "family-share.\(namespaceID.ownerID).\(namespaceID.shareID).goal.\(goalID)",
+            zoneID: zoneID(for: namespaceID)
+        )
+    }
+
+    static func isMissingRecordTypeError(_ error: Error) -> Bool {
+        if let ckError = error as? CKError, ckError.code == .unknownItem {
+            return true
+        }
+
+        let nsError = error as NSError
+        if nsError.domain == CKError.errorDomain,
+           let code = CKError.Code(rawValue: nsError.code),
+           code == .unknownItem {
+            return true
+        }
+
+        let description = nsError.localizedDescription.lowercased()
+        return description.contains("did not find record type")
+            || description.contains("unknown record type")
     }
 }
 #endif

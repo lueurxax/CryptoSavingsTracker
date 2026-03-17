@@ -71,7 +71,11 @@ struct FamilyShareInvitationMetadataSnapshot: Codable, Equatable, Sendable {
     let participantRoleRawValue: String?
     let participantPermissionRawValue: String?
     let rootRecordName: String?
+    let rootZoneName: String?
+    let rootZoneOwnerName: String?
     let hierarchicalRootRecordName: String?
+    let hierarchicalRootZoneName: String?
+    let hierarchicalRootZoneOwnerName: String?
 }
 
 struct FamilyShareScopePreviewSummary: Codable, Equatable, Sendable {

@@ -7,6 +7,9 @@ import Combine
 import Foundation
 import UIKit
 import SwiftData
+#if canImport(CloudKit)
+import CloudKit
+#endif
 
 protocol FamilyShareStateProviding {
     func seededState(for namespaceID: FamilyShareNamespaceID) async throws -> FamilyShareSeededNamespaceState?
@@ -499,10 +502,21 @@ final class FamilyShareCacheMigrationCoordinator: FamilyShareCacheMigrating {
 }
 
 @MainActor
-struct FamilyShareCloudSharingRequest: Identifiable, Equatable {
+struct FamilyShareCloudSharingPreparationRequest {
     let namespaceID: FamilyShareNamespaceID
     let ownerDisplayName: String
     let shareTitle: String
+}
+
+@MainActor
+struct FamilyShareCloudSharingRequest: Identifiable {
+    let namespaceID: FamilyShareNamespaceID
+    let ownerDisplayName: String
+    let shareTitle: String
+    #if canImport(CloudKit)
+    let share: CKShare
+    let container: CKContainer
+    #endif
 
     var id: String { namespaceID.namespaceKey }
 }
@@ -786,10 +800,23 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             telemetry.track(.shareRequested, payload: ["goal_count": "\(goals.count)"])
             let payload = try makeProjectionPayload(for: goals)
             _ = try await publishCoordinator.publish(payload)
+            guard let cloudSync else {
+                latestErrorMessage = "Family sharing cloud sync is unavailable."
+                return
+            }
+            let prepared = try await cloudSync.prepareShare(
+                for: FamilyShareCloudSharingPreparationRequest(
+                    namespaceID: ownerNamespaceID,
+                    ownerDisplayName: identityStore.ownerDisplayName(),
+                    shareTitle: "\(identityStore.ownerDisplayName())'s Shared Goals"
+                )
+            )
             pendingCloudSharingRequest = FamilyShareCloudSharingRequest(
                 namespaceID: ownerNamespaceID,
                 ownerDisplayName: identityStore.ownerDisplayName(),
-                shareTitle: "\(identityStore.ownerDisplayName())'s Shared Goals"
+                shareTitle: "\(identityStore.ownerDisplayName())'s Shared Goals",
+                share: prepared.share,
+                container: prepared.container
             )
             await refreshAllState()
         } catch {
@@ -1216,7 +1243,11 @@ extension FamilyShareInvitationMetadataSnapshot {
             participantRoleRawValue: String(describing: metadata.participantRole),
             participantPermissionRawValue: String(describing: metadata.participantPermission),
             rootRecordName: metadata.rootRecord?.recordID.recordName,
-            hierarchicalRootRecordName: metadata.hierarchicalRootRecordID?.recordName
+            rootZoneName: metadata.rootRecord?.recordID.zoneID.zoneName,
+            rootZoneOwnerName: metadata.rootRecord?.recordID.zoneID.ownerName,
+            hierarchicalRootRecordName: metadata.hierarchicalRootRecordID?.recordName,
+            hierarchicalRootZoneName: metadata.hierarchicalRootRecordID?.zoneID.zoneName,
+            hierarchicalRootZoneOwnerName: metadata.hierarchicalRootRecordID?.zoneID.ownerName
         )
     }
 }

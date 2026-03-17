@@ -4,6 +4,7 @@
 //
 
 import XCTest
+import CloudKit
 @testable import CryptoSavingsTracker
 
 @MainActor
@@ -76,5 +77,24 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
         XCTAssertTrue(coordinator.inviteeStates.isEmpty)
         XCTAssertNil(coordinator.pendingCloudSharingRequest)
         XCTAssertEqual(coordinator.ownerState.lifecycleState, .notShared)
+    }
+
+    func testMissingRecordTypeErrorsAreTreatedAsBootstrapSafe() {
+        let unknownItem = CKError(.unknownItem)
+        XCTAssertTrue(DefaultFamilyShareCloudKitStore.isMissingRecordTypeError(unknownItem))
+
+        let dashboardStyleError = NSError(
+            domain: CKError.errorDomain,
+            code: CKError.Code.serverRejectedRequest.rawValue,
+            userInfo: [NSLocalizedDescriptionKey: "Did not find record type: FamilySharedGoalProjection"]
+        )
+        XCTAssertTrue(DefaultFamilyShareCloudKitStore.isMissingRecordTypeError(dashboardStyleError))
+
+        let unrelatedError = NSError(
+            domain: CKError.errorDomain,
+            code: CKError.Code.networkUnavailable.rawValue,
+            userInfo: [NSLocalizedDescriptionKey: "The network is unavailable."]
+        )
+        XCTAssertFalse(DefaultFamilyShareCloudKitStore.isMissingRecordTypeError(unrelatedError))
     }
 }

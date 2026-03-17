@@ -19,17 +19,7 @@ struct FamilyCloudSharingControllerSheet: UIViewControllerRepresentable {
     }
 
     func makeUIViewController(context: Context) -> UICloudSharingController {
-        let controller = UICloudSharingController { _, completion in
-            Task {
-                do {
-                    let prepared = try await DIContainer.shared.familyShareCloudKitStore.prepareShare(for: request)
-                    completion(prepared.share, prepared.container, nil)
-                } catch {
-                    completion(nil, CKContainer.default(), error)
-                }
-            }
-        }
-
+        let controller = UICloudSharingController(share: request.share, container: request.container)
         controller.delegate = context.coordinator
         controller.availablePermissions = [.allowPrivate, .allowReadOnly]
         return controller
