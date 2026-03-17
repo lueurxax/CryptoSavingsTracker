@@ -188,11 +188,22 @@
       "mcp__xcode__ExecuteSnippet",
       "Bash(pgrep:*)",
       "Bash(launchctl list)",
-      "Bash(sudo launchctl:*)"
+      "Bash(sudo launchctl:*)",
+      "Bash(gh pr:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Read(//Users/user/.codex/worktrees/**)",
+      "Read(//Users/user/Documents/**)",
+      "Bash(git worktree:*)",
+      "Bash(git branch:*)"
     ],
     "deny": [],
     "additionalDirectories": [
       "/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "xcode"
+  ],
+  "enableAllProjectMcpServers": true
 }

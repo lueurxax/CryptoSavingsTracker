@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>logFormatVersion</key>
+	<integer>12</integer>
+	<key>logs</key>
+	<dict>
+		<key>994D5FDD-8E1D-4FEA-A66E-18091F3ABDC3</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>994D5FDD-8E1D-4FEA-A66E-18091F3ABDC3.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>W</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>8</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>CryptoSavingsTracker project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>CryptoSavingsTrackerTests</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Testing project CryptoSavingsTracker with scheme CryptoSavingsTrackerTests</string>
+			<key>timeStartedRecording</key>
+			<real>795421929.56794095</real>
+			<key>timeStoppedRecording</key>
+			<real>795421996.68152905</real>
+			<key>title</key>
+			<string>Testing project CryptoSavingsTracker with scheme CryptoSavingsTrackerTests</string>
+			<key>uniqueIdentifier</key>
+			<string>994D5FDD-8E1D-4FEA-A66E-18091F3ABDC3</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

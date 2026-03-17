@@ -1,0 +1,56 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Charts/EnhancedLineChartView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Target: %@ %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 237
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ %@",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 343
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@%% of target",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 348
+        }
+      },
+      {
+        "comment": "",
+        "key": "Amount",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 390
+        }
+      },
+      {
+        "comment": "",
+        "key": "(%@)",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 394
+        }
+      },
+      {
+        "comment": "",
+        "key": "Date",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 425
+        }
+      }
+    ]
+  },
+  "version": 1
+}

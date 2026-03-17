@@ -1,0 +1,408 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Planning/PlanningView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "%@ tab",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 290
+        }
+      },
+      {
+        "comment": "",
+        "key": "Monthly Total",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 303
+        }
+      },
+      {
+        "comment": "",
+        "key": "(%lld%% adjusted)",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 316
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 320
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goals",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 335
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 340
+        }
+      },
+      {
+        "comment": "",
+        "key": "Next Due",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 348
+        }
+      },
+      {
+        "comment": "",
+        "key": "Monthly total",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 374
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%% adjusted",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 386
+        }
+      },
+      {
+        "comment": "",
+        "key": "Next due",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 396
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld goals %@",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 474
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 462
+        }
+      },
+      {
+        "comment": "",
+        "key": "No Active Goals",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 520
+        }
+      },
+      {
+        "comment": "",
+        "key": "Create savings goals to see monthly requirements",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 523
+        }
+      },
+      {
+        "comment": "",
+        "key": "Drag to adjust payment amounts. Protected goals won't be reduced.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 595
+        }
+      },
+      {
+        "comment": "",
+        "key": "Payment Adjustment",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 559
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 563
+        }
+      },
+      {
+        "comment": "",
+        "key": "of budget %@",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 568
+        }
+      },
+      {
+        "comment": "",
+        "key": "Flex Adjustment",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 583
+        }
+      },
+      {
+        "comment": "",
+        "key": "0%",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 585
+        }
+      },
+      {
+        "comment": "",
+        "key": "150%",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 589
+        }
+      },
+      {
+        "comment": "",
+        "key": "Total Impact",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 604
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goals Affected",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 618
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 622
+        }
+      },
+      {
+        "comment": "",
+        "key": "Quick Actions",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 688
+        }
+      },
+      {
+        "comment": "",
+        "key": "Status Overview",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 733
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 755
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal Breakdown",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 769
+        }
+      },
+      {
+        "comment": "",
+        "key": "+ %lld more",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 814
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 794
+        }
+      },
+      {
+        "comment": "",
+        "key": "Performance Metrics",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 824
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goals",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 943
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goals",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 992
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loading monthly requirements...",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1035
+        }
+      },
+      {
+        "comment": "",
+        "key": "No Monthly Requirements",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1130
+        }
+      },
+      {
+        "comment": "",
+        "key": "Create savings goals to see your monthly payment requirements",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1141
+        }
+      },
+      {
+        "comment": "",
+        "key": "Refresh",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 1134
+        }
+      },
+      {
+        "comment": "",
+        "key": "Monthly Summary",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1197
+        }
+      },
+      {
+        "comment": "",
+        "key": "Payment Adjustment",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1236
+        }
+      },
+      {
+        "comment": "",
+        "key": "Amount",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1242
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1245
+        }
+      },
+      {
+        "comment": "",
+        "key": "of budget %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1249
+        }
+      },
+      {
+        "comment": "",
+        "key": "0%",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1265
+        }
+      },
+      {
+        "comment": "",
+        "key": "150%",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1269
+        }
+      },
+      {
+        "comment": "",
+        "key": "Adjusted Total",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1280
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goals Affected",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1292
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1296
+        }
+      },
+      {
+        "comment": "",
+        "key": "Quick Actions",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1314
+        }
+      },
+      {
+        "comment": "",
+        "key": "Statistics",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1353
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1381
+        }
+      }
+    ]
+  },
+  "version": 1
+}

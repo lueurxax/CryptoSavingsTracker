@@ -1,0 +1,312 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/DashboardView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Dashboard",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 105
+        }
+      },
+      {
+        "comment": "",
+        "key": "Customize",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 114
+        }
+      },
+      {
+        "comment": "",
+        "key": "No data yet",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 214
+        }
+      },
+      {
+        "comment": "",
+        "key": "Balance Trend",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 184
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@%@%%",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 201
+        }
+      },
+      {
+        "comment": "",
+        "key": "Dashboard Ready",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 275
+        }
+      },
+      {
+        "comment": "",
+        "key": "Create your first savings goal to start tracking your crypto journey",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 279
+        }
+      },
+      {
+        "comment": "",
+        "key": "Create First Goal",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 288
+        }
+      },
+      {
+        "comment": "",
+        "key": "Dashboard (Legacy Visual Style)",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 312
+        }
+      },
+      {
+        "comment": "",
+        "key": "No goals available.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 344
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 316
+        }
+      },
+      {
+        "comment": "",
+        "key": "Target: %@ %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 333
+        }
+      },
+      {
+        "comment": "",
+        "key": "Legacy fallback keeps flow available when visual rollout flag is disabled.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 336
+        }
+      },
+      {
+        "comment": "",
+        "key": "DAILY TARGET",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 513
+        }
+      },
+      {
+        "comment": "",
+        "key": "ACHIEVED",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 538
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld DAY STREAK",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 551
+        }
+      },
+      {
+        "comment": "",
+        "key": "TO GO",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 563
+        }
+      },
+      {
+        "comment": "",
+        "key": "PORTFOLIO",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 582
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 589
+        }
+      },
+      {
+        "comment": "",
+        "key": "Assets",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 592
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 598
+        }
+      },
+      {
+        "comment": "",
+        "key": "Transactions",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 601
+        }
+      },
+      {
+        "comment": "",
+        "key": "TIMELINE",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 612
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 618
+        }
+      },
+      {
+        "comment": "",
+        "key": "Days Left",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 622
+        }
+      },
+      {
+        "comment": "",
+        "key": "Custom Widgets",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 655
+        }
+      },
+      {
+        "comment": "",
+        "key": "Customize Dashboard",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 799
+        }
+      },
+      {
+        "comment": "",
+        "key": "Available Widgets",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 743
+        }
+      },
+      {
+        "comment": "",
+        "key": "Current Widgets",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 763
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 750
+        }
+      },
+      {
+        "comment": "",
+        "key": "Span: %lld columns, %lld rows",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 781
+        }
+      },
+      {
+        "comment": "",
+        "key": "Size",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 772
+        }
+      },
+      {
+        "comment": "",
+        "key": "S",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 773
+        }
+      },
+      {
+        "comment": "",
+        "key": "M",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 774
+        }
+      },
+      {
+        "comment": "",
+        "key": "L",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 775
+        }
+      },
+      {
+        "comment": "",
+        "key": "Full",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 776
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 805
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 810
+        }
+      }
+    ]
+  },
+  "version": 1
+}

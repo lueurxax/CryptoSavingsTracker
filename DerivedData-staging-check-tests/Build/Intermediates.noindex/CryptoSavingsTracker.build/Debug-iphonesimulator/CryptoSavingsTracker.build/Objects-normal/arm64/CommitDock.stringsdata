@@ -1,0 +1,48 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Planning/CommitDock.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "This starts contribution tracking for %@. You can undo within %@.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 198
+        }
+      },
+      {
+        "comment": "",
+        "key": "Double tap to start tracking contributions for %@. You can undo within %@.",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 223
+        }
+      },
+      {
+        "comment": "",
+        "key": "Ready to start %@?",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 189
+        }
+      },
+      {
+        "comment": "",
+        "key": "Double tap to start tracking contributions for %@. You can undo within %@.",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 270
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 251
+        }
+      }
+    ]
+  },
+  "version": 1
+}

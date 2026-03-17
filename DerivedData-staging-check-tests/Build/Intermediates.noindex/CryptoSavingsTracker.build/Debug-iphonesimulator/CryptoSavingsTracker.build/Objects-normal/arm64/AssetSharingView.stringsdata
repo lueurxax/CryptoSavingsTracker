@@ -1,0 +1,88 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/AssetSharingView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Share Asset",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 98
+        }
+      },
+      {
+        "comment": "",
+        "key": "Allocated amount exceeds balance. Please reduce allocations.",
+        "location": {
+          "startingColumn": 15,
+          "startingLine": 261
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 104
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 110
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enter fixed amounts (in %@) to allocate to each goal. Total cannot exceed your asset balance.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 176
+        }
+      },
+      {
+        "comment": "",
+        "key": "How to share this asset:",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 172
+        }
+      },
+      {
+        "comment": "",
+        "key": "Allocate to Goals",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 188
+        }
+      },
+      {
+        "comment": "",
+        "key": "No goals available. Create goals first to share this asset.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 206
+        }
+      },
+      {
+        "comment": "",
+        "key": "Quick add: close current month",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 199
+        }
+      },
+      {
+        "comment": "",
+        "key": "Clear All Allocations",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 235
+        }
+      }
+    ]
+  },
+  "version": 1
+}

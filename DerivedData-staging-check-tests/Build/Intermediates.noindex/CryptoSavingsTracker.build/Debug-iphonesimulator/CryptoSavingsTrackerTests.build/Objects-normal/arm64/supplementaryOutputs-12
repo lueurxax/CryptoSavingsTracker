@@ -1,0 +1,30 @@
+{
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTrackerTests/CloudKitCutoverTests.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitCutoverTests.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitCutoverTests.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitCutoverTests.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitCutoverTests.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitCutoverTests.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTrackerTests/CloudKitMigrationStatusTests.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitMigrationStatusTests.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitMigrationStatusTests.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitMigrationStatusTests.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitMigrationStatusTests.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitMigrationStatusTests.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTrackerTests/CloudKitSchemaTests.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitSchemaTests.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitSchemaTests.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitSchemaTests.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitSchemaTests.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CloudKitSchemaTests.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTrackerTests/CommitDockAnalyticsTests.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CommitDockAnalyticsTests.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CommitDockAnalyticsTests.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CommitDockAnalyticsTests.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CommitDockAnalyticsTests.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/CommitDockAnalyticsTests.swiftdeps"
+  }
+}

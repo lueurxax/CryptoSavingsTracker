@@ -1,0 +1,16 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Shared/UITestBootstrapView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Preparing test data…",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 31
+        }
+      }
+    ]
+  },
+  "version": 1
+}

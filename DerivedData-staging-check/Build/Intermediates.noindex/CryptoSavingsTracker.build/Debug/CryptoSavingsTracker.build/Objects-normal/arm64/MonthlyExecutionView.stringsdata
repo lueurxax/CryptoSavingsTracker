@@ -1,0 +1,248 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Planning/MonthlyExecutionView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Monthly Execution",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 59
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select Asset",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 134
+        }
+      },
+      {
+        "comment": "",
+        "key": "No assets available. Add an asset first.",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 79
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 137
+        }
+      },
+      {
+        "comment": "",
+        "key": "Calculating...",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 170
+        }
+      },
+      {
+        "comment": "",
+        "key": "Current focus: %@ (until %@)",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 236
+        }
+      },
+      {
+        "comment": "",
+        "key": "Remaining this month: %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 284
+        }
+      },
+      {
+        "comment": "",
+        "key": "Remaining this month: unavailable (rate missing)",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 288
+        }
+      },
+      {
+        "comment": "",
+        "key": "Some rates unavailable. Showing goal currency for those goals.",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 230
+        }
+      },
+      {
+        "comment": "",
+        "key": "Display Currency",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 204
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 251
+        }
+      },
+      {
+        "comment": "",
+        "key": "complete",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 255
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld/%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 263
+        }
+      },
+      {
+        "comment": "",
+        "key": "goals funded",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 266
+        }
+      },
+      {
+        "comment": "",
+        "key": "planned",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 277
+        }
+      },
+      {
+        "comment": "",
+        "key": "Undo",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 323
+        }
+      },
+      {
+        "comment": "",
+        "key": "Action started",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 310
+        }
+      },
+      {
+        "comment": "",
+        "key": "Undo expires in %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 315
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active Goals (%lld)",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 339
+        }
+      },
+      {
+        "comment": "",
+        "key": "All goals funded! 🎉",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 345
+        }
+      },
+      {
+        "comment": "",
+        "key": "No goals in this month's plan",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 352
+        }
+      },
+      {
+        "comment": "",
+        "key": "This may happen if the execution was started before the plan was properly saved.",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 356
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset to Planning Mode",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 362
+        }
+      },
+      {
+        "comment": "",
+        "key": "Completed This Month (%lld)",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 410
+        }
+      },
+      {
+        "comment": "",
+        "key": "This month is closed",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 452
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ / %@",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 560
+        }
+      },
+      {
+        "comment": "",
+        "key": "Remaining to close: %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 565
+        }
+      },
+      {
+        "comment": "",
+        "key": "Month already closed for this goal",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 571
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 546
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add to Close Month",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 581
+        }
+      }
+    ]
+  },
+  "version": 1
+}

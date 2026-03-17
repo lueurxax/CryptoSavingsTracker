@@ -1,0 +1,72 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/EditGoalViewPreview.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Tap to select emoji",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 125
+        }
+      },
+      {
+        "comment": "",
+        "key": "Suggestion:",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 135
+        }
+      },
+      {
+        "comment": "",
+        "key": "Clear",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 153
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld/140",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 186
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add a link to the product or service you're saving for",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 222
+        }
+      },
+      {
+        "comment": "",
+        "key": "https://example.com",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 203
+        }
+      },
+      {
+        "comment": "",
+        "key": "Valid URL",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 239
+        }
+      },
+      {
+        "comment": "",
+        "key": "Please enter a valid URL",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 239
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -1,0 +1,30 @@
+{
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTrackerTests/MoneyInputParserTests.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MoneyInputParserTests.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MoneyInputParserTests.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MoneyInputParserTests.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MoneyInputParserTests.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MoneyInputParserTests.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTrackerTests/MoneyQuantizerTests.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MoneyQuantizerTests.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MoneyQuantizerTests.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MoneyQuantizerTests.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MoneyQuantizerTests.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MoneyQuantizerTests.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTrackerTests/MonthlyCycleStateResolverParityTests.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MonthlyCycleStateResolverParityTests.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MonthlyCycleStateResolverParityTests.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MonthlyCycleStateResolverParityTests.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MonthlyCycleStateResolverParityTests.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MonthlyCycleStateResolverParityTests.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTrackerTests/MonthlyPlanModelTests.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MonthlyPlanModelTests.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MonthlyPlanModelTests.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MonthlyPlanModelTests.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MonthlyPlanModelTests.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/MonthlyPlanModelTests.swiftdeps"
+  }
+}

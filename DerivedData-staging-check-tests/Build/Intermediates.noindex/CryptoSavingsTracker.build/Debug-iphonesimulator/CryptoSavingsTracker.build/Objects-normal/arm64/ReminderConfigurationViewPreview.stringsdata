@@ -1,0 +1,16 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Components/ReminderConfigurationViewPreview.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Reminders: %@ - %@",
+        "location": {
+          "startingColumn": 1,
+          "startingLine": 13
+        }
+      }
+    ]
+  },
+  "version": 1
+}

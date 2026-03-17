@@ -1,0 +1,30 @@
+{
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTrackerTests/GoalCurrentTotalTests.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalCurrentTotalTests.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalCurrentTotalTests.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalCurrentTotalTests.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalCurrentTotalTests.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalCurrentTotalTests.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTrackerTests/GoalDashboardDiagnosticsCopyChecklistTests.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardDiagnosticsCopyChecklistTests.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardDiagnosticsCopyChecklistTests.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardDiagnosticsCopyChecklistTests.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardDiagnosticsCopyChecklistTests.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardDiagnosticsCopyChecklistTests.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTrackerTests/GoalDashboardLegacyWidgetMigrationTests.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardLegacyWidgetMigrationTests.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardLegacyWidgetMigrationTests.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardLegacyWidgetMigrationTests.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardLegacyWidgetMigrationTests.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardLegacyWidgetMigrationTests.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTrackerTests/GoalDashboardNavigationContractTests.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardNavigationContractTests.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardNavigationContractTests.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardNavigationContractTests.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardNavigationContractTests.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check-tests/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTrackerTests.build/Objects-normal/arm64/GoalDashboardNavigationContractTests.swiftdeps"
+  }
+}

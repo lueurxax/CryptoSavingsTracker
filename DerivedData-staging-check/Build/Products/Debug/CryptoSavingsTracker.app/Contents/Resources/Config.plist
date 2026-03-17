@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NowNodesAPIKey</key>
+	<string>403210c0-8547-4f5c-a2b9-4dfb1b1451ae</string>
+	<key>CoinGeckoAPIKey</key>
+	<string>CG-Dq3qkeTzqjYtbG5LDKJVTibv</string>
+	<key>TatumAPIKey</key>
+	<string>t-689212b765dcacffdeb94825-7383601ce39e48eab5b3bd97</string>
+</dict>
+</plist>

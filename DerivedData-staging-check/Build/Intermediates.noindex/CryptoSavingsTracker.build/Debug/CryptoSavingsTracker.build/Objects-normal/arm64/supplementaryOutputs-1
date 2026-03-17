@@ -1,0 +1,177 @@
+{
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Extensions/ChartDataModels+ChartPoint.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartDataModels+ChartPoint.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartDataModels+ChartPoint.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartDataModels+ChartPoint.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartDataModels+ChartPoint.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartDataModels+ChartPoint.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/AllocationHistory.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/AllocationHistory.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/AllocationHistory.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/AllocationHistory.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/AllocationHistory.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/AllocationHistory.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/Asset.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Asset.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Asset.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Asset.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Asset.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Asset.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/AssetAllocation.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/AssetAllocation.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/AssetAllocation.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/AssetAllocation.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/AssetAllocation.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/AssetAllocation.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/BalanceState.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/BalanceState.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/BalanceState.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/BalanceState.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/BalanceState.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/BalanceState.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/BudgetCalculatorModels.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/BudgetCalculatorModels.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/BudgetCalculatorModels.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/BudgetCalculatorModels.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/BudgetCalculatorModels.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/BudgetCalculatorModels.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/ChartDataModels.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartDataModels.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartDataModels.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartDataModels.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartDataModels.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartDataModels.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/ChartError.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartError.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartError.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartError.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartError.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ChartError.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/CompletedExecution.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/CompletedExecution.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/CompletedExecution.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/CompletedExecution.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/CompletedExecution.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/CompletedExecution.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/ContributionSource.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ContributionSource.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ContributionSource.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ContributionSource.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ContributionSource.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ContributionSource.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/DetailViewType.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/DetailViewType.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/DetailViewType.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/DetailViewType.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/DetailViewType.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/DetailViewType.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/ExecutionSnapshot.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionSnapshot.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionSnapshot.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionSnapshot.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionSnapshot.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionSnapshot.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/Goal+Editing.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Goal+Editing.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Goal+Editing.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Goal+Editing.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Goal+Editing.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Goal+Editing.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/Goal.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Goal.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Goal.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Goal.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Goal.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/Goal.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/GoalDashboardContract.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardContract.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardContract.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardContract.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardContract.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardContract.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/GoalDashboardSceneModel.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardSceneModel.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardSceneModel.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardSceneModel.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardSceneModel.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardSceneModel.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/GoalLifecycleStatus.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalLifecycleStatus.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalLifecycleStatus.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalLifecycleStatus.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalLifecycleStatus.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalLifecycleStatus.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/GoalTemplate.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalTemplate.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalTemplate.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalTemplate.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalTemplate.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/GoalTemplate.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/MoneyAmount.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MoneyAmount.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MoneyAmount.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MoneyAmount.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MoneyAmount.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MoneyAmount.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/MonthlyExecutionRecord.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyExecutionRecord.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyExecutionRecord.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyExecutionRecord.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyExecutionRecord.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyExecutionRecord.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/MonthlyPlan.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlan.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlan.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlan.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlan.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlan.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/MonthlyPlanningSettings.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningSettings.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningSettings.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningSettings.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningSettings.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningSettings.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/MonthlyRequirement.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyRequirement.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyRequirement.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyRequirement.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyRequirement.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyRequirement.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/QuickAction.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/QuickAction.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/QuickAction.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/QuickAction.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/QuickAction.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/QuickAction.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Models/ReminderFrequency.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ReminderFrequency.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ReminderFrequency.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ReminderFrequency.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ReminderFrequency.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/DerivedData-staging-check/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug/CryptoSavingsTracker.build/Objects-normal/arm64/ReminderFrequency.swiftdeps"
+  }
+}

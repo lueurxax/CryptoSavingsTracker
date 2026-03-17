@@ -1,0 +1,24 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Components/DetailContainerViewPreview.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "SwiftData in-memory container failed to initialize.",
+        "location": {
+          "startingColumn": 1,
+          "startingLine": 14
+        }
+      },
+      {
+        "comment": "",
+        "key": "Preview unavailable",
+        "location": {
+          "startingColumn": 1,
+          "startingLine": 14
+        }
+      }
+    ]
+  },
+  "version": 1
+}
