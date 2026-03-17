@@ -28,19 +28,16 @@ struct GoalDetailView: View {
     
     init(goal: Goal) {
         self.goal = goal
-        let goalId = goal.id
-        self._allAssets = Query(filter: #Predicate<Asset> { asset in
-            asset.allocations.contains { allocation in
-                allocation.goal?.id == goalId
-            }
-        }, sort: \Asset.currency)
-        
+        // #Predicate cannot traverse optional to-many arrays, so fetch all assets
+        // and filter in the goalAssets computed property instead.
+        self._allAssets = Query(sort: \Asset.currency)
+
         self._goalViewModel = State(initialValue: GoalViewModel(goal: goal))
     }
-    
+
     private var goalAssets: [Asset] {
         allAssets.filter { asset in
-            asset.allocations.contains { allocation in
+            (asset.allocations ?? []).contains { allocation in
                 allocation.goal?.id == goal.id
             }
         }

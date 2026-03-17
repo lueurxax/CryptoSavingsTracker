@@ -49,10 +49,10 @@ struct ExecutionTrackingServiceTests {
         // Link asset to goals via allocations (required for ExecutionProgressCalculator)
         let alloc1 = AssetAllocation(asset: asset, goal: goal1, amount: 100)
         let alloc2 = AssetAllocation(asset: asset, goal: goal2, amount: 0)
-        goal1.allocations.append(alloc1)
-        goal2.allocations.append(alloc2)
-        asset.allocations.append(alloc1)
-        asset.allocations.append(alloc2)
+        goal1.allocations = (goal1.allocations ?? []) + [alloc1]
+        goal2.allocations = (goal2.allocations ?? []) + [alloc2]
+        asset.allocations = (asset.allocations ?? []) + [alloc1]
+        asset.allocations = (asset.allocations ?? []) + [alloc2]
         context.insert(alloc1)
         context.insert(alloc2)
 
@@ -95,7 +95,7 @@ struct ExecutionTrackingServiceTests {
 
         // Deposit 100 USD after tracking started (goes to goal1 since it has the target)
         let tx = Transaction(amount: 100, asset: asset, date: depositTime)
-        asset.transactions.append(tx)
+        asset.transactions = (asset.transactions ?? []) + [tx]
         context.insert(tx)
 
         // Reallocate 40 from goal1 to goal2 by changing targets
@@ -120,8 +120,8 @@ struct ExecutionTrackingServiceTests {
         let goal = TestDataFactory.createSampleGoal(name: "Goal", targetAmount: 1000, daysFromNow: 60)
         let asset = Asset(currency: "USD")
         let allocation = AssetAllocation(asset: asset, goal: goal, amount: 50)
-        asset.allocations.append(allocation)
-        goal.allocations.append(allocation)
+        asset.allocations = (asset.allocations ?? []) + [allocation]
+        goal.allocations = (goal.allocations ?? []) + [allocation]
 
         context.insert(goal)
         context.insert(asset)
@@ -165,8 +165,8 @@ struct ExecutionTrackingServiceTests {
         )
         let asset = Asset(currency: "USD")
         let allocation = AssetAllocation(asset: asset, goal: goal, amount: 100)
-        goal.allocations.append(allocation)
-        asset.allocations.append(allocation)
+        goal.allocations = (goal.allocations ?? []) + [allocation]
+        asset.allocations = (asset.allocations ?? []) + [allocation]
         context.insert(goal)
         context.insert(asset)
         context.insert(allocation)
@@ -185,22 +185,22 @@ struct ExecutionTrackingServiceTests {
 
         let record = try executionService.startTracking(for: monthLabel, from: [plan], goals: [goal])
         let tx = Transaction(amount: 50, asset: asset, date: Date().addingTimeInterval(1))
-        asset.transactions.append(tx)
+        asset.transactions = (asset.transactions ?? []) + [tx]
         context.insert(tx)
         try context.save()
 
         try await executionService.markComplete(record)
-        #expect(record.completionEvents.count == 1)
-        let firstEventId = record.completionEvents.first?.eventId
-        #expect(record.completionEvents.first?.undoneAt == nil)
+        #expect((record.completionEvents ?? []).count == 1)
+        let firstEventId = (record.completionEvents ?? []).first?.eventId
+        #expect((record.completionEvents ?? []).first?.undoneAt == nil)
 
         try executionService.undoCompletion(record)
 
         #expect(record.status == .executing)
-        #expect(record.completionEvents.count == 1)
-        #expect(record.completionEvents.first?.eventId == firstEventId)
-        #expect(record.completionEvents.first?.undoneAt != nil)
-        #expect(record.completionEvents.first?.completionSnapshot != nil)
+        #expect((record.completionEvents ?? []).count == 1)
+        #expect((record.completionEvents ?? []).first?.eventId == firstEventId)
+        #expect((record.completionEvents ?? []).first?.undoneAt != nil)
+        #expect((record.completionEvents ?? []).first?.completionSnapshot != nil)
     }
 
     @Test("Backfill completion events is idempotent for legacy closed records")
@@ -226,7 +226,7 @@ struct ExecutionTrackingServiceTests {
         context.insert(snapshot)
         try context.save()
 
-        #expect(record.completionEvents.isEmpty)
+        #expect((record.completionEvents ?? []).isEmpty)
 
         let firstInsertCount = try executionService.backfillCompletionEventsIfNeeded()
         let secondInsertCount = try executionService.backfillCompletionEventsIfNeeded()

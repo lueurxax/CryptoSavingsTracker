@@ -12,14 +12,15 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var monthlySettings = MonthlyPlanningSettings.shared
-    @StateObject private var cloudKitMigrationController = CloudKitMigrationController.shared
+    @StateObject private var persistenceController = PersistenceController.shared
+    @StateObject private var bridgeController = LocalBridgeSyncController.shared
     @State private var showingMonthlyPlanningSettings = false
     @State private var settingsVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .settings)
     @State private var exportResult: CSVExportResult?
     @State private var exportErrorMessage: String?
     @State private var showingExportError = false
     @StateObject private var healthMonitor = DIContainer.shared.cloudKitHealthMonitor
-    
+
     var body: some View {
         NavigationStack {
             Form {
@@ -44,43 +45,32 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    if settingsVisualEnabled {
-                        SettingsSectionRow(
-                            title: "CloudKit Migration Status",
-                            systemImage: "icloud",
-                            value: cloudKitMigrationController.snapshot.statusSummary,
-                            accessibilityIdentifier: "settings.cloudkit.status"
-                        )
-                    } else {
-                        LegacySettingsValueRow(
-                            title: "CloudKit Migration Status",
-                            value: cloudKitMigrationController.snapshot.statusSummary,
-                            accessibilityIdentifier: "settings.cloudkit.status"
-                        )
-                    }
-
-                    NavigationLink("Migration Diagnostics") {
-                        CloudKitMigrationStatusView(controller: cloudKitMigrationController)
-                    }
-                    .accessibilityIdentifier("settings.cloudkit.diagnostics")
-
-                    if cloudKitMigrationController.snapshot.readinessState != .complete {
-                        NavigationLink(cloudKitMigrationController.snapshot.migrationActionTitle) {
-                            CloudKitMigrationProgressView(controller: cloudKitMigrationController)
+                    NavigationLink {
+                        LocalBridgeSyncView(persistenceSnapshot: persistenceController.snapshot)
+                    } label: {
+                        let bridgeSummary = bridgeController
+                            .statusSnapshot(persistenceSnapshot: persistenceController.snapshot)
+                            .topLevelSummary
+                        if settingsVisualEnabled {
+                            SettingsSectionRow(
+                                title: "Local Bridge Sync",
+                                systemImage: "arrow.triangle.2.circlepath.icloud",
+                                value: bridgeSummary,
+                                accessibilityIdentifier: "settings.cloudkit.localBridgeSyncRow"
+                            )
+                        } else {
+                            LegacySettingsValueRow(
+                                title: "Local Bridge Sync",
+                                value: bridgeSummary,
+                                accessibilityIdentifier: "settings.cloudkit.localBridgeSyncRow"
+                            )
                         }
-                        .disabled(!cloudKitMigrationController.snapshot.isMigrationActionAvailable)
-                        .accessibilityIdentifier("settings.cloudkit.migrate")
-                    } else {
-                        LabeledContent("Migration") {
-                            Text("Complete")
-                                .foregroundStyle(.green)
-                        }
-                        .accessibilityIdentifier("settings.cloudkit.migrate")
                     }
+                    .accessibilityIdentifier("settings.cloudkit.localBridgeSync")
                 } header: {
-                    Text("iCloud Migration")
+                    Text("Sync")
                 } footer: {
-                    Text("Bridge controls stay hidden until CloudKit migration completes and the runtime is CloudKit-only.")
+                    Text("Authoritative application data now lives only in CloudKit. Local persistence remains available only for caches and other non-authoritative helper data.")
                 }
 
                 Section("Monthly Planning") {
@@ -162,7 +152,8 @@ struct SettingsView: View {
         }
         .onAppear {
             settingsVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .settings)
-            cloudKitMigrationController.refresh()
+            persistenceController.refresh()
+            bridgeController.refresh()
         }
     }
 }

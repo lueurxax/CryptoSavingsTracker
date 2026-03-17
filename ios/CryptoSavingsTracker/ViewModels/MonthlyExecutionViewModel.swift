@@ -426,7 +426,7 @@ final class MonthlyExecutionViewModel: ObservableObject {
     func assetsForContribution(goalId: UUID) -> [Asset] {
         let assets = (try? modelContext.fetch(FetchDescriptor<Asset>())) ?? []
         let allocated = assets.filter { asset in
-            asset.allocations.contains(where: { $0.goal?.id == goalId })
+            (asset.allocations ?? []).contains(where: { $0.goal?.id == goalId })
         }
         return allocated.isEmpty ? assets : allocated
     }

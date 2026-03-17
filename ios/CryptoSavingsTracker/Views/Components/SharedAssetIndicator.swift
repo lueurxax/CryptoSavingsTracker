@@ -13,11 +13,11 @@ struct SharedAssetIndicator: View {
     let currentGoal: Goal
     
     private var isShared: Bool {
-        asset.allocations.count > 1
+        (asset.allocations ?? []).count > 1
     }
-    
+
     private var allocationRatio: Double {
-        guard let allocation = asset.allocations.first(where: { $0.goal?.id == currentGoal.id }) else { return 0 }
+        guard let allocation = (asset.allocations ?? []).first(where: { $0.goal?.id == currentGoal.id }) else { return 0 }
         let balance = asset.currentAmount
         let amount = allocation.amountValue
         guard balance > 0 else { return 0 }
@@ -25,7 +25,7 @@ struct SharedAssetIndicator: View {
     }
     
     private var otherGoalsCount: Int {
-        asset.allocations.compactMap { $0.goal }.filter { $0.id != currentGoal.id }.count
+        (asset.allocations ?? []).compactMap { $0.goal }.filter { $0.id != currentGoal.id }.count
     }
     
     var body: some View {
@@ -61,20 +61,20 @@ struct AssetListItemView: View {
     @State private var currentBalance: Double = 0
     
     private var effectiveBalance: Double {
-        guard let allocation = asset.allocations.first(where: { $0.goal?.id == goal.id }) else { return 0 }
+        guard let allocation = (asset.allocations ?? []).first(where: { $0.goal?.id == goal.id }) else { return 0 }
         let totalBalance = currentBalance
         let amount = allocation.amountValue
         return min(amount, totalBalance)
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(asset.currency)
                         .font(.headline)
-                    
-                    if asset.allocations.count > 1 {
+
+                    if (asset.allocations ?? []).count > 1 {
                         SharedAssetIndicator(asset: asset, currentGoal: goal)
                     }
                 }
@@ -82,7 +82,7 @@ struct AssetListItemView: View {
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: 2) {
-                    if asset.allocations.count > 1 {
+                    if (asset.allocations ?? []).count > 1 {
                         // Show allocated amount
                         Text("\(effectiveBalance, specifier: "%.4f") \(asset.currency)")
                             .font(.caption)

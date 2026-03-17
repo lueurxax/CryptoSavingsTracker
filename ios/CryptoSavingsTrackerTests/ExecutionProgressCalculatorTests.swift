@@ -55,11 +55,11 @@ final class ExecutionProgressCalculatorTests: XCTestCase {
         let txAfterStart = Transaction(amount: 0.5, asset: asset)
         txAfterStart.date = txAfter
 
-        asset.transactions.append(contentsOf: [txBeforeStart, txAfterStart])
+        asset.transactions = (asset.transactions ?? []) + [txBeforeStart, txAfterStart]
 
         // Dedicated + fully allocated at start (target == balance at start).
         let allocation = AssetAllocation(asset: asset, goal: goal, amount: 1.0)
-        asset.allocations.append(allocation)
+        asset.allocations = (asset.allocations ?? []) + [allocation]
 
         // Baseline at start, and auto-allocation snapshot at tx timestamp (target tracks new balance).
         context.insert(goal)
@@ -98,7 +98,7 @@ final class ExecutionProgressCalculatorTests: XCTestCase {
         txBeforeStart.date = start.addingTimeInterval(-3600)
         let txAfterStart = Transaction(amount: 0.5, asset: asset)
         txAfterStart.date = txAfter
-        asset.transactions.append(contentsOf: [txBeforeStart, txAfterStart])
+        asset.transactions = (asset.transactions ?? []) + [txBeforeStart, txAfterStart]
 
         // Shared but under-allocated at start (targets total 0.8 < balance 1.0).
         context.insert(goalA)
@@ -135,7 +135,7 @@ final class ExecutionProgressCalculatorTests: XCTestCase {
         let allocation = AssetAllocation(asset: asset, goal: goal, amount: 0.01)
 
         let tx = Transaction(amount: 0.01, asset: asset, date: txAfter)
-        asset.transactions.append(tx)
+        asset.transactions = (asset.transactions ?? []) + [tx]
 
         context.insert(goal)
         context.insert(asset)
@@ -170,7 +170,7 @@ final class ExecutionProgressCalculatorTests: XCTestCase {
         txBeforeStart.date = start.addingTimeInterval(-3600)
         let txAfterStart = Transaction(amount: 0.2, asset: asset)
         txAfterStart.date = txAfter
-        asset.transactions.append(contentsOf: [txBeforeStart, txAfterStart])
+        asset.transactions = (asset.transactions ?? []) + [txBeforeStart, txAfterStart]
 
         // Over-allocated at start (targets total 1.2 > balance 1.0).
         context.insert(goalA)
@@ -208,7 +208,7 @@ final class ExecutionProgressCalculatorTests: XCTestCase {
 
         // Transaction at the same timestamp as two history snapshots.
         let tx = Transaction(amount: 0.01, asset: asset, date: ts)
-        asset.transactions.append(tx)
+        asset.transactions = (asset.transactions ?? []) + [tx]
 
         context.insert(goal)
         context.insert(asset)

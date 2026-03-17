@@ -78,7 +78,7 @@ final class ExecutionTrackingService {
 
         for record in records {
             guard record.status == .closed else { continue }
-            if !record.completionEvents.isEmpty { continue }
+            if !(record.completionEvents ?? []).isEmpty { continue }
             guard let snapshot = record.completedExecution else {
                 AppLog.warning(
                     "Skipping CompletionEvent backfill for \(record.monthLabel): missing completedExecution snapshot.",
@@ -244,7 +244,7 @@ final class ExecutionTrackingService {
             baselineEntries.reserveCapacity(allAssets.count)
 
             for asset in allAssets {
-                for allocation in asset.allocations {
+                for allocation in (asset.allocations ?? []) {
                     guard let goal = allocation.goal, goalIds.contains(goal.id) else { continue }
                     let amount = allocation.amountValue
                     baselineEntries.append((asset: asset, goal: goal, amount: amount))
@@ -487,11 +487,11 @@ final class ExecutionTrackingService {
     }
 
     private func nextCompletionSequence(for record: MonthlyExecutionRecord) -> Int {
-        (record.completionEvents.map(\.sequence).max() ?? 0) + 1
+        ((record.completionEvents ?? []).map(\.sequence).max() ?? 0) + 1
     }
 
     private func latestOpenCompletionEvent(for record: MonthlyExecutionRecord) -> CompletionEvent? {
-        record.completionEvents
+        (record.completionEvents ?? [])
             .filter { $0.undoneAt == nil }
             .sorted { lhs, rhs in
                 if lhs.sequence == rhs.sequence {

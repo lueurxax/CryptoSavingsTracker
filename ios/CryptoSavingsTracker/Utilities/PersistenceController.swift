@@ -10,16 +10,30 @@ import Foundation
 import SwiftData
 
 enum AppStorageMode: String, Codable, CaseIterable, Sendable {
+    /// Legacy compatibility value retained only for tests and old UserDefaults values.
+    /// Production runtime no longer supports local-only primary storage.
     case localOnly
-    case cloudPrimaryWithLocalMirror
+    /// CloudKit is the only supported primary store for authoritative application data.
+    case cloudKitPrimary
+    /// Rollback to local-only is no longer available.
     case cloudRollbackBlocked
+
+    // Legacy key kept only for UserDefaults deserialization of pre-rename values.
+    init?(rawValue: String) {
+        switch rawValue {
+        case "localOnly": self = .localOnly
+        case "cloudKitPrimary", "cloudPrimaryWithLocalMirror": self = .cloudKitPrimary
+        case "cloudRollbackBlocked": self = .cloudRollbackBlocked
+        default: return nil
+        }
+    }
 
     var displayName: String {
         switch self {
         case .localOnly:
             return "Local only"
-        case .cloudPrimaryWithLocalMirror:
-            return "Cloud primary with local mirror"
+        case .cloudKitPrimary:
+            return "CloudKit primary"
         case .cloudRollbackBlocked:
             return "Cloud rollback blocked"
         }
@@ -88,7 +102,7 @@ final class UserDefaultsStorageModeRegistry: StorageModeRegistry {
     var currentMode: AppStorageMode {
         guard let rawValue = userDefaults.string(forKey: modeKey),
               let mode = AppStorageMode(rawValue: rawValue) else {
-            return .localOnly
+            return .cloudKitPrimary
         }
         return mode
     }
@@ -193,6 +207,15 @@ struct PersistenceStackFactory {
         )
     }
 
+    var cloudPrimaryStagingDescriptor: PersistenceStoreDescriptor {
+        PersistenceStoreDescriptor(
+            kind: .cloudPrimary,
+            storeName: "cloud-primary-staging",
+            storeURL: environment.appSupportURL?.appendingPathComponent("cloud-primary-staging.store"),
+            cloudKitEnabled: false
+        )
+    }
+
     func ensureApplicationSupportDirectoryExists() {
         guard let appSupportURL = environment.appSupportURL else { return }
         try? fileManager.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
@@ -261,7 +284,7 @@ struct PersistenceStackFactory {
         case .localOnly:
             activeDescriptor = localPrimaryDescriptor
             cloudKitSetting = .none
-        case .cloudPrimaryWithLocalMirror, .cloudRollbackBlocked:
+        case .cloudKitPrimary, .cloudRollbackBlocked:
             activeDescriptor = cloudPrimaryDescriptor
             cloudKitSetting = .automatic
         }
@@ -285,6 +308,59 @@ struct PersistenceStackFactory {
         }
     }
 
+    func makeContainer(
+        descriptor: PersistenceStoreDescriptor,
+        cloudKitEnabled: Bool
+    ) throws -> ModelContainer {
+        ensureApplicationSupportDirectoryExists()
+
+        let cloudKitSetting: ModelConfiguration.CloudKitDatabase = cloudKitEnabled ? .automatic : .none
+        let modelConfiguration = ModelConfiguration(
+            descriptor.storeName,
+            schema: Self.schema,
+            isStoredInMemoryOnly: environment.isTestRun,
+            allowsSave: true,
+            groupContainer: .none,
+            cloudKitDatabase: cloudKitSetting
+        )
+
+        return try ModelContainer(for: Self.schema, configurations: [modelConfiguration])
+    }
+
+    func removeStoreFiles(descriptor: PersistenceStoreDescriptor) {
+        guard let storeURL = descriptor.storeURL else { return }
+        let suffixes = ["", "-shm", "-wal", "-journal"]
+        for suffix in suffixes {
+            let path = storeURL.path + suffix
+            if fileManager.fileExists(atPath: path) {
+                try? fileManager.removeItem(atPath: path)
+            }
+        }
+    }
+
+    func replaceStoreFiles(from source: PersistenceStoreDescriptor, to destination: PersistenceStoreDescriptor) throws {
+        guard let sourceURL = source.storeURL, let destinationURL = destination.storeURL else { return }
+
+        ensureApplicationSupportDirectoryExists()
+        removeStoreFiles(descriptor: destination)
+
+        let suffixes = ["", "-shm", "-wal", "-journal"]
+        for suffix in suffixes {
+            let sourcePath = sourceURL.path + suffix
+            guard fileManager.fileExists(atPath: sourcePath) else { continue }
+            let destinationPath = destinationURL.path + suffix
+            try fileManager.copyItem(atPath: sourcePath, toPath: destinationPath)
+        }
+    }
+
+    func storeFilesExist(descriptor: PersistenceStoreDescriptor) -> Bool {
+        guard let storeURL = descriptor.storeURL else { return false }
+        let suffixes = ["", "-shm", "-wal", "-journal"]
+        return suffixes.contains { suffix in
+            fileManager.fileExists(atPath: storeURL.path + suffix)
+        }
+    }
+
     func runtimeSnapshot(
         activeMode: AppStorageMode,
         selectedMode: AppStorageMode,
@@ -296,7 +372,7 @@ struct PersistenceStackFactory {
         case .localOnly:
             storeKind = .localPrimary
             cloudKitEnabled = false
-        case .cloudPrimaryWithLocalMirror, .cloudRollbackBlocked:
+        case .cloudKitPrimary, .cloudRollbackBlocked:
             storeKind = .cloudPrimary
             cloudKitEnabled = true
         }
@@ -315,8 +391,18 @@ struct PersistenceStackFactory {
 
     func migrationBlockers(activeMode: AppStorageMode, selectedMode: AppStorageMode) -> [PersistenceRuntimeBlocker] {
         // If already running on CloudKit, no blockers
-        if activeMode == .cloudPrimaryWithLocalMirror || activeMode == .cloudRollbackBlocked {
+        if activeMode == .cloudKitPrimary || activeMode == .cloudRollbackBlocked {
             return []
+        }
+
+        if selectedMode == .cloudKitPrimary || selectedMode == .cloudRollbackBlocked {
+            return [
+                PersistenceRuntimeBlocker(
+                    id: "relaunch-required",
+                    title: "Relaunch required",
+                    detail: "Migration data is prepared. Close and reopen the app to activate CloudKit runtime."
+                )
+            ]
         }
 
         // In local-only mode, report what's needed to migrate
@@ -326,7 +412,7 @@ struct PersistenceStackFactory {
             PersistenceRuntimeBlocker(
                 id: "runtime-disabled",
                 title: "CloudKit runtime is not active",
-                detail: "The app is running in local-only mode. Use 'Migrate to iCloud' in Settings to enable CloudKit sync."
+                detail: "The app is still pointed at the retired local-only mode. Relaunch on the CloudKit primary runtime or clear stale configuration."
             )
         )
 
@@ -342,9 +428,11 @@ struct PersistenceStackFactory {
 @MainActor
 final class PersistenceController: ObservableObject {
     static let shared = PersistenceController()
+    static let pendingCloudCleanupKey = "CloudKit.PendingStoreCleanup"
+    static let pendingStagingCleanupKey = "CloudKit.PendingStagingStoreCleanup"
 
     @Published private(set) var snapshot: PersistenceRuntimeSnapshot
-    let activeContainer: ModelContainer
+    @Published private(set) var activeContainer: ModelContainer
 
     private let storageModeRegistry: StorageModeRegistry
     let stackFactory: PersistenceStackFactory
@@ -367,14 +455,75 @@ final class PersistenceController: ObservableObject {
     ) {
         self.storageModeRegistry = storageModeRegistry
         self.stackFactory = stackFactory
-        let mode = storageModeRegistry.currentMode
+        let mode = Self.resolveBootMode(
+            registryMode: storageModeRegistry.currentMode,
+            storageModeRegistry: storageModeRegistry,
+            stackFactory: stackFactory
+        )
         self.activeMode = mode
         self.activeContainer = try! stackFactory.makeContainer(for: mode)
         self.snapshot = stackFactory.runtimeSnapshot(
             activeMode: mode,
-            selectedMode: mode,
+            selectedMode: storageModeRegistry.currentMode,
             lastModeUpdatedAt: storageModeRegistry.lastUpdatedAt
         )
+    }
+
+    static func performDeferredCloudStoreCleanupIfNeeded() {
+        let cleanupTargets = [
+            (pendingCloudCleanupKey, "cloud store"),
+            (pendingStagingCleanupKey, "staging store")
+        ]
+
+        for (key, label) in cleanupTargets {
+            guard let storePath = UserDefaults.standard.string(forKey: key) else { continue }
+            let suffixes = ["", "-shm", "-wal", "-journal"]
+            var removed = 0
+            for suffix in suffixes {
+                let path = storePath + suffix
+                if FileManager.default.fileExists(atPath: path) {
+                    try? FileManager.default.removeItem(atPath: path)
+                    removed += 1
+                }
+            }
+            UserDefaults.standard.removeObject(forKey: key)
+            AppLog.info(
+                "Deferred \(label) cleanup: removed \(removed) file(s) at \(storePath)",
+                category: .swiftData
+            )
+        }
+    }
+
+    static func performLegacyLocalStoreCleanupIfNeeded() {
+        let stackFactory = PersistenceStackFactory()
+        guard !stackFactory.environment.isTestRun else { return }
+
+        let descriptor = stackFactory.localPrimaryDescriptor
+        guard stackFactory.storeFilesExist(descriptor: descriptor) else { return }
+
+        stackFactory.removeStoreFiles(descriptor: descriptor)
+        AppLog.info(
+            "Removed retired local-primary store files after CloudKit hard cutover",
+            category: .swiftData
+        )
+    }
+
+    private static func resolveBootMode(
+        registryMode: AppStorageMode,
+        storageModeRegistry: StorageModeRegistry,
+        stackFactory: PersistenceStackFactory
+    ) -> AppStorageMode {
+        guard !stackFactory.environment.isTestRun else { return registryMode }
+
+        if registryMode != .cloudKitPrimary {
+            storageModeRegistry.setMode(.cloudKitPrimary)
+            AppLog.warning(
+                "Reconciled startup mode to CloudKit primary; legacy local runtime is retired",
+                category: .swiftData
+            )
+        }
+
+        return .cloudKitPrimary
     }
 
     func refresh() {
@@ -386,6 +535,13 @@ final class PersistenceController: ObservableObject {
     }
 
     func activate(mode: AppStorageMode) throws {
+        if mode == .localOnly {
+            throw PersistenceControllerError.activationBlocked(
+                mode,
+                ["Legacy local runtime has been removed. Authoritative application data now lives only in CloudKit."]
+            )
+        }
+
         // Mode changes require app restart — the container is created at init time.
         // This method validates that the requested mode is achievable and updates the registry.
         if mode != .localOnly && activeMode == .localOnly {
@@ -398,5 +554,16 @@ final class PersistenceController: ObservableObject {
         }
 
         refresh()
+    }
+
+    /// Hot-swap the active container to a pre-built container.
+    /// Called by the cutover coordinator after copy+validate succeed.
+    /// The caller is responsible for persisting the mode to the registry
+    /// only AFTER this method returns successfully.
+    func switchToContainer(_ container: ModelContainer, mode: AppStorageMode) throws {
+        activeMode = mode
+        activeContainer = container
+        refresh()
+        AppLog.info("Hot-swapped to \(mode.displayName) container", category: .swiftData)
     }
 }

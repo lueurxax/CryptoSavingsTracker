@@ -170,7 +170,7 @@ struct AssetDetailView: View {
                 .font(.caption)
             }
             
-            if asset.transactions.isEmpty {
+            if (asset.transactions ?? []).isEmpty {
                 Text("No transactions yet")
                     .foregroundColor(.secondary)
                     .font(.caption)
@@ -178,7 +178,7 @@ struct AssetDetailView: View {
                     .padding()
             } else {
                 VStack(spacing: 8) {
-                    ForEach(asset.transactions.prefix(3)) { transaction in
+                    ForEach((asset.transactions ?? []).prefix(3)) { transaction in
                         HStack {
                             VStack(alignment: .leading) {
                                 Text(String(format: "%.6f %@", transaction.amount, asset.currency))
@@ -201,7 +201,7 @@ struct AssetDetailView: View {
                         }
                         .padding(.vertical, 4)
                         
-                        if transaction != asset.transactions.prefix(3).last {
+                        if transaction != (asset.transactions ?? []).prefix(3).last {
                             Divider()
                         }
                     }

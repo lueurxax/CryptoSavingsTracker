@@ -347,7 +347,7 @@ struct GoalDashboardSceneAssembler {
         let monthRange = calendar.dateInterval(of: .month, for: Date())
         guard let start = monthRange?.start, let end = monthRange?.end else { return 0 }
 
-        let transactions = goal.allocatedAssets.flatMap { $0.transactions }
+        let transactions = goal.allocatedAssets.flatMap { $0.transactions ?? [] }
         let sum = transactions
             .filter { $0.date >= start && $0.date < end && $0.amount > 0 }
             .reduce(Decimal(0)) { partial, tx in
@@ -361,7 +361,7 @@ struct GoalDashboardSceneAssembler {
     }
 
     private func buildAllocationHealthSlice(goal: Goal, freshness: DataFreshnessState) -> AllocationHealthSlice {
-        let positiveAllocations = goal.allocations
+        let positiveAllocations = (goal.allocations ?? [])
             .compactMap { allocation -> (Asset, Decimal)? in
                 guard let asset = allocation.asset, allocation.amountValue > 0 else {
                     return nil

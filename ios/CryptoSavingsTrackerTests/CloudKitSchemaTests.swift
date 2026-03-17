@@ -129,8 +129,8 @@ struct CloudKitSchemaTests {
         try context.save()
 
         // Navigate from record → plans
-        #expect(execRecord.plans.count == 1)
-        #expect(execRecord.plans.first?.id == plan.id)
+        #expect((execRecord.plans ?? []).count == 1)
+        #expect((execRecord.plans ?? []).first?.id == plan.id)
 
         // Navigate from plan → record
         #expect(plan.executionRecord?.id == execRecord.id)
@@ -171,11 +171,11 @@ struct CloudKitSchemaTests {
         context.insert(asset)
 
         let tx = Transaction(amount: 1.5, asset: asset)
-        asset.transactions.append(tx)
+        asset.transactions = (asset.transactions ?? []) + [tx]
         context.insert(tx)
         try context.save()
 
-        #expect(asset.transactions.count == 1)
+        #expect((asset.transactions ?? []).count == 1)
         #expect(tx.asset?.id == asset.id)
     }
 
@@ -198,7 +198,7 @@ struct CloudKitSchemaTests {
         context.insert(allocation)
         try context.save()
 
-        #expect(goal.allocations.contains(where: { $0.id == allocation.id }))
+        #expect((goal.allocations ?? []).contains(where: { $0.id == allocation.id }))
         #expect(allocation.goal?.id == goal.id)
         #expect(allocation.asset?.id == asset.id)
     }

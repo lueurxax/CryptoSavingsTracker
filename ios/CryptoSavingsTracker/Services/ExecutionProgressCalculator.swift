@@ -60,7 +60,7 @@ final class ExecutionProgressCalculator {
 
         for asset in assets {
             // Only process assets relevant to this execution (allocated to tracked goals OR has relevant history).
-            let hasTrackedAllocation = asset.allocations.contains(where: { allocation in
+            let hasTrackedAllocation = (asset.allocations ?? []).contains(where: { allocation in
                 guard let goalId = allocation.goal?.id else { return false }
                 return trackedGoalIds.contains(goalId)
             })
@@ -72,7 +72,7 @@ final class ExecutionProgressCalculator {
             // This keeps the calculator usable even when we don't have a full pre-start transaction ledger
             // (e.g., on-chain assets where we only persist a rolling window of chain history).
             let endBalance = max(0, asset.currentAmount)
-            let deltaDuringWindow = asset.transactions
+            let deltaDuringWindow = (asset.transactions ?? [])
                 .filter { $0.date >= startedAt && $0.date <= end }
                 .reduce(0.0) { $0 + $1.amount }
             let startBalance = max(0, endBalance - deltaDuringWindow)
@@ -98,7 +98,7 @@ final class ExecutionProgressCalculator {
             // use the current allocation target as the starting target. This prevents "missing contributions"
             // when AllocationHistory writes are absent (e.g., older data or edge UI flows), while still avoiding
             // guessing for shared assets.
-            let trackedAllocations = asset.allocations.compactMap { allocation -> (goalId: UUID, amount: Double)? in
+            let trackedAllocations = (asset.allocations ?? []).compactMap { allocation -> (goalId: UUID, amount: Double)? in
                 guard let goalId = allocation.goal?.id, trackedGoalIds.contains(goalId) else { return nil }
                 return (goalId, max(0, allocation.amountValue))
             }
@@ -117,7 +117,7 @@ final class ExecutionProgressCalculator {
 
             // Group transactions and allocation updates by timestamp within the window.
             var txAmountByTimestamp: [Date: Double] = [:]
-            for tx in asset.transactions where tx.date >= startedAt && tx.date <= end {
+            for tx in (asset.transactions ?? []) where tx.date >= startedAt && tx.date <= end {
                 txAmountByTimestamp[tx.date, default: 0] += tx.amount
             }
 

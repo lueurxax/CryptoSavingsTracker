@@ -4,8 +4,8 @@
 
 | Metadata | Value |
 |----------|-------|
-| Status | 📋 Planned |
-| Last Updated | 2026-03-16 |
+| Status | ✅ Completed (Phase 0/1/1.5); retained as execution record |
+| Last Updated | 2026-03-17 |
 | Platform | iOS |
 | Audience | Developers |
 
@@ -17,12 +17,12 @@ Deliver an iPhone app that:
 - migrates an existing local SwiftData store into CloudKit safely,
 - runs stably on CloudKit as the primary persistence runtime,
 - removes local-runtime backward compatibility after the CloudKit cutover is proven stable,
-- keeps the Phase 2 QR/Multipeer bridge out of scope until the app is already CloudKit-only.
+- keeps the Phase 2 QR/Multipeer bridge out of scope until the app is already CloudKit-only (this prerequisite is now satisfied).
 
 This execution plan covers:
 - **Phase 0**: CloudKit readiness and prerequisites
 - **Phase 1**: local-to-CloudKit cutover
-- **Phase 1.5**: hard cutover cleanup to CloudKit-only runtime
+- **Phase 1.5**: hard cutover cleanup to CloudKit-only runtime (accepted for production authoritative data)
 
 This execution plan does **not** cover:
 - QR pairing
@@ -34,7 +34,7 @@ This execution plan does **not** cover:
 
 ## Current Baseline
 
-The current repo already has two partial foundational slices in progress:
+At execution start, the repo had two partial foundational slices:
 - runtime persistence ownership via [ios/CryptoSavingsTracker/Utilities/PersistenceController.swift](../ios/CryptoSavingsTracker/Utilities/PersistenceController.swift)
 - runtime write-boundary cleanup via [ios/CryptoSavingsTracker/Services/PersistenceMutationServices.swift](../ios/CryptoSavingsTracker/Services/PersistenceMutationServices.swift)
 
@@ -95,19 +95,19 @@ Create worktrees from that integration branch with the following branch names:
 **Owns:**
 - [ios/CryptoSavingsTracker/Utilities/PersistenceController.swift](../ios/CryptoSavingsTracker/Utilities/PersistenceController.swift)
 - [ios/CryptoSavingsTracker/CryptoSavingsTrackerApp.swift](../ios/CryptoSavingsTracker/CryptoSavingsTrackerApp.swift)
-- [ios/CryptoSavingsTracker/Utilities/CloudKitMigrationStatus.swift](../ios/CryptoSavingsTracker/Utilities/CloudKitMigrationStatus.swift)
-- [ios/CryptoSavingsTracker/Views/Settings/CloudKitMigrationStatusView.swift](../ios/CryptoSavingsTracker/Views/Settings/CloudKitMigrationStatusView.swift)
+- [ios/CryptoSavingsTracker/Utilities/Bridge/LocalBridgeModels.swift](../ios/CryptoSavingsTracker/Utilities/Bridge/LocalBridgeModels.swift)
+- [ios/CryptoSavingsTracker/Views/Settings/LocalBridgeSyncView.swift](../ios/CryptoSavingsTracker/Views/Settings/LocalBridgeSyncView.swift)
 
 **Purpose:**
 - finish the two-store topology
 - make `PersistenceController` the only runtime owner of the active `ModelContainer`
-- expose real runtime/store diagnostics while still keeping runtime `localOnly`
+- expose real runtime/store diagnostics during pre-cutover rollout
 
 **Done when:**
 - active runtime no longer depends on `sharedModelContainer`
 - local and future cloud store descriptors are explicit
 - storage mode registry and runtime snapshot are wired into diagnostics
-- CloudKit activation is still blocked, but block reasons are real, not placeholder text
+- pre-cutover CloudKit activation blockers are real and operator-visible (historical rollout requirement)
 
 ### WT-03 — Write Pipeline
 
@@ -142,12 +142,12 @@ Create worktrees from that integration branch with the following branch names:
 **Purpose:**
 - implement the actual migration from the current local store into the future cloud primary store
 - validate copied data before switching modes
-- persist selected storage mode and relaunch into the CloudKit runtime cleanly
+- persist selected storage mode and relaunch into the CloudKit runtime cleanly, without in-session hot-swap
 
 **Done when:**
 - an existing local install can migrate to the cloud-backed store without data loss
 - migration creates a backup/snapshot before cutover
-- the app restarts in CloudKit mode deterministically after successful cutover
+- successful cutover ends in a relaunch-required success state, and the next launch opens CloudKit mode deterministically
 - migration failure never corrupts the original local dataset
 
 ### WT-05 — Runtime Stability
@@ -175,8 +175,8 @@ Create worktrees from that integration branch with the following branch names:
 
 **Owns:**
 - [ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift](../ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift)
-- [ios/CryptoSavingsTracker/Views/Settings/CloudKitMigrationStatusView.swift](../ios/CryptoSavingsTracker/Views/Settings/CloudKitMigrationStatusView.swift)
-- new migration progress/result views
+- [ios/CryptoSavingsTracker/Views/Settings/LocalBridgeSyncView.swift](../ios/CryptoSavingsTracker/Views/Settings/LocalBridgeSyncView.swift)
+- [ios/CryptoSavingsTracker/Views/Settings/BridgeImportReviewView.swift](../ios/CryptoSavingsTracker/Views/Settings/BridgeImportReviewView.swift)
 
 **Purpose:**
 - make the migration visible and operable in the product surface
@@ -185,7 +185,7 @@ Create worktrees from that integration branch with the following branch names:
 **Done when:**
 - Settings exposes readiness, migration start, progress, and result states
 - blocked migration states are actionable and accurate
-- successful migration visibly lands the user in CloudKit primary mode
+- successful migration visibly lands the user in a relaunch-required success state, and the next launch comes up in CloudKit primary mode
 
 ### WT-07 — Test, CI, and Evidence
 
@@ -206,6 +206,7 @@ Create worktrees from that integration branch with the following branch names:
 - tests cover migration, dedupe, relaunch, CloudKit unavailability, and account edge cases
 - CI blocks regressions in schema readiness, runtime ownership, write boundary, and migration evidence
 - release/runbook docs explain how to certify CloudKit cutover readiness
+- [testing/cloudkit-phase1-evidence-checklist.md](testing/cloudkit-phase1-evidence-checklist.md) and [runbooks/cloudkit-cutover-release-gate.md](runbooks/cloudkit-cutover-release-gate.md) are tracked and used as the release-governance source of truth
 
 ### WT-08 — CloudKit-Only Cleanup
 
@@ -223,7 +224,7 @@ Create worktrees from that integration branch with the following branch names:
 **Done when:**
 - CloudKit is the only active runtime persistence path
 - local fallback logic is removed from production code
-- Phase 2 bridge remains blocked, but its prerequisite of "CloudKit-only runtime" is finally true
+- Phase 2 bridge storage prerequisite ("CloudKit-only runtime") is satisfied, so bridge surface work may start on a separate plan
 
 ---
 
@@ -249,7 +250,7 @@ Run after Wave A merge:
 - WT-06 `cloudkit-migration-ui`
 
 **Wave exit gate:**
-- a real local store migrates successfully into the CloudKit-backed runtime
+- a real local store migrates successfully through staging and activates the CloudKit-backed runtime on next launch
 - CloudKit mode is stable on development container
 - Settings flow can drive and report the cutover
 
@@ -260,6 +261,7 @@ Run after Wave B APIs stabilize:
 
 **Wave exit gate:**
 - automated and operational checks prove the cutover is safe
+- evidence checklist and release-gate runbook are completed for the same release candidate, with archived artifacts under `docs/release/cloudkit/<release-id>/`
 
 ### Wave D — Hard Cutover
 
@@ -278,7 +280,7 @@ These files must have a **single owner per wave**:
 - [ios/CryptoSavingsTracker/Utilities/PersistenceController.swift](../ios/CryptoSavingsTracker/Utilities/PersistenceController.swift)
 - [ios/CryptoSavingsTracker/CryptoSavingsTrackerApp.swift](../ios/CryptoSavingsTracker/CryptoSavingsTrackerApp.swift)
 - [ios/CryptoSavingsTracker/Utilities/DIContainer.swift](../ios/CryptoSavingsTracker/Utilities/DIContainer.swift)
-- [ios/CryptoSavingsTracker/Utilities/CloudKitMigrationStatus.swift](../ios/CryptoSavingsTracker/Utilities/CloudKitMigrationStatus.swift)
+- [ios/CryptoSavingsTracker/Utilities/Bridge/LocalBridgeSyncController.swift](../ios/CryptoSavingsTracker/Utilities/Bridge/LocalBridgeSyncController.swift)
 - [ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift](../ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift)
 - [.github/workflows/navigation-policy-gates.yml](../.github/workflows/navigation-policy-gates.yml)
 
@@ -326,6 +328,6 @@ This first-stage program is complete only when all of the following are true:
 - no wipe-on-failure behavior remains in the CloudKit runtime
 - CI and tests prove migration, relaunch, dedupe, and failure handling
 - local-runtime backward compatibility has been removed from active production code
-- Phase 2 bridge work remains disabled until after this state is reached
+- Phase 2 bridge storage prerequisite is satisfied; bridge work may start under the dedicated proposal track
 
-When those conditions are true, the codebase is ready to start the separate QR/Multipeer bridge phase.
+Those conditions are now met, and the codebase is ready for the separate QR/Multipeer bridge phase.

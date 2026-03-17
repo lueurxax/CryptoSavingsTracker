@@ -742,7 +742,7 @@ struct AddAssetView: View {
             )
             
             print("✅ Asset saved successfully with 100% allocation to goal")
-            print("   Goal allocations count after save: \(goal.allocations.count)")
+            print("   Goal allocations count after save: \((goal.allocations ?? []).count)")
             
             await MainActor.run {
                 isLoading = false

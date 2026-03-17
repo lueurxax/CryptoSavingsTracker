@@ -63,13 +63,13 @@ struct AssetRowView: View {
     }
     
     private var isSharedAsset: Bool {
-        asset.allocations.count > 1
+        (asset.allocations ?? []).count > 1
     }
 
     /// Allocation amount for this goal (in asset currency).
     private var goalAllocationAmount: Double {
         guard let goal = goal,
-              let allocation = asset.allocations.first(where: { $0.goal?.id == goal.id }) else {
+              let allocation = (asset.allocations ?? []).first(where: { $0.goal?.id == goal.id }) else {
             // If no goal context, default to full balance
             return totalBalance
         }
@@ -572,7 +572,7 @@ struct AssetRowView: View {
                     object: asset,
                     userInfo: [
                         "assetId": asset.id,
-                        "goalIds": asset.allocations.compactMap { $0.goal?.id }
+                        "goalIds": (asset.allocations ?? []).compactMap { $0.goal?.id }
                     ]
                 )
             }

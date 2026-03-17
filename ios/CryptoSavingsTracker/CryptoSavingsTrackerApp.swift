@@ -18,9 +18,16 @@ import UIKit
 struct CryptoSavingsTrackerApp: App {
     static let previewModelContainer: ModelContainer = PersistenceStackFactory.makePreviewContainer()
 
-    @StateObject private var persistenceController = PersistenceController.shared
+    @StateObject private var persistenceController: PersistenceController
 
     init() {
+        // Clean up any cloud-backed store files left by a retired cutover attempt.
+        // Must run before any cloud-backed ModelContainer is opened.
+        PersistenceController.performDeferredCloudStoreCleanupIfNeeded()
+        // Phase 1.5 hard cutover: retired local-primary store files are removed on launch.
+        PersistenceController.performLegacyLocalStoreCleanupIfNeeded()
+        _persistenceController = StateObject(wrappedValue: PersistenceController.shared)
+
         // Suppress haptic feedback warnings in iOS Simulator
         #if targetEnvironment(simulator) && os(iOS)
         // Disable haptic feedback system in simulator to prevent CHHapticPattern warnings
@@ -281,7 +288,7 @@ struct CryptoSavingsTrackerApp: App {
             // Shared asset with a balance
             let sharedAsset = Asset(currency: "USD")
             let seedTx = Transaction(amount: 200, asset: sharedAsset)
-            sharedAsset.transactions.append(seedTx)
+            sharedAsset.transactions = (sharedAsset.transactions ?? []) + [seedTx]
             context.insert(sharedAsset)
             try context.save()
 
@@ -302,7 +309,7 @@ struct CryptoSavingsTrackerApp: App {
             // Deposit to the shared asset after tracking start (counts for Goal A because it's dedicated+fully allocated).
             let depositDate = (record.startedAt ?? Date()).addingTimeInterval(60)
             let depositTx = Transaction(amount: 120, asset: sharedAsset, date: depositDate)
-            sharedAsset.transactions.append(depositTx)
+            sharedAsset.transactions = (sharedAsset.transactions ?? []) + [depositTx]
             context.insert(depositTx)
             let newTargetA = allocationA.amountValue + 120
             allocationA.updateAmount(newTargetA)
@@ -351,7 +358,7 @@ struct CryptoSavingsTrackerApp: App {
             }
 
             // Reallocate an extra 20 from A to B by adjusting allocation targets.
-            let allocations = asset.allocations
+            let allocations = asset.allocations ?? []
             guard let allocA = allocations.first(where: { $0.goal?.id == goalA.id }) else { return }
             let allocB = allocations.first(where: { $0.goal?.id == goalB.id }) ?? AssetAllocation(asset: asset, goal: goalB, amount: 0)
             if allocB.goal == nil { context.insert(allocB) }

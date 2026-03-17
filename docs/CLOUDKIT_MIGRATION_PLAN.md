@@ -4,8 +4,8 @@
 
 | Metadata | Value |
 |----------|-------|
-| Status | 📋 Planning |
-| Last Updated | 2026-01-04 |
+| Status | ✅ Phase 1/1.5 Completed (CloudKit-only runtime); Phase 2 bridge opening may start |
+| Last Updated | 2026-03-17 |
 | Platform | iOS |
 | Audience | Developers |
 
@@ -18,6 +18,41 @@ This document outlines the changes required to make the SwiftData models compati
 Execution sequencing across multiple git worktrees for Phase 0, Phase 1, and Phase 1.5 is tracked in [CLOUDKIT_PHASE1_WORKTREE_EXECUTION_PLAN.md](CLOUDKIT_PHASE1_WORKTREE_EXECUTION_PLAN.md).
 
 > **Architecture Note:** As of the contribution tracking redesign, the app no longer uses a persisted `Contribution` model. Contributions are now **timestamp-derived** from `Transaction.date` and `AllocationHistory.timestamp` during active execution, then frozen into `CompletedExecution` snapshots on completion. See `CONTRIBUTION_TRACKING_REDESIGN.md` for details.
+
+## Implemented Cutover Contract (2026-03-17)
+
+The migration architecture is no longer purely hypothetical. The current implementation has established these Phase 1 rules, and future work should treat them as the baseline:
+
+Authoritative architecture record:
+- [ADR-CK-CUTOVER-001](design/ADR-CK-CUTOVER-001.md)
+
+- Migration does **not** bulk-copy directly into a live CloudKit-backed container.
+- The app now copies into a CloudKit-disabled staging store first, validates there, then promotes the validated sqlite files into the final `cloud-primary` location.
+- Successful migration persists `cloudKitPrimary` for the next launch and requires app relaunch before the CloudKit-backed runtime becomes active. No in-session hot-swap is part of the accepted contract.
+- Local diagnostics and repair are part of the production migration flow because real source stores may contain unresolved `AllocationHistory` or similar integrity blockers.
+- Failed-attempt cleanup uses deferred deletion for `cloud-primary` and `cloud-primary-staging` residue instead of unlinking sqlite files while they are still open.
+- Phase 1.5 hard cutover decision is accepted: authoritative runtime data is CloudKit-only, legacy local-primary runtime is unsupported, and residual local-primary store files are deleted on launch.
+- Phase 2 bridge surface work is now unblocked by storage policy; no authoritative local-primary fallback is supported.
+
+### Phase 1 Evidence and Release Gate (Repository Truth)
+
+The implemented cutover contract above is releaseable only with tracked evidence artifacts:
+
+- [CloudKit Phase 1 Evidence Checklist](testing/cloudkit-phase1-evidence-checklist.md)
+- [CloudKit Cutover Release Gate Runbook](runbooks/cloudkit-cutover-release-gate.md)
+
+Minimum repository-truth expectations:
+
+- CI enforcement is wired through `.github/workflows/cloudkit-migration-gates.yml` and the CloudKit evidence scripts under `scripts/`.
+- targeted `CloudKitCutoverTests` and `PersistenceControllerTests` results are archived per release candidate
+- device migration logs and diagnostics JSON are archived under `docs/release/cloudkit/<release-id>/`
+- go/no-go uses the runbook contract and references [ADR-CK-CUTOVER-001](design/ADR-CK-CUTOVER-001.md)
+
+## Historical Planning Archive (Pre-Cutover)
+
+The sections below this heading are retained for traceability of pre-cutover planning and model-hardening work.  
+They are **not** the active runtime contract for persistence policy.  
+Current authoritative policy is CloudKit-only durable state, legacy local-primary deletion on launch, and local persistence only for caches/scratch artifacts.
 
 ## CloudKit Requirements
 
@@ -465,7 +500,7 @@ let modelConfiguration = ModelConfiguration(
 5. **Apple ID Required**: Users must be signed into iCloud
 6. **Data Blob Sizes**: `CompletedExecution` and `ExecutionSnapshot` store serialized JSON in Data blobs. CloudKit has ~1MB per-record limit. Current usage is well under this (~1-2KB per goal), but monitor if users track many goals
 
-### ⚠️ CRITICAL: Wipe-on-Failure Strategy Must Be Removed
+### Historical Risk (Resolved): Wipe-on-Failure Strategy
 
 **Current behavior** (`CryptoSavingsTrackerApp.swift:72-80`):
 ```swift
@@ -480,9 +515,9 @@ resetStoreFilesIfPresent()
 - User could lose months of tracking data that hasn't synced yet
 - CloudKit schema changes propagate asynchronously—a new app version might wipe data before the schema arrives
 
-**Required changes before Phase 6:**
+**Required changes before Phase 6 (historical checklist):**
 1. Remove the automatic wipe-on-failure behavior entirely
-2. Implement graceful degradation: if CloudKit unavailable, operate in local-only mode
+2. Implement graceful degradation within CloudKit-primary runtime paths (never reactivate legacy local-primary authoritative mode)
 3. Add explicit user confirmation before any data reset
 4. Implement data export before destructive operations
 5. Consider a "pending changes" queue for offline edits

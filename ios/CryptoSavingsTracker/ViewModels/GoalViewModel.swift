@@ -72,7 +72,7 @@ class GoalViewModel: ObservableObject {
     private func calculateCurrentTotal() async -> Double {
         
         var total: Double = 0
-        for (_,  allocation) in goal.allocations.enumerated() {
+        for (_,  allocation) in (goal.allocations ?? []).enumerated() {
             guard let asset = allocation.asset else { continue }
             let assetBalance = await AssetViewModel.getCurrentAmount(for: asset)
             let allocatedPortion = min(max(0, allocation.amountValue), assetBalance)

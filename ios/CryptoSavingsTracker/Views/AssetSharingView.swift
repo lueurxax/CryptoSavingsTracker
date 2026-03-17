@@ -135,7 +135,7 @@ struct AssetSharingView: View {
     
     private func loadExistingAllocations() {
         // Load existing allocations for this asset
-        for allocation in asset.allocations {
+        for allocation in (asset.allocations ?? []) {
             if let goal = allocation.goal {
                 allocations[goal.id] = allocation.amountValue
             }

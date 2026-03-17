@@ -24,7 +24,7 @@ final class OnChainTransactionImportService {
 
         let normalizedAddress = address.lowercased()
         let existingExternalIds = Set(
-            asset.transactions
+            (asset.transactions ?? [])
                 .filter { $0.source == .onChain }
                 .compactMap(\.externalId)
         )
@@ -54,8 +54,8 @@ final class OnChainTransactionImportService {
             modelContext.insert(newTransaction)
 
             // Ensure relationship collections update immediately.
-            if !asset.transactions.contains(where: { $0.id == newTransaction.id }) {
-                asset.transactions.append(newTransaction)
+            if !(asset.transactions ?? []).contains(where: { $0.id == newTransaction.id }) {
+                asset.transactions = (asset.transactions ?? []) + [newTransaction]
             }
 
             insertedModels.append(newTransaction)
@@ -75,8 +75,8 @@ final class OnChainTransactionImportService {
     /// For partially allocated or shared assets, deposits remain unallocated.
     private func applyDedicatedAutoAllocationIfNeeded(for asset: Asset, insertedTransactions: [Transaction]) {
         let epsilon = 0.0000001
-        guard asset.allocations.count == 1,
-              let allocation = asset.allocations.first,
+        guard (asset.allocations ?? []).count == 1,
+              let allocation = (asset.allocations ?? []).first,
               let goal = allocation.goal
         else { return }
 

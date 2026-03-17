@@ -47,7 +47,7 @@ struct GoalDashboardScreen: View {
             .onChange(of: legacyWidgetsJSON) { _, newValue in
                 viewModel.reloadLegacyWidgets(widgetsJSON: newValue)
             }
-            .onChange(of: goal.allocations.count) { _, _ in reloadScene() }
+            .onChange(of: (goal.allocations ?? []).count) { _, _ in reloadScene() }
             .onChange(of: goal.lifecycleStatus) { _, _ in reloadScene() }
             .onChange(of: goal.targetAmount) { _, _ in reloadScene() }
             .onChange(of: goal.deadline) { _, _ in reloadScene() }

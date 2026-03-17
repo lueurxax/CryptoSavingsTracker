@@ -102,11 +102,11 @@ final class AssetMutationService: AssetMutationServiceProtocol {
         modelContext.insert(allocation)
         modelContext.insert(history)
 
-        if !goal.allocations.contains(where: { $0.id == allocation.id }) {
-            goal.allocations.append(allocation)
+        if !(goal.allocations ?? []).contains(where: { $0.id == allocation.id }) {
+            goal.allocations = (goal.allocations ?? []) + [allocation]
         }
-        if !newAsset.allocations.contains(where: { $0.id == allocation.id }) {
-            newAsset.allocations.append(allocation)
+        if !(newAsset.allocations ?? []).contains(where: { $0.id == allocation.id }) {
+            newAsset.allocations = (newAsset.allocations ?? []) + [allocation]
         }
 
         do {
@@ -125,10 +125,10 @@ final class AssetMutationService: AssetMutationServiceProtocol {
         guard remaining > 0.0000001 else { return }
 
         var newAllocations: [(goal: Goal, amount: Double)] = []
-        newAllocations.reserveCapacity(asset.allocations.count + 1)
+        newAllocations.reserveCapacity((asset.allocations ?? []).count + 1)
 
         var goalHandled = false
-        for allocation in asset.allocations {
+        for allocation in (asset.allocations ?? []) {
             guard let existingGoal = allocation.goal else { continue }
             if existingGoal.id == goal.id {
                 newAllocations.append((goal: goal, amount: allocation.amountValue + remaining))
@@ -188,11 +188,11 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
         let epsilon = 0.0000001
         let preBalance = asset.currentAmount
         let preIsFullyAllocated = asset.isFullyAllocated
-        let preWasDedicatedToSingleGoal = asset.allocations.count == 1
-        let singleAllocation = asset.allocations.first
+        let preWasDedicatedToSingleGoal = (asset.allocations ?? []).count == 1
+        let singleAllocation = (asset.allocations ?? []).first
 
         let newTransaction = Transaction(amount: amount, asset: asset, comment: comment)
-        asset.transactions.append(newTransaction)
+        asset.transactions = (asset.transactions ?? []) + [newTransaction]
         modelContext.insert(newTransaction)
 
         if let autoAllocateGoalId {
@@ -216,7 +216,7 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
         do {
             try modelContext.save()
         } catch {
-            asset.transactions.removeAll { $0.id == newTransaction.id }
+            asset.transactions = (asset.transactions ?? []).filter { $0.id != newTransaction.id }
             modelContext.delete(newTransaction)
             throw PersistenceMutationError.saveFailed("Unable to save transaction", underlying: error)
         }
@@ -227,7 +227,7 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
             object: asset,
             userInfo: [
                 "assetId": asset.id,
-                "goalIds": asset.allocations.compactMap { $0.goal?.id }
+                "goalIds": (asset.allocations ?? []).compactMap { $0.goal?.id }
             ]
         )
 
@@ -246,7 +246,7 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
                 object: asset,
                 userInfo: [
                     "assetId": asset.id,
-                    "goalIds": asset.allocations.compactMap { $0.goal?.id }
+                    "goalIds": (asset.allocations ?? []).compactMap { $0.goal?.id }
                 ]
             )
         }
@@ -260,7 +260,7 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
     ) throws {
         guard depositAmount > 0.0000001 else { return }
 
-        if let allocation = asset.allocations.first(where: { $0.goal?.id == goalId }),
+        if let allocation = (asset.allocations ?? []).first(where: { $0.goal?.id == goalId }),
            let goal = allocation.goal {
             let newTarget = max(0, allocation.amountValue + depositAmount)
             allocation.updateAmount(newTarget)

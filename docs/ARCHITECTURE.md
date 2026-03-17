@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-01-04 |
+| Last Updated | 2026-03-17 |
 | Platform | iOS |
 | Audience | Developers |
 
@@ -14,6 +14,13 @@
 ## Overview
 
 CryptoSavingsTracker is a multi-platform SwiftUI application built with SwiftData persistence, supporting iOS, macOS, and visionOS. This document provides a comprehensive guide to the application's architecture, component organization, and platform abstractions.
+
+Current persistence migration note:
+- the accepted Phase 1 CloudKit cutover architecture is documented in [ADR-CK-CUTOVER-001](design/ADR-CK-CUTOVER-001.md)
+- production runtime for authoritative data is CloudKit-only; legacy local-primary database is retired and deleted on launch if present
+- operational release governance for this cutover is tracked in [CloudKit Cutover Release Gate Runbook](runbooks/cloudkit-cutover-release-gate.md)
+- Phase 1 evidence requirements are tracked in [CloudKit Phase 1 Evidence Checklist](testing/cloudkit-phase1-evidence-checklist.md)
+- Phase 2 bridge-surface work may proceed on top of this CloudKit-only contract
 
 ## Table of Contents
 

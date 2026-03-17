@@ -57,10 +57,10 @@ struct ExecutionFlowIntegrationTests {
         // Link asset to goals via allocations
         let alloc1 = AssetAllocation(asset: asset, goal: goal1, amount: 833.33)
         let alloc2 = AssetAllocation(asset: asset, goal: goal2, amount: 500)
-        goal1.allocations.append(alloc1)
-        goal2.allocations.append(alloc2)
-        asset.allocations.append(alloc1)
-        asset.allocations.append(alloc2)
+        goal1.allocations = (goal1.allocations ?? []) + [alloc1]
+        goal2.allocations = (goal2.allocations ?? []) + [alloc2]
+        asset.allocations = (asset.allocations ?? []) + [alloc1]
+        asset.allocations = (asset.allocations ?? []) + [alloc2]
         context.insert(alloc1)
         context.insert(alloc2)
 
@@ -113,7 +113,7 @@ struct ExecutionFlowIntegrationTests {
 
         // When: Deposit enough to fully fund both goals (after startedAt)
         let tx = Transaction(amount: 1333.33, asset: asset, date: depositTime)
-        asset.transactions.append(tx)
+        asset.transactions = (asset.transactions ?? []) + [tx]
         context.insert(tx)
         try context.save()
 
@@ -161,8 +161,8 @@ struct ExecutionFlowIntegrationTests {
 
         // Link asset to goal via allocation
         let alloc = AssetAllocation(asset: asset, goal: goal, amount: 500)
-        goal.allocations.append(alloc)
-        asset.allocations.append(alloc)
+        goal.allocations = (goal.allocations ?? []) + [alloc]
+        asset.allocations = (asset.allocations ?? []) + [alloc]
         context.insert(alloc)
 
         let plan = MonthlyPlan(
@@ -196,7 +196,7 @@ struct ExecutionFlowIntegrationTests {
 
         // When: Contribute only 50%
         let tx = Transaction(amount: 250, asset: asset, date: depositTime)
-        asset.transactions.append(tx)
+        asset.transactions = (asset.transactions ?? []) + [tx]
         context.insert(tx)
         try context.save()
 
@@ -265,12 +265,12 @@ struct ExecutionFlowIntegrationTests {
         let alloc1 = AssetAllocation(asset: asset, goal: goal1, amount: 1000)
         let alloc2 = AssetAllocation(asset: asset, goal: goal2, amount: 1000)
         let alloc3 = AssetAllocation(asset: asset, goal: goal3, amount: 1000)
-        goal1.allocations.append(alloc1)
-        goal2.allocations.append(alloc2)
-        goal3.allocations.append(alloc3)
-        asset.allocations.append(alloc1)
-        asset.allocations.append(alloc2)
-        asset.allocations.append(alloc3)
+        goal1.allocations = (goal1.allocations ?? []) + [alloc1]
+        goal2.allocations = (goal2.allocations ?? []) + [alloc2]
+        goal3.allocations = (goal3.allocations ?? []) + [alloc3]
+        asset.allocations = (asset.allocations ?? []) + [alloc1]
+        asset.allocations = (asset.allocations ?? []) + [alloc2]
+        asset.allocations = (asset.allocations ?? []) + [alloc3]
         context.insert(alloc1)
         context.insert(alloc2)
         context.insert(alloc3)
@@ -307,7 +307,7 @@ struct ExecutionFlowIntegrationTests {
         // When: Deposit 1500 - distributed proportionally across 3 goals (each has 1000 target)
         // Distribution: 500 each to goal1, goal2, goal3
         let tx = Transaction(amount: 1500, asset: asset, date: depositTime)
-        asset.transactions.append(tx)
+        asset.transactions = (asset.transactions ?? []) + [tx]
         context.insert(tx)
         try context.save()
 
@@ -347,8 +347,8 @@ struct ExecutionFlowIntegrationTests {
 
         // Link asset to goal via allocation
         let alloc = AssetAllocation(asset: asset, goal: goal, amount: 1000)
-        goal.allocations.append(alloc)
-        asset.allocations.append(alloc)
+        goal.allocations = (goal.allocations ?? []) + [alloc]
+        asset.allocations = (asset.allocations ?? []) + [alloc]
         context.insert(alloc)
 
         let plan = MonthlyPlan(goalId: goal.id, requiredMonthly: 1000, remainingAmount: 10000, monthsRemaining: 5, currency: "USD")
@@ -385,7 +385,7 @@ struct ExecutionFlowIntegrationTests {
         // When: Add contribution and complete
         let depositTime = (record.startedAt ?? Date()).addingTimeInterval(0.1)
         let tx = Transaction(amount: 1000, asset: asset, date: depositTime)
-        asset.transactions.append(tx)
+        asset.transactions = (asset.transactions ?? []) + [tx]
         context.insert(tx)
         try context.save()
 

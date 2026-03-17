@@ -84,7 +84,7 @@ struct MonthlyExecutionView: View {
                         List(assets, id: \.id) { asset in
                             Button {
                                 // Capture values before dismissing picker
-                                let isSharedAsset = asset.allocations.count > 1
+                                let isSharedAsset = (asset.allocations ?? []).count > 1
                                 let assetToUse = asset
                                 let snapshotCopy = goalSnapshot
 
@@ -120,7 +120,7 @@ struct MonthlyExecutionView: View {
                                     Image(systemName: "bitcoinsign.circle")
                                     Text(asset.currency)
                                     Spacer()
-                                    if asset.allocations.count > 1 {
+                                    if (asset.allocations ?? []).count > 1 {
                                         Image(systemName: "chart.pie.fill")
                                             .foregroundColor(.secondary)
                                     }

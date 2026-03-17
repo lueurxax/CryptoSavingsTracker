@@ -37,7 +37,7 @@ final class Transaction {
     var counterparty: String?
     var comment: String?
     
-    var asset: Asset?
+    @Relationship var asset: Asset?
 
     var source: TransactionSource {
         TransactionSource(rawValue: sourceRawValue) ?? .manual

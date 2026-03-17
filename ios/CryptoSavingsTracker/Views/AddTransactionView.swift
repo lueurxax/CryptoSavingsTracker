@@ -143,7 +143,7 @@ struct AddTransactionView: View {
         print("   Asset: \(asset.currency)")
         print("   Comment: \(comment.isEmpty ? "none" : comment)")
         print("   Asset ID: \(asset.id)")
-        print("   Current transaction count for asset: \(asset.transactions.count)")
+        print("   Current transaction count for asset: \((asset.transactions ?? []).count)")
         
         do {
             _ = try DIContainer.shared.makeTransactionMutationService(modelContext: modelContext).createTransaction(
@@ -153,7 +153,7 @@ struct AddTransactionView: View {
                 autoAllocateGoalId: autoAllocateGoalId
             )
             print("✅ Transaction saved successfully")
-            print("   New transaction count for asset: \(asset.transactions.count)")
+            print("   New transaction count for asset: \((asset.transactions ?? []).count)")
         } catch {
             print("❌ Failed to save transaction: \(error)")
             // Show user-friendly error message
@@ -162,7 +162,7 @@ struct AddTransactionView: View {
         
         Task {
             // Schedule reminders for all goals this asset is allocated to
-            for allocation in asset.allocations {
+            for allocation in (asset.allocations ?? []) {
                 if let goal = allocation.goal {
                     await NotificationManager.shared.scheduleReminders(for: goal)
                 }

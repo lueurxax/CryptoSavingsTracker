@@ -13,10 +13,10 @@ final class Asset {
     init(currency: String, address: String? = nil, chainId: String? = nil) {
         self.id = UUID()
         self.currency = currency
-        self.transactions = []
+        self.transactions = nil
         self.address = address
         self.chainId = chainId
-        self.allocations = []
+        self.allocations = nil
     }
 
     var id: UUID = UUID()
@@ -24,12 +24,12 @@ final class Asset {
     var address: String?
     var chainId: String?
     
-    @Relationship(deleteRule: .cascade, inverse: \Transaction.asset) var transactions: [Transaction] = []
-    @Relationship(deleteRule: .cascade, inverse: \AssetAllocation.asset) var allocations: [AssetAllocation] = []
-    @Relationship(deleteRule: .nullify, inverse: \AllocationHistory.asset) var allocationHistory: [AllocationHistory] = []
+    @Relationship(deleteRule: .cascade, inverse: \Transaction.asset) var transactions: [Transaction]?
+    @Relationship(deleteRule: .cascade, inverse: \AssetAllocation.asset) var allocations: [AssetAllocation]?
+    @Relationship(deleteRule: .nullify, inverse: \AllocationHistory.asset) var allocationHistory: [AllocationHistory]?
     
     var manualBalance: Double {
-        transactions
+        (transactions ?? [])
             .filter { $0.source == .manual }
             .reduce(0) { $0 + $1.amount }
     }
@@ -60,7 +60,7 @@ final class Asset {
     
     /// Sum of allocated amounts in asset currency.
     var totalAllocatedAmount: Double {
-        allocations.reduce(0) { $0 + max(0, $1.amountValue) }
+        (allocations ?? []).reduce(0) { $0 + max(0, $1.amountValue) }
     }
     
     /// Balance minus allocated total (can be negative if over-allocated).
@@ -85,12 +85,12 @@ final class Asset {
     
     /// Get all goals this asset is allocated to
     var allocatedGoals: [Goal] {
-        allocations.compactMap { $0.goal }
+        (allocations ?? []).compactMap { $0.goal }
     }
     
     /// Get the allocation amount for a specific goal
     func getAllocationAmount(for goal: Goal) -> Double {
-        guard let allocation = allocations.first(where: { $0.goal?.id == goal.id }) else { return 0.0 }
+        guard let allocation = (allocations ?? []).first(where: { $0.goal?.id == goal.id }) else { return 0.0 }
         return allocation.amountValue
     }
     

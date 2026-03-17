@@ -114,13 +114,12 @@ struct SwiftDataQueries {
         )
     }
     
-    /// Fetch assets for a specific goal (through allocations)
-    static func assetsForGoal(goalId: UUID) -> FetchDescriptor<Asset> {
-        FetchDescriptor<Asset>(
-            predicate: #Predicate { asset in
-                asset.allocations.contains { allocation in
-                    allocation.goal?.id == goalId
-                }
+    /// Fetch allocations for a specific goal, then extract assets.
+    /// #Predicate cannot traverse optional to-many relationships, so query via AssetAllocation.
+    static func allocationsForGoal(goalId: UUID) -> FetchDescriptor<AssetAllocation> {
+        FetchDescriptor<AssetAllocation>(
+            predicate: #Predicate<AssetAllocation> { allocation in
+                allocation.goal?.id == goalId
             }
         )
     }

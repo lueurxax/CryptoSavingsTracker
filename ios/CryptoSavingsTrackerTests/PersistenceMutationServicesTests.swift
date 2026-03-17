@@ -39,7 +39,7 @@ struct PersistenceMutationServicesTests {
 
         let allocations = try context.fetch(FetchDescriptor<AssetAllocation>())
         let histories = try context.fetch(FetchDescriptor<AllocationHistory>())
-        #expect(asset.allocations.count == 1)
+        #expect((asset.allocations ?? []).count == 1)
         #expect(allocations.count == 1)
         #expect(histories.count == 1)
         #expect(histories.first?.goalId == goal.id)

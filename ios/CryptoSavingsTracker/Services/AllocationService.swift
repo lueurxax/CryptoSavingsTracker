@@ -40,7 +40,7 @@ struct AllocationService {
         let epsilon = 0.0000001
 
         // Snapshot old amounts before mutations.
-        let existingAllocations = Array(asset.allocations)
+        let existingAllocations = Array(asset.allocations ?? [])
         var existingByGoalId: [UUID: AssetAllocation] = [:]
         existingByGoalId.reserveCapacity(existingAllocations.count)
 
@@ -131,7 +131,7 @@ struct AllocationService {
         }
 
         // Calculate new total with updated allocation
-        let currentAllocations = asset.allocations.filter { $0.goal?.id != goal.id }
+        let currentAllocations = (asset.allocations ?? []).filter { $0.goal?.id != goal.id }
         let currentTotal = currentAllocations.reduce(0.0) { partial, allocation in
             partial + allocation.amountValue
         }
@@ -140,7 +140,7 @@ struct AllocationService {
             throw AllocationError.exceedsTotal(currentTotal + amount, asset.currentAmount)
         }
 
-        if let existingAllocation = asset.allocations.first(where: { $0.goal?.id == goal.id }) {
+        if let existingAllocation = (asset.allocations ?? []).first(where: { $0.goal?.id == goal.id }) {
             existingAllocation.updateAmount(amount)
         } else if amount > 0 {
             let newAllocation = AssetAllocation(asset: asset, goal: goal, amount: amount)
@@ -177,7 +177,7 @@ struct AllocationService {
     ///   - goal: The goal to remove allocation from
     @MainActor
     func removeAllocation(for asset: Asset, from goal: Goal) throws {
-        if let allocation = asset.allocations.first(where: { $0.goal?.id == goal.id }) {
+        if let allocation = (asset.allocations ?? []).first(where: { $0.goal?.id == goal.id }) {
             let oldAmount = allocation.amountValue
             let timestamp = Date()
             modelContext.delete(allocation)
@@ -214,19 +214,19 @@ struct AllocationService {
     /// Get all allocations for a specific asset, sorted by amount
     @MainActor
     func getAllocations(for asset: Asset) -> [AssetAllocation] {
-        return asset.allocations.sorted { $0.amountValue > $1.amountValue }
+        return (asset.allocations ?? []).sorted { $0.amountValue > $1.amountValue }
     }
 
     /// Get all allocations for a specific goal, sorted by amount
     @MainActor
     func getAllocations(for goal: Goal) -> [AssetAllocation] {
-        return goal.allocations.sorted { $0.amountValue > $1.amountValue }
+        return (goal.allocations ?? []).sorted { $0.amountValue > $1.amountValue }
     }
 
     /// Check if an asset can accommodate a new allocation amount
     @MainActor
     func canAllocate(asset: Asset, amount: Double, excludingGoal: Goal? = nil) -> Bool {
-        let currentAllocations = asset.allocations.filter { $0.goal?.id != excludingGoal?.id }
+        let currentAllocations = (asset.allocations ?? []).filter { $0.goal?.id != excludingGoal?.id }
         let currentTotal = currentAllocations.reduce(0.0) { partial, allocation in
             partial + allocation.amountValue
         }
@@ -267,17 +267,17 @@ struct AllocationService {
     /// Remove all allocations for an asset (useful when deleting an asset)
     @MainActor
     func removeAllAllocations(for asset: Asset) throws {
-        let existingAllocations = asset.allocations
+        let existingAllocations = asset.allocations ?? []
         for allocation in existingAllocations {
             modelContext.delete(allocation)
         }
         try modelContext.save()
     }
-    
+
     /// Remove all allocations for a goal (useful when deleting a goal)
     @MainActor
     func removeAllAllocations(for goal: Goal) throws {
-        let existingAllocations = goal.allocations
+        let existingAllocations = goal.allocations ?? []
         for allocation in existingAllocations {
             modelContext.delete(allocation)
         }

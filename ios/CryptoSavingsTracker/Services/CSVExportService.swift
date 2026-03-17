@@ -107,7 +107,7 @@ private extension CSVExportService {
         ]
 
         let rows: [[String]] = goals.map { goal in
-            let allocationIds = goal.allocations.map { $0.id.uuidString }.joined(separator: ";")
+            let allocationIds = (goal.allocations ?? []).map { $0.id.uuidString }.joined(separator: ";")
             return [
                 goal.id.uuidString,
                 goal.name,
@@ -124,9 +124,9 @@ private extension CSVExportService {
                 goal.emoji ?? "",
                 goal.goalDescription ?? "",
                 goal.link ?? "",
-                String(goal.allocations.count),
+                String((goal.allocations ?? []).count),
                 allocationIds,
-                allocationsJSON(goal.allocations)
+                allocationsJSON(goal.allocations ?? [])
             ]
         }
 
@@ -147,18 +147,18 @@ private extension CSVExportService {
         ]
 
         let rows: [[String]] = assets.map { asset in
-            let transactionIds = asset.transactions.map { $0.id.uuidString }.joined(separator: ";")
-            let allocationIds = asset.allocations.map { $0.id.uuidString }.joined(separator: ";")
+            let transactionIds = (asset.transactions ?? []).map { $0.id.uuidString }.joined(separator: ";")
+            let allocationIds = (asset.allocations ?? []).map { $0.id.uuidString }.joined(separator: ";")
             return [
                 asset.id.uuidString,
                 asset.currency,
                 asset.address ?? "",
                 asset.chainId ?? "",
-                String(asset.transactions.count),
+                String((asset.transactions ?? []).count),
                 transactionIds,
-                String(asset.allocations.count),
+                String((asset.allocations ?? []).count),
                 allocationIds,
-                allocationsJSON(asset.allocations)
+                allocationsJSON(asset.allocations ?? [])
             ]
         }
 

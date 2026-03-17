@@ -1,17 +1,19 @@
 # CloudKit-Only Phase-2 Bridge for Mac Snapshot Sync
 
 ## Status
-Draft
+Draft (Phase 2 design track; hard-cutover storage prerequisite already satisfied)
 
 ## Goal
 Enable a future CloudKit-only iPhone app to exchange editable snapshots with the existing macOS surface of CryptoSavingsTracker over a local trusted session, without introducing backend infrastructure and without building a second replication engine on top of CloudKit.
 
 ## Current State
-- The live app is not CloudKit-based today. `CryptoSavingsTrackerApp.swift` configures SwiftData with `cloudKitDatabase: .none`, so the production runtime is still local-only.
-- The CloudKit migration work is not complete. `CLOUDKIT_MIGRATION_PLAN.md` still lists model-compatibility blockers and explicit prerequisites before CloudKit can be enabled safely.
-- The current Settings surface has no sync controls. `SettingsView.swift` currently exposes only `Data` and `Monthly Planning` sections, plus a placeholder `Import Data` button.
+- CloudKit migration has been completed on all supported devices. The app no longer supports the legacy local primary database for authoritative data.
+- Production runtime is now CloudKit-only for main application data. Any residual legacy local-primary store files are deleted on launch. Local persistence is allowed only for non-authoritative caches and scratch data.
+- The implemented cutover contract does not copy directly into a live CloudKit-backed container. It now uses a CloudKit-disabled staging store, validates the copied dataset locally, promotes the validated sqlite files into `cloud-primary.store`, persists `cloudKitPrimary`, and requires an app relaunch before the CloudKit-backed runtime becomes active.
+- Migration is fail-closed on source-data blockers. Real local stores can contain unresolved `AllocationHistory` references or similar integrity problems, so diagnostics and repair are now part of the Phase 1 operator contract rather than optional tooling.
+- Phase 1.5 hard cutover decision is now accepted and in force: local backward compatibility is retired, bridge work may assume CloudKit-only durable state.
 - The current macOS experience is not a separate companion product. The same app already ships a macOS surface with its own main window and Settings window in `CryptoSavingsTrackerApp.swift`.
-- The current app has `remote-notification` background mode only. There are no local-network privacy strings, Bonjour declarations, or an existing Multipeer background lifecycle contract.
+- The current app now declares the bridge privacy prerequisites in `Info.plist` (`NSCameraUsageDescription`, `NSLocalNetworkUsageDescription`, and `_cstbridge._tcp` under `NSBonjourServices`). There is still no existing Multipeer session lifecycle or transport implementation in the product runtime.
 
 ## Sequencing
 This proposal is valid only with the following delivery order:
@@ -28,16 +30,31 @@ This proposal is valid only with the following delivery order:
 - Prove that all user-visible data flows operate correctly with CloudKit enabled.
 
 ### Phase 1.5: Remove Local Backward Compatibility
-- Remove runtime support for the pre-CloudKit local storage path.
-- Remove local fallback code from active runtime flows before any second sync method is introduced.
-- Lock the runtime model to CloudKit-only semantics for durable state.
+- Status: completed for production runtime.
+- Runtime support for the pre-CloudKit local primary storage path is removed.
+- Residual legacy local-primary store files are deleted on launch instead of being preserved as a supported fallback.
+- The runtime model is locked to CloudKit-only semantics for all authoritative application data. Local persistence is allowed only for local caches and scratch data.
+
+### Implemented Phase 1 Contract
+The current codebase converged on the following Phase 1 cutover contract; after completed Phase 1.5, this remains as historical implementation context and repository truth for how cutover was achieved:
+- Create a local backup before migration.
+- Run local-only diagnostics and repair classification before any CloudKit-backed container is opened.
+- Block migration on unresolved or low-confidence source-data issues rather than guessing or silently dropping records.
+- Copy data into a CloudKit-disabled staging store first.
+- Validate exact entity presence and integrity in staging before touching the final CloudKit-backed store.
+- Promote the validated staging sqlite files into the final `cloud-primary` location only after validation succeeds.
+- Persist `cloudKitPrimary` for the next launch, but do not hot-swap the live runtime container in-session.
+- Treat app relaunch as the activation boundary for the CloudKit-backed runtime.
+- Use deferred cleanup for failed `cloud-primary` residue and for `cloud-primary-staging` residue, rather than unlinking live sqlite files.
 
 ### Phase 2: QR + Multipeer Bridge
 - Only after Phases 0, 1, and 1.5 are complete may the app introduce the QR + Multipeer bridge described in this document.
 - The bridge is a transport and import workflow layered around CloudKit, not an alternative storage regime.
 
 ## Product Requirements
-- CloudKit remains the only durable source of truth.
+- CloudKit remains the only durable source of truth for all authoritative application data.
+- New feature work must store authoritative user data in CloudKit-backed runtime paths, not in a legacy local primary database.
+- Local persistent storage may be used only for non-authoritative caches, scratch workspaces, and ephemeral helper artifacts.
 - Wife's Apple devices continue using CloudKit sharing for read-only access.
 - The existing macOS app surface can perform read/write editing through exported snapshots.
 - No backend infrastructure is introduced.
@@ -89,15 +106,12 @@ Key rules:
 ## Product Surface
 The bridge lives inside the existing CryptoSavingsTracker macOS app surface, not in a separate companion app or distribution artifact.
 
-### Phase 1 Product Surface
-Before the bridge exists, Settings only grows CloudKit migration controls and status:
-- `Migrate to iCloud`
-- `CloudKit Migration Status`
-- `Migration Diagnostics`
+### Phase 1 Product Surface (Historical)
+During migration rollout, Settings temporarily hosted CloudKit migration controls, status, and repair tooling.
+That transitional surface is no longer part of the supported steady-state product contract after the accepted Phase 1.5 hard cutover.
+Any remaining references to migration tooling are cleanup debt, not a supported long-term feature surface.
 
-`Migrate to iCloud` is a transitional migration action, not a durable mode toggle. It is removed after CloudKit cutover is complete.
-
-No QR, trust, or bridge controls ship before the runtime is CloudKit-only.
+No QR, trust, or bridge controls ship before the runtime is CloudKit-only. This prerequisite is now considered satisfied for authoritative data storage.
 
 ### Phase 2 Product Surface
 After the CloudKit-only cutover is complete, the top-level Settings page gains a single `Local Bridge Sync` entry row with compact summary state only.
@@ -135,7 +149,7 @@ Required summary state shown in the top-level entry row:
 - iPhone Settings hosts discovery only; operational bridge flows run inside a dedicated iPhone `Local Bridge Sync` destination.
 - macOS Settings or a dedicated Sync window inside the current macOS app hosts the bridge destination and manual return of edited snapshots.
 - The bridge editor on macOS must not bind directly to the app's live persistent store. Even though the existing macOS app uses shared windows today, the bridge edit surface is a separate transient workspace.
-- The current `SettingsView.swift` implementation does not contain these controls yet; this proposal defines them as future product scope rather than implying they already exist.
+- The current `SettingsView.swift` implementation already exposes the dedicated `Local Bridge Sync` destination and compact top-level summary row. The current foundation slice now also includes trust storage, bootstrap-token modeling, authoritative snapshot export DTOs, and structural import-review validation against the live CloudKit-backed dataset. Transport, QR scanning, Multipeer session management, cryptographic signature verification, macOS transient workspace editing, and signed import apply remain future product scope beyond this slice.
 
 ### macOS Snapshot Workspace Boundary
 - The macOS bridge editor operates on a transient snapshot workspace created from `SnapshotEnvelope`, not on the live app-backed `ModelContainer`.
@@ -171,8 +185,8 @@ Required summary state shown in the top-level entry row:
 ## User Flows
 ### Flow 1: Prepare for Phase 2
 1. User updates to a build where CloudKit migration is already complete.
-2. User sees CloudKit status in Settings.
-3. Bridge controls remain hidden or disabled until the runtime reports `CloudKitOnlyReady`.
+2. User sees a single `Local Bridge Sync` entry row in Settings with compact summary state.
+3. That row remains unavailable until the runtime is fully CloudKit-only and reports migration readiness as complete.
 
 ### Flow 2: Pair Mac
 1. User opens `Local Bridge Sync` on macOS and selects `Pair Mac`.
@@ -290,11 +304,11 @@ Session primitives:
 
 Why the bridge is foreground-only:
 - The current app only declares `remote-notification` under `UIBackgroundModes`.
-- The current app does not declare local-network privacy usage strings.
-- The current app does not declare Bonjour service types.
-- The current app has no existing lifecycle design for background Multipeer transport.
+- The current app now declares the required foreground bridge privacy strings and Bonjour service type in `Info.plist`.
+- The current app still has no existing lifecycle design for background Multipeer transport.
+- The current app still has no implemented Multipeer session manager, advertiser, browser, or background reconnect contract.
 
-Phase 2 implementation will still need to add the required local-network privacy string and Bonjour service declarations for foreground discovery and session establishment. Those additions do not change the manual, foreground-only execution contract.
+Phase 2 implementation no longer needs to add the privacy declarations themselves, but it still needs to build the actual foreground discovery and session-establishment runtime around those declarations. That does not change the manual, foreground-only execution contract.
 
 Therefore this proposal does not promise:
 - auto reconnect
@@ -654,20 +668,22 @@ Those fallback paths are out of scope until the app defines:
 Until then, only the trusted QR + Multipeer foreground session is in scope.
 
 ## Implementation Phases
-### Phase 0: CloudKit Readiness
+### Phase 0: CloudKit Readiness (Completed)
 - Close all items in `docs/CLOUDKIT_MIGRATION_PLAN.md`.
 - Validate CloudKit model compatibility.
 - Validate safe migration from the current local runtime.
 
-### Phase 1: CloudKit Cutover
-- Enable CloudKit-backed persistence in production.
-- Complete migration of existing users.
-- Expose only CloudKit migration controls and diagnostics in Settings.
+### Phase 1: CloudKit Cutover (Completed)
+- Enable CloudKit-backed persistence in production through the staging-based cutover path.
+- Complete migration of existing users using the contract `backup -> diagnostics/repair -> staging copy -> validation -> promotion -> persist mode -> relaunch`.
+- Expose migration controls, diagnostics, and repair tooling in Settings during migration rollout (historical rollout requirement).
+- Treat relaunch, not in-session hot-swap, as the boundary where CloudKit-backed runtime becomes active.
 
-### Phase 1.5: Remove Local Backward Compatibility
+### Phase 1.5: Remove Local Backward Compatibility (Completed)
 - Remove runtime compatibility paths for the legacy local-only storage mode.
+- Remove transitional migration and repair UI from the active product surface once the CloudKit runtime is proven stable.
 - Remove local fallback logic from active runtime code.
-- Prove that the production runtime is CloudKit-only before bridge work starts.
+- Production runtime is CloudKit-only, so Phase 2 bridge work is now unblocked.
 
 ### Phase 2A: Manual Bridge
 - local-network privacy and Bonjour declarations for foreground bridge transport
@@ -712,9 +728,9 @@ Until then, only the trusted QR + Multipeer foreground session is in scope.
 | Duplicate-prevention validation | importing a valid package never creates duplicate logical entities in the authoritative dataset |
 
 Document-level gates:
-- The document states that the current app is local-only today and CloudKit is not yet enabled in runtime.
-- The document states that bridge work is blocked until CloudKit migration is complete.
-- The document states that backward compatibility with the pre-CloudKit local runtime must be removed before bridge rollout.
+- The document states that CloudKit migration is complete on supported devices and the authoritative runtime is CloudKit-only.
+- The document states that bridge work is unblocked by storage policy because the hard cutover prerequisite is already met.
+- The document states that backward compatibility with the pre-CloudKit local runtime has been removed from supported authoritative paths.
 - No runtime path in the proposal describes local-store fallback once Phase 2 ships.
 - The authority model names CloudKit as the only durable source of truth.
 - The proposal no longer defines a second replication engine or independent sync ledger.
@@ -745,5 +761,5 @@ The bridge proposed here is intentionally narrow:
 - CloudKit is the only durable source of truth.
 - The iPhone is the bridge session host and import validator.
 - The macOS surface edits exported snapshots, not an independent replica history.
-- The bridge only ships after CloudKit migration is finished and local backward compatibility is removed from runtime.
+- The bridge ships on top of an already-finished CloudKit migration and removed local-runtime backward compatibility.
 - Safety is achieved by trusted pairing, signed packages, Keychain-backed trust storage, CloudKit reconciliation checkpoints, early compatibility negotiation, and reject-on-drift import validation.

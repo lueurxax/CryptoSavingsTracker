@@ -36,11 +36,11 @@ final class MonthlyExecutionRecord {
 
     // Plans linked to this execution record
     @Relationship(inverse: \MonthlyPlan.executionRecord)
-    var plans: [MonthlyPlan] = []
+    var plans: [MonthlyPlan]?
 
     // Append-only completion history for auditability.
     @Relationship(deleteRule: .cascade, inverse: \CompletionEvent.executionRecord)
-    var completionEvents: [CompletionEvent] = []
+    var completionEvents: [CompletionEvent]?
 
     init(monthLabel: String, goalIds: [UUID]) {
         self.id = UUID()

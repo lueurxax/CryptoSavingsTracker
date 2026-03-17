@@ -31,6 +31,10 @@ final class CompletedExecution {
     // Back-reference to the execution record that owns this completion
     @Relationship var executionRecord: MonthlyExecutionRecord?
 
+    // Inverse for CompletionEvent.completionSnapshot
+    @Relationship(inverse: \CompletionEvent.completionSnapshot)
+    var completionEvents: [CompletionEvent]?
+
     // SwiftData doesn't reliably persist [String: Double] dictionaries, so store encoded Data.
     var exchangeRatesSnapshotData: Data?
     // Snapshot of goals and contributions at completion for immutability.

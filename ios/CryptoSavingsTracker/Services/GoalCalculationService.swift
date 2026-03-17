@@ -161,7 +161,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     
     /// Calculate manual balance total (transactions only, no API calls)
     nonisolated static func getManualTotal(for goal: Goal) -> Double {
-        return goal.allocations.reduce(0) { result, allocation in
+        return (goal.allocations ?? []).reduce(0) { result, allocation in
             guard let asset = allocation.asset else { return result }
             let allocatedPortion = min(max(0, allocation.amountValue), asset.manualBalance)
             return result + allocatedPortion
@@ -182,9 +182,9 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     @MainActor static func getTotalValue(for goal: Goal) async -> Double {
         var totalValue = 0.0
         
-        for allocation in goal.allocations {
+        for allocation in (goal.allocations ?? []) {
             guard let asset = allocation.asset else { continue }
-            
+
             // Get the asset's total value (including on-chain balance if available)
             let assetViewModel = AssetViewModel(asset: asset, tatumService: DIContainer.shared.tatumService)
             await assetViewModel.refreshBalances()
@@ -239,7 +239,7 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     
     /// Get allocated value from a specific asset to a goal
     @MainActor static func getAllocatedValue(from asset: Asset, to goal: Goal) async -> Double {
-        guard let allocation = goal.allocations.first(where: { $0.asset?.id == asset.id }) else {
+        guard let allocation = (goal.allocations ?? []).first(where: { $0.asset?.id == asset.id }) else {
             return 0.0
         }
         
@@ -262,9 +262,9 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     @MainActor static func getValueBreakdown(for goal: Goal) async -> [(asset: Asset, value: Double, percentage: Double)] {
         var breakdown: [(asset: Asset, value: Double, percentage: Double)] = []
         
-        for allocation in goal.allocations {
+        for allocation in (goal.allocations ?? []) {
             guard let asset = allocation.asset else { continue }
-            
+
             let allocatedValue = await getAllocatedValue(from: asset, to: goal)
             
             breakdown.append((

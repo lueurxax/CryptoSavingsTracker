@@ -119,7 +119,7 @@ class DashboardViewModel: ObservableObject {
                     assetBalance = await AssetViewModel.getCurrentAmount(for: asset)
                 } else {
                     // Use transaction history for older dates
-                    let transactions = asset.transactions.filter { $0.source == .manual && $0.date <= currentDate }
+                    let transactions = (asset.transactions ?? []).filter { $0.source == .manual && $0.date <= currentDate }
                     assetBalance = transactions.reduce(0) { $0 + $1.amount }
                 }
                 
@@ -173,7 +173,7 @@ class DashboardViewModel: ObservableObject {
                 var baselineHistory: [BalanceHistoryPoint] = []
                 
                 // Calculate actual balance progression based on transaction dates
-                let allTransactions = goal.allocatedAssets.flatMap { $0.transactions }.sorted { $0.date < $1.date }
+                let allTransactions = goal.allocatedAssets.flatMap { $0.transactions ?? [] }.sorted { $0.date < $1.date }
                 
                 if !allTransactions.isEmpty, let firstTransaction = allTransactions.first {
                     // Use actual transaction-based progression
@@ -264,7 +264,7 @@ class DashboardViewModel: ObservableObject {
         var activityData: [HeatmapDay] = []
         
         // Collect all transactions from all assets
-        let allTransactions = goal.allocatedAssets.flatMap { $0.transactions }
+        let allTransactions = goal.allocatedAssets.flatMap { $0.transactions ?? [] }
         totalTransactions = allTransactions.count
         // Recent transactions (latest 5)
         let recent = allTransactions

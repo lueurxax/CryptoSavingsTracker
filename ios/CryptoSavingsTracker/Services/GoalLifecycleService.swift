@@ -62,14 +62,14 @@ struct GoalLifecycleService {
     private func freeAllocations(for goal: Goal) {
         // Snapshot assets before we mutate allocations via AllocationService.
         var assetsById: [UUID: Asset] = [:]
-        for allocation in goal.allocations {
+        for allocation in (goal.allocations ?? []) {
             if let asset = allocation.asset {
                 assetsById[asset.id] = asset
             }
         }
 
         for asset in assetsById.values {
-            let newAllocations: [(goal: Goal, amount: Double)] = asset.allocations.compactMap { allocation in
+            let newAllocations: [(goal: Goal, amount: Double)] = (asset.allocations ?? []).compactMap { allocation in
                 guard let otherGoal = allocation.goal, otherGoal.id != goal.id else { return nil }
                 return (goal: otherGoal, amount: allocation.amountValue)
             }

@@ -46,7 +46,7 @@ final class AllocationHistoryTests: XCTestCase {
 
         // Add transaction after initial save to ensure relationship is properly established
         let tx = Transaction(amount: 1.0, asset: asset)
-        asset.transactions.append(tx)
+        asset.transactions = (asset.transactions ?? []) + [tx]
         context.insert(tx)
         try context.save()
 
@@ -85,7 +85,7 @@ final class AllocationHistoryTests: XCTestCase {
 
         // Add transaction after initial save
         let tx = Transaction(amount: 1.0, asset: asset)
-        asset.transactions.append(tx)
+        asset.transactions = (asset.transactions ?? []) + [tx]
         context.insert(tx)
         try context.save()
 
@@ -113,7 +113,7 @@ final class AllocationHistoryTests: XCTestCase {
 
         // Start with 1.2 BTC so allocations can be saved.
         let deposit = Transaction(amount: 1.2, asset: asset)
-        asset.transactions.append(deposit)
+        asset.transactions = (asset.transactions ?? []) + [deposit]
         context.insert(deposit)
         try context.save()
 
@@ -123,8 +123,8 @@ final class AllocationHistoryTests: XCTestCase {
         // Set allocations to total 1.2 BTC (fully allocated at this moment).
         let allocA = AssetAllocation(asset: asset, goal: goalA, amount: 0.6)
         let allocB = AssetAllocation(asset: asset, goal: goalB, amount: 0.6)
-        asset.allocations.append(allocA)
-        asset.allocations.append(allocB)
+        asset.allocations = (asset.allocations ?? []) + [allocA]
+        asset.allocations = (asset.allocations ?? []) + [allocB]
         context.insert(allocA)
         context.insert(allocB)
         let t0 = Date()
@@ -134,7 +134,7 @@ final class AllocationHistoryTests: XCTestCase {
 
         // External withdrawal reduces observed balance to 1.0 BTC.
         let withdrawal = Transaction(amount: -0.2, asset: asset)
-        asset.transactions.append(withdrawal)
+        asset.transactions = (asset.transactions ?? []) + [withdrawal]
         context.insert(withdrawal)
         try context.save()
 

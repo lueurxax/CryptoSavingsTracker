@@ -182,8 +182,8 @@ class AssetViewModel: ObservableObject {
     }
     
     func deleteTransaction(_ transaction: Transaction) {
-        if let index = asset.transactions.firstIndex(where: { $0.id == transaction.id }) {
-            asset.transactions.remove(at: index)
+        if let index = (asset.transactions ?? []).firstIndex(where: { $0.id == transaction.id }) {
+            asset.transactions?.remove(at: index)
         }
         modelContext?.delete(transaction)
         
@@ -195,7 +195,7 @@ class AssetViewModel: ObservableObject {
                 object: asset,
                 userInfo: [
                     "assetId": asset.id,
-                    "goalIds": asset.allocations.compactMap { $0.goal?.id }
+                    "goalIds": (asset.allocations ?? []).compactMap { $0.goal?.id }
                 ]
             )
             // Update balances after deletion

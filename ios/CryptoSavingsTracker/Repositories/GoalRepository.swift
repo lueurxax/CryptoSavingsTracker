@@ -23,18 +23,46 @@ protocol GoalRepositoryProtocol {
 
 // MARK: - Repository Implementation
 
-/// SwiftData implementation of GoalRepository
+/// SwiftData implementation of GoalRepository.
+/// After CloudKit sync, duplicate logical entities may exist (same name+currency+startDate).
+/// All fetch methods deduplicate results before returning them.
 @MainActor
 class GoalRepository: GoalRepositoryProtocol {
     private let modelContext: ModelContext
-    
+
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
-    
+
     func fetchGoals() async throws -> [Goal] {
         let descriptor = FetchDescriptor<Goal>(sortBy: [SortDescriptor(\.deadline, order: .forward)])
-        return try modelContext.fetch(descriptor)
+        let goals = try modelContext.fetch(descriptor)
+        return Self.deduplicateInMemory(goals)
+    }
+
+    /// Removes logical duplicates from a goal list, keeping the most recently modified.
+    /// This is a read-path safety net — the DeduplicationService handles persistent cleanup.
+    static func deduplicateInMemory(_ goals: [Goal]) -> [Goal] {
+        var seen = Set<String>()
+        var result: [Goal] = []
+        // Sort most-recently-modified first so the survivor wins
+        let sorted = goals.sorted { $0.lastModifiedDate > $1.lastModifiedDate }
+        for goal in sorted {
+            let key = goalLogicalKey(goal)
+            if seen.contains(key) { continue }
+            seen.insert(key)
+            result.append(goal)
+        }
+        // Re-sort by deadline (original sort order)
+        return result.sorted { $0.deadline < $1.deadline }
+    }
+
+    /// The canonical logical identity for a Goal.
+    /// Uses (name, currency, startDate) — startDate anchors the goal's creation moment,
+    /// distinguishing re-created goals with the same name and currency.
+    static func goalLogicalKey(_ goal: Goal) -> String {
+        let startDay = Calendar.current.startOfDay(for: goal.startDate)
+        return "\(goal.name)|\(goal.currency)|\(startDay.timeIntervalSince1970)"
     }
     
     func fetchGoal(by id: UUID) async throws -> Goal? {
@@ -163,14 +191,16 @@ protocol TransactionRepositoryProtocol {
 
 // MARK: - Transaction Repository Implementation
 
+/// After CloudKit sync, duplicate on-chain transactions may exist (same externalId).
+/// All fetch methods deduplicate results before returning them.
 @MainActor
 class TransactionRepository: TransactionRepositoryProtocol {
     private let modelContext: ModelContext
-    
+
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
-    
+
     func fetchTransactions(for assetId: UUID) async throws -> [Transaction] {
         let predicate = #Predicate<Transaction> { transaction in
             transaction.asset?.id == assetId
@@ -179,7 +209,25 @@ class TransactionRepository: TransactionRepositoryProtocol {
             predicate: predicate,
             sortBy: [SortDescriptor(\.date, order: .reverse)]
         )
-        return try modelContext.fetch(descriptor)
+        let transactions = try modelContext.fetch(descriptor)
+        return Self.deduplicateInMemory(transactions)
+    }
+
+    /// Removes duplicate on-chain transactions (same externalId+asset) from results.
+    /// Manual transactions (no externalId) are never considered duplicates.
+    static func deduplicateInMemory(_ transactions: [Transaction]) -> [Transaction] {
+        var seenExternalKeys = Set<String>()
+        var result: [Transaction] = []
+        for tx in transactions {
+            if let externalId = tx.externalId, !externalId.isEmpty {
+                let assetId = tx.asset?.id.uuidString ?? "nil"
+                let key = "\(assetId)|\(externalId)"
+                if seenExternalKeys.contains(key) { continue }
+                seenExternalKeys.insert(key)
+            }
+            result.append(tx)
+        }
+        return result
     }
     
     func fetchTransaction(by id: UUID) async throws -> Transaction? {

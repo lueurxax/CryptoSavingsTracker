@@ -31,7 +31,7 @@ struct TransactionHistoryView: View {
     }
 
     private var manualTransactions: [Transaction] {
-        asset.transactions.filter { $0.source == .manual }
+        (asset.transactions ?? []).filter { $0.source == .manual }
     }
 
     private var filteredTransactions: [Transaction] {

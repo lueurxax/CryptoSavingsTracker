@@ -49,8 +49,8 @@ struct TestDataFactory {
         let asset = Asset(currency: currency)
         if let goal {
             let allocation = AssetAllocation(asset: asset, goal: goal, amount: amount)
-            goal.allocations.append(allocation)
-            asset.allocations.append(allocation)
+            goal.allocations = (goal.allocations ?? []) + [allocation]
+            asset.allocations = (asset.allocations ?? []) + [allocation]
         }
         return asset
     }
@@ -89,6 +89,79 @@ struct TestDataFactory {
         try context.save()
         
         return (goal, [btcAsset, ethAsset, usdAsset], transactions)
+    }
+    /// Creates test data covering all 10 persisted entity types for integration tests.
+    static func createFullCutoverTestData(in context: ModelContext) throws -> [String: Int] {
+        // 1. Goal
+        let goal = createSampleGoal(name: "Integration Goal", targetAmount: 5000)
+        context.insert(goal)
+
+        // 2. Asset (createSampleAsset with goal creates an AssetAllocation automatically)
+        let asset = createSampleAsset(currency: "BTC", goal: goal)
+        context.insert(asset)
+
+        // 3. Transaction
+        let tx = createSampleTransaction(amount: 0.5, asset: asset)
+        context.insert(tx)
+
+        // 4. AssetAllocation — already created by createSampleAsset via goal link
+
+        // 5. AllocationHistory
+        let history = AllocationHistory(asset: asset, goal: goal, amount: 0.5, timestamp: Date())
+        history.assetId = asset.id
+        history.goalId = goal.id
+        history.monthLabel = "2026-03"
+        context.insert(history)
+
+        // 6. MonthlyExecutionRecord
+        let execRecord = MonthlyExecutionRecord(monthLabel: "2026-03", goalIds: [goal.id])
+        context.insert(execRecord)
+
+        // 7. MonthlyPlan
+        let plan = MonthlyPlan(
+            goalId: goal.id, monthLabel: "2026-03",
+            requiredMonthly: 100, remainingAmount: 4500, monthsRemaining: 12,
+            currency: "USD", status: .onTrack, state: .draft
+        )
+        plan.executionRecord = execRecord
+        context.insert(plan)
+
+        // 8. CompletedExecution
+        let completedExec = CompletedExecution(
+            monthLabel: "2026-03", completedAt: Date(),
+            exchangeRatesSnapshot: [:], goalSnapshots: [], contributionSnapshots: []
+        )
+        completedExec.executionRecord = execRecord
+        execRecord.completedExecution = completedExec
+        context.insert(completedExec)
+
+        // 9. ExecutionSnapshot
+        let snapshot = ExecutionSnapshot(
+            id: UUID(), capturedAt: Date(), totalPlanned: 100, snapshotData: Data()
+        )
+        snapshot.executionRecord = execRecord
+        execRecord.snapshot = snapshot
+        context.insert(snapshot)
+
+        // 10. CompletionEvent
+        let event = CompletionEvent(
+            executionRecord: execRecord,
+            sequence: 1,
+            sourceDiscriminator: "test",
+            completedAt: Date(),
+            completionSnapshot: completedExec
+        )
+        context.insert(event)
+
+        try context.save()
+
+        return [
+            "Goal": 1, "Asset": 1, "Transaction": 1,
+            "AssetAllocation": 1, "AllocationHistory": 1,
+            "MonthlyExecutionRecord": 1, "MonthlyPlan": 1,
+            "CompletedExecution": 1, "ExecutionSnapshot": 1,
+            "CompletionEvent": 1
+        ]
     }
 }
 
@@ -175,11 +248,11 @@ struct TestHelpers {
             let asset = Asset(currency: currency)
             // Add transaction to give the asset a balance
             let tx = Transaction(amount: currentTotal, asset: asset)
-            asset.transactions.append(tx)
+            asset.transactions = (asset.transactions ?? []) + [tx]
             // Create allocation that references the asset balance
             let allocation = AssetAllocation(asset: asset, goal: goal, amount: abs(currentTotal))
-            goal.allocations.append(allocation)
-            asset.allocations.append(allocation)
+            goal.allocations = (goal.allocations ?? []) + [allocation]
+            asset.allocations = (asset.allocations ?? []) + [allocation]
         }
         return goal
     }
@@ -198,12 +271,12 @@ struct TestHelpers {
         // Add transaction to give the asset a balance
         if current != 0 {
             let tx = Transaction(amount: current, asset: asset)
-            asset.transactions.append(tx)
+            asset.transactions = (asset.transactions ?? []) + [tx]
             context.insert(tx)
         }
         let allocation = AssetAllocation(asset: asset, goal: goal, amount: abs(current))
-        goal.allocations.append(allocation)
-        asset.allocations.append(allocation)
+        goal.allocations = (goal.allocations ?? []) + [allocation]
+        asset.allocations = (asset.allocations ?? []) + [allocation]
         context.insert(goal)
         context.insert(asset)
         context.insert(allocation)
@@ -214,7 +287,7 @@ struct TestHelpers {
         let asset = Asset(currency: currency)
         if currentAmount != 0 {
             let tx = Transaction(amount: currentAmount, asset: asset)
-            asset.transactions.append(tx)
+            asset.transactions = (asset.transactions ?? []) + [tx]
         }
         return asset
     }
@@ -225,13 +298,13 @@ struct TestHelpers {
 extension Goal {
     /// Computed helper to mimic legacy goal.assets access in tests.
     var assets: [Asset] {
-        get { allocations.compactMap { $0.asset } }
+        get { (allocations ?? []).compactMap { $0.asset } }
         set {
-            allocations.removeAll()
+            allocations = []
             for asset in newValue {
                 let allocation = AssetAllocation(asset: asset, goal: self, amount: asset.currentAmount)
-                allocations.append(allocation)
-                asset.allocations.append(allocation)
+                allocations = (allocations ?? []) + [allocation]
+                asset.allocations = (asset.allocations ?? []) + [allocation]
             }
         }
     }
@@ -242,11 +315,11 @@ extension Asset {
     convenience init(currency: String, goal: Goal, address: String? = nil, chainId: String? = nil, balance: Double = 0) {
         self.init(currency: currency, address: address, chainId: chainId)
         let allocation = AssetAllocation(asset: self, goal: goal, amount: balance)
-        goal.allocations.append(allocation)
-        allocations.append(allocation)
+        goal.allocations = (goal.allocations ?? []) + [allocation]
+        allocations = (allocations ?? []) + [allocation]
         if balance != 0 {
             let tx = Transaction(amount: balance, asset: self)
-            transactions.append(tx)
+            transactions = (transactions ?? []) + [tx]
         }
     }
 }

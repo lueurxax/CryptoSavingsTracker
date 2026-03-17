@@ -17,7 +17,7 @@ final class Goal {
         self.targetAmount = targetAmount
         self.deadline = deadline
         self.startDate = startDate
-        self.allocations = []
+        self.allocations = nil
         self.reminderFrequency = frequency.rawValue
         self.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
         self.emoji = emoji
@@ -47,8 +47,8 @@ final class Goal {
     var goalDescription: String?
     var link: String?
     
-    @Relationship(deleteRule: .cascade, inverse: \AssetAllocation.goal) var allocations: [AssetAllocation] = []
-    @Relationship(deleteRule: .nullify, inverse: \AllocationHistory.goal) var allocationHistory: [AllocationHistory] = []
+    @Relationship(deleteRule: .cascade, inverse: \AssetAllocation.goal) var allocations: [AssetAllocation]?
+    @Relationship(deleteRule: .nullify, inverse: \AllocationHistory.goal) var allocationHistory: [AllocationHistory]?
 
     // MARK: - Computed Properties
 
@@ -58,7 +58,7 @@ final class Goal {
     }
     
     var manualTotal: Double {
-        allocations.reduce(0) { result, allocation in
+        (allocations ?? []).reduce(0) { result, allocation in
             guard let asset = allocation.asset else { return result }
             let allocatedPortion = min(max(0, allocation.amountValue), asset.manualBalance)
             return result + allocatedPortion
@@ -195,7 +195,7 @@ final class Goal {
     
     /// Get all assets allocated to this goal
     var allocatedAssets: [Asset] {
-        allocations.compactMap { $0.asset }
+        (allocations ?? []).compactMap { $0.asset }
     }
     
     /// Get unique assets (without duplicates) allocated to this goal
@@ -216,7 +216,7 @@ final class Goal {
     
     /// Get the total amount allocated from a specific asset
     func getAllocationAmount(from asset: Asset) -> Double {
-        guard let allocation = allocations.first(where: { $0.asset?.id == asset.id }) else { return 0.0 }
+        guard let allocation = (allocations ?? []).first(where: { $0.asset?.id == asset.id }) else { return 0.0 }
         return allocation.amountValue
     }
     
@@ -228,7 +228,7 @@ final class Goal {
     
     /// Get allocation breakdown showing asset and amount pairs
     var allocationBreakdown: [(asset: Asset, amount: Double)] {
-        return allocations.compactMap { allocation in
+        return (allocations ?? []).compactMap { allocation in
             guard let asset = allocation.asset else { return nil }
             return (asset: asset, amount: allocation.amountValue)
         }
