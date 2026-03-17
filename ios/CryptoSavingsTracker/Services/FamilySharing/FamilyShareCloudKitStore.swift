@@ -33,6 +33,8 @@ enum FamilyShareCloudKitError: LocalizedError {
 protocol FamilyShareCloudSyncing {
     func publishProjection(_ payload: FamilyShareProjectionPayload) async throws
     func prepareShare(for request: FamilyShareCloudSharingPreparationRequest) async throws -> (share: CKShare, container: CKContainer)
+    func acceptInvitation(metadata: CKShare.Metadata) async throws -> FamilyShareInvitationMetadataSnapshot
+    func ownerShareSnapshot(namespaceID: FamilyShareNamespaceID) async throws -> FamilyShareOwnerShareSnapshot
     func fetchAcceptedProjection(from snapshot: FamilyShareInvitationMetadataSnapshot) async throws -> FamilyShareSeededNamespaceState
     func refreshProjection(namespaceID: FamilyShareNamespaceID) async throws -> FamilyShareSeededNamespaceState
     func revoke(namespaceID: FamilyShareNamespaceID) async throws
@@ -137,8 +139,9 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         let rootRecord = try await fetchRecord(recordID: rootID, in: database)
 
         if let shareRecordName = rootRecord[Field.shareRecordName] as? String {
-            let shareID = CKRecord.ID(recordName: shareRecordName)
+            let shareID = CKRecord.ID(recordName: shareRecordName, zoneID: Self.zoneID(for: request.namespaceID))
             if let existingShare = try? await fetchRecord(recordID: shareID, in: database) as? CKShare {
+                try await syncRootParticipantMetrics(rootRecord: rootRecord, share: existingShare, in: database)
                 telemetry.track(.sharePrepared, payload: ["namespace": request.namespaceID.namespaceKey, "mode": "existing"])
                 return (existingShare, container)
             }
@@ -150,24 +153,112 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         rootRecord[Field.shareRecordName] = share.recordID.recordName as CKRecordValue
 
         try await modify(recordsToSave: [rootRecord, share], recordIDsToDelete: [], in: database)
+        try await syncRootParticipantMetrics(rootRecord: rootRecord, share: share, in: database)
         telemetry.track(.sharePrepared, payload: ["namespace": request.namespaceID.namespaceKey, "mode": "new"])
         return (share, container)
+    }
+
+    func acceptInvitation(metadata: CKShare.Metadata) async throws -> FamilyShareInvitationMetadataSnapshot {
+        guard rollout.isEnabled() else {
+            throw FamilyShareCloudKitError.rolloutDisabled
+        }
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let operation = CKAcceptSharesOperation(shareMetadatas: [metadata])
+            var acceptanceError: Error?
+
+            operation.perShareResultBlock = { _, result in
+                if case let .failure(error) = result {
+                    acceptanceError = error
+                }
+            }
+
+            operation.acceptSharesResultBlock = { result in
+                switch result {
+                case .success:
+                    if let acceptanceError {
+                        continuation.resume(throwing: acceptanceError)
+                    } else {
+                        continuation.resume(returning: ())
+                    }
+                case let .failure(error):
+                    continuation.resume(throwing: error)
+                }
+            }
+
+            container.add(operation)
+        }
+
+        return FamilyShareInvitationMetadataSnapshot(metadata: metadata)
     }
 
     func fetchAcceptedProjection(from snapshot: FamilyShareInvitationMetadataSnapshot) async throws -> FamilyShareSeededNamespaceState {
         guard rollout.isEnabled() else {
             throw FamilyShareCloudKitError.rolloutDisabled
         }
-        let rootRecordID = Self.recordID(
-            recordName: snapshot.rootRecordName ?? snapshot.hierarchicalRootRecordName ?? "",
-            zoneName: snapshot.rootZoneName ?? snapshot.hierarchicalRootZoneName,
-            zoneOwnerName: snapshot.rootZoneOwnerName ?? snapshot.hierarchicalRootZoneOwnerName
-        )
-        guard rootRecordID.recordName.isEmpty == false else {
+        let candidates = snapshot.rootRecordLookupCandidates
+        guard candidates.isEmpty == false else {
             throw FamilyShareCloudKitError.rootRecordMissing
         }
-        let rootRecord = try await fetchRecord(recordID: rootRecordID, in: container.sharedCloudDatabase)
-        return try await seededState(from: rootRecord, in: container.sharedCloudDatabase)
+
+        var lastError: Error?
+        for candidate in candidates {
+            let rootRecordID = Self.recordID(
+                recordName: candidate.recordName,
+                zoneName: candidate.zoneName,
+                zoneOwnerName: candidate.zoneOwnerName
+            )
+
+            do {
+                let rootRecord = try await fetchRecord(recordID: rootRecordID, in: container.sharedCloudDatabase)
+                return try await seededState(from: rootRecord, in: container.sharedCloudDatabase)
+            } catch {
+                lastError = error
+            }
+        }
+
+        if let lastError {
+            throw lastError
+        }
+        throw FamilyShareCloudKitError.rootRecordMissing
+    }
+
+    func ownerShareSnapshot(namespaceID: FamilyShareNamespaceID) async throws -> FamilyShareOwnerShareSnapshot {
+        guard rollout.isEnabled() else {
+            throw FamilyShareCloudKitError.rolloutDisabled
+        }
+
+        let database = container.privateCloudDatabase
+        let rootID = Self.rootRecordID(for: namespaceID)
+        guard let rootRecord = try? await fetchRecord(recordID: rootID, in: database) else {
+            return FamilyShareOwnerShareSnapshot(
+                ownerState: FamilyShareOwnerViewState(
+                    namespaceID: namespaceID,
+                    lifecycleState: .notShared,
+                    participantCount: 0,
+                    pendingParticipantCount: 0,
+                    activeParticipantCount: 0,
+                    revokedParticipantCount: 0,
+                    failedParticipantCount: 0,
+                    summaryCopy: "Share all of your goals with family in read-only mode.",
+                    primaryActionCopy: "Share with Family"
+                ),
+                participants: []
+            )
+        }
+
+        guard let shareRecordName = rootRecord[Field.shareRecordName] as? String,
+              shareRecordName.isEmpty == false else {
+            return Self.ownerShareSnapshot(from: nil, rootRecord: rootRecord, namespaceID: namespaceID)
+        }
+
+        let shareRecordID = CKRecord.ID(recordName: shareRecordName, zoneID: Self.zoneID(for: namespaceID))
+        guard let share = try? await fetchRecord(recordID: shareRecordID, in: database) as? CKShare else {
+            return Self.ownerShareSnapshot(from: nil, rootRecord: rootRecord, namespaceID: namespaceID)
+        }
+
+        try await syncRootParticipantMetrics(rootRecord: rootRecord, share: share, in: database)
+        return Self.ownerShareSnapshot(from: share, rootRecord: rootRecord, namespaceID: namespaceID)
     }
 
     func refreshProjection(namespaceID: FamilyShareNamespaceID) async throws -> FamilyShareSeededNamespaceState {
@@ -192,7 +283,7 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
 
         if let rootRecord = try? await fetchRecord(recordID: rootID, in: database),
            let shareRecordName = rootRecord[Field.shareRecordName] as? String {
-            recordIDsToDelete.append(CKRecord.ID(recordName: shareRecordName))
+            recordIDsToDelete.append(CKRecord.ID(recordName: shareRecordName, zoneID: Self.zoneID(for: namespaceID)))
         }
 
         try await modify(recordsToSave: [], recordIDsToDelete: recordIDsToDelete, in: database)
@@ -538,6 +629,182 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         let description = nsError.localizedDescription.lowercased()
         return description.contains("did not find record type")
             || description.contains("unknown record type")
+    }
+
+    private func syncRootParticipantMetrics(rootRecord: CKRecord, share: CKShare, in database: CKDatabase) async throws {
+        let snapshot = Self.ownerShareSnapshot(
+            from: share,
+            rootRecord: rootRecord,
+            namespaceID: try namespaceID(from: rootRecord)
+        )
+
+        let participantCount = snapshot.participantCount
+        let pendingParticipantCount = snapshot.pendingParticipantCount
+        let revokedParticipantCount = snapshot.revokedParticipantCount
+        let summaryCopy = snapshot.ownerState.summaryCopy
+        let lifecycleState = snapshot.ownerState.lifecycleState.rawValue
+
+        let needsUpdate =
+            Int(rootRecord[Field.participantCount] as? Int64 ?? 0) != participantCount ||
+            Int(rootRecord[Field.pendingParticipantCount] as? Int64 ?? 0) != pendingParticipantCount ||
+            Int(rootRecord[Field.revokedParticipantCount] as? Int64 ?? 0) != revokedParticipantCount ||
+            (rootRecord[Field.shareRecordName] as? String) != share.recordID.recordName ||
+            (rootRecord[Field.summaryCopy] as? String) != summaryCopy ||
+            (rootRecord[Field.lifecycleState] as? String) != lifecycleState
+
+        guard needsUpdate else { return }
+
+        rootRecord[Field.participantCount] = Int64(participantCount) as CKRecordValue
+        rootRecord[Field.pendingParticipantCount] = Int64(pendingParticipantCount) as CKRecordValue
+        rootRecord[Field.revokedParticipantCount] = Int64(revokedParticipantCount) as CKRecordValue
+        rootRecord[Field.summaryCopy] = summaryCopy as CKRecordValue
+        rootRecord[Field.lifecycleState] = lifecycleState as CKRecordValue
+        rootRecord[Field.shareRecordName] = share.recordID.recordName as CKRecordValue
+
+        try await modify(recordsToSave: [rootRecord], recordIDsToDelete: [], in: database)
+    }
+
+    private static func ownerShareSnapshot(
+        from share: CKShare?,
+        rootRecord: CKRecord,
+        namespaceID: FamilyShareNamespaceID
+    ) -> FamilyShareOwnerShareSnapshot {
+        let participants = (share?.participants ?? [])
+            .filter { $0.role != .owner }
+            .map { participant in
+                FamilyShareParticipantSnapshot(
+                    id: participant.userIdentity.userRecordID?.recordName
+                        ?? participant.userIdentity.lookupInfo?.emailAddress
+                        ?? participant.userIdentity.lookupInfo?.phoneNumber
+                        ?? "\(participant.role)-\(participant.acceptanceStatus)",
+                    displayName: participantDisplayName(participant),
+                    emailOrAlias: participantAlias(participant),
+                    state: participantState(participant),
+                    lastUpdatedAt: share?.modificationDate ?? rootRecord.modificationDate,
+                    isCurrentUser: participant.userIdentity.userRecordID?.recordName == CKCurrentUserDefaultName
+                )
+            }
+            .sorted { lhs, rhs in
+                let leftPriority = participantSortPriority(lhs.state)
+                let rightPriority = participantSortPriority(rhs.state)
+                if leftPriority != rightPriority {
+                    return leftPriority < rightPriority
+                }
+                return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+            }
+
+        let pendingParticipantCount = participants.filter { $0.state == .pending }.count
+        let activeParticipantCount = participants.filter { $0.state == .active }.count
+        let revokedParticipantCount = participants.filter { $0.state == .revoked }.count
+        let failedParticipantCount = participants.filter { $0.state == .failed }.count
+
+        let lifecycleState: FamilyShareOwnerLifecycleState
+        if pendingParticipantCount > 0 && activeParticipantCount == 0 {
+            lifecycleState = .invitePending
+        } else if share == nil {
+            lifecycleState = FamilyShareOwnerLifecycleState(rawValue: rootRecord[Field.lifecycleState] as? String ?? "") ?? .sharedActive
+        } else {
+            lifecycleState = .sharedActive
+        }
+
+        let summaryCopy: String
+        if activeParticipantCount > 0 && pendingParticipantCount > 0 {
+            summaryCopy = "\(activeParticipantCount) active, \(pendingParticipantCount) pending."
+        } else if activeParticipantCount > 0 {
+            summaryCopy = activeParticipantCount == 1
+                ? "1 family member has active read-only access."
+                : "\(activeParticipantCount) family members have active read-only access."
+        } else if pendingParticipantCount > 0 {
+            summaryCopy = pendingParticipantCount == 1
+                ? "1 invitation is waiting for acceptance."
+                : "\(pendingParticipantCount) invitations are waiting for acceptance."
+        } else if revokedParticipantCount > 0 {
+            summaryCopy = "No active participants. Removed invitees must be re-invited."
+        } else {
+            summaryCopy = rootRecord[Field.summaryCopy] as? String ?? "All current goals are shared in read-only mode."
+        }
+
+        return FamilyShareOwnerShareSnapshot(
+            ownerState: FamilyShareOwnerViewState(
+                namespaceID: namespaceID,
+                lifecycleState: lifecycleState,
+                participantCount: participants.count,
+                pendingParticipantCount: pendingParticipantCount,
+                activeParticipantCount: activeParticipantCount,
+                revokedParticipantCount: revokedParticipantCount,
+                failedParticipantCount: failedParticipantCount,
+                summaryCopy: summaryCopy,
+                primaryActionCopy: lifecycleState == .notShared ? "Share with Family" : "Manage Participants"
+            ),
+            participants: participants
+        )
+    }
+
+    private static func participantDisplayName(_ participant: CKShare.Participant) -> String {
+        let formatter = PersonNameComponentsFormatter()
+        if let components = participant.userIdentity.nameComponents {
+            let name = formatter.string(from: components).trimmingCharacters(in: .whitespacesAndNewlines)
+            if name.isEmpty == false {
+                return name
+            }
+        }
+
+        if let email = participant.userIdentity.lookupInfo?.emailAddress, email.isEmpty == false {
+            return email
+        }
+
+        if let phoneNumber = participant.userIdentity.lookupInfo?.phoneNumber, phoneNumber.isEmpty == false {
+            return phoneNumber
+        }
+
+        switch participant.acceptanceStatus {
+        case .accepted:
+            return "Family Member"
+        case .pending, .unknown:
+            return "Pending Invite"
+        case .removed:
+            return "Removed Participant"
+        @unknown default:
+            return "Family Participant"
+        }
+    }
+
+    private static func participantAlias(_ participant: CKShare.Participant) -> String? {
+        if let email = participant.userIdentity.lookupInfo?.emailAddress, email.isEmpty == false {
+            return email
+        }
+
+        if let phoneNumber = participant.userIdentity.lookupInfo?.phoneNumber, phoneNumber.isEmpty == false {
+            return phoneNumber
+        }
+
+        return participant.acceptanceStatus == .accepted ? "Accepted" : "Waiting for acceptance"
+    }
+
+    private static func participantState(_ participant: CKShare.Participant) -> FamilyShareParticipantLifecycleState {
+        switch participant.acceptanceStatus {
+        case .accepted:
+            return .active
+        case .pending, .unknown:
+            return .pending
+        case .removed:
+            return .revoked
+        @unknown default:
+            return .failed
+        }
+    }
+
+    private static func participantSortPriority(_ state: FamilyShareParticipantLifecycleState) -> Int {
+        switch state {
+        case .active:
+            return 0
+        case .pending:
+            return 1
+        case .revoked:
+            return 2
+        case .failed:
+            return 3
+        }
     }
 }
 #endif

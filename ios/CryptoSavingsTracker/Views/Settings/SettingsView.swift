@@ -66,7 +66,11 @@ struct SettingsView: View {
                                     }
                                 },
                                 onShowScopePreview: {},
-                                onShowParticipants: {}
+                                onShowParticipants: {
+                                    Task {
+                                        await familyShareCoordinator.manageParticipants()
+                                    }
+                                }
                             )
                         } label: {
                             let familyAccessSummary = familyShareCoordinator.settingsRowSummary(currentGoalCount: activeGoals.count)
@@ -193,6 +197,9 @@ struct SettingsView: View {
                 request: request,
                 onDidSave: {
                     familyShareCoordinator.dismissPendingCloudSharingRequest()
+                    Task {
+                        await familyShareCoordinator.refreshAllState()
+                    }
                 },
                 onDidFail: { message in
                     familyShareCoordinator.latestErrorMessage = message

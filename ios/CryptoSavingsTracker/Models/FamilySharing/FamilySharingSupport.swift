@@ -35,6 +35,13 @@ enum FamilyShareAcceptanceOutcome: String, Codable, CaseIterable, Sendable {
     case failed
 }
 
+enum FamilyShareParticipantLifecycleState: String, Codable, CaseIterable, Sendable {
+    case pending
+    case active
+    case revoked
+    case failed
+}
+
 struct FamilyShareNamespaceID: Hashable, Codable, Sendable, Identifiable {
     let ownerID: String
     let shareID: String
@@ -76,6 +83,72 @@ struct FamilyShareInvitationMetadataSnapshot: Codable, Equatable, Sendable {
     let hierarchicalRootRecordName: String?
     let hierarchicalRootZoneName: String?
     let hierarchicalRootZoneOwnerName: String?
+
+    var rootRecordLookupCandidates: [FamilyShareInvitationRecordLocator] {
+        var seen = Set<String>()
+        var candidates: [FamilyShareInvitationRecordLocator] = []
+
+        func append(recordName: String?, zoneName: String?, zoneOwnerName: String?) {
+            guard let recordName, recordName.isEmpty == false else { return }
+            let key = [recordName, zoneName ?? "", zoneOwnerName ?? ""].joined(separator: "|")
+            guard seen.insert(key).inserted else { return }
+            candidates.append(
+                FamilyShareInvitationRecordLocator(
+                    recordName: recordName,
+                    zoneName: zoneName,
+                    zoneOwnerName: zoneOwnerName
+                )
+            )
+        }
+
+        append(recordName: rootRecordName, zoneName: rootZoneName, zoneOwnerName: rootZoneOwnerName)
+        append(
+            recordName: hierarchicalRootRecordName,
+            zoneName: hierarchicalRootZoneName,
+            zoneOwnerName: hierarchicalRootZoneOwnerName
+        )
+        return candidates
+    }
+}
+
+struct FamilyShareInvitationRecordLocator: Codable, Equatable, Sendable {
+    let recordName: String
+    let zoneName: String?
+    let zoneOwnerName: String?
+}
+
+struct FamilyShareParticipantSnapshot: Identifiable, Codable, Equatable, Sendable {
+    let id: String
+    let displayName: String
+    let emailOrAlias: String?
+    let state: FamilyShareParticipantLifecycleState
+    let lastUpdatedAt: Date?
+    let isCurrentUser: Bool
+}
+
+struct FamilyShareOwnerShareSnapshot: Codable, Equatable, Sendable {
+    let ownerState: FamilyShareOwnerViewState
+    let participants: [FamilyShareParticipantSnapshot]
+
+    var participantCount: Int {
+        participants.count
+    }
+
+    var pendingParticipantCount: Int {
+        participants.filter { $0.state == .pending }.count
+    }
+
+    var activeParticipantCount: Int {
+        participants.filter { $0.state == .active }.count
+    }
+
+    var revokedParticipantCount: Int {
+        participants.filter { $0.state == .revoked }.count
+    }
+
+    var failedParticipantCount: Int {
+        participants.filter { $0.state == .failed }.count
+    }
 }
 
 struct FamilyShareScopePreviewSummary: Codable, Equatable, Sendable {

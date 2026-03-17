@@ -46,7 +46,7 @@ protocol FamilyShareNamespaceManaging {
 }
 
 protocol FamilyShareSceneAccepting: AnyObject {
-    func acceptInvitation(_ snapshot: FamilyShareInvitationMetadataSnapshot)
+    func acceptInvitation(_ metadata: CKShare.Metadata)
     func acceptPendingInvitation(from connectionOptions: UIScene.ConnectionOptions)
 }
 
@@ -268,12 +268,16 @@ final class DefaultFamilyShareProjectionPublisher: FamilyShareProjectionPublishi
     }
 
     func publish(_ payload: FamilyShareProjectionPayload) async throws -> FamilySharePublicationResult {
+        let activeParticipantCount = max(0, payload.participantCount - payload.pendingParticipantCount - payload.revokedParticipantCount)
+        let ownerLifecycleState: FamilyShareOwnerLifecycleState = payload.pendingParticipantCount > 0 && activeParticipantCount == 0
+            ? .invitePending
+            : .sharedActive
         let ownerState = FamilyShareOwnerViewState(
             namespaceID: payload.namespaceID,
-            lifecycleState: .sharedActive,
+            lifecycleState: ownerLifecycleState,
             participantCount: payload.participantCount,
             pendingParticipantCount: payload.pendingParticipantCount,
-            activeParticipantCount: payload.participantCount,
+            activeParticipantCount: activeParticipantCount,
             revokedParticipantCount: payload.revokedParticipantCount,
             failedParticipantCount: 0,
             summaryCopy: payload.summaryCopy,
@@ -620,6 +624,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     @Published private(set) var latestConnectionOptionsSnapshot: FamilyShareInvitationMetadataSnapshot?
     @Published private(set) var lastSeededScenario: FamilyShareTestScenario?
     @Published private(set) var ownerState: FamilyShareOwnerViewState
+    @Published private(set) var ownerParticipants: [FamilyShareParticipantSnapshot] = []
     @Published private(set) var sharedSections: [FamilyShareOwnerSection] = []
     @Published private(set) var inviteeStates: [FamilyShareInviteeViewState] = []
     @Published var pendingCloudSharingRequest: FamilyShareCloudSharingRequest?
@@ -701,6 +706,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             inviteeStates = []
             sharedSections = []
             ownerState = defaultOwnerState()
+            ownerParticipants = []
             return
         }
         do {
@@ -717,17 +723,42 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 }
             }
 
-            ownerState = try await stateProvider.ownerState(for: ownerNamespaceID) ?? defaultOwnerState()
+            let storedOwnerState = try await stateProvider.ownerState(for: ownerNamespaceID) ?? defaultOwnerState()
+            var resolvedOwnerState = storedOwnerState
+            var resolvedOwnerParticipants = fallbackParticipants(for: storedOwnerState)
+            var ownerShareErrorMessage: String?
+
+            if let cloudSync {
+                do {
+                    let ownerShareSnapshot = try await cloudSync.ownerShareSnapshot(namespaceID: ownerNamespaceID)
+                    resolvedOwnerState = ownerShareSnapshot.ownerState
+                    resolvedOwnerParticipants = ownerShareSnapshot.participants
+                } catch {
+                    telemetry.track(
+                        .refreshFailed,
+                        payload: [
+                            "namespace": ownerNamespaceID.namespaceKey,
+                            "reason": error.localizedDescription,
+                            "surface": "owner"
+                        ]
+                    )
+                    ownerShareErrorMessage = error.localizedDescription
+                }
+            }
+
+            ownerState = resolvedOwnerState
+            ownerParticipants = resolvedOwnerParticipants
             inviteeStates = try await inviteeStateProvider.inviteeStates()
                 .filter { $0.namespaceID != ownerNamespaceID }
             sharedSections = try await inviteeStateProvider.sharedOwnerSections()
                 .filter { $0.ownerID != ownerNamespaceID.ownerID || $0.shareID != ownerNamespaceID.shareID }
-            latestErrorMessage = nil
+            latestErrorMessage = ownerShareErrorMessage
         } catch {
             latestErrorMessage = error.localizedDescription
             inviteeStates = []
             sharedSections = []
             ownerState = defaultOwnerState()
+            ownerParticipants = []
         }
     }
 
@@ -757,7 +788,15 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         return FamilyAccessModel(
             ownerName: ownerName,
             subtitle: currentOwnerState.summaryCopy,
-            participants: synthesizeParticipants(from: currentOwnerState),
+            participants: ownerParticipants.map { snapshot in
+                FamilyShareParticipant(
+                    displayName: snapshot.displayName,
+                    emailOrAlias: snapshot.emailOrAlias,
+                    state: mapParticipantState(snapshot.state),
+                    lastUpdatedAt: snapshot.lastUpdatedAt,
+                    isCurrentUser: snapshot.isCurrentUser
+                )
+            },
             ownerSections: currentGoals.isEmpty ? [] : [ownerSection],
             state: mapSurfaceState(ownerLifecycleState: currentOwnerState.lifecycleState),
             scopePreview: makeScopePreview(ownerName: ownerName)
@@ -819,6 +858,40 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 container: prepared.container
             )
             await refreshAllState()
+        } catch {
+            latestErrorMessage = error.localizedDescription
+        }
+    }
+
+    func manageParticipants() async {
+        guard rollout.isEnabled() else {
+            latestErrorMessage = FamilyShareCloudKitError.rolloutDisabled.localizedDescription
+            return
+        }
+        guard ownerState.lifecycleState != .notShared else {
+            latestErrorMessage = "Share your goals first before managing participants."
+            return
+        }
+        guard let cloudSync else {
+            latestErrorMessage = "Family sharing cloud sync is unavailable."
+            return
+        }
+
+        do {
+            let prepared = try await cloudSync.prepareShare(
+                for: FamilyShareCloudSharingPreparationRequest(
+                    namespaceID: ownerNamespaceID,
+                    ownerDisplayName: identityStore.ownerDisplayName(),
+                    shareTitle: "\(identityStore.ownerDisplayName())'s Shared Goals"
+                )
+            )
+            pendingCloudSharingRequest = FamilyShareCloudSharingRequest(
+                namespaceID: ownerNamespaceID,
+                ownerDisplayName: identityStore.ownerDisplayName(),
+                shareTitle: "\(identityStore.ownerDisplayName())'s Shared Goals",
+                share: prepared.share,
+                container: prepared.container
+            )
         } catch {
             latestErrorMessage = error.localizedDescription
         }
@@ -891,13 +964,15 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         latestErrorMessage = nil
         lastSeededScenario = nil
         ownerState = defaultOwnerState()
+        ownerParticipants = []
     }
 
-    func acceptInvitation(_ snapshot: FamilyShareInvitationMetadataSnapshot) {
+    func acceptInvitation(_ metadata: CKShare.Metadata) {
         guard rollout.isEnabled() else { return }
+        let snapshot = FamilyShareInvitationMetadataSnapshot(metadata: metadata)
         latestAcceptanceSnapshot = snapshot
         Task { [weak self] in
-            await self?.bootstrapAcceptedInvitation(snapshot)
+            await self?.bootstrapAcceptedInvitation(snapshot, metadata: metadata)
         }
     }
 
@@ -905,13 +980,26 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         guard let metadata = connectionOptions.cloudKitShareMetadata else { return }
         let snapshot = FamilyShareInvitationMetadataSnapshot(metadata: metadata)
         latestConnectionOptionsSnapshot = snapshot
-        acceptInvitation(snapshot)
+        acceptInvitation(metadata)
     }
 
-    private func bootstrapAcceptedInvitation(_ snapshot: FamilyShareInvitationMetadataSnapshot) async {
+    private func bootstrapAcceptedInvitation(
+        _ snapshot: FamilyShareInvitationMetadataSnapshot,
+        metadata: CKShare.Metadata? = nil
+    ) async {
         do {
             if let cloudSync {
-                let seededState = try await cloudSync.fetchAcceptedProjection(from: snapshot)
+                let acceptedSnapshot: FamilyShareInvitationMetadataSnapshot
+                if let metadata {
+                    acceptedSnapshot = try await cloudSync.acceptInvitation(metadata: metadata)
+                    await MainActor.run {
+                        latestAcceptanceSnapshot = acceptedSnapshot
+                    }
+                } else {
+                    acceptedSnapshot = snapshot
+                }
+
+                let seededState = try await cloudSync.fetchAcceptedProjection(from: acceptedSnapshot)
                 try registry.seed(seededState)
                 telemetry.track(.accepted, payload: ["namespace": seededState.ownerState.namespaceID.namespaceKey])
             } else {
@@ -1036,8 +1124,8 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         }
         let existingVersion = try registry.seededState(for: ownerNamespaceID)?.projectionPayload?.projectionVersion ?? 0
         let projectionVersion = max(existingVersion + 1, 1)
-        let participantCount = max(ownerState.participantCount, ownerState.pendingParticipantCount, 1)
-        let pendingCount = max(ownerState.pendingParticipantCount, 1)
+        let participantCount = ownerState.participantCount
+        let pendingCount = ownerState.pendingParticipantCount
         let publishedAt = Date()
 
         let goalPayloads = sortedGoals.enumerated().map { index, goal in
@@ -1151,54 +1239,82 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         )
     }
 
-    private func synthesizeParticipants(from state: FamilyShareOwnerViewState) -> [FamilyShareParticipant] {
-        var participants: [FamilyShareParticipant] = []
+    private func fallbackParticipants(for state: FamilyShareOwnerViewState) -> [FamilyShareParticipantSnapshot] {
+        guard cloudSync == nil || lastSeededScenario != nil else {
+            return []
+        }
+        return synthesizeParticipants(from: state)
+    }
+
+    private func synthesizeParticipants(from state: FamilyShareOwnerViewState) -> [FamilyShareParticipantSnapshot] {
+        var participants: [FamilyShareParticipantSnapshot] = []
 
         for index in 0..<state.activeParticipantCount {
             participants.append(
-                FamilyShareParticipant(
+                FamilyShareParticipantSnapshot(
+                    id: "active-\(index + 1)",
                     displayName: "Family Member \(index + 1)",
                     emailOrAlias: "Accepted",
                     state: .active,
-                    lastUpdatedAt: Date()
+                    lastUpdatedAt: Date(),
+                    isCurrentUser: false
                 )
             )
         }
 
         for index in 0..<state.pendingParticipantCount {
             participants.append(
-                FamilyShareParticipant(
+                FamilyShareParticipantSnapshot(
+                    id: "pending-\(index + 1)",
                     displayName: "Pending Invite \(index + 1)",
                     emailOrAlias: "Waiting for acceptance",
                     state: .pending,
-                    lastUpdatedAt: Date()
+                    lastUpdatedAt: Date(),
+                    isCurrentUser: false
                 )
             )
         }
 
         for index in 0..<state.revokedParticipantCount {
             participants.append(
-                FamilyShareParticipant(
+                FamilyShareParticipantSnapshot(
+                    id: "revoked-\(index + 1)",
                     displayName: "Removed Invite \(index + 1)",
                     emailOrAlias: "Access revoked",
                     state: .revoked,
-                    lastUpdatedAt: Date()
+                    lastUpdatedAt: Date(),
+                    isCurrentUser: false
                 )
             )
         }
 
         for index in 0..<state.failedParticipantCount {
             participants.append(
-                FamilyShareParticipant(
+                FamilyShareParticipantSnapshot(
+                    id: "failed-\(index + 1)",
                     displayName: "Delivery Issue \(index + 1)",
                     emailOrAlias: "Needs retry",
                     state: .failed,
-                    lastUpdatedAt: Date()
+                    lastUpdatedAt: Date(),
+                    isCurrentUser: false
                 )
             )
         }
 
         return participants
+    }
+
+    private func mapParticipantState(_ state: FamilyShareParticipantLifecycleState) -> FamilyShareParticipantState {
+        switch state {
+        case .pending:
+            return .pending
+        case .active:
+            return .active
+        case .revoked:
+            return .revoked
+        case .failed:
+            return .failed
+        }
     }
 
     private func mapSurfaceState(ownerLifecycleState: FamilyShareOwnerLifecycleState) -> FamilyShareSurfaceState {
@@ -1228,9 +1344,7 @@ final class FamilyShareSceneDelegateBridge: NSObject, UIWindowSceneDelegate {
     }
 
     func windowScene(_ windowScene: UIWindowScene, userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata) {
-        FamilyShareSceneBridgeHub.shared.acceptanceSink?.acceptInvitation(
-            FamilyShareInvitationMetadataSnapshot(metadata: cloudKitShareMetadata)
-        )
+        FamilyShareSceneBridgeHub.shared.acceptanceSink?.acceptInvitation(cloudKitShareMetadata)
     }
 }
 
@@ -1242,9 +1356,9 @@ extension FamilyShareInvitationMetadataSnapshot {
             participantStatusRawValue: String(describing: metadata.participantStatus),
             participantRoleRawValue: String(describing: metadata.participantRole),
             participantPermissionRawValue: String(describing: metadata.participantPermission),
-            rootRecordName: metadata.rootRecord?.recordID.recordName,
-            rootZoneName: metadata.rootRecord?.recordID.zoneID.zoneName,
-            rootZoneOwnerName: metadata.rootRecord?.recordID.zoneID.ownerName,
+            rootRecordName: metadata.rootRecordID.recordName,
+            rootZoneName: metadata.rootRecordID.zoneID.zoneName,
+            rootZoneOwnerName: metadata.rootRecordID.zoneID.ownerName,
             hierarchicalRootRecordName: metadata.hierarchicalRootRecordID?.recordName,
             hierarchicalRootZoneName: metadata.hierarchicalRootRecordID?.zoneID.zoneName,
             hierarchicalRootZoneOwnerName: metadata.hierarchicalRootRecordID?.zoneID.ownerName

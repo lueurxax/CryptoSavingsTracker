@@ -9,15 +9,16 @@ import CloudKit
 
 @MainActor
 final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
-    private func makeCoordinator() -> FamilyShareAcceptanceCoordinator {
+    private func makeCoordinator(cloudSync: FamilyShareCloudSyncing? = nil) -> FamilyShareAcceptanceCoordinator {
         let factory = FamilyShareNamespaceStoreFactory(environment: .preview)
         let registry = FamilyShareNamespaceRegistry(factory: factory)
         let stateProvider = DefaultFamilyShareStateProvider(registry: registry)
-        let publisher = DefaultFamilyShareProjectionPublisher(registry: registry)
+        let publisher = DefaultFamilyShareProjectionPublisher(registry: registry, cloudSync: cloudSync)
         let ownerSharingService = DefaultFamilyShareOwnerSharingService(
             registry: registry,
             stateProvider: stateProvider,
-            publisher: publisher
+            publisher: publisher,
+            cloudSync: cloudSync
         )
         let migrationCoordinator = FamilyShareCacheMigrationCoordinator(registry: registry)
         let publishCoordinator = FamilyShareProjectionPublishCoordinator(publisher: publisher)
@@ -30,7 +31,8 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
             ownerSharingService: ownerSharingService,
             cacheMigrationCoordinator: migrationCoordinator,
             publishCoordinator: publishCoordinator,
-            seeder: seeder
+            seeder: seeder,
+            cloudSync: cloudSync
         )
     }
 
@@ -96,5 +98,76 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
             userInfo: [NSLocalizedDescriptionKey: "The network is unavailable."]
         )
         XCTAssertFalse(DefaultFamilyShareCloudKitStore.isMissingRecordTypeError(unrelatedError))
+    }
+
+    func testOwnerFamilyAccessModelUsesLiveCloudKitParticipants() async {
+        let ownerNamespaceID = FamilyShareNamespaceID(ownerID: "owner", shareID: "share")
+        let cloudSync = StubFamilyShareCloudSync(
+            ownerSnapshot: FamilyShareOwnerShareSnapshot(
+                ownerState: FamilyShareOwnerViewState(
+                    namespaceID: ownerNamespaceID,
+                    lifecycleState: .sharedActive,
+                    participantCount: 1,
+                    pendingParticipantCount: 0,
+                    activeParticipantCount: 1,
+                    revokedParticipantCount: 0,
+                    failedParticipantCount: 0,
+                    summaryCopy: "1 family member has active read-only access.",
+                    primaryActionCopy: "Manage Participants"
+                ),
+                participants: [
+                    FamilyShareParticipantSnapshot(
+                        id: "marta@example.com",
+                        displayName: "Marta",
+                        emailOrAlias: "marta@example.com",
+                        state: .active,
+                        lastUpdatedAt: Date(),
+                        isCurrentUser: false
+                    )
+                ]
+            )
+        )
+        let coordinator = makeCoordinator(cloudSync: cloudSync)
+
+        await coordinator.seedUITestScenario(.ownerSharedActive)
+        let model = coordinator.makeFamilyAccessModel(currentGoals: [])
+
+        XCTAssertEqual(model.participants.map(\.displayName), ["Marta"])
+        XCTAssertEqual(model.participants.first?.state, .active)
+        XCTAssertEqual(coordinator.settingsRowSummary(currentGoalCount: 1), "1 participant")
+    }
+}
+
+private final class StubFamilyShareCloudSync: FamilyShareCloudSyncing {
+    let ownerSnapshot: FamilyShareOwnerShareSnapshot
+
+    init(ownerSnapshot: FamilyShareOwnerShareSnapshot) {
+        self.ownerSnapshot = ownerSnapshot
+    }
+
+    func publishProjection(_ payload: FamilyShareProjectionPayload) async throws {
+    }
+
+    func prepareShare(for request: FamilyShareCloudSharingPreparationRequest) async throws -> (share: CKShare, container: CKContainer) {
+        throw NSError(domain: "StubFamilyShareCloudSync", code: 1)
+    }
+
+    func acceptInvitation(metadata: CKShare.Metadata) async throws -> FamilyShareInvitationMetadataSnapshot {
+        FamilyShareInvitationMetadataSnapshot(metadata: metadata)
+    }
+
+    func ownerShareSnapshot(namespaceID: FamilyShareNamespaceID) async throws -> FamilyShareOwnerShareSnapshot {
+        ownerSnapshot
+    }
+
+    func fetchAcceptedProjection(from snapshot: FamilyShareInvitationMetadataSnapshot) async throws -> FamilyShareSeededNamespaceState {
+        throw NSError(domain: "StubFamilyShareCloudSync", code: 2)
+    }
+
+    func refreshProjection(namespaceID: FamilyShareNamespaceID) async throws -> FamilyShareSeededNamespaceState {
+        throw NSError(domain: "StubFamilyShareCloudSync", code: 3)
+    }
+
+    func revoke(namespaceID: FamilyShareNamespaceID) async throws {
     }
 }

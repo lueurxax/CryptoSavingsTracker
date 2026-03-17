@@ -169,11 +169,24 @@ struct FamilyAccessView: View {
                     }
                 }
 
-                Button("Manage Participants") {
-                    isShowingParticipants = true
-                    onShowParticipants()
+                if model.participants.isEmpty {
+                    Button("Manage Participants") {
+                        onShowParticipants()
+                    }
+                    .font(.subheadline.weight(.semibold))
+                } else {
+                    HStack(spacing: 16) {
+                        Button("View Participants") {
+                            isShowingParticipants = true
+                        }
+                        .font(.subheadline.weight(.semibold))
+
+                        Button("Manage Participants") {
+                            onShowParticipants()
+                        }
+                        .font(.subheadline.weight(.semibold))
+                    }
                 }
-                .font(.subheadline.weight(.semibold))
             }
         }
     }
@@ -210,4 +223,3 @@ struct FamilyAccessView: View {
         }
     }
 }
-
