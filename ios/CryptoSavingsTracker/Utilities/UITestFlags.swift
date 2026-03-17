@@ -9,7 +9,19 @@ import Foundation
 
 enum UITestFlags {
     private static let args = ProcessInfo.processInfo.arguments
+    private static let environment = ProcessInfo.processInfo.environment
     private static var remainingSimulatedGoalSaveFailures = shouldSimulateGoalSaveFailure ? 1 : 0
+
+    enum FamilyShareScenario: String {
+        case ownerNotShared = "owner_not_shared"
+        case ownerSharedActive = "owner_shared_active"
+        case inviteeActive = "invitee_active"
+        case inviteeEmpty = "invitee_empty"
+        case inviteeStale = "invitee_stale"
+        case inviteeRevoked = "invitee_revoked"
+        case inviteeRemoved = "invitee_removed"
+        case inviteeUnavailable = "invitee_unavailable"
+    }
 
     static var isEnabled: Bool {
         args.contains(where: { $0.hasPrefix("UITEST") })
@@ -37,6 +49,13 @@ enum UITestFlags {
 
     static var shouldSimulateGoalSaveFailure: Bool {
         args.contains("UITEST_SIMULATE_GOAL_SAVE_FAILURE")
+    }
+
+    static var familyShareScenario: FamilyShareScenario? {
+        guard let rawValue = environment["UITEST_FAMILY_SHARE_SCENARIO"] else {
+            return nil
+        }
+        return FamilyShareScenario(rawValue: rawValue)
     }
 
     @MainActor

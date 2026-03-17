@@ -11,6 +11,11 @@ import SwiftData
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var familyShareCoordinator: FamilyShareAcceptanceCoordinator
+    @Query(filter: #Predicate<Goal> { goal in
+        goal.lifecycleStatusRawValue == "active"
+    })
+    private var activeGoals: [Goal]
     @ObservedObject private var monthlySettings = MonthlyPlanningSettings.shared
     @StateObject private var persistenceController = PersistenceController.shared
     @StateObject private var bridgeController = LocalBridgeSyncController.shared
@@ -19,6 +24,7 @@ struct SettingsView: View {
     @State private var exportResult: CSVExportResult?
     @State private var exportErrorMessage: String?
     @State private var showingExportError = false
+    @State private var familyShareEnabled = DIContainer.shared.familyShareRollout.isEnabled()
     @StateObject private var healthMonitor = DIContainer.shared.cloudKitHealthMonitor
 
     var body: some View {
@@ -45,6 +51,43 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    if familyShareEnabled {
+                        NavigationLink {
+                            FamilyAccessView(
+                                model: familyShareCoordinator.makeFamilyAccessModel(currentGoals: activeGoals),
+                                onShareWithFamily: {
+                                    Task {
+                                        await familyShareCoordinator.shareAllGoals(activeGoals)
+                                    }
+                                },
+                                onRefresh: {
+                                    Task {
+                                        await familyShareCoordinator.refreshAllState()
+                                    }
+                                },
+                                onShowScopePreview: {},
+                                onShowParticipants: {}
+                            )
+                        } label: {
+                            let familyAccessSummary = familyShareCoordinator.settingsRowSummary(currentGoalCount: activeGoals.count)
+                            if settingsVisualEnabled {
+                                SettingsSectionRow(
+                                    title: "Family Access",
+                                    systemImage: "person.2.badge.gearshape",
+                                    value: familyAccessSummary,
+                                    accessibilityIdentifier: "settings.cloudkit.familyAccessRow"
+                                )
+                            } else {
+                                LegacySettingsValueRow(
+                                    title: "Family Access",
+                                    value: familyAccessSummary,
+                                    accessibilityIdentifier: "settings.cloudkit.familyAccessRow"
+                                )
+                            }
+                        }
+                        .accessibilityIdentifier("settings.cloudkit.familyAccess")
+                    }
+
                     NavigationLink {
                         LocalBridgeSyncView(persistenceSnapshot: persistenceController.snapshot)
                     } label: {
@@ -145,15 +188,56 @@ struct SettingsView: View {
         .sheet(item: $exportResult) { result in
             CSVExportShareView(fileURLs: result.fileURLs)
         }
+        .sheet(item: $familyShareCoordinator.pendingCloudSharingRequest) { request in
+            FamilyCloudSharingControllerSheet(
+                request: request,
+                onDidSave: {
+                    familyShareCoordinator.dismissPendingCloudSharingRequest()
+                },
+                onDidFail: { message in
+                    familyShareCoordinator.latestErrorMessage = message
+                    familyShareCoordinator.dismissPendingCloudSharingRequest()
+                },
+                onDidStopSharing: {
+                    familyShareCoordinator.dismissPendingCloudSharingRequest()
+                    Task {
+                        await familyShareCoordinator.revokeOwnerShare()
+                    }
+                }
+            )
+        }
         .alert("Export Failed", isPresented: $showingExportError) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(exportErrorMessage ?? "Unknown error")
         }
+        .alert(
+            "Family Sharing",
+            isPresented: Binding(
+                get: { familyShareCoordinator.latestErrorMessage != nil },
+                set: { newValue in
+                    if !newValue {
+                        familyShareCoordinator.latestErrorMessage = nil
+                    }
+                }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                familyShareCoordinator.latestErrorMessage = nil
+            }
+        } message: {
+            Text(familyShareCoordinator.latestErrorMessage ?? "Unknown error")
+        }
         .onAppear {
+            familyShareEnabled = DIContainer.shared.familyShareRollout.isEnabled()
             settingsVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .settings)
             persistenceController.refresh()
             bridgeController.refresh()
+            if familyShareEnabled {
+                Task {
+                    await familyShareCoordinator.refreshAllState()
+                }
+            }
         }
     }
 }

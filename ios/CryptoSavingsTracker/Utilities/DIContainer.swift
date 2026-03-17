@@ -371,6 +371,116 @@ class DIContainer: ObservableObject {
         )
     }
 
+    // MARK: - Family Sharing Services
+
+    private var _familyShareNamespaceRegistry: FamilyShareNamespaceRegistry?
+    var familyShareNamespaceRegistry: FamilyShareNamespaceRegistry {
+        if let registry = _familyShareNamespaceRegistry { return registry }
+        let registry = FamilyShareNamespaceRegistry()
+        _familyShareNamespaceRegistry = registry
+        return registry
+    }
+
+    private var _familyShareRollout: FamilyShareRollout?
+    var familyShareRollout: FamilyShareRollout {
+        if let rollout = _familyShareRollout { return rollout }
+        let rollout = FamilyShareRollout.shared
+        _familyShareRollout = rollout
+        return rollout
+    }
+
+    private var _familyShareTelemetryTracker: FamilyShareTelemetryTracker?
+    var familyShareTelemetryTracker: FamilyShareTelemetryTracker {
+        if let tracker = _familyShareTelemetryTracker { return tracker }
+        let tracker = FamilyShareTelemetryTracker()
+        _familyShareTelemetryTracker = tracker
+        return tracker
+    }
+
+    private var _familyShareCloudKitStore: DefaultFamilyShareCloudKitStore?
+    var familyShareCloudKitStore: DefaultFamilyShareCloudKitStore {
+        if let store = _familyShareCloudKitStore { return store }
+        let store = DefaultFamilyShareCloudKitStore(
+            telemetry: familyShareTelemetryTracker,
+            rollout: familyShareRollout
+        )
+        _familyShareCloudKitStore = store
+        return store
+    }
+
+    private var _familyShareStateProvider: DefaultFamilyShareStateProvider?
+    var familyShareStateProvider: DefaultFamilyShareStateProvider {
+        if let provider = _familyShareStateProvider { return provider }
+        let provider = DefaultFamilyShareStateProvider(registry: familyShareNamespaceRegistry)
+        _familyShareStateProvider = provider
+        return provider
+    }
+
+    var familyShareInviteeStateProvider: DefaultFamilyShareStateProvider {
+        familyShareStateProvider
+    }
+
+    private var _familyShareProjectionPublisher: DefaultFamilyShareProjectionPublisher?
+    var familyShareProjectionPublisher: DefaultFamilyShareProjectionPublisher {
+        if let publisher = _familyShareProjectionPublisher { return publisher }
+        let publisher = DefaultFamilyShareProjectionPublisher(
+            registry: familyShareNamespaceRegistry,
+            cloudSync: familyShareCloudKitStore,
+            telemetry: familyShareTelemetryTracker
+        )
+        _familyShareProjectionPublisher = publisher
+        return publisher
+    }
+
+    private var _familyShareProjectionPublishCoordinator: FamilyShareProjectionPublishCoordinator?
+    var familyShareProjectionPublishCoordinator: FamilyShareProjectionPublishCoordinator {
+        if let coordinator = _familyShareProjectionPublishCoordinator { return coordinator }
+        let coordinator = FamilyShareProjectionPublishCoordinator(publisher: familyShareProjectionPublisher)
+        _familyShareProjectionPublishCoordinator = coordinator
+        return coordinator
+    }
+
+    private var _familyShareOwnerSharingService: DefaultFamilyShareOwnerSharingService?
+    var familyShareOwnerSharingService: DefaultFamilyShareOwnerSharingService {
+        if let service = _familyShareOwnerSharingService { return service }
+        let service = DefaultFamilyShareOwnerSharingService(
+            registry: familyShareNamespaceRegistry,
+            stateProvider: familyShareStateProvider,
+            publisher: familyShareProjectionPublisher,
+            cloudSync: familyShareCloudKitStore,
+            telemetry: familyShareTelemetryTracker
+        )
+        _familyShareOwnerSharingService = service
+        return service
+    }
+
+    private var _familyShareCacheMigrationCoordinator: FamilyShareCacheMigrationCoordinator?
+    var familyShareCacheMigrationCoordinator: FamilyShareCacheMigrationCoordinator {
+        if let coordinator = _familyShareCacheMigrationCoordinator { return coordinator }
+        let coordinator = FamilyShareCacheMigrationCoordinator(registry: familyShareNamespaceRegistry)
+        _familyShareCacheMigrationCoordinator = coordinator
+        return coordinator
+    }
+
+    private var _familyShareAcceptanceCoordinator: FamilyShareAcceptanceCoordinator?
+    var familyShareAcceptanceCoordinator: FamilyShareAcceptanceCoordinator {
+        if let coordinator = _familyShareAcceptanceCoordinator { return coordinator }
+        let coordinator = FamilyShareAcceptanceCoordinator(
+            registry: familyShareNamespaceRegistry,
+            stateProvider: familyShareStateProvider,
+            inviteeStateProvider: familyShareInviteeStateProvider,
+            ownerSharingService: familyShareOwnerSharingService,
+            cacheMigrationCoordinator: familyShareCacheMigrationCoordinator,
+            publishCoordinator: familyShareProjectionPublishCoordinator,
+            seeder: FamilyShareTestSeeder(registry: familyShareNamespaceRegistry),
+            cloudSync: familyShareCloudKitStore,
+            rollout: familyShareRollout,
+            telemetry: familyShareTelemetryTracker
+        )
+        _familyShareAcceptanceCoordinator = coordinator
+        return coordinator
+    }
+
     // MARK: - ViewModel Factories with Error Recovery
     func makeGoalViewModel(for goal: Goal) -> GoalViewModel {
         let viewModel = GoalViewModel(

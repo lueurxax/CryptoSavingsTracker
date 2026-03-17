@@ -48,6 +48,7 @@ ios/*.hmap
 ios/*.ipa
 ios/*.dSYM.zip
 ios/*.dSYM
+ios/distribution/
 
 ## Playgrounds
 ios/timeline.xctimeline

@@ -19,6 +19,10 @@ struct CryptoSavingsTrackerApp: App {
     static let previewModelContainer: ModelContainer = PersistenceStackFactory.makePreviewContainer()
 
     @StateObject private var persistenceController: PersistenceController
+    @StateObject private var familyShareAcceptanceCoordinator: FamilyShareAcceptanceCoordinator
+    #if os(iOS)
+    @UIApplicationDelegateAdaptor(FamilyShareAppDelegate.self) private var familyShareAppDelegate
+    #endif
 
     init() {
         // Clean up any cloud-backed store files left by a retired cutover attempt.
@@ -27,6 +31,7 @@ struct CryptoSavingsTrackerApp: App {
         // Phase 1.5 hard cutover: retired local-primary store files are removed on launch.
         PersistenceController.performLegacyLocalStoreCleanupIfNeeded()
         _persistenceController = StateObject(wrappedValue: PersistenceController.shared)
+        _familyShareAcceptanceCoordinator = StateObject(wrappedValue: DIContainer.shared.familyShareAcceptanceCoordinator)
 
         // Suppress haptic feedback warnings in iOS Simulator
         #if targetEnvironment(simulator) && os(iOS)
@@ -109,7 +114,8 @@ struct CryptoSavingsTrackerApp: App {
         let shouldReshare = args.contains("UITEST_RESHARE_ASSET")
         let shouldSeedBudgetShortfall = UITestFlags.shouldSeedBudgetShortfall
         let shouldSeedStaleDrafts = UITestFlags.shouldSeedStaleDrafts
-        guard shouldSeedGoalsOnly || shouldSeedManyGoals || shouldSeed || shouldSeedPresentationFlow || shouldReshare || shouldSeedBudgetShortfall || shouldSeedStaleDrafts else { return }
+        let familyShareScenario = UITestFlags.familyShareScenario
+        guard shouldSeedGoalsOnly || shouldSeedManyGoals || shouldSeed || shouldSeedPresentationFlow || shouldReshare || shouldSeedBudgetShortfall || shouldSeedStaleDrafts || familyShareScenario != nil else { return }
         didRunUITestSeed = true
 
         OnboardingManager.shared.completeOnboarding()
@@ -150,6 +156,10 @@ struct CryptoSavingsTrackerApp: App {
                 await seedUITestGoals(context: context, count: 1)
             }
             await seedUITestStaleDrafts(context: context)
+        }
+
+        if let familyShareScenario {
+            await DIContainer.shared.familyShareAcceptanceCoordinator.seedUITestScenario(familyShareScenario)
         }
     }
 
@@ -378,40 +388,40 @@ struct CryptoSavingsTrackerApp: App {
     // MARK: - UITest reset
 
     private static var didRunUITestReset = false
+    @MainActor
     static func runUITestResetIfNeeded(context: ModelContext) async {
         guard !didRunUITestReset else { return }
         let args = ProcessInfo.processInfo.arguments
         guard args.contains("UITEST_RESET_DATA") else { return }
         didRunUITestReset = true
 
-        await MainActor.run {
-            do {
-                let completedExecutions = try context.fetch(FetchDescriptor<CompletedExecution>())
-                let execRecords = try context.fetch(FetchDescriptor<MonthlyExecutionRecord>())
-                let snapshots = try context.fetch(FetchDescriptor<ExecutionSnapshot>())
-                let plans = try context.fetch(FetchDescriptor<MonthlyPlan>())
-                let allocationHistories = try context.fetch(FetchDescriptor<AllocationHistory>())
-                let allocations = try context.fetch(FetchDescriptor<AssetAllocation>())
-                let transactions = try context.fetch(FetchDescriptor<Transaction>())
-                let assets = try context.fetch(FetchDescriptor<Asset>())
-                let goals = try context.fetch(FetchDescriptor<Goal>())
+        do {
+            let completedExecutions = try context.fetch(FetchDescriptor<CompletedExecution>())
+            let execRecords = try context.fetch(FetchDescriptor<MonthlyExecutionRecord>())
+            let snapshots = try context.fetch(FetchDescriptor<ExecutionSnapshot>())
+            let plans = try context.fetch(FetchDescriptor<MonthlyPlan>())
+            let allocationHistories = try context.fetch(FetchDescriptor<AllocationHistory>())
+            let allocations = try context.fetch(FetchDescriptor<AssetAllocation>())
+            let transactions = try context.fetch(FetchDescriptor<Transaction>())
+            let assets = try context.fetch(FetchDescriptor<Asset>())
+            let goals = try context.fetch(FetchDescriptor<Goal>())
 
-                (completedExecutions as [any PersistentModel]).forEach { context.delete($0) }
-                (execRecords as [any PersistentModel]).forEach { context.delete($0) }
-                (snapshots as [any PersistentModel]).forEach { context.delete($0) }
-                (plans as [any PersistentModel]).forEach { context.delete($0) }
-                (allocationHistories as [any PersistentModel]).forEach { context.delete($0) }
-                (allocations as [any PersistentModel]).forEach { context.delete($0) }
-                (transactions as [any PersistentModel]).forEach { context.delete($0) }
-                (assets as [any PersistentModel]).forEach { context.delete($0) }
-                (goals as [any PersistentModel]).forEach { context.delete($0) }
+            (completedExecutions as [any PersistentModel]).forEach { context.delete($0) }
+            (execRecords as [any PersistentModel]).forEach { context.delete($0) }
+            (snapshots as [any PersistentModel]).forEach { context.delete($0) }
+            (plans as [any PersistentModel]).forEach { context.delete($0) }
+            (allocationHistories as [any PersistentModel]).forEach { context.delete($0) }
+            (allocations as [any PersistentModel]).forEach { context.delete($0) }
+            (transactions as [any PersistentModel]).forEach { context.delete($0) }
+            (assets as [any PersistentModel]).forEach { context.delete($0) }
+            (goals as [any PersistentModel]).forEach { context.delete($0) }
 
-                try context.save()
-                OnboardingManager.shared.completeOnboarding()
-                AppLog.info("UITEST_RESET_DATA cleared all entities", category: .ui)
-            } catch {
-                AppLog.error("UITEST_RESET_DATA failed: \(error)", category: .ui)
-            }
+            try context.save()
+            OnboardingManager.shared.completeOnboarding()
+            await DIContainer.shared.familyShareAcceptanceCoordinator.resetAllNamespaces()
+            AppLog.info("UITEST_RESET_DATA cleared all entities", category: .ui)
+        } catch {
+            AppLog.error("UITEST_RESET_DATA failed: \(error)", category: .ui)
         }
     }
 
@@ -447,6 +457,7 @@ struct CryptoSavingsTrackerApp: App {
                     OnboardingContentView()
                 }
             }
+            .environmentObject(familyShareAcceptanceCoordinator)
         }
         .modelContainer(persistenceController.activeContainer)
         #if os(macOS)
@@ -459,6 +470,7 @@ struct CryptoSavingsTrackerApp: App {
         WindowGroup("Goal Comparison", id: "goal-comparison") {
             GoalComparisonView()
         }
+        .environmentObject(familyShareAcceptanceCoordinator)
         .modelContainer(persistenceController.activeContainer)
         .defaultSize(width: 1200, height: 800)
 
@@ -466,6 +478,7 @@ struct CryptoSavingsTrackerApp: App {
         WindowGroup("Settings", id: "settings") {
             SettingsView()
         }
+        .environmentObject(familyShareAcceptanceCoordinator)
         .modelContainer(persistenceController.activeContainer)
         .windowResizability(.contentSize)
         .defaultSize(width: 600, height: 400)

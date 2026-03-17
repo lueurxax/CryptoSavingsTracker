@@ -11,7 +11,14 @@ The product direction in this document is decision-locked for sequencing:
 3. `Local Bridge Sync` remains valid as a separate capability, but its forward rollout is gated on this read-only sharing flow shipping first.
 
 ## Review-Driven Locked Decisions
-This proposal incorporates review feedback from `CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL_TRIAD_REVIEW_R1.md`, adjusted for the later decision to remove goal-by-goal sharing.
+This proposal incorporates review feedback from:
+
+1. `CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL_TRIAD_REVIEW_R1.md`
+2. `CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL_TRIAD_REVIEW_R2.md`
+3. `CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL_EVIDENCE_PACK_R3.md`
+4. `CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL_TRIAD_REVIEW_R4.md`
+
+where applicable, adjusted for the later decision to remove goal-by-goal sharing.
 
 Locked decisions:
 
@@ -22,6 +29,16 @@ Locked decisions:
 5. Invitee consumption uses a dedicated shared-goals surface, not the owner goal detail with actions removed.
 6. Shared data is ingested from CloudKit shared-database records into a dedicated local read-only cache path, not into the owner's authoritative store.
 7. Freshness state is normative: `stale` begins after 24 hours without a successful shared-dataset reconciliation.
+8. Projection publishing uses an atomic outbox/coordinator model so invitees never observe partially advanced shared state.
+9. The owner must acknowledge a mandatory pre-share scope preview before the first invite is sent.
+10. Multi-owner invitee consumption is grouped by owner, not flattened into one unlabeled shared list.
+11. The read-only cache is an isolated SwiftData-backed store namespace per `ownerID/shareID`.
+12. iPhone/iPad share acceptance routes through an explicit scene-based acceptance bridge into a single `FamilyShareAcceptanceCoordinator`.
+13. The first-invite scope preview uses a staged summary sheet with a sticky primary CTA and first-viewport readability requirements.
+14. Shared finance surfaces reserve glass for navigation chrome and section framing only; numeric cards, freshness, and recovery states use opaque or near-opaque surfaces.
+15. Each `ownerID/shareID` namespace is owned by an explicit serialized executor/actor boundary for accept, refresh, revoke, bootstrap, cleanup, and publish coordination.
+16. Shared-cache migration is versioned, rebuild-first where needed, and downgrade fail-closed.
+17. Namespace stores are lazy-opened, explicitly purged after revoke/remove, and bounded by lifecycle/resource rules rather than remaining open indefinitely.
 
 ## Goal
 Allow the owner of goals in CryptoSavingsTracker to grant family members on Apple devices strict read-only access to the full goal set, using CloudKit-backed sharing semantics and a dedicated consumer experience that does not expose editing or planning authority.
@@ -42,7 +59,7 @@ The app shell contract for v1 is explicit:
 | --- | --- | --- | --- |
 | Owner entry point | `Settings -> Family Access` | `Settings -> Family Access` | Out of scope |
 | Invitee entry point | `Goals` root with dedicated `Shared Goals` section | `Goals` root with dedicated `Shared Goals` section | Out of scope |
-| Share acceptance routing | App-level acceptance coordinator | App-level acceptance coordinator | Out of scope |
+| Share acceptance routing | Scene-based acceptance coordinator bridge | Scene-based acceptance coordinator bridge | Out of scope |
 | Participant management | System-first share management plus app disclosure/summary surface | System-first share management plus app disclosure/summary surface | Out of scope |
 
 Navigation rules:
@@ -51,6 +68,12 @@ Navigation rules:
 2. `Shared Goals` coexists with owned goals inside the top-level `Goals` shell as a separate section.
 3. If a user has both owned and shared goals, the shell shows both sections explicitly rather than mixing them into one undifferentiated list.
 4. The owner creates and manages household access from `Settings -> Family Access`, not from per-goal menus.
+
+Visual separation rules:
+
+1. `Settings -> Family Access` uses a distinct management-row treatment and must not look like an ordinary static preference row.
+2. `Shared Goals` uses a dedicated section/header treatment inside the `Goals` shell and must remain visually separable from owned goals in the first viewport.
+3. Owned and shared sections cannot be interleaved row-by-row.
 
 ## Why This Is Higher Priority Than Local Bridge Sync
 The product currently has a stronger user need for "my family can see progress safely" than for "I can manually bridge editable snapshots to Mac".
@@ -147,20 +170,65 @@ This proposal intentionally prefers a shared projection model over exposing the 
 CloudKit invitation handling and shared-data bootstrapping are part of the normative contract, not implementation detail left for later.
 
 ### Acceptance Entry Points
-1. Cold-start invite acceptance is routed through an app-level share-acceptance coordinator launched from the scene/application lifecycle entry point.
+1. Cold-start invite acceptance is routed through a scene-based share-acceptance coordinator launched from the `UIWindowScene` lifecycle entry point.
 2. Already-running invite acceptance routes through the same coordinator without requiring app restart.
 3. Rejected invites, account-unavailable cases, and partially loaded shares terminate in explicit product states, not silent failure.
 
 ### Ingestion Path
 1. Shared projection records are read from CloudKit shared-database records.
 2. The app mirrors accepted shared projection data into a dedicated local read-only cache/store for rendering, offline tolerance, and state recovery.
-3. Owner authoritative data and invitee shared cache never share the same write path.
-4. Revocation and shared-record removal must remove or invalidate the local shared cache without touching owner authoritative data.
+3. The cache technology for v1 is a separate SwiftData container backed by isolated SQLite files.
+4. Cache namespace is keyed by `ownerID/shareID`; each owner share dataset gets its own isolated store boundary.
+5. Owner authoritative data and invitee shared cache never share the same write path.
+6. Revocation and shared-record removal must remove or invalidate only the affected cache namespace without touching owner authoritative data or other owners' shared datasets.
 
 ### Runtime Ownership
 1. Acceptance, refresh, and revoke processing belong to a dedicated family-sharing sync layer, not to owner planning or bridge services.
 2. The invitee UI reads only from the shared read-only cache/view-model path.
 3. Owner mutation flows never read from invitee cache state to determine authoritative updates.
+
+### Namespace Executor Model
+1. Each `ownerID/shareID` namespace is owned by a single serialized `FamilyShareNamespaceActor`.
+2. `FamilyShareNamespaceActor` is the only runtime that may execute accept, refresh, revoke, cache bootstrap, cleanup, and namespace-local SwiftData writes for that namespace.
+3. `FamilyShareProjectionPublishCoordinator` runs off-main and queues at most one active publish pipeline per namespace; overlapping publish triggers coalesce to the latest desired projection state.
+4. CloudKit I/O, namespace migration, outbox draining, and SwiftData writes never run on the main actor.
+5. A dedicated `@MainActor` shell adapter projects actor state into SwiftUI-observable UI state without owning storage mutations.
+6. Cross-namespace work may run concurrently, but no single namespace may run two mutating pipelines simultaneously.
+
+### App Shell Integration and Test Seams
+The exact v1 SwiftUI app-shell integration is:
+
+1. `CryptoSavingsTrackerApp` installs an iPhone/iPad-specific scene-based acceptance bridge for family-share acceptance.
+2. `windowScene(_:userDidAcceptCloudKitShareWith:)` forwards accepted CloudKit shares into a single `FamilyShareAcceptanceCoordinator`.
+3. Any app-level delegate glue exists only to support SwiftUI scene registration; the scene delegate acceptance path is authoritative for v1.
+4. `CryptoSavingsTrackerApp` main `WindowGroup` observes that coordinator and refreshes `Shared Goals` state through the same path for both cold-start and already-running app acceptance.
+5. The coordinator is injected into the SwiftUI shell rather than buried inside views.
+
+Required injectable seams:
+
+1. `FamilyShareAccepting`
+2. `FamilyShareRefreshing`
+3. `FamilyShareRevoking`
+4. `FamilyShareCacheBootstrapping`
+5. `FamilyShareStateProviding`
+
+Tests must be able to simulate accept, revoke, stale, unavailable, and bootstrap-failure states without live CloudKit dependency.
+
+### Namespace Migration and Rollback Contract
+1. Every namespace store carries an explicit `cacheSchemaVersion`.
+2. `FamilyShareCacheMigrationCoordinator` owns open, migrate, rebuild, quarantine, and version-compatibility decisions for each namespace.
+3. Supported older namespace schemas migrate forward off-main and swap atomically into the active namespace path.
+4. Incompatible newer schemas or corrupted namespace stores fail closed, are quarantined from active rendering, and surface explicit `temporarilyUnavailable` recovery state until rebuild succeeds.
+5. Rebuild is the preferred strategy for incompatible namespace changes because the shared cache is non-authoritative and can be rehydrated from CloudKit shared data.
+6. Downgraded app builds must not mutate newer namespace stores; they surface fail-closed recovery until a compatible rebuild path is available.
+
+### Namespace Lifecycle and Resource Contract
+1. Cold launch may open only a lightweight shared-namespace index; namespace stores themselves open lazily on invite acceptance, explicit shared-goal access, or owner-group expansion.
+2. iPhone and iPad cold launch must not eager-open every namespace store when multiple shared owners exist.
+3. At most two namespace stores may remain open concurrently on iPhone/iPad; additional namespaces reopen lazily and close through deterministic LRU/background eviction.
+4. Revoked or removed namespaces purge on the next successful cleanup pass and no later than 24 hours after revocation/removal is confirmed.
+5. Compaction, purge, and rebuild are background-only maintenance tasks and must never block first-viewport rendering.
+6. Reopening the same namespace is idempotent and must not leak store/container instances.
 
 ### Failure Handling
 The storage topology must explicitly surface:
@@ -172,6 +240,23 @@ The storage topology must explicitly surface:
 5. `cacheBootstrapFailed`.
 
 Each failure maps to a visible product state, retry policy, and telemetry event.
+
+## Atomic Publish Boundary
+Owner writes and shared projection refresh must have an explicit recoverable boundary.
+
+### Publish Coordinator Contract
+1. Owner authoritative mutations enqueue a `FamilyShareProjectionOutboxItem` atomically with the owner-side commit boundary.
+2. `FamilyShareProjectionPublishCoordinator` drains outbox items serially per `ownerID/shareID`.
+3. `projectionVersion` and `publishedAt` advance only after a full idempotent publish succeeds.
+4. Invitees render only the last fully published `projectionVersion`.
+
+### No Partial Exposure Rule
+1. Child projection records for a new version are written under the next `projectionVersion`.
+2. `FamilyShareProjectionRoot.activeProjectionVersion` flips only after the full child set for that version is durably published.
+3. If publish fails midway, invitees continue reading the previous `activeProjectionVersion`.
+4. Retry is idempotent and converges without duplicate projection records.
+
+This is the normative mechanism that prevents partially advanced shared state after crash, network failure, or interrupted publish.
 
 ### CloudKit Sharing Mechanism
 The accepted CloudKit mechanism for the first shipping cut is:
@@ -203,6 +288,7 @@ No owner-authoritative records are directly exposed as invitee-facing shared rec
 1. `schemaVersion` gates wire/schema compatibility.
 2. `projectionVersion` advances monotonically on each successful republish of the shared dataset.
 3. `publishedAt` records the authoritative publish timestamp for the shared dataset.
+4. `activeProjectionVersion` on the root identifies the only invitee-visible version.
 
 ### Publish Triggers
 Republish is required on:
@@ -216,6 +302,8 @@ Republish is required on:
 7. owner display-name change relevant to shared identity copy,
 8. share creation, revoke, or participant-state transitions that affect the visible dataset.
 
+Republish is executed through the atomic publish coordinator, not by ad hoc direct writes from owner feature flows.
+
 ### Idempotent Overwrite Rules
 1. Republishing overwrites root and child projection records by stable ID.
 2. Missing child records in a newer publish are deleted from the projection dataset.
@@ -226,6 +314,7 @@ Republish is required on:
 2. Revoking one participant does not require per-participant duplicate projection datasets; one shared dataset may serve multiple read-only participants.
 3. When the last participant is removed, the shared projection root and child records are deleted.
 4. Cleanup failure must fail visible and retryable; it must not silently leave active-looking orphan shares.
+5. Cache rebuild, cleanup, and migration operate independently per `ownerID/shareID` namespace.
 
 ## Shared Projection Contract
 The shared projection dataset must be sufficient for household visibility and insufficient for accidental write workflows.
@@ -261,6 +350,8 @@ Excluded from shared projection by default:
 5. operator-only bridge state,
 6. settings and internal telemetry.
 
+The owner-side scope preview must enumerate both visible and excluded field categories before the first invite is sent.
+
 ## Freshness and Lifecycle Matrix
 Lifecycle and freshness rules are normative.
 
@@ -273,10 +364,25 @@ Freshness SLA:
 | State | Trigger | User-facing copy contract | Timestamp treatment | Allowed actions | Analytics |
 | --- | --- | --- | --- | --- | --- |
 | `invitePendingAcceptance` | Invite exists but invitee has not accepted | `Invitation pending` plus owner identity | No `As of`; show invite sent/received context when available | Accept, dismiss | `family_share_invite_pending_viewed` |
+| `emptySharedDataset` | Accepted share exists but there are currently no shared goals to render | `No shared goals right now` plus owner identity | Show last successful `As of` timestamp if one exists | Retry, dismiss | `family_share_empty_viewed` |
 | `active` | Successful reconciliation within 24h and share active | `Read-only shared by {owner}` | Show `As of {publishedAt}` and optionally `Checked {lastReconciledAt}` | View only, pull to refresh/retry refresh | `family_share_active_viewed` |
-| `stale` | Cached data exists but no successful reconciliation for >24h | `This shared view may be out of date` | Show last successful `As of` timestamp prominently | View cached data, retry refresh | `family_share_stale_viewed` |
+| `stale` | Cached data exists but no successful reconciliation has completed for >24h | `This shared view may be out of date` | Show last successful `As of` timestamp prominently | View cached data, retry refresh | `family_share_stale_viewed` |
 | `temporarilyUnavailable` | No trusted render path due to account/network/shared-db/bootstrap failure | `Shared goals temporarily unavailable` with reason-specific recovery copy | Show last successful timestamp only if one exists | Retry, close | `family_share_unavailable_viewed` |
-| `revokedOrRemoved` | Share revoked, owner removed share, or records removed and confirmed | `Access removed` | No fresh timestamp; optionally show removed time if known | Dismiss/remove from local list | `family_share_revoked_viewed` |
+| `revoked` | Owner explicitly revoked this participant | `Access revoked by {owner}` | No fresh timestamp; optionally show revoked time if known | Ask owner to re-share, dismiss | `family_share_revoked_viewed` |
+| `removedOrNoLongerShared` | Shared dataset was deleted, unpublished, or is no longer available for this invitee | `Shared goals no longer available` | Show last successful timestamp only if it helps explain what changed | Dismiss | `family_share_removed_viewed` |
+
+Reason-specific copy requirements:
+
+1. `stale` must explain that the view is based on older shared data and may not reflect the latest owner changes.
+2. `temporarilyUnavailable` must explain whether the reason is account state, network/shared-database access, or local cache/bootstrap failure when known.
+3. `revoked` must explain that the owner removed access and that the next step is to ask the owner to share again if access is still needed.
+4. `removedOrNoLongerShared` must explain that the shared dataset no longer exists or is no longer published for this invitee.
+
+Accessibility requirements:
+
+1. State must never be conveyed by color alone.
+2. VoiceOver labels for shared rows and shared detail must include owner identity, read-only state, and freshness context.
+3. Dynamic Type layouts must preserve first-viewport visibility for the dominant non-active state banner and ownership context.
 
 Owner management states:
 
@@ -301,33 +407,17 @@ Required enforcement:
 
 Removing buttons is necessary but not sufficient. The runtime contract must reject non-owner writes.
 
-## Lifecycle, Freshness, and Revocation Contract
-The shared-goal experience must expose explicit lifecycle states rather than silently failing.
-
-Minimum owner-side states:
-
-1. `notShared`,
-2. `invitePending`,
-3. `sharedActive`,
-4. `revoked`,
-5. `shareFailed`.
-
-Minimum invitee-side states:
-
-1. `invitePendingAcceptance`,
-2. `active`,
-3. `stale`,
-4. `revokedOrRemoved`,
-5. `temporarilyUnavailable`.
-
-Required behavior:
+## Derived Lifecycle Behavior Rules
+The lifecycle matrix above is authoritative. The following derived behavior rules are also normative:
 
 1. shared goal detail always shows `last updated` freshness context,
 2. stale data is visible as stale, not silently treated as current,
 3. revocation removes interactive access to the shared goal surface,
 4. owner goal deletion removes that goal from the invitee-visible shared dataset rather than leaving orphaned readonly data,
-5. completed or archived goals may remain visible in read-only mode if household sharing remains active, but they remain non-editable.
-6. newly created goals appear in the invitee-visible shared dataset automatically after projection refresh.
+5. completed or archived goals may remain visible in read-only mode if household sharing remains active, but they remain non-editable,
+6. newly created goals appear in the invitee-visible shared dataset automatically after projection refresh,
+7. accepted shares with zero visible goals render `emptySharedDataset` rather than a blank `Shared Goals` shell,
+8. `revoked`, `removedOrNoLongerShared`, and `temporarilyUnavailable` render distinct copy and one clear primary next action rather than a single generic terminal card.
 
 ## Product Surfaces
 
@@ -336,7 +426,7 @@ The owner gets a dedicated `Share with Family` action from a global owner-manage
 
 System-first management rule:
 
-1. Use native system share-management UI for invite creation and participant management where possible.
+1. Use native CloudKit/system sharing UI on iPhone and iPad for invite creation and participant management in v1.
 2. Use product-owned UI for pre-share disclosure, visibility review, participant-state summary, and revoke consequence copy.
 
 Required owner actions:
@@ -347,6 +437,29 @@ Required owner actions:
 4. revoke access,
 5. review what information is visible in read-only mode,
 6. understand that all current and future goals become visible while access is active.
+
+Mandatory pre-share scope preview:
+
+1. The first invite cannot be sent until the owner views a scope-preview surface and explicitly acknowledges it.
+2. The scope preview must enumerate:
+   - all current goals are shared,
+   - future goals auto-share while access remains active,
+   - visible fields/categories,
+   - excluded fields/categories,
+   - revoke behavior and its effect.
+3. The acknowledgment is product-owned even when invite creation later hands off to system sharing UI.
+
+Pre-share preview layout contract:
+
+1. The first-invite disclosure is a staged summary sheet, not a dense unstructured text sheet.
+2. The first viewport shows a compact summary card covering the three core consent points:
+   - all current goals are shared,
+   - future goals auto-share while access remains active,
+   - invitees receive read-only visibility only.
+3. Detailed content is split into grouped expandable sections for visible data, excluded data, and revoke behavior.
+4. The primary confirmation action stays sticky and persistently discoverable while the owner scrolls or expands details.
+5. The sheet uses one glass chrome layer only; disclosure content itself renders on stable opaque or near-opaque surfaces.
+6. The sheet must remain readable in large Dynamic Type, Increased Contrast, Reduce Motion, and Reduced Transparency modes without hiding the primary action.
 
 First-use disclosure content is mandatory. Minimum semantic content:
 
@@ -373,6 +486,18 @@ Required invitee surfaces:
 4. visible "Shared by {owner}" identity,
 5. explicit absence of edit controls.
 
+Multi-owner grouping rules:
+
+1. `Shared Goals` is grouped by owner.
+2. Each owner group uses a visible section header `Shared by {owner}` even if there is only one owner.
+3. Each shared row includes a persistent ownership marker so ownership is still obvious when section headers scroll offscreen.
+4. Owned-goal rows and shared-goal rows must remain distinguishable without opening a row.
+5. Owner groups are sorted by owner display name using locale-aware ascending order.
+6. If owner display names collide or are unavailable, stable secondary ordering falls back to `ownerID`, then `shareID`, so the same datasets render in the same order across launches and refreshes.
+7. Owner section headers remain sticky while scrolling where platform list behavior supports it.
+8. Every shared row carries an inline owner chip even when section headers are offscreen.
+9. Shared rows use a dedicated chrome token that cannot be mistaken for an owned goal row.
+
 ### Shared Detail Visual Contract
 The shared-detail surface is a dedicated read-only screen, not the owner goal detail with controls removed.
 
@@ -380,17 +505,39 @@ Required anatomy:
 
 1. top identity row: `Shared by {owner}`,
 2. persistent read-only badge,
-3. `As of` / `Last updated` placement above or immediately under the primary summary,
-4. progress, target, deadline, and current-month summary cards,
-5. no trailing action menu and no floating owner CTA region,
-6. footer or inline explanation that this surface is read-only.
+3. dominant state banner/card when the state is not `active`,
+4. `As of` / `Last updated` placement above or immediately under the primary summary,
+5. progress, target, deadline, and current-month summary cards,
+6. no trailing action menu and no floating owner CTA region,
+7. footer or inline explanation that this surface is read-only.
 
 State cards:
 
 1. `active`: standard shared summary with owner identity and freshness,
 2. `stale`: visible warning card that cached data may be out of date,
 3. `temporarilyUnavailable`: full-width recovery card with retry action,
-4. `revokedOrRemoved`: removed-access card with no financial interaction controls.
+4. `revoked`: access-removed card with owner identity and one clear next step to ask the owner to re-share,
+5. `removedOrNoLongerShared`: dataset-removed card with no financial interaction controls and a dismiss action.
+
+Strict visual priority order:
+
+1. owner identity row,
+2. read-only badge,
+3. dominant non-active state banner when applicable,
+4. freshness line,
+5. financial summary cards.
+
+Non-active state rule:
+
+1. `stale`, `temporarilyUnavailable`, `revoked`, and `removedOrNoLongerShared` must dominate the first viewport on iPhone and iPad.
+2. Non-active states override the normal active composition; they do not appear as secondary chips beside active financial content.
+
+Material and contrast rules:
+
+1. Glass is reserved for navigation chrome, section framing, and non-data decorative headers only.
+2. Shared section headers, numeric metric cards, freshness banners, state banners, and recovery cards use explicit semantic surface tokens with opaque or near-opaque materials.
+3. Reduced Transparency mode uses solid-surface fallbacks for all shared financial cards and banners.
+4. Critical state labels, timestamps, and key financial metrics must not rely on translucency for legibility.
 
 ### UI Contract
 All editing entry points must be removed or disabled for invitees.
@@ -438,10 +585,11 @@ The product must not route ordinary family visibility needs into bridge flows.
 ### Flow 1: Owner Enables Family Read-Only Access
 1. Owner opens the global sharing surface.
 2. Owner taps `Share with Family`.
-3. Owner sees a clear explanation of read-only access.
-4. Owner selects the invite target.
-5. App creates or updates the shared read-only projection dataset for the owner's full goal set.
-6. Invite is sent.
+3. Owner sees the mandatory scope preview and acknowledges it.
+4. Owner proceeds into system-first invite creation/participant UI.
+5. Owner selects the invite target.
+6. App creates or updates the shared read-only projection dataset for the owner's full goal set.
+7. Invite is sent.
 
 ### Flow 2: Family Member Accepts Invite
 1. Invitee opens the invite on an Apple device.
@@ -465,9 +613,17 @@ The product must not route ordinary family visibility needs into bridge flows.
 6. CloudKit participant permission for invitees is read-only.
 7. Revocation removes access without affecting the owner's authoritative dataset.
 8. Read-only enforcement exists at both UI and mutation/service layers.
-9. Shared-goal lifecycle states surface explicit pending, active, stale, and revoked/unavailable outcomes.
-10. The proposal is treated as higher-priority than `Local Bridge Sync` in delivery sequencing and release planning.
-11. No user-facing documentation or settings copy positions `Local Bridge Sync` as the answer for ordinary spouse/family goal visibility.
+9. Shared-goal lifecycle states surface explicit pending, empty, active, stale, revoked, removed, and unavailable outcomes with reason-specific next action.
+10. The first invite cannot be sent until the owner acknowledges the mandatory scope preview, and that preview keeps the primary CTA persistently discoverable while exposing current scope, future-goal auto-sharing, exclusions, and revoke behavior.
+11. Shared goals from multiple owners are grouped and labeled so ownership is never ambiguous, including after scrolling away from the section header.
+12. Non-active shared-detail states dominate the first viewport on iPhone and iPad, and all critical financial content sits on opaque or near-opaque surfaces rather than blur-dependent materials.
+13. Atomic publish prevents invitees from observing partially advanced shared state.
+14. Shared cache namespaces are isolated per `ownerID/shareID`, versioned, and migrate, rebuild, or fail closed deterministically across upgrade, rollback, and corruption cases.
+15. Cold-start and warm-start share acceptance both route through the same injectable app-shell coordinator path.
+16. Namespace execution uses a single serialized executor/actor boundary per `ownerID/shareID`, and overlapping accept/refresh/revoke/publish flows are deterministic and off-main for storage/network work.
+17. Shared-goals cold launch does not eager-open every namespace store, and revoked/removed namespaces purge within the defined lifecycle window.
+18. The proposal is treated as higher-priority than `Local Bridge Sync` in delivery sequencing and release planning.
+19. No user-facing documentation or settings copy positions `Local Bridge Sync` as the answer for ordinary spouse/family goal visibility.
 
 ## Delivery Phases
 
@@ -478,18 +634,23 @@ The product must not route ordinary family visibility needs into bridge flows.
 4. Define projection publishing and refresh contract.
 5. Define CloudKit share-root contract for projection records.
 6. Implement share-acceptance coordinator and shared-cache bootstrap path.
+7. Define namespace actor/executor ownership and main-actor adapter boundaries.
+8. Define namespace migration, rebuild, rollback, purge, and lazy-open rules.
 
 ### Phase B: Owner Sharing Surface
 1. Add owner-side `Share with Family`.
 2. Add invite management and revoke flow.
 3. Add visibility review copy for what is shared.
 4. Add owner-side state handling for pending, active, revoked, and failed sharing.
+5. Implement staged pre-share scope preview with sticky primary CTA and accessibility-safe layout behavior.
 
 ### Phase C: Invitee Read-Only Experience
 1. Add `Shared Goals` entry point.
 2. Add read-only list and goal detail dashboard.
 3. Remove all editing affordances from invitee surfaces.
-4. Add freshness and revoked/unavailable states for invitees.
+4. Add freshness, empty, revoked, removed, and unavailable states for invitees.
+5. Add sticky owner headers, inline owner chips, and shared-row chrome treatment.
+6. Enforce opaque or near-opaque shared financial surfaces with reduced-transparency fallbacks.
 
 ### Phase D: Release Gate
 1. Validate owner-only write authority.
@@ -497,17 +658,31 @@ The product must not route ordinary family visibility needs into bridge flows.
 3. Validate absence of editing and bridge controls in shared view.
 4. Validate service-layer rejection for non-owner write attempts.
 5. Validate projection privacy envelope and excluded fields.
-6. Mark this proposal complete before the next `Local Bridge Sync` expansion milestone.
+6. Validate namespace migration, downgrade fail-closed, corruption rebuild, and per-namespace race handling.
+7. Validate Dynamic Type, Reduce Motion, Increased Contrast, and Reduced Transparency behavior for owner disclosure and invitee shared-detail surfaces.
+8. Mark this proposal complete before the next `Local Bridge Sync` expansion milestone.
 
 ## Test and Release Gates
 1. Owner can create a household share and expose all current goals through the shared projection dataset.
-2. Newly created goals appear for an already-authorized invitee after projection refresh, without manual re-sharing.
-3. Invitee can accept a share and see the goals in `Shared Goals`.
-4. Invitee cannot mutate data through hidden routes, deep links, or reused edit screens.
-5. Revocation removes access without deleting owner data.
-6. Projection refresh updates invitee-visible progress and freshness timestamp.
-7. Stale or unavailable sync states are visible and non-destructive.
-8. Bridge release planning artifacts continue to show this feature as higher priority until completion.
+2. Owner cannot send the first invite without acknowledging the mandatory scope preview.
+3. Newly created goals appear for an already-authorized invitee after projection refresh, without manual re-sharing.
+4. Invitee can accept a share and see the goals in `Shared Goals`.
+5. Cold-start and warm-start acceptance use the same scene-based coordinator path and are both test-covered.
+6. Invitee sees owner-grouped shared-goals sections and persistent row-level ownership markers when multiple owners are present.
+7. Invitee cannot mutate data through hidden routes, deep links, or reused edit screens.
+8. Revocation removes access without deleting owner data.
+9. Projection refresh updates invitee-visible progress and freshness timestamp.
+10. The first-invite disclosure fits an iPhone first viewport as a staged summary sheet, keeps the primary CTA discoverable, and passes Dynamic Type, Reduce Motion, Increased Contrast, and Reduced Transparency checks.
+11. `emptySharedDataset`, `revoked`, `removedOrNoLongerShared`, and `temporarilyUnavailable` render distinct copy and next-step actions instead of a blank or generic terminal shell.
+12. Stale, unavailable, revoked, and removed shared-detail states dominate the first viewport and remain visually distinct from active state.
+13. Shared metric cards, freshness banners, and recovery states remain legible in light, dark, increased-contrast, and reduced-transparency modes without critical data on blurred surfaces.
+14. Sticky owner headers, inline owner chips, and shared-row chrome preserve owner identity from any scroll position.
+15. A failed publish never exposes partially advanced shared state.
+16. Namespace migration tests cover forward migration, downgrade fail-closed behavior, and corrupted-store rebuild.
+17. Namespace race tests prove deterministic accept/refresh/revoke/publish outcomes with no duplicate projection versions and no main-thread storage writes.
+18. Cache teardown for one `ownerID/shareID` namespace does not affect other owners' shared datasets.
+19. Cold launch does not eager-open every namespace store when multiple owners exist, and revoked namespaces purge within the declared lifecycle window.
+20. Bridge release planning artifacts continue to show this feature as higher priority until completion.
 
 ## Rollout and Operability
 This feature is a sequencing gate and must ship with the same operational rigor as other CloudKit surface changes.
@@ -516,6 +691,13 @@ This feature is a sequencing gate and must ship with the same operational rigor 
 1. `family_readonly_sharing_enabled` gates owner creation, invite acceptance routing, and invitee `Shared Goals` surface exposure.
 2. Kill switch behavior disables new invite creation and new invite acceptance UI first.
 3. Existing accepted shares must fail into explicit `temporarilyUnavailable` or cached `stale` states rather than silently disappearing without explanation.
+
+Kill-switch thresholds are normative initial rollout thresholds for v1. They are not placeholders and remain in force until replaced by an explicit runbook/proposal update after beta or production evidence review:
+
+1. rolling 6h `family_share_create_failed` rate > 5.0% with at least 100 create attempts,
+2. rolling 6h `family_share_accept_failed` rate > 5.0% with at least 100 accept attempts,
+3. rolling 24h `family_share_unavailable_viewed` rate > 10.0% with at least 500 shared-goal opens,
+4. rolling 24h cache-bootstrap failure rate > 2.0% with at least 100 bootstrap attempts.
 
 ### Telemetry
 Minimum events:
@@ -528,6 +710,11 @@ Minimum events:
 6. `family_share_revoked`
 7. `family_share_refresh_stale`
 8. `family_share_temporarily_unavailable`
+9. `family_share_empty_viewed`
+10. `family_share_removed_viewed`
+11. `family_share_namespace_migration_failed`
+12. `family_share_namespace_rebuild_started`
+13. `family_share_namespace_rebuild_succeeded`
 
 ### Logging and Redaction
 1. No goal names, money amounts, or participant emails are written to structured logs.
@@ -541,7 +728,9 @@ Pre-release operations documentation must cover:
 2. revoked share still visible locally,
 3. projection cleanup failure,
 4. shared-database unavailable incidents,
-5. kill-switch activation and rollback expectations.
+5. namespace migration or downgrade fail-closed incidents,
+6. namespace rebuild and corruption recovery,
+7. kill-switch activation and rollback expectations.
 
 ## Open Questions Resolved
 1. macOS invitee surface:
@@ -550,6 +739,22 @@ Pre-release operations documentation must cover:
    - system-first for invite creation/participant management, custom UI for disclosure and app-specific states.
 3. Freshness SLA:
    - `stale` begins after 24 hours without successful reconciliation; `temporarilyUnavailable` is used when no trusted render path exists now.
+4. Multi-owner grouping:
+   - `Shared Goals` is grouped by owner, with persistent row-level ownership markers, locale-aware owner-name sorting, and stable secondary fallback ordering by `ownerID`, then `shareID`.
+5. Cache technology and namespace:
+   - separate SwiftData-backed cache store per `ownerID/shareID`.
+6. Kill-switch thresholds:
+   - use the normative initial rollout thresholds defined in `Rollout and Operability`; they are not placeholders and can change only through an explicit release-governance update after real rollout evidence review.
+7. Share acceptance lifecycle hook:
+   - v1 uses the scene-based acceptance path `windowScene(_:userDidAcceptCloudKitShareWith:)` feeding a single `FamilyShareAcceptanceCoordinator`.
+8. First-release multi-owner shortcutting:
+   - v1 keeps deterministic canonical owner grouping; no recency/pinned owner shortcut is required before first release if sticky owner cues are present.
+9. Namespace concurrency:
+   - one serialized `FamilyShareNamespaceActor` owns accept, refresh, revoke, bootstrap, cleanup, and namespace-local writes per `ownerID/shareID`.
+10. Namespace migration and rollback:
+   - migration is versioned, rebuild-first where needed, and downgrade fail-closed.
+11. Namespace resource lifecycle:
+   - namespace stores are lazy-opened, bounded in concurrent open count, background-compacted, and purged after revoke/remove within the declared lifecycle window.
 
 ## Non-Goals
 1. Giving family members collaborative editing.

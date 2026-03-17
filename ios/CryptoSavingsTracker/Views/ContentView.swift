@@ -117,9 +117,12 @@ struct GoalsList: View {
     @Binding var selectedView: DetailViewType
     let onDelete: (Goal) -> Void
     let onRefresh: () async -> Void
+    @EnvironmentObject private var familyShareCoordinator: FamilyShareAcceptanceCoordinator
+    @State private var familyShareEnabled = DIContainer.shared.familyShareRollout.isEnabled()
     @State private var showingAddGoal = false
     @State private var showingSettings = false
     @State private var editingGoal: Goal?
+    @State private var selectedSharedGoal: FamilySharedGoalSummary?
     @State private var monthlyPlanningViewModel: MonthlyPlanningViewModel?
     @State private var refreshTrigger = UUID()
     @Environment(\.modelContext) private var modelContext
@@ -136,6 +139,23 @@ struct GoalsList: View {
                 .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
+            }
+
+            if familyShareEnabled && !familyShareCoordinator.sharedSections.isEmpty {
+                Section("Shared Goals") {
+                    SharedGoalsSectionView(
+                        sections: familyShareCoordinator.sharedSections,
+                        onGoalSelected: { goal in
+                            selectedSharedGoal = goal
+                        },
+                        onPrimaryAction: { section in
+                            Task {
+                                await familyShareCoordinator.handlePrimaryAction(for: section)
+                            }
+                        }
+                    )
+                }
+                .accessibilityIdentifier("sharedGoalsSection")
             }
 
             Section("Your Goals") {
@@ -185,8 +205,16 @@ struct GoalsList: View {
         .navigationDestination(isPresented: $showingAddGoal) {
             AddGoalView()
         }
+        .navigationDestination(item: $selectedSharedGoal) { goal in
+            SharedGoalDetailView(goal: goal) {
+                selectedSharedGoal = nil
+            }
+        }
         .refreshable {
             await onRefresh()
+            if familyShareEnabled {
+                await familyShareCoordinator.refreshAllState()
+            }
         }
         .toolbar {
             #if os(iOS)
@@ -200,10 +228,16 @@ struct GoalsList: View {
             #endif
         }
         .onAppear {
+            familyShareEnabled = DIContainer.shared.familyShareRollout.isEnabled()
             setupShortcuts()
             // Create the monthly planning view model with model context
             if monthlyPlanningViewModel == nil {
                 monthlyPlanningViewModel = MonthlyPlanningViewModel(modelContext: modelContext)
+            }
+            if familyShareEnabled {
+                Task {
+                    await familyShareCoordinator.refreshAllState()
+                }
             }
         }
         // NAV-MOD: MOD-01
