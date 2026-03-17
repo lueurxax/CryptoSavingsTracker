@@ -20,7 +20,7 @@ Current persistence migration note:
 - production runtime for authoritative data is CloudKit-only; legacy local-primary database is retired and deleted on launch if present
 - operational release governance for this cutover is tracked in [CloudKit Cutover Release Gate Runbook](runbooks/cloudkit-cutover-release-gate.md)
 - Phase 1 evidence requirements are tracked in [CloudKit Phase 1 Evidence Checklist](testing/cloudkit-phase1-evidence-checklist.md)
-- Phase 2 bridge-surface work may proceed on top of this CloudKit-only contract
+- Phase 2A signed file bridge work may proceed on top of this CloudKit-only contract, while QR/Multipeer transport remains later hardening
 
 ## Table of Contents
 

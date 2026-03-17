@@ -8,7 +8,7 @@
 import SwiftData
 import Foundation
 
-struct CompletedExecutionContributionSnapshot: Codable, Sendable {
+struct CompletedExecutionContributionSnapshot: Codable, Equatable, Sendable {
     let timestamp: Date
     let source: ContributionSource
     let assetId: UUID

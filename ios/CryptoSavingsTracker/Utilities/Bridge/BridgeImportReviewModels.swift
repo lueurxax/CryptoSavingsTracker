@@ -16,6 +16,20 @@ enum BridgeImportSignatureStatus: String, Codable, Equatable, Sendable {
     }
 }
 
+enum BridgeImportTrustStatus: String, Codable, Equatable, Sendable {
+    case activeTrusted
+    case signerUntrusted
+    case trustRevoked
+
+    var displayTitle: String {
+        switch self {
+        case .activeTrusted: return "Trusted Device"
+        case .signerUntrusted: return "Untrusted Device"
+        case .trustRevoked: return "Trust Revoked"
+        }
+    }
+}
+
 enum BridgeImportValidationStatus: String, Codable, Equatable, Sendable {
     case notRun
     case passed
@@ -53,15 +67,29 @@ enum BridgeImportDriftStatus: String, Codable, Equatable, Sendable {
 enum BridgeImportOperatorDecisionState: String, Codable, Equatable, Sendable {
     case notRequired
     case awaitingDecision
-    case approvedPlaceholder
+    case approved
     case rejected
 
     var displayTitle: String {
         switch self {
         case .notRequired: return "Not Required"
         case .awaitingDecision: return "Awaiting Operator Decision"
-        case .approvedPlaceholder: return "Approved (Not Applied)"
+        case .approved: return "Approved"
         case .rejected: return "Rejected"
+        }
+    }
+}
+
+enum BridgeImportChangeKind: String, Codable, Equatable, Sendable {
+    case added
+    case updated
+    case deleted
+
+    var displayTitle: String {
+        switch self {
+        case .added: return "Added"
+        case .updated: return "Updated"
+        case .deleted: return "Deleted"
         }
     }
 }
@@ -73,8 +101,35 @@ struct BridgeImportEntityDeltaDTO: Codable, Equatable, Sendable {
     let changedCount: Int
 }
 
+struct BridgeImportConcreteDiffDTO: Codable, Equatable, Sendable, Identifiable {
+    let id: String
+    let entityName: String
+    let entityID: UUID
+    let changeKind: BridgeImportChangeKind
+    let title: String
+    let beforeSummary: String?
+    let afterSummary: String?
+
+    init(
+        entityName: String,
+        entityID: UUID,
+        changeKind: BridgeImportChangeKind,
+        title: String,
+        beforeSummary: String?,
+        afterSummary: String?
+    ) {
+        self.id = "\(entityName)-\(entityID.uuidString)-\(changeKind.rawValue)"
+        self.entityName = entityName
+        self.entityID = entityID
+        self.changeKind = changeKind
+        self.title = title
+        self.beforeSummary = beforeSummary
+        self.afterSummary = afterSummary
+    }
+}
+
 struct BridgeSignedImportPackageSummaryDTO: Codable, Equatable, Sendable {
-    let packageID: UUID
+    let packageID: String
     let packageVersion: String
     let canonicalEncodingVersion: String
     let sourceDeviceName: String
@@ -84,6 +139,7 @@ struct BridgeSignedImportPackageSummaryDTO: Codable, Equatable, Sendable {
     let payloadBytes: Int64
     let digestHexPrefix: String
     let signatureStatus: BridgeImportSignatureStatus
+    let trustStatus: BridgeImportTrustStatus
 }
 
 struct BridgeImportReviewSummaryDTO: Codable, Equatable, Sendable {
@@ -93,6 +149,7 @@ struct BridgeImportReviewSummaryDTO: Codable, Equatable, Sendable {
     let warnings: [String]
     let blockingIssues: [String]
     let entityDeltas: [BridgeImportEntityDeltaDTO]
+    let concreteDiffs: [BridgeImportConcreteDiffDTO]
 
     var changedEntityCounts: [String: Int] {
         Dictionary(uniqueKeysWithValues: entityDeltas.map { ($0.entityName, $0.changedCount) })

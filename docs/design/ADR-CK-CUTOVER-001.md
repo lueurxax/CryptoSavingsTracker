@@ -43,7 +43,7 @@ The staged migration pipeline remains the historical explanation for how the cut
 - legacy local-runtime compatibility is retired for authoritative data,
 - the product is CloudKit-only for durable state,
 - residual local-primary store files are deleted on launch,
-- Phase 2 bridge sequencing still requires CloudKit-only runtime, which is now satisfied by storage policy and unblocks Phase 2 bridge surface work.
+- Phase 2 bridge sequencing now starts from the implemented signed file-based manual bridge. CloudKit-only runtime remains a prerequisite that is already satisfied by storage policy, while QR/Multipeer transport stays as later hardening rather than a minimum bridge requirement.
 
 ## Consequences
 
@@ -58,6 +58,7 @@ The staged migration pipeline remains the historical explanation for how the cut
 
 - A successful migration now ends in a relaunch-required state rather than immediate CloudKit activation in the same session.
 - Transitional diagnostics and repair surfaces remain historical implementation detail, but they are no longer part of the supported steady-state product contract for migrated installs.
+- Phase 2A is documented as a signed file-based manual bridge with concrete import review and apply; QR/Multipeer transport are later hardening items, not the minimum bridge contract.
 - Authoritative data must remain in CloudKit-backed runtime paths; local persistence is allowed only for caches and scratch artifacts.
 - Migration complexity moved from a single copy step to a multi-stage pipeline with staging, promotion, and deferred cleanup.
 

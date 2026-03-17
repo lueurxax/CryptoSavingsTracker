@@ -3,11 +3,14 @@ import SwiftData
 
 enum LocalBridgeSnapshotExportError: LocalizedError {
     case runtimeNotCloudKitPrimary
+    case invalidAuthoritativeDataset([String])
 
     var errorDescription: String? {
         switch self {
         case .runtimeNotCloudKitPrimary:
             return "Local Bridge Sync export is available only after CloudKit becomes the active authoritative runtime."
+        case let .invalidAuthoritativeDataset(issues):
+            return issues.joined(separator: " ")
         }
     }
 }
@@ -41,6 +44,8 @@ final class LocalBridgeSnapshotExportService {
     }
 
     func exportSnapshot(from context: ModelContext) throws -> SnapshotEnvelope {
+        var validationIssues: [String] = []
+
         let goals = try context.fetch(FetchDescriptor<Goal>())
             .map {
                 BridgeGoalSnapshot(
@@ -153,6 +158,79 @@ final class LocalBridgeSnapshotExportService {
             }
             .sorted { $0.id.uuidString < $1.id.uuidString }
 
+        let completedExecutions = try context.fetch(FetchDescriptor<CompletedExecution>())
+            .compactMap { completion -> BridgeCompletedExecutionSnapshot? in
+                guard let executionRecordID = completion.executionRecord?.id else {
+                    validationIssues.append("CompletedExecution \(completion.id.uuidString) is missing executionRecord.")
+                    return nil
+                }
+                return BridgeCompletedExecutionSnapshot(
+                    id: completion.id,
+                    executionRecordId: executionRecordID,
+                    monthLabel: completion.monthLabel,
+                    completedAt: completion.completedAt,
+                    exchangeRatesSnapshot: completion.exchangeRatesSnapshot,
+                    goalSnapshots: completion.goalSnapshots.sorted { $0.goalId.uuidString < $1.goalId.uuidString },
+                    contributionSnapshots: completion.contributionSnapshots.sorted {
+                        if $0.timestamp != $1.timestamp { return $0.timestamp < $1.timestamp }
+                        if $0.goalId != $1.goalId { return $0.goalId.uuidString < $1.goalId.uuidString }
+                        return $0.assetId.uuidString < $1.assetId.uuidString
+                    }
+                )
+            }
+            .sorted { (lhs: BridgeCompletedExecutionSnapshot, rhs: BridgeCompletedExecutionSnapshot) in
+                if lhs.monthLabel != rhs.monthLabel { return lhs.monthLabel < rhs.monthLabel }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+
+        let executionSnapshots = try context.fetch(FetchDescriptor<ExecutionSnapshot>())
+            .compactMap { snapshot -> BridgeExecutionSnapshotPayload? in
+                guard let executionRecordID = snapshot.executionRecord?.id else {
+                    validationIssues.append("ExecutionSnapshot \(snapshot.id.uuidString) is missing executionRecord.")
+                    return nil
+                }
+                return BridgeExecutionSnapshotPayload(
+                    id: snapshot.id,
+                    executionRecordId: executionRecordID,
+                    capturedAt: snapshot.capturedAt,
+                    totalPlanned: snapshot.totalPlanned,
+                    goalSnapshots: snapshot.goalSnapshots.sorted { $0.goalId.uuidString < $1.goalId.uuidString }
+                )
+            }
+            .sorted { (lhs: BridgeExecutionSnapshotPayload, rhs: BridgeExecutionSnapshotPayload) in
+                if lhs.capturedAt != rhs.capturedAt { return lhs.capturedAt < rhs.capturedAt }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+
+        let completionEvents = try context.fetch(FetchDescriptor<CompletionEvent>())
+            .compactMap { event -> BridgeCompletionEventSnapshot? in
+                guard let completionSnapshotID = event.completionSnapshot?.id else {
+                    validationIssues.append("CompletionEvent \(event.eventId.uuidString) is missing completionSnapshot.")
+                    return nil
+                }
+                return BridgeCompletionEventSnapshot(
+                    eventId: event.eventId,
+                    executionRecordId: event.executionRecordId,
+                    completionSnapshotId: completionSnapshotID,
+                    monthLabel: event.monthLabel,
+                    sequence: event.sequence,
+                    sourceDiscriminator: event.sourceDiscriminator,
+                    completedAt: event.completedAt,
+                    undoneAt: event.undoneAt,
+                    undoReason: event.undoReason,
+                    createdAt: event.createdAt
+                )
+            }
+            .sorted { (lhs: BridgeCompletionEventSnapshot, rhs: BridgeCompletionEventSnapshot) in
+                if lhs.monthLabel != rhs.monthLabel { return lhs.monthLabel < rhs.monthLabel }
+                if lhs.sequence != rhs.sequence { return lhs.sequence < rhs.sequence }
+                return lhs.eventId.uuidString < rhs.eventId.uuidString
+            }
+
+        if !validationIssues.isEmpty {
+            throw LocalBridgeSnapshotExportError.invalidAuthoritativeDataset(validationIssues)
+        }
+
         let manifest = SnapshotManifest(
             snapshotID: UUID(),
             canonicalEncodingVersion: capabilityManifest.maximumSupportedCanonicalEncodingVersion,
@@ -166,7 +244,10 @@ final class LocalBridgeSnapshotExportService {
                 BridgeEntityCount(name: "AssetAllocation", count: assetAllocations.count),
                 BridgeEntityCount(name: "AllocationHistory", count: allocationHistories.count),
                 BridgeEntityCount(name: "MonthlyPlan", count: monthlyPlans.count),
-                BridgeEntityCount(name: "MonthlyExecutionRecord", count: monthlyExecutionRecords.count)
+                BridgeEntityCount(name: "MonthlyExecutionRecord", count: monthlyExecutionRecords.count),
+                BridgeEntityCount(name: "CompletedExecution", count: completedExecutions.count),
+                BridgeEntityCount(name: "ExecutionSnapshot", count: executionSnapshots.count),
+                BridgeEntityCount(name: "CompletionEvent", count: completionEvents.count)
             ],
             baseDatasetFingerprint: ""
         )
@@ -179,7 +260,10 @@ final class LocalBridgeSnapshotExportService {
             assetAllocations: assetAllocations,
             allocationHistories: allocationHistories,
             monthlyPlans: monthlyPlans,
-            monthlyExecutionRecords: monthlyExecutionRecords
+            monthlyExecutionRecords: monthlyExecutionRecords,
+            completedExecutions: completedExecutions,
+            executionSnapshots: executionSnapshots,
+            completionEvents: completionEvents
         ).withComputedFingerprint()
     }
 }

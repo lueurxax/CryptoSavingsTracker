@@ -23,7 +23,7 @@ struct BridgeImportReviewView: View {
             if let review = status.reviewSummaryDTO {
                 Section("Signed Package") {
                     LabeledContent("Package ID") {
-                        Text(review.package.packageID.uuidString)
+                        Text(review.package.packageID)
                             .font(.caption.monospaced())
                             .lineLimit(1)
                             .truncationMode(.middle)
@@ -35,16 +35,51 @@ struct BridgeImportReviewView: View {
                     }
                     .accessibilityIdentifier("localBridge.importReview.sourceDevice")
 
+                    LabeledContent("Source Fingerprint") {
+                        Text(review.package.sourceDeviceFingerprint)
+                            .font(.caption.monospaced())
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .accessibilityIdentifier("localBridge.importReview.sourceFingerprint")
+
                     LabeledContent("Canonical Encoding") {
                         Text(review.package.canonicalEncodingVersion)
                     }
                     .accessibilityIdentifier("localBridge.importReview.encoding")
+
+                    LabeledContent("Produced At") {
+                        Text(review.package.producedAt.formatted(date: .abbreviated, time: .shortened))
+                    }
+                    .accessibilityIdentifier("localBridge.importReview.producedAt")
+
+                    LabeledContent("Expires At") {
+                        Text(review.package.expiresAt.formatted(date: .abbreviated, time: .shortened))
+                    }
+                    .accessibilityIdentifier("localBridge.importReview.expiresAt")
+
+                    LabeledContent("Payload Size") {
+                        Text(ByteCountFormatter.string(fromByteCount: review.package.payloadBytes, countStyle: .file))
+                    }
+                    .accessibilityIdentifier("localBridge.importReview.payloadBytes")
+
+                    LabeledContent("Digest Prefix") {
+                        Text(review.package.digestHexPrefix)
+                            .font(.caption.monospaced())
+                    }
+                    .accessibilityIdentifier("localBridge.importReview.digestPrefix")
 
                     LabeledContent("Signature") {
                         Text(review.package.signatureStatus.displayTitle)
                             .foregroundStyle(signatureColor(review.package.signatureStatus))
                     }
                     .accessibilityIdentifier("localBridge.importReview.signature")
+
+                    LabeledContent("Trust") {
+                        Text(review.package.trustStatus.displayTitle)
+                            .foregroundStyle(trustColor(review.package.trustStatus))
+                    }
+                    .accessibilityIdentifier("localBridge.importReview.trust")
                 }
 
                 Section("Validation & Drift") {
@@ -100,10 +135,10 @@ struct BridgeImportReviewView: View {
             }
 
             Section("Operator Actions") {
-                Button("Approve (No Apply)") {
+                Button("Approve & Apply to CloudKit") {
                     onApprove()
                 }
-                .disabled(status.reviewSummaryDTO == nil)
+                .disabled(status.reviewSummaryDTO == nil || !status.blockingIssues.isEmpty)
                 .accessibilityIdentifier("localBridge.importReview.approve")
 
                 Button("Reject") {
@@ -117,10 +152,45 @@ struct BridgeImportReviewView: View {
                 }
                 .disabled(status.reviewSummaryDTO == nil)
                 .accessibilityIdentifier("localBridge.importReview.resetPending")
+
+                if let applyBlockingReason {
+                    Text(applyBlockingReason)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("localBridge.importReview.applyHint")
+                }
+            }
+
+            if let review = status.reviewSummaryDTO, !review.concreteDiffs.isEmpty {
+                Section("Concrete Diffs") {
+                    ForEach(review.concreteDiffs) { diff in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(diff.title)
+                                    .font(.subheadline.weight(.semibold))
+                                Spacer()
+                                Text(diff.changeKind.displayTitle)
+                                    .font(.caption)
+                                    .foregroundStyle(changeKindColor(diff.changeKind))
+                            }
+                            if let beforeSummary = diff.beforeSummary {
+                                Text("Before: \(beforeSummary)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let afterSummary = diff.afterSummary {
+                                Text("After: \(afterSummary)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                .accessibilityIdentifier("localBridge.importReview.concreteDiffs")
             }
 
             Section("Phase 2A Scope") {
-                Text("This operator surface now reflects the bridge snapshot/package contract and structural validation results. Signature verification, transport I/O, and import apply are intentionally not implemented.")
+                Text("This operator surface validates a signed package artifact loaded from local file transport and applies it into the CloudKit-backed runtime only after explicit approval.")
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("localBridge.importReview.scope")
             }
@@ -134,7 +204,7 @@ struct BridgeImportReviewView: View {
             return .secondary
         case .awaitingDecision:
             return .orange
-        case .approvedPlaceholder:
+        case .approved:
             return .green
         case .rejected:
             return .red
@@ -165,6 +235,15 @@ struct BridgeImportReviewView: View {
         }
     }
 
+    private func trustColor(_ status: BridgeImportTrustStatus) -> Color {
+        switch status {
+        case .activeTrusted:
+            return .green
+        case .signerUntrusted, .trustRevoked:
+            return .red
+        }
+    }
+
     private func driftColor(_ status: BridgeImportDriftStatus) -> Color {
         switch status {
         case .unknown:
@@ -175,6 +254,36 @@ struct BridgeImportReviewView: View {
             return .orange
         case .conflicting, .destructive:
             return .red
+        }
+    }
+
+    private func changeKindColor(_ changeKind: BridgeImportChangeKind) -> Color {
+        switch changeKind {
+        case .added:
+            return .green
+        case .updated:
+            return .orange
+        case .deleted:
+            return .red
+        }
+    }
+
+    private var applyBlockingReason: String? {
+        guard let review = status.reviewSummaryDTO else {
+            return "Load a signed bridge package from Files before operator review can apply anything."
+        }
+        if !status.blockingIssues.isEmpty {
+            return "Apply stays disabled until all blocking validation issues are resolved."
+        }
+        switch review.package.signatureStatus {
+        case .valid:
+            return "Apply targets the CloudKit-backed authoritative runtime and requires explicit operator approval."
+        case .notVerified:
+            return "Apply stays disabled until the package signature is verified."
+        case .invalid:
+            return "Apply stays disabled because the package signature is invalid."
+        case .signerUntrusted:
+            return "Apply stays disabled because the package signer is not trusted on this install."
         }
     }
 }

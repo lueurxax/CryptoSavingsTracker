@@ -5,6 +5,7 @@
 //  Created by user on 27/07/2025.
 //
 
+import CryptoKit
 import Foundation
 import SwiftData
 @testable import CryptoSavingsTracker
@@ -226,6 +227,228 @@ class MockExchangeRateService: ExchangeRateServiceProtocol {
 
     func hasValidConfiguration() -> Bool { true }
     func setOfflineMode(_ offline: Bool) {}
+}
+
+// MARK: - Phase 2 Bridge Test Support
+
+@MainActor
+final class Phase2BridgeStorageModeRegistry: StorageModeRegistry {
+    var currentMode: AppStorageMode
+    var lastUpdatedAt: Date?
+
+    init(currentMode: AppStorageMode = .cloudKitPrimary, lastUpdatedAt: Date? = nil) {
+        self.currentMode = currentMode
+        self.lastUpdatedAt = lastUpdatedAt
+    }
+
+    func setMode(_ mode: AppStorageMode) {
+        currentMode = mode
+        lastUpdatedAt = Date()
+    }
+}
+
+@MainActor
+final class Phase2BridgeSigningService: BridgePackageSigning {
+    private var privateKeys: [String: P256.Signing.PrivateKey] = [:]
+
+    func makeTrustedDevice(displayName: String) -> TrustedBridgeDevice {
+        let keyID = UUID().uuidString
+        let privateKey = P256.Signing.PrivateKey()
+        privateKeys[keyID] = privateKey
+        let publicKeyData = privateKey.publicKey.x963Representation
+
+        return TrustedBridgeDevice(
+            id: UUID(),
+            displayName: displayName,
+            fingerprint: LocalBridgeIdentityStore.fingerprint(publicKeyData: publicKeyData),
+            signingKeyID: keyID,
+            publicKeyRepresentation: publicKeyData.base64EncodedString(),
+            signingAlgorithm: "P256.Signing.ECDSA.SHA256",
+            addedAt: .now,
+            lastSuccessfulSyncAt: nil,
+            trustState: .active
+        )
+    }
+
+    func identity(for signingKeyID: String) throws -> BridgeSigningIdentitySnapshot {
+        let privateKey = privateKeys[signingKeyID] ?? {
+            let privateKey = P256.Signing.PrivateKey()
+            privateKeys[signingKeyID] = privateKey
+            return privateKey
+        }()
+        let publicKeyData = privateKey.publicKey.x963Representation
+        return BridgeSigningIdentitySnapshot(
+            signingKeyID: signingKeyID,
+            algorithm: "P256.Signing.ECDSA.SHA256",
+            publicKeyRepresentation: publicKeyData.base64EncodedString(),
+            fingerprint: LocalBridgeIdentityStore.fingerprint(publicKeyData: publicKeyData)
+        )
+    }
+
+    func sign(_ data: Data, keyID: String) throws -> String {
+        let privateKey = privateKeys[keyID] ?? {
+            let privateKey = P256.Signing.PrivateKey()
+            privateKeys[keyID] = privateKey
+            return privateKey
+        }()
+        return try privateKey.signature(for: data).derRepresentation.base64EncodedString()
+    }
+
+    func verify(signature: String, payload: Data, publicKeyRepresentation: String) throws {
+        guard let publicKeyData = Data(base64Encoded: publicKeyRepresentation) else {
+            throw LocalBridgeIdentityStoreError.invalidPublicKey
+        }
+        guard let signatureData = Data(base64Encoded: signature) else {
+            throw LocalBridgeIdentityStoreError.invalidSignatureEncoding
+        }
+        let publicKey = try P256.Signing.PublicKey(x963Representation: publicKeyData)
+        let signatureValue = try P256.Signing.ECDSASignature(derRepresentation: signatureData)
+        guard publicKey.isValidSignature(signatureValue, for: payload) else {
+            throw LocalBridgeIdentityStoreError.invalidSignature
+        }
+    }
+}
+
+@MainActor
+final class Phase2BridgeTrustStore: BridgeTrustStoring {
+    private var devices: [TrustedBridgeDevice]
+
+    init(devices: [TrustedBridgeDevice] = []) {
+        self.devices = devices
+    }
+
+    func loadTrustedDevices() -> [TrustedBridgeDevice] {
+        devices
+    }
+
+    func upsert(_ device: TrustedBridgeDevice) throws {
+        if let index = devices.firstIndex(where: { $0.id == device.id }) {
+            devices[index] = device
+        } else {
+            devices.append(device)
+        }
+    }
+
+    func revoke(deviceID: UUID) throws {
+        guard let index = devices.firstIndex(where: { $0.id == deviceID }) else { return }
+        devices[index].trustState = .revoked
+    }
+
+    func removeAll() throws {
+        devices.removeAll()
+    }
+}
+
+@MainActor
+func makePhase2BridgeRuntimeController(
+) throws -> PersistenceController {
+    let registry = Phase2BridgeStorageModeRegistry()
+    let stackFactory = PersistenceStackFactory(environment: .preview)
+    let controller = PersistenceController(storageModeRegistry: registry, stackFactory: stackFactory)
+    return controller
+}
+
+@MainActor
+func makePhase2BridgeEditedSnapshot(from baseSnapshot: SnapshotEnvelope) throws -> SnapshotEnvelope {
+    let newAssetID = UUID()
+    let newAsset = BridgeAssetSnapshot(
+        id: newAssetID,
+        currency: "ETH",
+        address: "0xbridge000000000000000000000000000000000001",
+        chainId: "eth"
+    )
+    let newTransaction = BridgeTransactionSnapshot(
+        id: UUID(),
+        assetId: newAssetID,
+        amount: 1.25,
+        date: Date(timeIntervalSince1970: 1_700_000_000),
+        sourceRawValue: TransactionSource.manual.rawValue,
+        externalId: "bridge-import-transaction",
+        counterparty: "Bridge Import",
+        comment: "Applied from signed bridge package"
+    )
+
+    let assets = (baseSnapshot.assets + [newAsset]).sorted { $0.id.uuidString < $1.id.uuidString }
+    let transactions = (baseSnapshot.transactions + [newTransaction]).sorted { $0.id.uuidString < $1.id.uuidString }
+    let manifest = SnapshotManifest(
+        snapshotID: baseSnapshot.manifest.snapshotID,
+        canonicalEncodingVersion: baseSnapshot.manifest.canonicalEncodingVersion,
+        snapshotSchemaVersion: baseSnapshot.manifest.snapshotSchemaVersion,
+        exportedAt: baseSnapshot.manifest.exportedAt,
+        appModelSchemaVersion: baseSnapshot.manifest.appModelSchemaVersion,
+        entityCounts: [
+            BridgeEntityCount(name: "Goal", count: baseSnapshot.goals.count),
+            BridgeEntityCount(name: "Asset", count: assets.count),
+            BridgeEntityCount(name: "Transaction", count: transactions.count),
+            BridgeEntityCount(name: "AssetAllocation", count: baseSnapshot.assetAllocations.count),
+            BridgeEntityCount(name: "AllocationHistory", count: baseSnapshot.allocationHistories.count),
+            BridgeEntityCount(name: "MonthlyPlan", count: baseSnapshot.monthlyPlans.count),
+            BridgeEntityCount(name: "MonthlyExecutionRecord", count: baseSnapshot.monthlyExecutionRecords.count)
+        ],
+        baseDatasetFingerprint: ""
+    )
+
+    return try SnapshotEnvelope(
+        manifest: manifest,
+        goals: baseSnapshot.goals,
+        assets: assets,
+        transactions: transactions,
+        assetAllocations: baseSnapshot.assetAllocations,
+        allocationHistories: baseSnapshot.allocationHistories,
+        monthlyPlans: baseSnapshot.monthlyPlans,
+        monthlyExecutionRecords: baseSnapshot.monthlyExecutionRecords
+    ).withComputedFingerprint()
+}
+
+@MainActor
+func makePhase2BridgeSignedPackage(
+    from snapshot: SnapshotEnvelope,
+    baseDatasetFingerprint: String,
+    trustedDevice: TrustedBridgeDevice,
+    signingService: Phase2BridgeSigningService
+) throws -> SignedImportPackage {
+    guard
+        let signingKeyID = trustedDevice.signingKeyID,
+        let publicKeyRepresentation = trustedDevice.publicKeyRepresentation,
+        let signingAlgorithm = trustedDevice.signingAlgorithm
+    else {
+        throw NSError(domain: "Phase2BridgeTestSupport", code: 1)
+    }
+
+    let unsignedPackage = SignedImportPackage(
+        packageID: BudgetSnapshotIdentity.sha256([
+            snapshot.manifest.snapshotID.uuidString,
+            baseDatasetFingerprint,
+            snapshot.manifest.baseDatasetFingerprint,
+            signingKeyID,
+            trustedDevice.fingerprint
+        ].joined(separator: "|")),
+        snapshotID: snapshot.manifest.snapshotID,
+        canonicalEncodingVersion: snapshot.manifest.canonicalEncodingVersion,
+        baseDatasetFingerprint: baseDatasetFingerprint,
+        editedDatasetFingerprint: snapshot.manifest.baseDatasetFingerprint,
+        snapshotEnvelope: snapshot,
+        signingKeyID: signingKeyID,
+        signingAlgorithm: signingAlgorithm,
+        signerPublicKeyRepresentation: publicKeyRepresentation,
+        signedAt: Date(timeIntervalSince1970: 1_700_000_500),
+        signature: ""
+    )
+    let signature = try signingService.sign(unsignedPackage.signingPayloadData(), keyID: signingKeyID)
+
+    return SignedImportPackage(
+        packageID: unsignedPackage.packageID,
+        snapshotID: unsignedPackage.snapshotID,
+        canonicalEncodingVersion: unsignedPackage.canonicalEncodingVersion,
+        baseDatasetFingerprint: unsignedPackage.baseDatasetFingerprint,
+        editedDatasetFingerprint: unsignedPackage.editedDatasetFingerprint,
+        snapshotEnvelope: unsignedPackage.snapshotEnvelope,
+        signingKeyID: unsignedPackage.signingKeyID,
+        signingAlgorithm: unsignedPackage.signingAlgorithm,
+        signerPublicKeyRepresentation: unsignedPackage.signerPublicKeyRepresentation,
+        signedAt: unsignedPackage.signedAt,
+        signature: signature
+    )
 }
 
 // MARK: - Lightweight Goal/Asset helpers for tests

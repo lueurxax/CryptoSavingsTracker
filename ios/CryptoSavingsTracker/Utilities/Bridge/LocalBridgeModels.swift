@@ -199,6 +199,9 @@ struct TrustedBridgeDevice: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     var displayName: String
     var fingerprint: String
+    var signingKeyID: String? = nil
+    var publicKeyRepresentation: String? = nil
+    var signingAlgorithm: String? = nil
     var addedAt: Date
     var lastSuccessfulSyncAt: Date?
     var trustState: BridgeTrustState
@@ -297,6 +300,37 @@ struct BridgeMonthlyExecutionRecordSnapshot: Codable, Equatable, Sendable {
     let completionEventIds: [UUID]
 }
 
+struct BridgeCompletedExecutionSnapshot: Codable, Equatable, Sendable {
+    let id: UUID
+    let executionRecordId: UUID
+    let monthLabel: String
+    let completedAt: Date
+    let exchangeRatesSnapshot: [String: Double]
+    let goalSnapshots: [ExecutionGoalSnapshot]
+    let contributionSnapshots: [CompletedExecutionContributionSnapshot]
+}
+
+struct BridgeExecutionSnapshotPayload: Codable, Equatable, Sendable {
+    let id: UUID
+    let executionRecordId: UUID
+    let capturedAt: Date
+    let totalPlanned: Double
+    let goalSnapshots: [ExecutionGoalSnapshot]
+}
+
+struct BridgeCompletionEventSnapshot: Codable, Equatable, Sendable {
+    let eventId: UUID
+    let executionRecordId: UUID
+    let completionSnapshotId: UUID
+    let monthLabel: String
+    let sequence: Int
+    let sourceDiscriminator: String
+    let completedAt: Date
+    let undoneAt: Date?
+    let undoReason: String?
+    let createdAt: Date
+}
+
 struct SnapshotManifest: Codable, Equatable, Sendable {
     let snapshotID: UUID
     let canonicalEncodingVersion: String
@@ -316,6 +350,50 @@ struct SnapshotEnvelope: Codable, Equatable, Sendable {
     let allocationHistories: [BridgeAllocationHistorySnapshot]
     let monthlyPlans: [BridgeMonthlyPlanSnapshot]
     let monthlyExecutionRecords: [BridgeMonthlyExecutionRecordSnapshot]
+    let completedExecutions: [BridgeCompletedExecutionSnapshot]
+    let executionSnapshots: [BridgeExecutionSnapshotPayload]
+    let completionEvents: [BridgeCompletionEventSnapshot]
+
+    init(
+        manifest: SnapshotManifest,
+        goals: [BridgeGoalSnapshot],
+        assets: [BridgeAssetSnapshot],
+        transactions: [BridgeTransactionSnapshot],
+        assetAllocations: [BridgeAssetAllocationSnapshot],
+        allocationHistories: [BridgeAllocationHistorySnapshot],
+        monthlyPlans: [BridgeMonthlyPlanSnapshot],
+        monthlyExecutionRecords: [BridgeMonthlyExecutionRecordSnapshot],
+        completedExecutions: [BridgeCompletedExecutionSnapshot] = [],
+        executionSnapshots: [BridgeExecutionSnapshotPayload] = [],
+        completionEvents: [BridgeCompletionEventSnapshot] = []
+    ) {
+        self.manifest = manifest
+        self.goals = goals
+        self.assets = assets
+        self.transactions = transactions
+        self.assetAllocations = assetAllocations
+        self.allocationHistories = allocationHistories
+        self.monthlyPlans = monthlyPlans
+        self.monthlyExecutionRecords = monthlyExecutionRecords
+        self.completedExecutions = completedExecutions
+        self.executionSnapshots = executionSnapshots
+        self.completionEvents = completionEvents
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        manifest = try container.decode(SnapshotManifest.self, forKey: .manifest)
+        goals = try container.decode([BridgeGoalSnapshot].self, forKey: .goals)
+        assets = try container.decode([BridgeAssetSnapshot].self, forKey: .assets)
+        transactions = try container.decode([BridgeTransactionSnapshot].self, forKey: .transactions)
+        assetAllocations = try container.decode([BridgeAssetAllocationSnapshot].self, forKey: .assetAllocations)
+        allocationHistories = try container.decode([BridgeAllocationHistorySnapshot].self, forKey: .allocationHistories)
+        monthlyPlans = try container.decode([BridgeMonthlyPlanSnapshot].self, forKey: .monthlyPlans)
+        monthlyExecutionRecords = try container.decode([BridgeMonthlyExecutionRecordSnapshot].self, forKey: .monthlyExecutionRecords)
+        completedExecutions = try container.decodeIfPresent([BridgeCompletedExecutionSnapshot].self, forKey: .completedExecutions) ?? []
+        executionSnapshots = try container.decodeIfPresent([BridgeExecutionSnapshotPayload].self, forKey: .executionSnapshots) ?? []
+        completionEvents = try container.decodeIfPresent([BridgeCompletionEventSnapshot].self, forKey: .completionEvents) ?? []
+    }
 
     var entityCounts: [BridgeEntityCount] {
         [
@@ -325,7 +403,10 @@ struct SnapshotEnvelope: Codable, Equatable, Sendable {
             BridgeEntityCount(name: "AssetAllocation", count: assetAllocations.count),
             BridgeEntityCount(name: "AllocationHistory", count: allocationHistories.count),
             BridgeEntityCount(name: "MonthlyPlan", count: monthlyPlans.count),
-            BridgeEntityCount(name: "MonthlyExecutionRecord", count: monthlyExecutionRecords.count)
+            BridgeEntityCount(name: "MonthlyExecutionRecord", count: monthlyExecutionRecords.count),
+            BridgeEntityCount(name: "CompletedExecution", count: completedExecutions.count),
+            BridgeEntityCount(name: "ExecutionSnapshot", count: executionSnapshots.count),
+            BridgeEntityCount(name: "CompletionEvent", count: completionEvents.count)
         ]
     }
 
@@ -352,7 +433,10 @@ struct SnapshotEnvelope: Codable, Equatable, Sendable {
             assetAllocations: assetAllocations,
             allocationHistories: allocationHistories,
             monthlyPlans: monthlyPlans,
-            monthlyExecutionRecords: monthlyExecutionRecords
+            monthlyExecutionRecords: monthlyExecutionRecords,
+            completedExecutions: completedExecutions,
+            executionSnapshots: executionSnapshots,
+            completionEvents: completionEvents
         )
     }
 
@@ -365,7 +449,10 @@ struct SnapshotEnvelope: Codable, Equatable, Sendable {
             assetAllocations: assetAllocations,
             allocationHistories: allocationHistories,
             monthlyPlans: monthlyPlans,
-            monthlyExecutionRecords: monthlyExecutionRecords
+            monthlyExecutionRecords: monthlyExecutionRecords,
+            completedExecutions: completedExecutions,
+            executionSnapshots: executionSnapshots,
+            completionEvents: completionEvents
         )
     }
 }
@@ -378,14 +465,84 @@ struct SignedImportPackage: Codable, Equatable, Sendable {
     let editedDatasetFingerprint: String
     let snapshotEnvelope: SnapshotEnvelope
     let signingKeyID: String
+    let signingAlgorithm: String
+    let signerPublicKeyRepresentation: String
     let signedAt: Date
     let signature: String
+
+    init(
+        packageID: String,
+        snapshotID: UUID,
+        canonicalEncodingVersion: String,
+        baseDatasetFingerprint: String,
+        editedDatasetFingerprint: String,
+        snapshotEnvelope: SnapshotEnvelope,
+        signingKeyID: String,
+        signingAlgorithm: String,
+        signerPublicKeyRepresentation: String,
+        signedAt: Date,
+        signature: String
+    ) {
+        self.packageID = packageID
+        self.snapshotID = snapshotID
+        self.canonicalEncodingVersion = canonicalEncodingVersion
+        self.baseDatasetFingerprint = baseDatasetFingerprint
+        self.editedDatasetFingerprint = editedDatasetFingerprint
+        self.snapshotEnvelope = snapshotEnvelope
+        self.signingKeyID = signingKeyID
+        self.signingAlgorithm = signingAlgorithm
+        self.signerPublicKeyRepresentation = signerPublicKeyRepresentation
+        self.signedAt = signedAt
+        self.signature = signature
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        packageID = try container.decode(String.self, forKey: .packageID)
+        snapshotID = try container.decode(UUID.self, forKey: .snapshotID)
+        canonicalEncodingVersion = try container.decode(String.self, forKey: .canonicalEncodingVersion)
+        baseDatasetFingerprint = try container.decode(String.self, forKey: .baseDatasetFingerprint)
+        editedDatasetFingerprint = try container.decode(String.self, forKey: .editedDatasetFingerprint)
+        snapshotEnvelope = try container.decode(SnapshotEnvelope.self, forKey: .snapshotEnvelope)
+        signingKeyID = try container.decode(String.self, forKey: .signingKeyID)
+        signingAlgorithm = try container.decodeIfPresent(String.self, forKey: .signingAlgorithm) ?? "legacy-unsigned"
+        signerPublicKeyRepresentation = try container.decodeIfPresent(String.self, forKey: .signerPublicKeyRepresentation) ?? ""
+        signedAt = try container.decode(Date.self, forKey: .signedAt)
+        signature = try container.decode(String.self, forKey: .signature)
+    }
 
     func canonicalEncodingData() throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .millisecondsSince1970
         return try encoder.encode(self)
+    }
+
+    func signingPayloadData() throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        encoder.dateEncodingStrategy = .millisecondsSince1970
+        let unsigned = SignedImportPackage(
+            packageID: packageID,
+            snapshotID: snapshotID,
+            canonicalEncodingVersion: canonicalEncodingVersion,
+            baseDatasetFingerprint: baseDatasetFingerprint,
+            editedDatasetFingerprint: editedDatasetFingerprint,
+            snapshotEnvelope: snapshotEnvelope,
+            signingKeyID: signingKeyID,
+            signingAlgorithm: signingAlgorithm,
+            signerPublicKeyRepresentation: signerPublicKeyRepresentation,
+            signedAt: signedAt,
+            signature: ""
+        )
+        return try encoder.encode(unsigned)
+    }
+
+    var signerFingerprint: String {
+        guard let publicKeyData = Data(base64Encoded: signerPublicKeyRepresentation) else {
+            return ""
+        }
+        return LocalBridgeIdentityStore.fingerprint(publicKeyData: publicKeyData)
     }
 }
 
@@ -528,7 +685,7 @@ struct LocalBridgeSyncStatusSnapshot: Equatable, Sendable {
             importReviewStatus: importReviewStatus,
             capabilityManifest: capabilityManifest,
             sessionState: sessionState,
-            detail: "CloudKit runtime is active. Local Bridge Sync may begin from this dedicated surface when transport is implemented."
+            detail: "CloudKit runtime is active. Local Bridge Sync can export a shareable snapshot artifact and validate a returned import package from Files."
         )
     }
 }

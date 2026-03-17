@@ -62,9 +62,9 @@
 | [CONTRIBUTION_PROCESS.md](CONTRIBUTION_PROCESS.md) | Contribution process UX features: "Add to Close Month" action, current goal first sorting, execution currency selector | Developers |
 | [CONTRIBUTION_FLOW.md](CONTRIBUTION_FLOW.md) | Timestamp-based execution tracking architecture and contribution derivation | Developers |
 | [CONTRIBUTION_TRACKING_REDESIGN.md](CONTRIBUTION_TRACKING_REDESIGN.md) | AllocationHistory, contribution tracking architecture decisions | Developers |
-| [CLOUDKIT_MIGRATION_PLAN.md](CLOUDKIT_MIGRATION_PLAN.md) | CloudKit migration repository-truth contract and historical implementation plan; Phase 1/1.5 complete and Phase 2 opening baseline | Developers |
+| [CLOUDKIT_MIGRATION_PLAN.md](CLOUDKIT_MIGRATION_PLAN.md) | CloudKit migration repository-truth contract and historical implementation plan; Phase 1/1.5 complete and Phase 2A signed file bridge baseline | Developers |
 | [CLOUDKIT_PHASE1_WORKTREE_EXECUTION_PLAN.md](CLOUDKIT_PHASE1_WORKTREE_EXECUTION_PLAN.md) | Historical worktree split/merge execution record for CloudKit Phase 0/1/1.5 completion | Developers |
-| [design/ADR-CK-CUTOVER-001.md](design/ADR-CK-CUTOVER-001.md) | Accepted CloudKit cutover architecture and Phase 1.5 hard-cutover decision: staging, validation, promotion, CloudKit-only runtime | Developers |
+| [design/ADR-CK-CUTOVER-001.md](design/ADR-CK-CUTOVER-001.md) | Accepted CloudKit cutover architecture and Phase 1.5 hard-cutover decision: staging, validation, promotion, CloudKit-only runtime, and signed file bridge Phase 2A | Developers |
 | [testing/cloudkit-phase1-evidence-checklist.md](testing/cloudkit-phase1-evidence-checklist.md) | Evidence checklist for Phase 1 cutover acceptance and relaunch contract | Developers, QA |
 | [runbooks/cloudkit-cutover-release-gate.md](runbooks/cloudkit-cutover-release-gate.md) | Go/no-go runbook for CloudKit hard-cutover regression gate and Phase 2 opening guard | Developers, QA, Release Managers |
 | [release/cloudkit/templates/README.md](release/cloudkit/templates/README.md) | Required artifact layout for CloudKit release evidence packages | Developers, QA, Release Managers |

@@ -1,10 +1,12 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct LocalBridgeSyncView: View {
     let persistenceSnapshot: PersistenceRuntimeSnapshot
 
     @StateObject private var controller = LocalBridgeSyncController.shared
     @State private var bridgeNotice: String?
+    @State private var presentsImportPackagePicker = false
 
     private var bridgeSnapshot: LocalBridgeSyncStatusSnapshot {
         controller.statusSnapshot(persistenceSnapshot: persistenceSnapshot)
@@ -46,33 +48,18 @@ struct LocalBridgeSyncView: View {
 
             Section("Pairing") {
                 Button {
-                    controller.pairMac(using: .scanQR)
+                    controller.pairMac(using: .enterCodeManually)
                     bridgeNotice = controller.operatorMessage
                 } label: {
-                    Label("Pair Mac", systemImage: "desktopcomputer")
+                    Label("Trust Mac for File Bridge", systemImage: "desktopcomputer")
                 }
                 .disabled(bridgeSnapshot.availabilityState == .unavailable)
                 .accessibilityIdentifier("localBridge.pairMac")
 
-                HStack {
-                    Button("Enter Code Manually") {
-                        controller.pairMac(using: .enterCodeManually)
-                        bridgeNotice = controller.operatorMessage
-                    }
-                    .disabled(bridgeSnapshot.availabilityState == .unavailable)
-
-                    Button("Paste Bootstrap Token") {
-                        controller.pairMac(using: .pasteBootstrapToken)
-                        bridgeNotice = controller.operatorMessage
-                    }
-                    .disabled(bridgeSnapshot.availabilityState == .unavailable)
-                }
-                .accessibilityIdentifier("localBridge.manualPairingActions")
-
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Manual Bootstrap")
+                    Text("Trusted Pairing")
                         .font(.subheadline.weight(.semibold))
-                    Text("Camera-based QR pairing will use the new privacy declarations, and manual code entry remains the fallback path in the final bridge workflow.")
+                    Text("Phase 2A uses a signed file bridge. Trust creation records the sending Mac locally so later imports can be verified and applied. QR and Multipeer stay in later transport hardening work.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
 
@@ -173,6 +160,31 @@ struct LocalBridgeSyncView: View {
                 }
                 .accessibilityIdentifier("localBridge.lastSyncStatus")
 
+                if let exportArtifact = controller.latestExportArtifact {
+                    LabeledContent("Latest Export") {
+                        Text(exportArtifact.displayName)
+                            .font(.caption.monospaced())
+                            .multilineTextAlignment(.trailing)
+                    }
+                    .accessibilityIdentifier("localBridge.latestExportArtifact")
+
+                    LabeledContent("Exported At") {
+                        Text(exportArtifact.exportedAt.formatted(date: .abbreviated, time: .shortened))
+                    }
+                    .accessibilityIdentifier("localBridge.latestExportArtifactDate")
+
+                    Text(exportArtifact.fileURL.path)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier("localBridge.latestExportArtifactPath")
+
+                    ShareLink(item: exportArtifact.fileURL) {
+                        Label("Share Latest Export", systemImage: "square.and.arrow.up")
+                    }
+                    .accessibilityIdentifier("localBridge.shareLatestExport")
+                }
+
                 Button {
                     controller.syncNow()
                     bridgeNotice = controller.operatorMessage
@@ -185,19 +197,82 @@ struct LocalBridgeSyncView: View {
 
             Section("Import") {
                 Button {
-                    controller.openImportReview()
-                    bridgeNotice = controller.operatorMessage
+                    presentsImportPackagePicker = true
                 } label: {
-                    Label("Prepare Import Review", systemImage: "tray.and.arrow.down")
+                    Label("Load Import Package", systemImage: "doc.badge.plus")
                 }
                 .disabled(bridgeSnapshot.availabilityState == .unavailable)
-                .accessibilityIdentifier("localBridge.importReview")
+                .accessibilityIdentifier("localBridge.loadImportPackage")
+
+                if let importArtifact = controller.latestImportArtifact {
+                    LabeledContent("Loaded Package") {
+                        Text(importArtifact.displayName)
+                            .font(.caption.monospaced())
+                            .multilineTextAlignment(.trailing)
+                    }
+                    .accessibilityIdentifier("localBridge.latestImportArtifact")
+
+                    LabeledContent("Signed At") {
+                        Text(importArtifact.signedAt.formatted(date: .abbreviated, time: .shortened))
+                    }
+                    .accessibilityIdentifier("localBridge.latestImportArtifactDate")
+
+                    Text(importArtifact.fileURL.path)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier("localBridge.latestImportArtifactPath")
+
+                    ShareLink(item: importArtifact.fileURL) {
+                        Label("Share Loaded Package", systemImage: "square.and.arrow.up")
+                    }
+                    .accessibilityIdentifier("localBridge.shareLoadedImportPackage")
+
+                    if let packageID = controller.latestLoadedImportPackageID {
+                        LabeledContent("Loaded Package ID") {
+                            Text(packageID)
+                                .font(.caption.monospaced())
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        .accessibilityIdentifier("localBridge.latestImportPackageID")
+                    }
+
+                    Button {
+                        controller.openImportReview()
+                        bridgeNotice = controller.operatorMessage
+                    } label: {
+                        Label("Refresh Import Review", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(bridgeSnapshot.availabilityState == .unavailable)
+                    .accessibilityIdentifier("localBridge.importReview.refresh")
+
+                    if bridgeSnapshot.importReviewStatus.reviewSummaryDTO == nil {
+                        Text("Load review metadata from the selected package before apply becomes available.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("localBridge.importReview.hint")
+                    } else if let review = bridgeSnapshot.importReviewStatus.reviewSummaryDTO {
+                        LabeledContent("Loaded Signature") {
+                            Text(review.package.signatureStatus.displayTitle)
+                                .foregroundStyle(importSignatureColor(review.package.signatureStatus))
+                        }
+                        .accessibilityIdentifier("localBridge.importReview.signatureSummary")
+
+                        LabeledContent("Loaded Source") {
+                            Text(review.package.sourceDeviceName)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        .accessibilityIdentifier("localBridge.importReview.sourceSummary")
+                    }
+                }
 
                 NavigationLink {
                     BridgeImportReviewView(
                         status: bridgeSnapshot.importReviewStatus,
                         onApprove: {
-                            controller.markImportDecision(.approvedPlaceholder)
+                            controller.markImportDecision(.approved)
                             bridgeNotice = controller.operatorMessage
                         },
                         onReject: {
@@ -212,7 +287,7 @@ struct LocalBridgeSyncView: View {
                 } label: {
                     Label("Import Review", systemImage: "doc.text.magnifyingglass")
                 }
-                .disabled(bridgeSnapshot.availabilityState == .unavailable)
+                .disabled(bridgeSnapshot.availabilityState == .unavailable || !controller.hasLoadedImportPackage)
                 .accessibilityIdentifier("localBridge.importReview.open")
 
                 if bridgeSnapshot.importReviewStatus.requiresOperatorReview {
@@ -286,7 +361,7 @@ struct LocalBridgeSyncView: View {
             .accessibilityIdentifier("localBridge.capabilityManifest")
 
             Section("Phase 2A Scope") {
-                Text("This surface now reflects the dedicated Local Bridge Sync workflow defined by the proposal. Session state, trust storage, bootstrap-token modeling, authoritative snapshot export, and import review validation scaffolding are implemented. Transport, QR scanning, Multipeer session management, macOS transient workspace, cryptographic signature verification, and apply remain intentionally unimplemented in this build.")
+                Text("This surface supports file-based bridge handoff end to end: authoritative snapshot export persists a shareable artifact, import review loads a signed package from Files, signature validation runs before review, and apply writes only into the CloudKit-backed runtime after explicit approval. QR scanning and Multipeer transport remain future hardening work.")
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("localBridge.scope")
             }
@@ -302,6 +377,23 @@ struct LocalBridgeSyncView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(bridgeNotice ?? "")
+        }
+        .fileImporter(
+            isPresented: $presentsImportPackagePicker,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case let .success(urls):
+                guard let fileURL = urls.first else {
+                    bridgeNotice = "No import package was selected."
+                    return
+                }
+                controller.loadImportPackage(from: fileURL)
+                bridgeNotice = controller.operatorMessage
+            case let .failure(error):
+                bridgeNotice = "Failed to open import package picker: \(error.localizedDescription)"
+            }
         }
     }
 
@@ -381,9 +473,20 @@ struct LocalBridgeSyncView: View {
             return .secondary
         case .awaitingDecision:
             return .orange
-        case .approvedPlaceholder:
+        case .approved:
             return .green
         case .rejected:
+            return .red
+        }
+    }
+
+    private func importSignatureColor(_ status: BridgeImportSignatureStatus) -> Color {
+        switch status {
+        case .notVerified:
+            return .orange
+        case .valid:
+            return .green
+        case .invalid, .signerUntrusted:
             return .red
         }
     }

@@ -1,10 +1,23 @@
-# CloudKit-Only Phase-2 Bridge for Mac Snapshot Sync
+# CloudKit-Only Signed File Bridge for Mac Snapshot Sync
 
 ## Status
-Draft (Phase 2 design track; hard-cutover storage prerequisite already satisfied)
+Draft (Phase 2 design track; hard-cutover storage prerequisite already satisfied; read-only family sharing is now a required higher-priority prerequisite before further bridge rollout)
 
 ## Goal
-Enable a future CloudKit-only iPhone app to exchange editable snapshots with the existing macOS surface of CryptoSavingsTracker over a local trusted session, without introducing backend infrastructure and without building a second replication engine on top of CloudKit.
+Enable a CloudKit-only iPhone app to exchange editable snapshots with the existing macOS surface of CryptoSavingsTracker through a signed file-based manual bridge, without introducing backend infrastructure and without building a second replication engine on top of CloudKit.
+
+## Priority and Sequencing Override
+This document no longer treats `Local Bridge Sync` as the next highest-priority family-facing sync capability.
+
+Before further bridge rollout, the product must first ship read-only family access to goals through the dedicated proposal:
+
+- [CloudKit Read-Only Family Sharing Proposal](CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL.md)
+
+Normative sequencing rule:
+
+1. Read-only family sharing is higher priority than bridge expansion.
+2. A bridge baseline may exist in the runtime, but new rollout scope, expansion, or user-facing prioritization must not bypass the family-sharing gap.
+3. The bridge is not the primary answer for spouse/family visibility.
 
 ## Current State
 - CloudKit migration has been completed on all supported devices. The app no longer supports the legacy local primary database for authoritative data.
@@ -13,7 +26,7 @@ Enable a future CloudKit-only iPhone app to exchange editable snapshots with the
 - Migration is fail-closed on source-data blockers. Real local stores can contain unresolved `AllocationHistory` references or similar integrity problems, so diagnostics and repair are now part of the Phase 1 operator contract rather than optional tooling.
 - Phase 1.5 hard cutover decision is now accepted and in force: local backward compatibility is retired, bridge work may assume CloudKit-only durable state.
 - The current macOS experience is not a separate companion product. The same app already ships a macOS surface with its own main window and Settings window in `CryptoSavingsTrackerApp.swift`.
-- The current app now declares the bridge privacy prerequisites in `Info.plist` (`NSCameraUsageDescription`, `NSLocalNetworkUsageDescription`, and `_cstbridge._tcp` under `NSBonjourServices`). There is still no existing Multipeer session lifecycle or transport implementation in the product runtime.
+- The current app now implements the signed file-based manual bridge contract: trusted-device storage, signed snapshot export, import-package storage, import review, signature verification, and apply all exist in the product runtime. QR scanning and Multipeer transport are later hardening, not part of the minimum Phase 2A bridge contract.
 
 ## Sequencing
 This proposal is valid only with the following delivery order:
@@ -47,18 +60,20 @@ The current codebase converged on the following Phase 1 cutover contract; after 
 - Treat app relaunch as the activation boundary for the CloudKit-backed runtime.
 - Use deferred cleanup for failed `cloud-primary` residue and for `cloud-primary-staging` residue, rather than unlinking live sqlite files.
 
-### Phase 2: QR + Multipeer Bridge
-- Only after Phases 0, 1, and 1.5 are complete may the app introduce the QR + Multipeer bridge described in this document.
-- The bridge is a transport and import workflow layered around CloudKit, not an alternative storage regime.
+### Phase 2: Signed File Bridge and Transport Hardening
+- Only after Phases 0, 1, and 1.5 are complete, and after read-only family sharing has shipped, may the app prioritize further bridge rollout, bridge expansion, or transport hardening described in this document.
+- The bridge is a file-based import/apply workflow layered around CloudKit, not an alternative storage regime.
+- QR scanning and Multipeer transport are Phase 2B hardening items, not the minimum shipping contract for Phase 2A.
 
 ## Product Requirements
 - CloudKit remains the only durable source of truth for all authoritative application data.
 - New feature work must store authoritative user data in CloudKit-backed runtime paths, not in a legacy local primary database.
 - Local persistent storage may be used only for non-authoritative caches, scratch workspaces, and ephemeral helper artifacts.
-- Wife's Apple devices continue using CloudKit sharing for read-only access.
+- Family-member iPhone and iPad devices continue using CloudKit sharing for read-only access to the owner's full goal set in v1.
+- That read-only family access is governed by `CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL.md` and is higher priority than further bridge rollout.
 - The existing macOS app surface can perform read/write editing through exported snapshots.
 - No backend infrastructure is introduced.
-- Bridge sessions operate over local peer-to-peer transport.
+- Bridge sessions operate over signed file artifacts and trusted local review surfaces for Phase 2A.
 - The bridge must remain safe to operate manually by a single user through a dedicated bridge surface launched from Settings.
 
 ## Authority Model
@@ -90,7 +105,7 @@ The bridge works by moving full snapshots between two trusted app surfaces. If t
              iPhone App
    bridge session host + import validator
                  |
-      trusted local transport session
+    signed file handoff / package review
                  |
              macOS App
      offline snapshot editor only
@@ -149,7 +164,7 @@ Required summary state shown in the top-level entry row:
 - iPhone Settings hosts discovery only; operational bridge flows run inside a dedicated iPhone `Local Bridge Sync` destination.
 - macOS Settings or a dedicated Sync window inside the current macOS app hosts the bridge destination and manual return of edited snapshots.
 - The bridge editor on macOS must not bind directly to the app's live persistent store. Even though the existing macOS app uses shared windows today, the bridge edit surface is a separate transient workspace.
-- The current `SettingsView.swift` implementation already exposes the dedicated `Local Bridge Sync` destination and compact top-level summary row. The current foundation slice now also includes trust storage, bootstrap-token modeling, authoritative snapshot export DTOs, and structural import-review validation against the live CloudKit-backed dataset. Transport, QR scanning, Multipeer session management, cryptographic signature verification, macOS transient workspace editing, and signed import apply remain future product scope beyond this slice.
+- The current `SettingsView.swift` implementation already exposes the dedicated `Local Bridge Sync` destination and compact top-level summary row. The current implementation now includes trust storage, bootstrap-token modeling, authoritative snapshot export DTOs, file-backed signed import package storage, structural import-review validation, cryptographic signature verification, and signed import apply. QR scanning and Multipeer transport remain later hardening beyond the minimum Phase 2A contract.
 
 ### macOS Snapshot Workspace Boundary
 - The macOS bridge editor operates on a transient snapshot workspace created from `SnapshotEnvelope`, not on the live app-backed `ModelContainer`.
@@ -188,39 +203,30 @@ Required summary state shown in the top-level entry row:
 2. User sees a single `Local Bridge Sync` entry row in Settings with compact summary state.
 3. That row remains unavailable until the runtime is fully CloudKit-only and reports migration readiness as complete.
 
-### Flow 2: Pair Mac
-1. User opens `Local Bridge Sync` on macOS and selects `Pair Mac`.
-2. macOS app generates a short-lived pairing token and displays it as a QR code.
-3. User opens `Local Bridge Sync` on iPhone and selects `Pair Mac`.
-4. iPhone offers `Scan QR`, `Enter Code Manually`, and `Paste Bootstrap Token`.
-5. If camera permission is available, iPhone scans the QR code; if permission is denied, restricted, or unavailable, the operator uses the manual bootstrap path.
-6. iPhone discovers the peer over MultipeerConnectivity and starts a mutually authenticated handshake.
-7. During handshake, both peers exchange bridge compatibility manifests and negotiate a compatible protocol/schema version.
-8. If no compatible version intersection exists, the session stops with `Update Required` before snapshot export or editing can begin.
-9. If compatibility succeeds, iPhone shows device name, fingerprint, expiration state, and negotiated compatibility state for confirmation.
-10. After confirmation, both sides persist a trusted-device record in Keychain-backed secure storage.
+### Flow 2: Sign and Load File Bridge Package
+1. User opens `Local Bridge Sync` on macOS and exports a snapshot from the CloudKit-backed dataset into an isolated transient workspace.
+2. User edits only the transient workspace.
+3. macOS signs and exports a `SignedImportPackage` from that workspace and writes it to a shareable file artifact.
+4. User moves that package artifact to iPhone through the supported file handoff path for the current build.
+5. iPhone loads the package artifact, validates its signature, and either rejects it or opens `Import Review`.
+6. During `Import Review`, iPhone shows signed-package summary, concrete money-impact diffs, changed-entity counts, and destructive warnings before any mutation.
+7. If the operator cancels review, the authoritative dataset remains unchanged.
+8. Immediately before apply, iPhone reruns the CloudKit reconciliation checkpoint or proves there are no unresolved CloudKit obligations since the last successful checkpoint.
+9. If the operator confirms apply and the transaction succeeds, the change is written into the CloudKit-backed runtime dataset and the sync status is updated.
+10. Until iPhone accept, no live persistent macOS store is mutated by the bridge edit session.
 
-### Flow 3: Manual Snapshot Edit
-1. User taps `Sync Now` on iPhone.
-2. iPhone verifies that bridge compatibility is still valid for this peer.
-3. iPhone runs a foreground CloudKit reconciliation checkpoint; if reconciliation is stale or unresolved, export is blocked with visible status.
-4. iPhone exports a full snapshot from the reconciled CloudKit-backed dataset.
-5. Snapshot is transferred to macOS over the trusted session.
-6. macOS app opens the snapshot inside an isolated transient workspace that is separate from the live persistent store.
-7. User edits only the transient workspace.
-8. macOS signs and exports a `SignedImportPackage` from that workspace and returns it to the iPhone.
-9. iPhone validates the package and either rejects it or opens `Import Review`.
-10. During `Import Review`, iPhone shows signed-package summary, concrete money-impact diffs, changed-entity counts, and destructive warnings before any mutation.
-11. If the operator cancels review, the authoritative dataset remains unchanged.
-12. Immediately before apply, iPhone reruns the CloudKit reconciliation checkpoint or proves there are no unresolved CloudKit obligations since the last successful checkpoint.
-13. If the operator confirms apply and the transaction succeeds, the change is written into the CloudKit-backed runtime dataset and the sync status is updated.
-14. Until iPhone accept, no live persistent macOS store is mutated by the bridge edit session.
-
-### Flow 4: Trust Review and Revocation
+### Flow 3: Trust Bootstrap
 1. User opens `Trusted Devices`.
 2. User sees trusted Mac devices, last successful sync time, and last validation outcome.
 3. User selects `Revoke Trust`.
 4. The local trust record is deleted and any unconsumed import packages from that device become invalid.
+5. The peer must re-pair from scratch before any later snapshot exchange.
+
+### Flow 4: Transport Hardening (Phase 2B)
+1. User opens `Local Bridge Sync`.
+2. User opts into QR or Multipeer transport hardening for a future build.
+3. The app negotiates the foreground transport session and confirms the trusted peer.
+4. The local trust record is persisted and later revocation invalidates any unconsumed packages from that device.
 5. The peer must re-pair from scratch before any later snapshot exchange.
 
 ## Pairing and Trust Model
@@ -295,7 +301,9 @@ The QR code must not contain:
 - A breaking change requires a new supported version range and handshake-time rejection for older peers.
 
 ## Transport Layer
-Transport uses `MultipeerConnectivity` in the foreground only.
+Phase 2A is implemented as a signed file-based manual bridge. The QR + Multipeer details in this section describe later transport hardening (Phase 2B), not the minimum shipping bridge contract.
+
+Transport hardening uses `MultipeerConnectivity` in the foreground only.
 
 Session primitives:
 - `MCSession`
@@ -665,7 +673,7 @@ Those fallback paths are out of scope until the app defines:
 - all-or-nothing apply,
 - rollback-on-failure guarantees.
 
-Until then, only the trusted QR + Multipeer foreground session is in scope.
+Until those additional fallback paths are specified, only the dedicated signed bridge artifact flow defined by this proposal is in scope.
 
 ## Implementation Phases
 ### Phase 0: CloudKit Readiness (Completed)
@@ -683,23 +691,32 @@ Until then, only the trusted QR + Multipeer foreground session is in scope.
 - Remove runtime compatibility paths for the legacy local-only storage mode.
 - Remove transitional migration and repair UI from the active product surface once the CloudKit runtime is proven stable.
 - Remove local fallback logic from active runtime code.
-- Production runtime is CloudKit-only, so Phase 2 bridge work is now unblocked.
+- Production runtime is CloudKit-only, so bridge work is storage-unblocked, but user-facing rollout remains gated by read-only family sharing.
 
-### Phase 2A: Manual Bridge
-- local-network privacy and Bonjour declarations for foreground bridge transport
-- camera permission prompt + manual bootstrap fallback
+### Phase 1.6: Read-Only Family Sharing (Required Before Further Bridge Rollout)
+- Implement `CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL.md`.
+- Ship owner-managed read-only sharing for the owner's full goal set.
+- Ship iPhone/iPad invitee read-only goal surfaces with no edit authority.
+- Validate revoke, invite acceptance, and owner-only write authority.
+
+### Phase 2A: Signed File Bridge
+- maintain current bridge baseline without elevating it above read-only family sharing in rollout priority
 - isolated transient snapshot workspace on macOS
-- handshake-time protocol/version negotiation
-- CloudKit reconciliation checkpoint before export/apply
-- QR pairing
 - trusted-device storage
 - trusted-device revocation
-- full snapshot export/import
+- full snapshot export/import via signed file artifacts
+- cryptographic signature verification
+- CloudKit reconciliation checkpoint before export/apply
 - iPhone import review before apply, including concrete goal, transaction, allocation, and monthly-plan diffs
 - manual `Sync Now`
 - import validation status
+- all-or-nothing import apply into the CloudKit-backed runtime
 
-### Phase 2B: Bridge Hardening
+### Phase 2B: Transport Hardening
+- local-network privacy and Bonjour declarations for foreground bridge transport
+- camera permission prompt + manual bootstrap fallback
+- QR pairing
+- MultipeerConnectivity transport
 - resumable foreground transfer
 - richer operator diagnostics
 - better trust review UX
@@ -709,11 +726,8 @@ Until then, only the trusted QR + Multipeer foreground session is in scope.
 ## Phase 2 Test Matrix and Acceptance Criteria
 | Scenario | Required operator-visible outcome |
 | --- | --- |
-| Pair Mac with camera permission granted | QR scan succeeds, trust confirmation is shown, trusted device record is created |
-| Pair Mac with camera permission denied/restricted/unavailable | `Scan QR` fails gracefully, `Enter Code Manually` and `Paste Bootstrap Token` remain available, pairing can still complete |
-| Pair iPhone/macOS builds with incompatible supported versions | session fails before export/editing, `Update Required` is shown, no trusted editing session starts |
-| Revoke trusted device | trusted device disappears from active trust list, pending packages from that device are rejected, later sync requires re-pair |
-| Re-pair after revocation | new pairing session completes from scratch and old trust material is not reused |
+| Export signed package to file artifact | macOS produces a signed import package artifact, snapshot remains isolated from the live store, and the artifact is available for operator handoff |
+| Load signed package artifact on iPhone | package signature is verified, import review opens, and concrete diffs are visible before apply |
 | Replay previously accepted package | result is `acceptedAlreadyApplied`, no authoritative write occurs, operator sees no duplicate import |
 | Schema mismatch package | package is rejected before review/apply, operator sees schema mismatch outcome |
 | Export attempted while CloudKit reconciliation is stale or unresolved | export is blocked, operator sees reconciliation status and recovery action |
@@ -724,13 +738,17 @@ Until then, only the trusted QR + Multipeer foreground session is in scope.
 | Import Review for allocation changes | operator sees concrete before/after allocation amounts and percentage/share changes before apply |
 | Apply attempted after review while CloudKit reconciliation is stale or unresolved | apply is blocked before mutation, operator sees reconciliation status and recovery action |
 | Apply failure after explicit confirmation | runtime rolls back the import transaction, authoritative dataset remains unchanged, failure state is visible in status |
+| QR pairing with camera permission granted | pairing succeeds and trust confirmation is shown in the Phase 2B transport hardening flow |
+| QR pairing with camera permission denied/restricted/unavailable | `Scan QR` fails gracefully, manual bootstrap remains available, pairing can still complete |
 | Deterministic fingerprint validation | the same semantic dataset produces the same fingerprint regardless of source ordering or field insertion order |
 | Duplicate-prevention validation | importing a valid package never creates duplicate logical entities in the authoritative dataset |
 
 Document-level gates:
 - The document states that CloudKit migration is complete on supported devices and the authoritative runtime is CloudKit-only.
-- The document states that bridge work is unblocked by storage policy because the hard cutover prerequisite is already met.
+- The document states that bridge work is storage-unblocked by hard cutover, but still sequencing-blocked until read-only family sharing ships.
 - The document states that backward compatibility with the pre-CloudKit local runtime has been removed from supported authoritative paths.
+- The document states that read-only family sharing has higher product priority than further bridge rollout.
+- The document allows bridge-baseline maintenance, but not bridge reprioritization above read-only family sharing.
 - No runtime path in the proposal describes local-store fallback once Phase 2 ships.
 - The authority model names CloudKit as the only durable source of truth.
 - The proposal no longer defines a second replication engine or independent sync ledger.

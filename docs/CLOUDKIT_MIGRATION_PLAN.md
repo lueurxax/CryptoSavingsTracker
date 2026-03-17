@@ -4,7 +4,7 @@
 
 | Metadata | Value |
 |----------|-------|
-| Status | ✅ Phase 1/1.5 Completed (CloudKit-only runtime); Phase 2 bridge opening may start |
+| Status | ✅ Phase 1/1.5 Completed (CloudKit-only runtime); Phase 2A signed file bridge may start |
 | Last Updated | 2026-03-17 |
 | Platform | iOS |
 | Audience | Developers |
@@ -32,7 +32,7 @@ Authoritative architecture record:
 - Local diagnostics and repair are part of the production migration flow because real source stores may contain unresolved `AllocationHistory` or similar integrity blockers.
 - Failed-attempt cleanup uses deferred deletion for `cloud-primary` and `cloud-primary-staging` residue instead of unlinking sqlite files while they are still open.
 - Phase 1.5 hard cutover decision is accepted: authoritative runtime data is CloudKit-only, legacy local-primary runtime is unsupported, and residual local-primary store files are deleted on launch.
-- Phase 2 bridge surface work is now unblocked by storage policy; no authoritative local-primary fallback is supported.
+- Phase 2A signed file bridge surface work is now unblocked by storage policy; QR/Multipeer transport hardening remains later work and no authoritative local-primary fallback is supported.
 
 ### Phase 1 Evidence and Release Gate (Repository Truth)
 
