@@ -31,7 +31,7 @@ struct AppLogger {
         case accessibility = "Accessibility"
         case executionTracking = "ExecutionTracking"
 
-        var logger: OSLog {
+        nonisolated var logger: OSLog {
             return OSLog(subsystem: "com.cryptosavingstracker.app", category: self.rawValue)
         }
     }
@@ -44,7 +44,7 @@ struct AppLogger {
         case error
         case fault
         
-        var osLogType: OSLogType {
+        nonisolated var osLogType: OSLogType {
             switch self {
             case .debug: return .debug
             case .info: return .info
@@ -54,7 +54,7 @@ struct AppLogger {
             }
         }
         
-        var emoji: String {
+        nonisolated var emoji: String {
             switch self {
             case .debug: return "🔍"
             case .info: return "ℹ️"
@@ -67,19 +67,19 @@ struct AppLogger {
     
     /// Optional filter for debug logs to reduce noise during development.
     /// When set, only categories in this set emit debug-level messages.
-    static var debugFilter: Set<Category>? = [
-        .monthlyPlanning,
-        .executionTracking,
-        .swiftData,
-        .exchangeRate
+    nonisolated(unsafe) static var debugFilter: Set<String>? = [
+        Category.monthlyPlanning.rawValue,
+        Category.executionTracking.rawValue,
+        Category.swiftData.rawValue,
+        Category.exchangeRate.rawValue
     ]
 
     /// Main logging function
-    static func log(_ level: Level, category: Category, _ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+    nonisolated static func log(_ level: Level, category: Category, _ message: String, file: String = #file, function: String = #function, line: Int = #line) {
         let fileName = (file as NSString).lastPathComponent
         let logMessage = "\(level.emoji) [\(category.rawValue)] \(message) (\(fileName):\(function):\(line))"
 
-        if level == .debug, let filter = debugFilter, !filter.contains(category) {
+        if case .debug = level, let filter = debugFilter, !filter.contains(category.rawValue) {
             return
         }
 
@@ -89,23 +89,23 @@ struct AppLogger {
     }
     
     /// Convenience methods for different log levels
-    static func debug(_ message: String, category: Category, file: String = #file, function: String = #function, line: Int = #line) {
+    nonisolated static func debug(_ message: String, category: Category, file: String = #file, function: String = #function, line: Int = #line) {
         log(.debug, category: category, message, file: file, function: function, line: line)
     }
     
-    static func info(_ message: String, category: Category, file: String = #file, function: String = #function, line: Int = #line) {
+    nonisolated static func info(_ message: String, category: Category, file: String = #file, function: String = #function, line: Int = #line) {
         log(.info, category: category, message, file: file, function: function, line: line)
     }
     
-    static func warning(_ message: String, category: Category, file: String = #file, function: String = #function, line: Int = #line) {
+    nonisolated static func warning(_ message: String, category: Category, file: String = #file, function: String = #function, line: Int = #line) {
         log(.warning, category: category, message, file: file, function: function, line: line)
     }
     
-    static func error(_ message: String, category: Category, file: String = #file, function: String = #function, line: Int = #line) {
+    nonisolated static func error(_ message: String, category: Category, file: String = #file, function: String = #function, line: Int = #line) {
         log(.error, category: category, message, file: file, function: function, line: line)
     }
     
-    static func fault(_ message: String, category: Category, file: String = #file, function: String = #function, line: Int = #line) {
+    nonisolated static func fault(_ message: String, category: Category, file: String = #file, function: String = #function, line: Int = #line) {
         log(.fault, category: category, message, file: file, function: function, line: line)
     }
 }

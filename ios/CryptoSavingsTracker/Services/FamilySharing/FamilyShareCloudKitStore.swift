@@ -292,7 +292,7 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
 
     private func seededState(from rootRecord: CKRecord, in database: CKDatabase) async throws -> FamilyShareSeededNamespaceState {
         let namespaceID = try namespaceID(from: rootRecord)
-        let goals = try await fetchGoalRecords(namespaceID: namespaceID, in: database)
+        let goals = try await fetchGoalRecords(rootRecord: rootRecord, namespaceID: namespaceID, in: database)
         let payload = try projectionPayload(from: rootRecord, goals: goals, namespaceID: namespaceID)
         let lifecycleState = FamilyShareLifecycleState(rawValue: payload.freshnessStateRawValue) ?? .active
         let ownerState = FamilyShareOwnerViewState(
@@ -423,11 +423,12 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         })
     }
 
-    private func fetchGoalRecords(namespaceID: FamilyShareNamespaceID, in database: CKDatabase) async throws -> [CKRecord] {
-        let query = CKQuery(recordType: RecordType.goal, predicate: NSPredicate(format: "%K == %@", Field.namespaceKey, namespaceID.namespaceKey))
+    private func fetchGoalRecords(rootRecord: CKRecord, namespaceID: FamilyShareNamespaceID, in database: CKDatabase) async throws -> [CKRecord] {
+        let rootReference = CKRecord.Reference(recordID: rootRecord.recordID, action: .none)
+        let query = CKQuery(recordType: RecordType.goal, predicate: NSPredicate(format: "%K == %@", Field.rootReference, rootReference))
         let results: [(CKRecord.ID, Result<CKRecord, Error>)]
         do {
-            (results, _) = try await database.records(matching: query)
+            (results, _) = try await database.records(matching: query, inZoneWith: rootRecord.recordID.zoneID)
         } catch {
             guard Self.isMissingRecordTypeError(error) else {
                 throw error

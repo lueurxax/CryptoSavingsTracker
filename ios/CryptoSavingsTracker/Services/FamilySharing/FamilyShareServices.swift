@@ -1350,15 +1350,16 @@ final class FamilyShareSceneDelegateBridge: NSObject, UIWindowSceneDelegate {
 
 extension FamilyShareInvitationMetadataSnapshot {
     init(metadata: CKShare.Metadata) {
+        let rootRecordID = metadata.rootRecord?.recordID
         self.init(
             ownerDisplayName: metadata.ownerIdentity.nameComponents?.formatted() ?? "Shared Family",
             shareURLString: metadata.share.url?.absoluteString,
             participantStatusRawValue: String(describing: metadata.participantStatus),
             participantRoleRawValue: String(describing: metadata.participantRole),
             participantPermissionRawValue: String(describing: metadata.participantPermission),
-            rootRecordName: metadata.rootRecordID.recordName,
-            rootZoneName: metadata.rootRecordID.zoneID.zoneName,
-            rootZoneOwnerName: metadata.rootRecordID.zoneID.ownerName,
+            rootRecordName: rootRecordID?.recordName,
+            rootZoneName: rootRecordID?.zoneID.zoneName,
+            rootZoneOwnerName: rootRecordID?.zoneID.ownerName,
             hierarchicalRootRecordName: metadata.hierarchicalRootRecordID?.recordName,
             hierarchicalRootZoneName: metadata.hierarchicalRootRecordID?.zoneID.zoneName,
             hierarchicalRootZoneOwnerName: metadata.hierarchicalRootRecordID?.zoneID.ownerName

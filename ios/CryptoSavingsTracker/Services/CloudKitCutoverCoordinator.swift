@@ -52,9 +52,17 @@ final class CloudKitCutoverCoordinator: ObservableObject {
     /// cloud store files from the failed attempt must be removed before retrying.
     private var previousAttemptFailed = false
 
+    convenience init(persistenceController: PersistenceController? = nil) {
+        self.init(
+            stackFactory: PersistenceStackFactory(),
+            storageModeRegistry: UserDefaultsStorageModeRegistry(),
+            persistenceController: persistenceController
+        )
+    }
+
     init(
-        stackFactory: PersistenceStackFactory = PersistenceStackFactory(),
-        storageModeRegistry: StorageModeRegistry = UserDefaultsStorageModeRegistry(),
+        stackFactory: PersistenceStackFactory,
+        storageModeRegistry: StorageModeRegistry,
         persistenceController: PersistenceController? = nil
     ) {
         self.stackFactory = stackFactory
@@ -503,7 +511,6 @@ final class CloudKitCutoverCoordinator: ObservableObject {
 
         let assets = try context.fetch(FetchDescriptor<Asset>())
         let goals = try context.fetch(FetchDescriptor<Goal>())
-        let allocations = try context.fetch(FetchDescriptor<AssetAllocation>())
         let histories = try context.fetch(FetchDescriptor<AllocationHistory>())
 
         // Snapshot IDs (most basic scalar — least likely to fault)

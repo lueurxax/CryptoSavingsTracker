@@ -9,7 +9,8 @@ protocol FamilyShareRemoteConfigProviding {
     nonisolated func boolValue(for key: String) -> Bool?
 }
 
-struct NullFamilyShareRemoteConfigProvider: FamilyShareRemoteConfigProviding {
+struct NullFamilyShareRemoteConfigProvider: FamilyShareRemoteConfigProviding, Sendable {
+    nonisolated init() {}
     nonisolated func boolValue(for key: String) -> Bool? { nil }
 }
 
@@ -17,7 +18,9 @@ protocol FamilyShareTelemetryProviding {
     nonisolated func track(event: String, payload: [String: String])
 }
 
-struct AppLogFamilyShareTelemetryProvider: FamilyShareTelemetryProviding {
+struct AppLogFamilyShareTelemetryProvider: FamilyShareTelemetryProviding, Sendable {
+    nonisolated init() {}
+
     nonisolated func track(event: String, payload: [String: String]) {
         let ordered = payload
             .sorted(by: { $0.key < $1.key })
@@ -50,8 +53,8 @@ protocol FamilyShareTelemetryTracking {
     nonisolated func track(_ event: FamilyShareTelemetryEvent, payload: [String: String])
 }
 
-struct FamilyShareTelemetryTracker: FamilyShareTelemetryTracking {
-    private let provider: FamilyShareTelemetryProviding
+struct FamilyShareTelemetryTracker: FamilyShareTelemetryTracking, Sendable {
+    nonisolated(unsafe) private let provider: any FamilyShareTelemetryProviding
 
     nonisolated init(provider: FamilyShareTelemetryProviding = AppLogFamilyShareTelemetryProvider()) {
         self.provider = provider
@@ -62,7 +65,7 @@ struct FamilyShareTelemetryTracker: FamilyShareTelemetryTracking {
     }
 }
 
-final class FamilyShareRollout {
+final class FamilyShareRollout: @unchecked Sendable {
     nonisolated static let flagEnabled = "family_readonly_sharing_enabled"
 
     private enum Source: String {
@@ -76,10 +79,10 @@ final class FamilyShareRollout {
         telemetryProvider: AppLogFamilyShareTelemetryProvider()
     )
 
-    private let remoteConfigProvider: FamilyShareRemoteConfigProviding
-    private let telemetryProvider: FamilyShareTelemetryProviding
-    private let userDefaults: UserDefaults
-    private let nowProvider: () -> Date
+    nonisolated(unsafe) private let remoteConfigProvider: any FamilyShareRemoteConfigProviding
+    nonisolated(unsafe) private let telemetryProvider: any FamilyShareTelemetryProviding
+    nonisolated(unsafe) private let userDefaults: UserDefaults
+    nonisolated(unsafe) private let nowProvider: () -> Date
 
     nonisolated init(
         remoteConfigProvider: FamilyShareRemoteConfigProviding,

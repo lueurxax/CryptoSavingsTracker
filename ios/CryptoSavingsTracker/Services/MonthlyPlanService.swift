@@ -327,7 +327,7 @@ final class MonthlyPlanService {
 
         // Start counting from today
         var count = 0
-        var currentDate = now
+        let currentDate = now
 
         // Find the next payment date from today
         var components = calendar.dateComponents([.year, .month], from: currentDate)
