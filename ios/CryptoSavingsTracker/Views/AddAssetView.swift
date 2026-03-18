@@ -41,6 +41,7 @@ struct AddAssetView: View {
     @State private var hasAttemptedSubmit = false
     @State private var currencyFieldTouched = false
     @State private var addressFieldTouched = false
+    @State private var accessErrorMessage: String?
 
     private var isUITestFlow: Bool {
         UITestFlags.isEnabled
@@ -135,6 +136,13 @@ struct AddAssetView: View {
     
     var body: some View {
         Group {
+            if let accessErrorMessage {
+                ContentUnavailableView(
+                    "Read-Only Shared Goal",
+                    systemImage: "hand.raised.fill",
+                    description: Text(accessErrorMessage)
+                )
+            } else {
 #if os(macOS)
             VStack(spacing: 16) {
                 Text("New Asset")
@@ -588,8 +596,10 @@ struct AddAssetView: View {
                 )
             }
 #endif
+            }
         }
         .task {
+            validateWritableContext()
             if assetKind == .fiat {
                 if currencyViewModel.supportedCurrencies.isEmpty {
                     await currencyViewModel.fetchSupportedCurrencies()
@@ -635,6 +645,14 @@ struct AddAssetView: View {
             Button("Got it") { }
         } message: {
             Text("Manual tracking: Add transactions yourself for assets you hold offline, in wallets, or in fiat accounts.\n\nOn-chain tracking: Automatically monitor blockchain addresses for balance and transaction updates (crypto assets only).\n\nYou can use both methods for the same crypto asset.")
+        }
+    }
+
+    private func validateWritableContext() {
+        do {
+            try DIContainer.shared.familyShareAccessGuard.assertOwnerWritable(goal: goal)
+        } catch {
+            accessErrorMessage = error.localizedDescription
         }
     }
     

@@ -19,6 +19,7 @@ struct EditGoalView: View {
     @State private var hasStartedTelemetryFlow = false
     @State private var hasAttemptedSubmit = false
     @State private var saveErrorMessage: String?
+    @State private var accessErrorMessage: String?
     @FocusState private var focusedField: GoalValidationField?
 
     struct PreviewState {
@@ -118,6 +119,21 @@ struct EditGoalView: View {
     }
     
     var body: some View {
+        Group {
+            if let accessErrorMessage {
+                NavigationStack {
+                    ContentUnavailableView(
+                        "Read-Only Shared Goal",
+                        systemImage: "hand.raised.fill",
+                        description: Text(accessErrorMessage)
+                    )
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close", action: dismiss.callAsFunction)
+                        }
+                    }
+                }
+            } else {
         NavigationStack {
             ScrollViewReader { scrollProxy in
                 ScrollView {
@@ -413,6 +429,7 @@ struct EditGoalView: View {
         }
         .interactiveDismissDisabled(viewModel.isDirty)
         .onAppear {
+            validateWritableContext()
             guard !hasStartedTelemetryFlow else { return }
             hasStartedTelemetryFlow = true
             DIContainer.shared.navigationTelemetryTracker.flowStarted(
@@ -453,6 +470,16 @@ struct EditGoalView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This goal will be moved to your archived goals. You can restore it anytime from the archived goals list.")
+        }
+            }
+        }
+    }
+
+    private func validateWritableContext() {
+        do {
+            try DIContainer.shared.familyShareAccessGuard.assertOwnerWritable(goal: viewModel.goal)
+        } catch {
+            accessErrorMessage = error.localizedDescription
         }
     }
 

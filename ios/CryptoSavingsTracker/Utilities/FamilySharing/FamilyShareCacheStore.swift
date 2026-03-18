@@ -188,7 +188,7 @@ final class FamilyShareNamespaceRegistry {
         let root = FamilySharedDatasetCache(
             namespaceID: namespaceID,
             ownerDisplayName: seededState.ownerDisplayName,
-            schemaVersion: FamilyShareCacheSchema.currentVersion,
+            schemaVersion: seededState.projectionPayload?.schemaVersion ?? FamilyShareCacheSchema.currentVersion,
             projectionVersion: seededState.projectionPayload?.projectionVersion ?? 1,
             activeProjectionVersion: seededState.projectionPayload?.activeProjectionVersion ?? 1,
             freshnessStateRawValue: seededState.inviteeState.map { $0.lifecycleState.rawValue } ?? FamilyShareLifecycleState.active.rawValue,

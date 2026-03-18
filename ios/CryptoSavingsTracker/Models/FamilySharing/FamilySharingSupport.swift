@@ -6,6 +6,29 @@
 import Foundation
 import SwiftData
 
+enum FamilyShareReadOnlyAccessError: LocalizedError, Equatable {
+    case sharedGoalReadOnly
+
+    var errorDescription: String? {
+        switch self {
+        case .sharedGoalReadOnly:
+            return FamilyShareTelemetryRedactor.readOnlyRejectionCopy
+        }
+    }
+}
+
+@MainActor
+protocol FamilyShareAccessChecking {
+    func isSharedGoalID(_ goalID: UUID) -> Bool
+    func assertOwnerWritable(goalID: UUID) throws
+    func assertOwnerWritable(goal: Goal) throws
+    func assertOwnerWritable(asset: Asset) throws
+    func assertOwnerWritable(transaction: Transaction) throws
+    func assertOwnerWritable(plan: MonthlyPlan) throws
+    func assertOwnerWritable(plans: [MonthlyPlan]) throws
+    func assertOwnerWritable(goals: [Goal]) throws
+}
+
 enum FamilySharePermission: String, Codable, CaseIterable, Sendable {
     case readOnly
 }
@@ -46,13 +69,18 @@ struct FamilyShareNamespaceID: Hashable, Codable, Sendable, Identifiable {
     let ownerID: String
     let shareID: String
 
-    var id: String { namespaceKey }
+    init(ownerID: String, shareID: String) {
+        self.ownerID = ownerID
+        self.shareID = shareID
+    }
 
-    var namespaceKey: String {
+    nonisolated var id: String { namespaceKey }
+
+    nonisolated var namespaceKey: String {
         "\(ownerID)|\(shareID)"
     }
 
-    var cacheSlug: String {
+    nonisolated var cacheSlug: String {
         let components = [ownerID, shareID].map { value in
             value
                 .lowercased()
@@ -62,12 +90,59 @@ struct FamilyShareNamespaceID: Hashable, Codable, Sendable, Identifiable {
         return components.joined(separator: "_")
     }
 
-    var storeName: String {
+    nonisolated var storeName: String {
         "family-share-\(cacheSlug)"
     }
 
-    var storeFolderName: String {
+    nonisolated var storeFolderName: String {
         "FamilySharing"
+    }
+
+    init?(rootRecordName: String) {
+        guard rootRecordName.hasPrefix("family-share."),
+              rootRecordName.hasSuffix(".root") else {
+            return nil
+        }
+        let trimmed = rootRecordName
+            .replacingOccurrences(of: "family-share.", with: "")
+            .replacingOccurrences(of: ".root", with: "")
+        let components = trimmed.split(separator: ".", omittingEmptySubsequences: false)
+        guard components.count == 2 else { return nil }
+        self.init(ownerID: String(components[0]), shareID: String(components[1]))
+    }
+
+    init?(zoneName: String) {
+        guard zoneName.hasPrefix("family-share."),
+              zoneName.hasSuffix(".zone") else {
+            return nil
+        }
+        let trimmed = zoneName
+            .replacingOccurrences(of: "family-share.", with: "")
+            .replacingOccurrences(of: ".zone", with: "")
+        let components = trimmed.split(separator: ".", omittingEmptySubsequences: false)
+        guard components.count == 2 else { return nil }
+        self.init(ownerID: String(components[0]), shareID: String(components[1]))
+    }
+
+    init?(recordLocator: FamilyShareInvitationRecordLocator) {
+        if let namespaceID = FamilyShareNamespaceID(rootRecordName: recordLocator.recordName) {
+            self = namespaceID
+            return
+        }
+        guard let zoneName = recordLocator.zoneName,
+              let namespaceID = FamilyShareNamespaceID(zoneName: zoneName) else {
+            return nil
+        }
+        self = namespaceID
+    }
+
+    nonisolated static func == (lhs: FamilyShareNamespaceID, rhs: FamilyShareNamespaceID) -> Bool {
+        lhs.ownerID == rhs.ownerID && lhs.shareID == rhs.shareID
+    }
+
+    nonisolated func hash(into hasher: inout Hasher) {
+        hasher.combine(ownerID)
+        hasher.combine(shareID)
     }
 }
 

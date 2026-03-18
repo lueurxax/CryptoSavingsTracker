@@ -324,21 +324,22 @@ class DIContainer: ObservableObject {
 
     // MARK: - Persistence Mutation Service Factories
     func makeGoalMutationService(modelContext: ModelContext) -> GoalMutationServiceProtocol {
-        GoalMutationService(modelContext: modelContext)
+        GoalMutationService(modelContext: modelContext, accessGuard: familyShareAccessGuard)
     }
 
     func makeAssetMutationService(modelContext: ModelContext) -> AssetMutationServiceProtocol {
-        AssetMutationService(modelContext: modelContext)
+        AssetMutationService(modelContext: modelContext, accessGuard: familyShareAccessGuard)
     }
 
     func makeTransactionMutationService(modelContext: ModelContext) -> TransactionMutationServiceProtocol {
-        TransactionMutationService(modelContext: modelContext)
+        TransactionMutationService(modelContext: modelContext, accessGuard: familyShareAccessGuard)
     }
 
     func makePlanningMutationService(modelContext: ModelContext) -> PlanningMutationServiceProtocol {
         PlanningMutationService(
             modelContext: modelContext,
-            exchangeRateService: exchangeRateService
+            exchangeRateService: exchangeRateService,
+            accessGuard: familyShareAccessGuard
         )
     }
 
@@ -479,6 +480,14 @@ class DIContainer: ObservableObject {
         )
         _familyShareAcceptanceCoordinator = coordinator
         return coordinator
+    }
+
+    private var _familyShareAccessGuard: FamilyShareAccessGuard?
+    var familyShareAccessGuard: FamilyShareAccessGuard {
+        if let guardInstance = _familyShareAccessGuard { return guardInstance }
+        let guardInstance = FamilyShareAccessGuard(registry: familyShareNamespaceRegistry)
+        _familyShareAccessGuard = guardInstance
+        return guardInstance
     }
 
     // MARK: - ViewModel Factories with Error Recovery

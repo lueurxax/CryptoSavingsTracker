@@ -3,6 +3,7 @@
 //  CryptoSavingsTracker
 //
 
+import CryptoKit
 import Foundation
 
 protocol FamilyShareRemoteConfigProviding {
@@ -32,21 +33,102 @@ struct AppLogFamilyShareTelemetryProvider: FamilyShareTelemetryProviding, Sendab
 
 enum FamilyShareTelemetryEvent: String {
     case flagEvaluated = "family_share_flag_evaluated"
+    case createStarted = "family_share_create_started"
+    case createSucceeded = "family_share_create_succeeded"
+    case createFailed = "family_share_create_failed"
     case shareRequested = "family_share_requested"
     case sharePublished = "family_share_published"
     case sharePublishFailed = "family_share_publish_failed"
     case sharePrepareStarted = "family_share_prepare_started"
     case sharePrepared = "family_share_prepared"
     case sharePrepareFailed = "family_share_prepare_failed"
+    case acceptSucceeded = "family_share_accept_succeeded"
     case accepted = "family_share_accepted"
     case acceptFailed = "family_share_accept_failed"
     case revoked = "family_share_revoked"
     case refreshRequested = "family_share_refresh_requested"
     case refreshSucceeded = "family_share_refresh_succeeded"
     case refreshFailed = "family_share_refresh_failed"
+    case invitePendingViewed = "family_share_invite_pending_viewed"
+    case activeViewed = "family_share_active_viewed"
+    case revokedViewed = "family_share_revoked_viewed"
+    case refreshStale = "family_share_refresh_stale"
+    case temporarilyUnavailableViewed = "family_share_temporarily_unavailable"
+    case emptyViewed = "family_share_empty_viewed"
+    case removedViewed = "family_share_removed_viewed"
     case migrationFailed = "family_share_namespace_migration_failed"
     case rebuildStarted = "family_share_namespace_rebuild_started"
     case rebuildSucceeded = "family_share_namespace_rebuild_succeeded"
+}
+
+enum FamilyShareTelemetryRedactor {
+    static let readOnlyRejectionCopy = "This shared goal is read-only. Ask the owner to make changes."
+
+    nonisolated static func redactedNamespaceID(_ namespaceID: FamilyShareNamespaceID) -> String {
+        shortHash(for: namespaceID.namespaceKey)
+    }
+
+    nonisolated static func redactedPayload(_ payload: [String: String]) -> [String: String] {
+        var sanitized: [String: String] = [:]
+
+        for (key, value) in payload {
+            switch key {
+            case "namespace":
+                sanitized[key] = shortHash(for: value)
+            case "ownerID", "owner", "shareID", "participant", "participantID", "email", "shareRecordName", "zoneName", "recordName":
+                sanitized[key] = shortHash(for: value)
+            case "reason":
+                sanitized[key] = coarseReason(for: value)
+            default:
+                sanitized[key] = value
+            }
+        }
+
+        return sanitized
+    }
+
+    nonisolated static func coarseReason(for error: Error) -> String {
+        coarseReason(for: (error as NSError).localizedDescription)
+    }
+
+    nonisolated static func coarseReason(for rawReason: String) -> String {
+        let normalized = rawReason.lowercased()
+
+        if normalized.contains("read-only") || normalized.contains("readonly") || normalized.contains("owner to make changes") {
+            return "read_only_rejected"
+        }
+        if normalized.contains("cloud sync unavailable") {
+            return "cloud_sync_unavailable"
+        }
+        if normalized.contains("network") {
+            return "network_unavailable"
+        }
+        if normalized.contains("accept") && normalized.contains("share") {
+            return "share_accept_failed"
+        }
+        if normalized.contains("shared db") || normalized.contains("shared database") {
+            return "shared_database_unavailable"
+        }
+        if normalized.contains("record type") {
+            return "schema_missing"
+        }
+        if normalized.contains("migration") || normalized.contains("schema version") {
+            return "namespace_migration_failed"
+        }
+        if normalized.contains("root record") {
+            return "root_record_missing"
+        }
+        if normalized.contains("save") {
+            return "save_failed"
+        }
+
+        return "operation_failed"
+    }
+
+    private nonisolated static func shortHash(for value: String) -> String {
+        let digest = SHA256.hash(data: Data(value.utf8))
+        return digest.compactMap { String(format: "%02x", $0) }.joined().prefix(12).description
+    }
 }
 
 protocol FamilyShareTelemetryTracking {
@@ -61,7 +143,7 @@ struct FamilyShareTelemetryTracker: FamilyShareTelemetryTracking, Sendable {
     }
 
     nonisolated func track(_ event: FamilyShareTelemetryEvent, payload: [String: String] = [:]) {
-        provider.track(event: event.rawValue, payload: payload)
+        provider.track(event: event.rawValue, payload: FamilyShareTelemetryRedactor.redactedPayload(payload))
     }
 }
 

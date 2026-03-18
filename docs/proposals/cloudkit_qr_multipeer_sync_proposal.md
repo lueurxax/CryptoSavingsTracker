@@ -9,9 +9,9 @@ Enable a CloudKit-only iPhone app to exchange editable snapshots with the existi
 ## Priority and Sequencing Override
 This document no longer treats `Local Bridge Sync` as the next highest-priority family-facing sync capability.
 
-Before further bridge rollout, the product must first ship read-only family access to goals through the dedicated proposal:
+Before further bridge rollout, the product must first ship read-only family access to goals:
 
-- [CloudKit Read-Only Family Sharing Proposal](CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL.md)
+- [Family Sharing documentation](../FAMILY_SHARING.md)
 
 Normative sequencing rule:
 
@@ -70,7 +70,7 @@ The current codebase converged on the following Phase 1 cutover contract; after 
 - New feature work must store authoritative user data in CloudKit-backed runtime paths, not in a legacy local primary database.
 - Local persistent storage may be used only for non-authoritative caches, scratch workspaces, and ephemeral helper artifacts.
 - Family-member iPhone and iPad devices continue using CloudKit sharing for read-only access to the owner's full goal set in v1.
-- That read-only family access is governed by `CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL.md` and is higher priority than further bridge rollout.
+- That read-only family access is governed by `docs/FAMILY_SHARING.md` and is higher priority than further bridge rollout.
 - The existing macOS app surface can perform read/write editing through exported snapshots.
 - No backend infrastructure is introduced.
 - Bridge sessions operate over signed file artifacts and trusted local review surfaces for Phase 2A.
@@ -694,7 +694,7 @@ Until those additional fallback paths are specified, only the dedicated signed b
 - Production runtime is CloudKit-only, so bridge work is storage-unblocked, but user-facing rollout remains gated by read-only family sharing.
 
 ### Phase 1.6: Read-Only Family Sharing (Required Before Further Bridge Rollout)
-- Implement `CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL.md`.
+- Implement `docs/FAMILY_SHARING.md`.
 - Ship owner-managed read-only sharing for the owner's full goal set.
 - Ship iPhone/iPad invitee read-only goal surfaces with no edit authority.
 - Validate revoke, invite acceptance, and owner-only write authority.

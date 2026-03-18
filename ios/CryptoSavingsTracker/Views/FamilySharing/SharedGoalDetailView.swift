@@ -12,8 +12,13 @@ struct SharedGoalDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                header
-                stateBanner
+                if goal.state == .active {
+                    header
+                    stateBanner
+                } else {
+                    stateBanner
+                    header
+                }
                 metricsGrid
                 detailsCard
                 Button("Done", action: onDismiss)
@@ -63,12 +68,27 @@ struct SharedGoalDetailView: View {
     }
 
     private var stateBanner: some View {
-        FamilySharingStateBanner(
+        FamilySharingCard(
             title: goal.state.displayTitle,
-            subtitle: goal.state.supportingCopy,
             systemImage: goal.state.systemImage,
             tint: goal.state.tint
-        )
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(goal.state.supportingCopy)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if goal.state != .active {
+                    FamilySharingBadge(
+                        text: goal.state.primaryActionTitle,
+                        systemImage: goal.state.systemImage,
+                        tint: goal.state.tint
+                    )
+                }
+            }
+        }
+        .accessibilityIdentifier("sharedGoalDetailStateBanner-\(goal.id)")
     }
 
     private var metricsGrid: some View {

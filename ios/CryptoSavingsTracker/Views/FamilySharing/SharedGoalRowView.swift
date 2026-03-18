@@ -24,7 +24,7 @@ struct SharedGoalRowView: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityIdentifier("sharedGoalRow-\(goal.id)")
+        .accessibilityIdentifier("sharedGoalRow-\(goal.uiTestIdentifier)")
     }
 
     private var rowContent: some View {
@@ -85,7 +85,7 @@ struct SharedGoalRowView: View {
             RoundedRectangle(cornerRadius: VisualComponentTokens.dashboardCardCornerRadius)
                 .stroke(VisualComponentTokens.dashboardCardStroke, lineWidth: 1)
         )
-        .accessibilityIdentifier("sharedGoalRow-\(goal.id).content")
+        .accessibilityIdentifier("sharedGoalRow-\(goal.uiTestIdentifier).content")
     }
 
     private var goalIcon: some View {
@@ -104,6 +104,14 @@ struct SharedGoalRowView: View {
             + Text(", ")
             + Text(goal.ownerChip)
             + Text(", ")
+            + Text(goal.state.displayTitle)
+            + Text(", ")
             + Text(goal.currentMonthSummary)
+    }
+}
+
+private extension FamilySharedGoalSummary {
+    var uiTestIdentifier: String {
+        id.replacingOccurrences(of: "|", with: "-")
     }
 }

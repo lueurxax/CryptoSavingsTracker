@@ -12,10 +12,16 @@ import SwiftData
 final class GoalMutationService: GoalMutationServiceProtocol {
     private let modelContext: ModelContext
     private let notificationManager: NotificationManager
+    private let accessGuard: FamilyShareAccessChecking
 
-    init(modelContext: ModelContext, notificationManager: NotificationManager? = nil) {
+    init(
+        modelContext: ModelContext,
+        notificationManager: NotificationManager? = nil,
+        accessGuard: FamilyShareAccessChecking
+    ) {
         self.modelContext = modelContext
         self.notificationManager = notificationManager ?? .shared
+        self.accessGuard = accessGuard
     }
 
     func createGoal(_ goal: Goal) async throws {
@@ -26,16 +32,19 @@ final class GoalMutationService: GoalMutationServiceProtocol {
     }
 
     func saveGoal(_ goal: Goal) async throws {
+        try accessGuard.assertOwnerWritable(goal: goal)
         try await persist(goal, insertIfNeeded: true)
     }
 
     func archiveGoal(_ goal: Goal) async throws {
+        try accessGuard.assertOwnerWritable(goal: goal)
         await notificationManager.cancelNotifications(for: goal)
         goal.archive()
         try saveContext(operation: "Unable to archive goal")
     }
 
     func restoreGoal(_ goal: Goal) async throws {
+        try accessGuard.assertOwnerWritable(goal: goal)
         goal.restore()
         try saveContext(operation: "Unable to restore goal")
         if goal.reminderFrequency != nil {
@@ -44,6 +53,7 @@ final class GoalMutationService: GoalMutationServiceProtocol {
     }
 
     func resumeGoal(_ goal: Goal) throws {
+        try accessGuard.assertOwnerWritable(goal: goal)
         goal.restoreToActive()
         try saveContext(operation: "Unable to resume goal")
     }
@@ -77,10 +87,12 @@ final class GoalMutationService: GoalMutationServiceProtocol {
 final class AssetMutationService: AssetMutationServiceProtocol {
     private let modelContext: ModelContext
     private let allocationService: AllocationService
+    private let accessGuard: FamilyShareAccessChecking
 
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, accessGuard: FamilyShareAccessChecking) {
         self.modelContext = modelContext
         self.allocationService = AllocationService(modelContext: modelContext)
+        self.accessGuard = accessGuard
     }
 
     @discardableResult
@@ -90,6 +102,7 @@ final class AssetMutationService: AssetMutationServiceProtocol {
         chainId: String?,
         goal: Goal
     ) async throws -> Asset {
+        try accessGuard.assertOwnerWritable(goal: goal)
         let newAsset = Asset(
             currency: currency,
             address: address,
@@ -121,6 +134,8 @@ final class AssetMutationService: AssetMutationServiceProtocol {
     }
 
     func allocateAllUnallocated(of asset: Asset, to goal: Goal, bestKnownBalance: Double) throws {
+        try accessGuard.assertOwnerWritable(asset: asset)
+        try accessGuard.assertOwnerWritable(goal: goal)
         let remaining = max(0, bestKnownBalance - asset.totalAllocatedAmount)
         guard remaining > 0.0000001 else { return }
 
@@ -150,11 +165,15 @@ final class AssetMutationService: AssetMutationServiceProtocol {
     }
 
     func deleteAsset(_ asset: Asset) throws {
+        try accessGuard.assertOwnerWritable(asset: asset)
         modelContext.delete(asset)
         try saveContext(operation: "Unable to delete asset")
     }
 
     func deleteAssets(_ assets: [Asset]) throws {
+        for asset in assets {
+            try accessGuard.assertOwnerWritable(asset: asset)
+        }
         for asset in assets {
             modelContext.delete(asset)
         }
@@ -173,9 +192,11 @@ final class AssetMutationService: AssetMutationServiceProtocol {
 @MainActor
 final class TransactionMutationService: TransactionMutationServiceProtocol {
     private let modelContext: ModelContext
+    private let accessGuard: FamilyShareAccessChecking
 
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, accessGuard: FamilyShareAccessChecking) {
         self.modelContext = modelContext
+        self.accessGuard = accessGuard
     }
 
     @discardableResult
@@ -185,6 +206,10 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
         comment: String?,
         autoAllocateGoalId: UUID?
     ) throws -> Transaction {
+        try accessGuard.assertOwnerWritable(asset: asset)
+        if let autoAllocateGoalId {
+            try accessGuard.assertOwnerWritable(goalID: autoAllocateGoalId)
+        }
         let epsilon = 0.0000001
         let preBalance = asset.currentAmount
         let preIsFullyAllocated = asset.isFullyAllocated
@@ -235,6 +260,7 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
     }
 
     func deleteTransaction(_ transaction: Transaction) throws {
+        try accessGuard.assertOwnerWritable(transaction: transaction)
         let asset = transaction.asset
         modelContext.delete(transaction)
         try saveContext(operation: "Unable to delete transaction")
@@ -258,6 +284,8 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
         depositAmount: Double,
         timestamp: Date
     ) throws {
+        try accessGuard.assertOwnerWritable(asset: asset)
+        try accessGuard.assertOwnerWritable(goalID: goalId)
         guard depositAmount > 0.0000001 else { return }
 
         if let allocation = (asset.allocations ?? []).first(where: { $0.goal?.id == goalId }),
@@ -293,30 +321,36 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
 final class PlanningMutationService: PlanningMutationServiceProtocol {
     private let modelContext: ModelContext
     private let exchangeRateService: ExchangeRateServiceProtocol
+    private let accessGuard: FamilyShareAccessChecking
 
-    init(modelContext: ModelContext, exchangeRateService: ExchangeRateServiceProtocol) {
+    init(modelContext: ModelContext, exchangeRateService: ExchangeRateServiceProtocol, accessGuard: FamilyShareAccessChecking) {
         self.modelContext = modelContext
         self.exchangeRateService = exchangeRateService
+        self.accessGuard = accessGuard
     }
 
     func markPlanCompleted(_ plan: MonthlyPlan) throws {
+        try accessGuard.assertOwnerWritable(plan: plan)
         plan.state = .completed
         plan.isSkipped = false
         try saveContext(operation: "Unable to mark plan completed")
     }
 
     func markPlanSkipped(_ plan: MonthlyPlan) throws {
+        try accessGuard.assertOwnerWritable(plan: plan)
         plan.isSkipped = true
         plan.state = .completed
         try saveContext(operation: "Unable to skip plan")
     }
 
     func deletePlan(_ plan: MonthlyPlan) throws {
+        try accessGuard.assertOwnerWritable(plan: plan)
         modelContext.delete(plan)
         try saveContext(operation: "Unable to delete plan")
     }
 
     func preparePlansForExecution(_ plans: [MonthlyPlan]) throws {
+        try accessGuard.assertOwnerWritable(plans: plans)
         var didChange = false
         for plan in plans where plan.state != .draft {
             plan.state = .draft
@@ -334,6 +368,7 @@ final class PlanningMutationService: PlanningMutationServiceProtocol {
     }
 
     func resetPlansToDraft(_ plans: [MonthlyPlan]) throws {
+        try accessGuard.assertOwnerWritable(plans: plans)
         var didChange = false
         for plan in plans where plan.state != .draft {
             plan.state = .draft
@@ -346,6 +381,7 @@ final class PlanningMutationService: PlanningMutationServiceProtocol {
     }
 
     func applyFeasibilitySuggestion(_ suggestion: FeasibilitySuggestion, goals: [Goal]) throws -> Bool {
+        try accessGuard.assertOwnerWritable(goals: goals)
         switch suggestion {
         case .increaseBudget, .editGoal:
             return false
@@ -369,6 +405,7 @@ final class PlanningMutationService: PlanningMutationServiceProtocol {
         currentPlans: [MonthlyPlan],
         budgetCurrency: String
     ) async throws {
+        try accessGuard.assertOwnerWritable(plans: currentPlans)
         let contributionMap = Dictionary(
             uniqueKeysWithValues: (plan.schedule.first?.contributions ?? []).map { ($0.goalId, $0.amount) }
         )

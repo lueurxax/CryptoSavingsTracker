@@ -1,0 +1,61 @@
+name: family-sharing-gates
+
+on:
+  pull_request:
+    paths:
+      - "docs/proposals/CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL.md"
+      - "docs/runbooks/family-sharing-release-gate.md"
+      - "ios/CryptoSavingsTracker/CryptoSavingsTrackerApp.swift"
+      - "ios/CryptoSavingsTracker/Models/FamilySharing/**"
+      - "ios/CryptoSavingsTracker/Services/FamilySharing/**"
+      - "ios/CryptoSavingsTracker/Utilities/FamilySharing/**"
+      - "ios/CryptoSavingsTracker/Utilities/UITestFlags.swift"
+      - "ios/CryptoSavingsTracker/Views/ContentView.swift"
+      - "ios/CryptoSavingsTracker/Views/FamilySharing/**"
+      - "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift"
+      - "ios/CryptoSavingsTrackerTests/FamilySharing/**"
+      - "ios/CryptoSavingsTrackerTests/PersistenceMutationServicesTests.swift"
+      - "ios/CryptoSavingsTrackerUITests/FamilySharing/**"
+      - ".github/workflows/family-sharing-gates.yml"
+  push:
+    branches:
+      - "release/**"
+    paths:
+      - "docs/proposals/CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL.md"
+      - "docs/runbooks/family-sharing-release-gate.md"
+      - "ios/CryptoSavingsTracker/CryptoSavingsTrackerApp.swift"
+      - "ios/CryptoSavingsTracker/Models/FamilySharing/**"
+      - "ios/CryptoSavingsTracker/Services/FamilySharing/**"
+      - "ios/CryptoSavingsTracker/Utilities/FamilySharing/**"
+      - "ios/CryptoSavingsTracker/Utilities/UITestFlags.swift"
+      - "ios/CryptoSavingsTracker/Views/ContentView.swift"
+      - "ios/CryptoSavingsTracker/Views/FamilySharing/**"
+      - "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift"
+      - "ios/CryptoSavingsTrackerTests/FamilySharing/**"
+      - "ios/CryptoSavingsTrackerTests/PersistenceMutationServicesTests.swift"
+      - "ios/CryptoSavingsTrackerUITests/FamilySharing/**"
+      - ".github/workflows/family-sharing-gates.yml"
+  workflow_dispatch:
+
+jobs:
+  ios-family-sharing-gates:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run iOS family sharing unit tests
+        run: |
+          xcodebuild \
+            -project ios/CryptoSavingsTracker.xcodeproj \
+            -scheme CryptoSavingsTrackerTests \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            test \
+            -only-testing:CryptoSavingsTrackerTests/FamilyShareAcceptanceCoordinatorTests \
+            -only-testing:CryptoSavingsTrackerTests/PersistenceMutationServicesTests
+      - name: Run iOS family sharing UI tests
+        run: |
+          xcodebuild \
+            -project ios/CryptoSavingsTracker.xcodeproj \
+            -scheme CryptoSavingsTrackerUITests \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            test \
+            -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests

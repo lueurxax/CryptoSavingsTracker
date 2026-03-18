@@ -40,6 +40,60 @@ protocol FamilyShareCloudSyncing {
     func revoke(namespaceID: FamilyShareNamespaceID) async throws
 }
 
+actor FamilyShareRootRecordLocatorStore {
+    private enum Keys {
+        static let prefix = "familyShare.rootLocator."
+        static let recordName = "recordName"
+        static let zoneName = "zoneName"
+        static let zoneOwnerName = "zoneOwnerName"
+    }
+
+    nonisolated(unsafe) private let userDefaults: UserDefaults
+
+    init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+    }
+
+    func save(recordID: CKRecord.ID, for namespaceID: FamilyShareNamespaceID) {
+        let locator = FamilyShareInvitationRecordLocator(
+            recordName: recordID.recordName,
+            zoneName: recordID.zoneID.zoneName,
+            zoneOwnerName: recordID.zoneID.ownerName
+        )
+        userDefaults.set(
+            [
+                Keys.recordName: locator.recordName,
+                Keys.zoneName: locator.zoneName ?? "",
+                Keys.zoneOwnerName: locator.zoneOwnerName ?? ""
+            ],
+            forKey: key(for: namespaceID)
+        )
+    }
+
+    func locator(for namespaceID: FamilyShareNamespaceID) -> FamilyShareInvitationRecordLocator? {
+        guard let dictionary = userDefaults.dictionary(forKey: key(for: namespaceID)) as? [String: String],
+              let recordName = dictionary[Keys.recordName],
+              recordName.isEmpty == false else {
+            return nil
+        }
+        let zoneName = dictionary[Keys.zoneName].flatMap { $0.isEmpty ? nil : $0 }
+        let zoneOwnerName = dictionary[Keys.zoneOwnerName].flatMap { $0.isEmpty ? nil : $0 }
+        return FamilyShareInvitationRecordLocator(
+            recordName: recordName,
+            zoneName: zoneName,
+            zoneOwnerName: zoneOwnerName
+        )
+    }
+
+    func remove(for namespaceID: FamilyShareNamespaceID) {
+        userDefaults.removeObject(forKey: key(for: namespaceID))
+    }
+
+    private func key(for namespaceID: FamilyShareNamespaceID) -> String {
+        "\(Keys.prefix)\(namespaceID.ownerID)|\(namespaceID.shareID)"
+    }
+}
+
 final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
     private enum RecordType {
         static let root = "FamilyShareProjectionRoot"
@@ -87,17 +141,20 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
     private let environment: FamilyShareCacheStoreEnvironment
     private let telemetry: FamilyShareTelemetryTracking
     private let rollout: FamilyShareRollout
+    private let rootLocatorStore: FamilyShareRootRecordLocatorStore
 
     init(
         container: CKContainer = .default(),
         environment: FamilyShareCacheStoreEnvironment = .current(),
         telemetry: FamilyShareTelemetryTracking = FamilyShareTelemetryTracker(),
-        rollout: FamilyShareRollout = .shared
+        rollout: FamilyShareRollout = .shared,
+        rootLocatorStore: FamilyShareRootRecordLocatorStore = FamilyShareRootRecordLocatorStore()
     ) {
         self.container = container
         self.environment = environment
         self.telemetry = telemetry
         self.rollout = rollout
+        self.rootLocatorStore = rootLocatorStore
     }
 
     func publishProjection(_ payload: FamilyShareProjectionPayload) async throws {
@@ -163,6 +220,19 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
             throw FamilyShareCloudKitError.rolloutDisabled
         }
 
+        let snapshot = FamilyShareInvitationMetadataSnapshot(metadata: metadata)
+        if let locator = snapshot.rootRecordLookupCandidates.first,
+           let namespaceID = FamilyShareNamespaceID(recordLocator: locator) {
+            await rootLocatorStore.save(
+                recordID: Self.recordID(
+                    recordName: locator.recordName,
+                    zoneName: locator.zoneName,
+                    zoneOwnerName: locator.zoneOwnerName
+                ),
+                for: namespaceID
+            )
+        }
+
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let operation = CKAcceptSharesOperation(shareMetadatas: [metadata])
             var acceptanceError: Error?
@@ -189,7 +259,7 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
             container.add(operation)
         }
 
-        return FamilyShareInvitationMetadataSnapshot(metadata: metadata)
+        return snapshot
     }
 
     func fetchAcceptedProjection(from snapshot: FamilyShareInvitationMetadataSnapshot) async throws -> FamilyShareSeededNamespaceState {
@@ -211,6 +281,7 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
 
             do {
                 let rootRecord = try await fetchRecord(recordID: rootRecordID, in: container.sharedCloudDatabase)
+                await rootLocatorStore.save(recordID: rootRecord.recordID, for: try namespaceID(from: rootRecord))
                 return try await seededState(from: rootRecord, in: container.sharedCloudDatabase)
             } catch {
                 lastError = error
@@ -265,7 +336,17 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         guard rollout.isEnabled() else {
             throw FamilyShareCloudKitError.rolloutDisabled
         }
-        let rootRecord = try await fetchRecord(recordID: Self.rootRecordID(for: namespaceID), in: container.sharedCloudDatabase)
+        let rootRecordID: CKRecord.ID
+        if let locator = await rootLocatorStore.locator(for: namespaceID) {
+            rootRecordID = Self.recordID(
+                recordName: locator.recordName,
+                zoneName: locator.zoneName,
+                zoneOwnerName: locator.zoneOwnerName
+            )
+        } else {
+            rootRecordID = Self.rootRecordID(for: namespaceID)
+        }
+        let rootRecord = try await fetchRecord(recordID: rootRecordID, in: container.sharedCloudDatabase)
         return try await seededState(from: rootRecord, in: container.sharedCloudDatabase)
     }
 
@@ -287,14 +368,18 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         }
 
         try await modify(recordsToSave: [], recordIDsToDelete: recordIDsToDelete, in: database)
+        await rootLocatorStore.remove(for: namespaceID)
         telemetry.track(.revoked, payload: ["namespace": namespaceID.namespaceKey])
     }
 
     private func seededState(from rootRecord: CKRecord, in database: CKDatabase) async throws -> FamilyShareSeededNamespaceState {
         let namespaceID = try namespaceID(from: rootRecord)
+        await rootLocatorStore.save(recordID: rootRecord.recordID, for: namespaceID)
         let goals = try await fetchGoalRecords(rootRecord: rootRecord, namespaceID: namespaceID, in: database)
         let payload = try projectionPayload(from: rootRecord, goals: goals, namespaceID: namespaceID)
-        let lifecycleState = FamilyShareLifecycleState(rawValue: payload.freshnessStateRawValue) ?? .active
+        let lifecycleState = payload.goals.isEmpty
+            ? .emptySharedDataset
+            : (FamilyShareLifecycleState(rawValue: payload.freshnessStateRawValue) ?? .active)
         let ownerState = FamilyShareOwnerViewState(
             namespaceID: namespaceID,
             lifecycleState: FamilyShareOwnerLifecycleState(rawValue: payload.lifecycleStateRawValue) ?? .sharedActive,
@@ -402,13 +487,13 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         let query = CKQuery(recordType: RecordType.goal, predicate: NSPredicate(format: "%K == %@", Field.namespaceKey, namespaceID.namespaceKey))
         let results: [(CKRecord.ID, Result<CKRecord, Error>)]
         do {
-            (results, _) = try await database.records(matching: query)
+            (results, _) = try await database.records(matching: query, inZoneWith: Self.zoneID(for: namespaceID))
         } catch {
             guard Self.isMissingRecordTypeError(error) else {
                 throw error
             }
             AppLog.warning(
-                "Family sharing bootstrap treated missing goal projection schema as empty result for namespace \(namespaceID.namespaceKey)",
+                "Family sharing bootstrap treated missing goal projection schema as empty result for namespace \(FamilyShareTelemetryRedactor.redactedNamespaceID(namespaceID))",
                 category: .ui
             )
             return []
@@ -424,8 +509,10 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
     }
 
     private func fetchGoalRecords(rootRecord: CKRecord, namespaceID: FamilyShareNamespaceID, in database: CKDatabase) async throws -> [CKRecord] {
-        let rootReference = CKRecord.Reference(recordID: rootRecord.recordID, action: .none)
-        let query = CKQuery(recordType: RecordType.goal, predicate: NSPredicate(format: "%K == %@", Field.rootReference, rootReference))
+        let query = CKQuery(
+            recordType: RecordType.goal,
+            predicate: NSPredicate(format: "%K == %@", Field.namespaceKey, namespaceID.namespaceKey)
+        )
         let results: [(CKRecord.ID, Result<CKRecord, Error>)]
         do {
             (results, _) = try await database.records(matching: query, inZoneWith: rootRecord.recordID.zoneID)
@@ -434,7 +521,7 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
                 throw error
             }
             AppLog.warning(
-                "Family sharing read treated missing goal projection schema as empty result for namespace \(namespaceID.namespaceKey)",
+                "Family sharing read treated missing goal projection schema as empty result for namespace \(FamilyShareTelemetryRedactor.redactedNamespaceID(namespaceID))",
                 category: .ui
             )
             return []
@@ -501,7 +588,7 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
     private func modify(recordsToSave: [CKRecord], recordIDsToDelete: [CKRecord.ID], in database: CKDatabase) async throws {
         try await withCheckedThrowingContinuation { continuation in
             let operation = CKModifyRecordsOperation(recordsToSave: recordsToSave, recordIDsToDelete: recordIDsToDelete)
-            operation.savePolicy = .changedKeys
+            operation.savePolicy = .allKeys
             operation.isAtomic = true
             operation.modifyRecordsResultBlock = { result in
                 switch result {
@@ -673,12 +760,13 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
     ) -> FamilyShareOwnerShareSnapshot {
         let participants = (share?.participants ?? [])
             .filter { $0.role != .owner }
-            .map { participant in
+            .enumerated()
+            .map { index, participant in
                 FamilyShareParticipantSnapshot(
                     id: participant.userIdentity.userRecordID?.recordName
                         ?? participant.userIdentity.lookupInfo?.emailAddress
                         ?? participant.userIdentity.lookupInfo?.phoneNumber
-                        ?? "\(participant.role)-\(participant.acceptanceStatus)",
+                        ?? "participant-\(index)-\(participant.role.rawValue)-\(participant.acceptanceStatus.rawValue)",
                     displayName: participantDisplayName(participant),
                     emailOrAlias: participantAlias(participant),
                     state: participantState(participant),

@@ -20,6 +20,7 @@ struct AddTransactionView: View {
     
     @State private var amount = ""
     @State private var comment = ""
+    @State private var accessErrorMessage: String?
 
     init(asset: Asset, prefillAmount: Double? = nil, autoAllocateGoalId: UUID? = nil) {
         self.asset = asset
@@ -30,104 +31,126 @@ struct AddTransactionView: View {
     }
     
     var body: some View {
+        Group {
+            if let accessErrorMessage {
+                NavigationStack {
+                    ContentUnavailableView(
+                        "Read-Only Shared Goal",
+                        systemImage: "hand.raised.fill",
+                        description: Text(accessErrorMessage)
+                    )
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") {
+                                dismiss()
+                            }
+                        }
+                    }
+                }
+            } else {
 #if os(macOS)
-        VStack(spacing: 0) {
-            Text("New Transaction")
-                .font(.title2)
-                .padding()
-            
-            Form {
-                Section(header: Text("Transaction Details")) {
+                VStack(spacing: 0) {
+                    Text("New Transaction")
+                        .font(.title2)
+                        .padding()
+
+                    Form {
+                        Section(header: Text("Transaction Details")) {
+                            HStack {
+                                Text("Asset:")
+                                Spacer()
+                                Text(asset.currency)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.vertical, 4)
+
+                            TextField("Deposit Amount", text: $amount)
+                                .padding(.vertical, 4)
+
+                            TextField("Comment (optional)", text: $comment)
+                                .padding(.vertical, 4)
+                        }
+                        .padding(.horizontal, 4)
+
+                        Section(footer: Text("Enter the amount you're depositing and optionally add a comment for reference.")) {
+                            EmptyView()
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                    .padding(.top, 8)
+
+                    Divider()
+
                     HStack {
-                        Text("Asset:")
+                        Button("Cancel") {
+                            dismiss()
+                        }
+                        .keyboardShortcut(.cancelAction)
+
                         Spacer()
-                        Text(asset.currency)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                    
-                    TextField("Deposit Amount", text: $amount)
-                        .padding(.vertical, 4)
-                    
-                    TextField("Comment (optional)", text: $comment)
-                        .padding(.vertical, 4)
-                }
-                .padding(.horizontal, 4)
-                
-                Section(footer: Text("Enter the amount you're depositing and optionally add a comment for reference.")) {
-                    EmptyView()
-                }
-                .padding(.horizontal, 4)
-            }
-            .padding(.top, 8)
-            
-            Divider()
-            
-            HStack {
-                Button("Cancel") {
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
-                
-                Spacer()
-                
-                Button("Save") {
-                    Task { await saveTransaction() }
-                }
-                .disabled(!isValidInput)
-                .keyboardShortcut(.defaultAction)
-            }
-            .padding()
-        }
-        .frame(minWidth: 350, minHeight: 250)
-#else
-        NavigationStack {
-            Form {
-                Section(header: Text("Transaction Details")) {
-                    HStack {
-                        Text("Asset:")
-                        Spacer()
-                        Text(asset.currency)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                    
-                    TextField("Deposit Amount", text: $amount)
-                        .accessibilityIdentifier("transactionAmountField")
-                        .keyboardType(.decimalPad)
-                        .padding(.vertical, 4)
-                    
-                    TextField("Comment (optional)", text: $comment)
-                        .accessibilityIdentifier("transactionCommentField")
-                        .padding(.vertical, 4)
-                }
-                .padding(.horizontal, 4)
-                
-                Section(footer: Text("Enter the amount you're depositing and optionally add a comment for reference.")) {
-                    EmptyView()
-                }
-                .padding(.horizontal, 4)
-            }
-            .padding(.top, 8)
-            .navigationTitle("New Transaction")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-                
-                    ToolbarItem(placement: .navigationBarTrailing) {
+
                         Button("Save") {
                             Task { await saveTransaction() }
                         }
                         .disabled(!isValidInput)
-                        .accessibilityIdentifier("saveTransactionButton")
+                        .keyboardShortcut(.defaultAction)
+                    }
+                    .padding()
+                }
+                .frame(minWidth: 350, minHeight: 250)
+#else
+                NavigationStack {
+                    Form {
+                        Section(header: Text("Transaction Details")) {
+                            HStack {
+                                Text("Asset:")
+                                Spacer()
+                                Text(asset.currency)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.vertical, 4)
+
+                            TextField("Deposit Amount", text: $amount)
+                                .accessibilityIdentifier("transactionAmountField")
+                                .keyboardType(.decimalPad)
+                                .padding(.vertical, 4)
+
+                            TextField("Comment (optional)", text: $comment)
+                                .accessibilityIdentifier("transactionCommentField")
+                                .padding(.vertical, 4)
+                        }
+                        .padding(.horizontal, 4)
+
+                        Section(footer: Text("Enter the amount you're depositing and optionally add a comment for reference.")) {
+                            EmptyView()
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                    .padding(.top, 8)
+                    .navigationTitle("New Transaction")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button("Cancel") {
+                                dismiss()
+                            }
+                        }
+
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Save") {
+                                Task { await saveTransaction() }
+                            }
+                            .disabled(!isValidInput)
+                            .accessibilityIdentifier("saveTransactionButton")
+                        }
                     }
                 }
-            }
 #endif
+            }
+        }
+        .onAppear {
+            validateWritableContext()
+        }
     }
     
     private var isValidInput: Bool {
@@ -169,6 +192,14 @@ struct AddTransactionView: View {
             }
         }
         dismiss()
+    }
+
+    private func validateWritableContext() {
+        do {
+            try DIContainer.shared.familyShareAccessGuard.assertOwnerWritable(asset: asset)
+        } catch {
+            accessErrorMessage = error.localizedDescription
+        }
     }
 
     private static func formatAmount(_ amount: Double) -> String {

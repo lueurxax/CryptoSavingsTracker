@@ -8,7 +8,9 @@ import Foundation
 enum FamilyShareTestScenario: String, CaseIterable, Sendable {
     case ownerNotShared = "owner_not_shared"
     case ownerSharedActive = "owner_shared_active"
+    case inviteePending = "invitee_pending"
     case inviteeActive = "invitee_active"
+    case inviteeMultiOwner = "invitee_multi_owner"
     case inviteeEmpty = "invitee_empty"
     case inviteeStale = "invitee_stale"
     case inviteeRevoked = "invitee_revoked"
@@ -25,6 +27,16 @@ struct FamilyShareTestSeeder {
 
     @MainActor
     func seed(_ scenario: FamilyShareTestScenario, namespaceID: FamilyShareNamespaceID) throws {
+        if scenario == .inviteeMultiOwner {
+            try registry.seed(Self.makeSeed(for: .inviteeActive, namespaceID: namespaceID))
+            let secondaryNamespaceID = FamilyShareNamespaceID(
+                ownerID: namespaceID.ownerID + "-coowner",
+                shareID: namespaceID.shareID + "-secondary"
+            )
+            try registry.seed(Self.makeSecondaryOwnerSeed(namespaceID: secondaryNamespaceID))
+            return
+        }
+
         try registry.seed(Self.makeSeed(for: scenario, namespaceID: namespaceID))
     }
 
@@ -65,7 +77,17 @@ struct FamilyShareTestSeeder {
             )
         case .ownerSharedActive:
             return activeSeed(namespaceID: namespaceID, ownerState: .sharedActive)
+        case .inviteePending:
+            return activeSeed(
+                namespaceID: namespaceID,
+                ownerState: .invitePending,
+                lifecycleState: .invitePendingAcceptance,
+                title: "Invitation pending",
+                primaryAction: "Accept"
+            )
         case .inviteeActive:
+            return activeSeed(namespaceID: namespaceID, ownerState: .sharedActive)
+        case .inviteeMultiOwner:
             return activeSeed(namespaceID: namespaceID, ownerState: .sharedActive)
         case .inviteeEmpty:
             return activeSeed(namespaceID: namespaceID, ownerState: .sharedActive, goalCount: 0, lifecycleState: .emptySharedDataset, primaryAction: "Retry")
@@ -86,11 +108,12 @@ struct FamilyShareTestSeeder {
         goalCount: Int = 2,
         lifecycleState: FamilyShareLifecycleState = .active,
         title: String = "Read-only shared by Family",
-        primaryAction: String = "Retry"
+        primaryAction: String = "Retry",
+        ownerDisplayName: String = "Family"
     ) -> FamilyShareSeededNamespaceState {
         let inviteeState = FamilyShareInviteeViewState(
             namespaceID: namespaceID,
-            ownerDisplayName: "Family",
+            ownerDisplayName: ownerDisplayName,
             lifecycleState: lifecycleState,
             goalCount: goalCount,
             lastUpdatedAt: Date(),
@@ -115,7 +138,7 @@ struct FamilyShareTestSeeder {
 
         let payload = goalCount > 0 ? FamilyShareProjectionPayload(
             namespaceID: namespaceID,
-            ownerDisplayName: "Family",
+            ownerDisplayName: ownerDisplayName,
             schemaVersion: FamilyShareCacheSchema.currentVersion,
             projectionVersion: 1,
             activeProjectionVersion: 1,
@@ -136,7 +159,7 @@ struct FamilyShareTestSeeder {
                     id: "\(namespaceID.namespaceKey)-goal-\(index)",
                     namespaceID: namespaceID,
                     ownerID: namespaceID.ownerID,
-                    ownerDisplayName: "Family",
+                    ownerDisplayName: ownerDisplayName,
                     goalID: "goal-\(index)",
                     goalName: "Shared Goal \(index)",
                     goalEmoji: index == 1 ? "🎯" : "💰",
@@ -158,20 +181,105 @@ struct FamilyShareTestSeeder {
                     id: "\(namespaceID.namespaceKey)-section-1",
                     namespaceID: namespaceID,
                     ownerID: namespaceID.ownerID,
-                    ownerDisplayName: "Family",
+                    ownerDisplayName: ownerDisplayName,
                     goalCount: goalCount,
                     freshnessStateRawValue: lifecycleState.rawValue,
                     sortIndex: 1,
-                    inlineChipCopy: "Shared by Family"
+                    inlineChipCopy: "Shared by \(ownerDisplayName)"
                 )
             ]
         ) : nil
 
         return FamilyShareSeededNamespaceState(
-            ownerDisplayName: "Family",
+            ownerDisplayName: ownerDisplayName,
             ownerState: ownerViewState,
             inviteeState: inviteeState,
             projectionPayload: payload
+        )
+    }
+
+    private static func makeSecondaryOwnerSeed(namespaceID: FamilyShareNamespaceID) -> FamilyShareSeededNamespaceState {
+        let ownerDisplayName = "Jordan"
+        let goals = [
+            FamilyShareProjectedGoalPayload(
+                id: "\(namespaceID.namespaceKey)-goal-1",
+                namespaceID: namespaceID,
+                ownerID: namespaceID.ownerID,
+                ownerDisplayName: ownerDisplayName,
+                goalID: "goal-1",
+                goalName: "Vacation Fund",
+                goalEmoji: "🌴",
+                currency: "USD",
+                targetAmount: 3200,
+                currentAmount: 1840,
+                progressRatio: 0.575,
+                deadline: Calendar.current.date(byAdding: .month, value: 4, to: .now) ?? .now,
+                goalStatusRawValue: "active",
+                forecastStateRawValue: "on_track",
+                freshnessStateRawValue: FamilyShareLifecycleState.active.rawValue,
+                lastUpdatedAt: .now,
+                summaryCopy: "Vacation Fund remains read-only.",
+                sortIndex: 0
+            )
+        ]
+
+        return FamilyShareSeededNamespaceState(
+            ownerDisplayName: ownerDisplayName,
+            ownerState: FamilyShareOwnerViewState(
+                namespaceID: namespaceID,
+                lifecycleState: .sharedActive,
+                participantCount: 1,
+                pendingParticipantCount: 0,
+                activeParticipantCount: 1,
+                revokedParticipantCount: 0,
+                failedParticipantCount: 0,
+                summaryCopy: "Family sharing state seeded for tests.",
+                primaryActionCopy: "Manage Participants"
+            ),
+            inviteeState: FamilyShareInviteeViewState(
+                namespaceID: namespaceID,
+                ownerDisplayName: ownerDisplayName,
+                lifecycleState: .active,
+                goalCount: goals.count,
+                lastUpdatedAt: .now,
+                asOfCopy: "As of \(Date().formatted(date: .abbreviated, time: .shortened))",
+                titleCopy: "Read-only shared by Jordan",
+                messageCopy: "Shared goals are read-only.",
+                primaryActionCopy: "Refresh",
+                isReadOnly: true
+            ),
+            projectionPayload: FamilyShareProjectionPayload(
+                namespaceID: namespaceID,
+                ownerDisplayName: ownerDisplayName,
+                schemaVersion: FamilyShareCacheSchema.currentVersion,
+                projectionVersion: 1,
+                activeProjectionVersion: 1,
+                freshnessStateRawValue: FamilyShareLifecycleState.active.rawValue,
+                lifecycleStateRawValue: FamilyShareOwnerLifecycleState.sharedActive.rawValue,
+                publishedAt: .now,
+                lastReconciledAt: .now,
+                lastRefreshAttemptAt: .now,
+                lastRefreshErrorCode: nil,
+                lastRefreshErrorMessage: nil,
+                summaryTitle: "Shared Goals",
+                summaryCopy: "Read-only shared dataset seeded for tests.",
+                participantCount: 1,
+                pendingParticipantCount: 0,
+                revokedParticipantCount: 0,
+                goals: goals,
+                ownerSections: [
+                    FamilyShareOwnerSectionPayload(
+                        id: "\(namespaceID.namespaceKey)-section-1",
+                        namespaceID: namespaceID,
+                        ownerID: namespaceID.ownerID,
+                        ownerDisplayName: ownerDisplayName,
+                        goalCount: 1,
+                        freshnessStateRawValue: FamilyShareLifecycleState.active.rawValue,
+                        sortIndex: 1,
+                        inlineChipCopy: "Shared by Jordan"
+                    )
+                ]
+            )
         )
     }
 }

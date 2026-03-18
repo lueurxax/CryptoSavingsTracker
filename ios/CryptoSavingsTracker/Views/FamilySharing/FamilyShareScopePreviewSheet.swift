@@ -11,7 +11,6 @@ struct FamilyShareScopePreviewSheet: View {
     let onCancel: () -> Void
 
     @State private var expandedSections: Set<FamilyShareScopeDisclosureSection.Kind> = []
-
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -99,6 +98,12 @@ struct FamilyShareScopePreviewSheet: View {
     private var actionBar: some View {
         VStack(spacing: 10) {
             Divider()
+            if UITestFlags.isEnabled {
+                Rectangle()
+                    .fill(Color.clear)
+                    .frame(height: 1)
+                    .accessibilityIdentifier("familyShareScopePreviewActionBar")
+            }
             HStack(spacing: 12) {
                 Button("Cancel", action: onCancel)
                     .buttonStyle(.bordered)
@@ -113,8 +118,16 @@ struct FamilyShareScopePreviewSheet: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
             .padding(.top, 8)
-            .background(.ultraThinMaterial)
+            .background(actionBarBackground)
         }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var actionBarBackground: some View {
+        Color(.secondarySystemBackground)
+            .overlay(alignment: .top) {
+                Divider()
+            }
     }
 
     private func binding(for kind: FamilyShareScopeDisclosureSection.Kind) -> Binding<Bool> {
@@ -130,4 +143,3 @@ struct FamilyShareScopePreviewSheet: View {
         )
     }
 }
-

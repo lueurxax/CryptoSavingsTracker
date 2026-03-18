@@ -10,7 +10,7 @@ struct PersistenceMutationServicesTests {
     func goalMutationServicePersistsDetachedGoal() async throws {
         let container = try TestContainer.create()
         let context = ModelContext(container)
-        let service = GoalMutationService(modelContext: context)
+        let service = GoalMutationService(modelContext: context, accessGuard: AllowAllFamilyShareAccessGuard())
         let goal = TestDataFactory.createSampleGoal(name: "Cutover Goal")
 
         try await service.createGoal(goal)
@@ -25,7 +25,7 @@ struct PersistenceMutationServicesTests {
     func assetMutationServiceCreatesInitialAllocationHistory() async throws {
         let container = try TestContainer.create()
         let context = ModelContext(container)
-        let service = AssetMutationService(modelContext: context)
+        let service = AssetMutationService(modelContext: context, accessGuard: AllowAllFamilyShareAccessGuard())
         let goal = TestDataFactory.createSampleGoal(name: "Asset Goal")
         context.insert(goal)
         try context.save()
@@ -50,7 +50,11 @@ struct PersistenceMutationServicesTests {
         let container = try TestContainer.create()
         let context = ModelContext(container)
         let exchangeRates = MockExchangeRateService()
-        let service = PlanningMutationService(modelContext: context, exchangeRateService: exchangeRates)
+        let service = PlanningMutationService(
+            modelContext: context,
+            exchangeRateService: exchangeRates,
+            accessGuard: AllowAllFamilyShareAccessGuard()
+        )
 
         let draftGoal = TestDataFactory.createSampleGoal(name: "Draft Goal")
         let executedGoal = TestDataFactory.createSampleGoal(name: "Executed Goal")
@@ -85,5 +89,165 @@ struct PersistenceMutationServicesTests {
         #expect(zeroPlan.isSkipped == true)
         #expect(executedPlan.state == .draft)
         #expect(executedPlan.isSkipped == false)
+    }
+
+    @Test("GoalMutationService rejects writes for shared goals")
+    func goalMutationServiceRejectsSharedGoalMutation() async throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let goal = TestDataFactory.createSampleGoal(name: "Shared Goal")
+        let service = GoalMutationService(
+            modelContext: context,
+            accessGuard: DenyingFamilyShareAccessGuard(sharedGoalIDs: [goal.id])
+        )
+
+        await #expect(throws: FamilyShareReadOnlyAccessError.self) {
+            try await service.saveGoal(goal)
+        }
+    }
+
+    @Test("AssetMutationService rejects asset creation for shared goals")
+    func assetMutationServiceRejectsSharedGoalMutation() async throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let goal = TestDataFactory.createSampleGoal(name: "Shared Asset Goal")
+        context.insert(goal)
+        try context.save()
+        let service = AssetMutationService(
+            modelContext: context,
+            accessGuard: DenyingFamilyShareAccessGuard(sharedGoalIDs: [goal.id])
+        )
+
+        await #expect(throws: FamilyShareReadOnlyAccessError.self) {
+            _ = try await service.createAsset(
+                currency: "BTC",
+                address: "0x1234567890123456789012345678901234567890",
+                chainId: "ethereum-mainnet",
+                goal: goal
+            )
+        }
+    }
+
+    @Test("TransactionMutationService rejects writes for shared assets")
+    func transactionMutationServiceRejectsSharedGoalMutation() async throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let goal = TestDataFactory.createSampleGoal(name: "Shared Goal")
+        let asset = TestDataFactory.createSampleAsset(currency: "BTC", goal: goal)
+        context.insert(goal)
+        context.insert(asset)
+        try context.save()
+        let service = TransactionMutationService(
+            modelContext: context,
+            accessGuard: DenyingFamilyShareAccessGuard(sharedGoalIDs: [goal.id])
+        )
+
+        #expect(throws: FamilyShareReadOnlyAccessError.self) {
+            _ = try service.createTransaction(
+                for: asset,
+                amount: 100,
+                comment: "Blocked",
+                autoAllocateGoalId: nil
+            )
+        }
+    }
+
+    @Test("PlanningMutationService rejects updates for shared plans")
+    func planningMutationServiceRejectsSharedGoalMutation() async throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let exchangeRates = MockExchangeRateService()
+        let goal = TestDataFactory.createSampleGoal(name: "Shared Planning Goal")
+        let plan = MonthlyPlan(
+            goalId: goal.id,
+            monthLabel: "2026-03",
+            requiredMonthly: 150,
+            remainingAmount: 500,
+            monthsRemaining: 4,
+            currency: "USD",
+            state: .draft
+        )
+        context.insert(goal)
+        context.insert(plan)
+        try context.save()
+        let service = PlanningMutationService(
+            modelContext: context,
+            exchangeRateService: exchangeRates,
+            accessGuard: DenyingFamilyShareAccessGuard(sharedGoalIDs: [goal.id])
+        )
+
+        #expect(throws: FamilyShareReadOnlyAccessError.self) {
+            try service.markPlanCompleted(plan)
+        }
+    }
+}
+
+@MainActor
+private final class AllowAllFamilyShareAccessGuard: FamilyShareAccessChecking {
+    func isSharedGoalID(_ goalID: UUID) -> Bool { false }
+    func assertOwnerWritable(goalID: UUID) throws {}
+    func assertOwnerWritable(goal: Goal) throws {}
+    func assertOwnerWritable(asset: Asset) throws {}
+    func assertOwnerWritable(transaction: Transaction) throws {}
+    func assertOwnerWritable(plan: MonthlyPlan) throws {}
+    func assertOwnerWritable(plans: [MonthlyPlan]) throws {}
+    func assertOwnerWritable(goals: [Goal]) throws {}
+}
+
+@MainActor
+private final class DenyingFamilyShareAccessGuard: FamilyShareAccessChecking {
+    private let sharedGoalIDs: Set<UUID>
+
+    init(sharedGoalIDs: Set<UUID>) {
+        self.sharedGoalIDs = sharedGoalIDs
+    }
+
+    convenience init(sharedGoalIDs: [UUID]) {
+        self.init(sharedGoalIDs: Set(sharedGoalIDs))
+    }
+
+    func isSharedGoalID(_ goalID: UUID) -> Bool {
+        sharedGoalIDs.contains(goalID)
+    }
+
+    func assertOwnerWritable(goalID: UUID) throws {
+        if isSharedGoalID(goalID) {
+            throw FamilyShareReadOnlyAccessError.sharedGoalReadOnly
+        }
+    }
+
+    func assertOwnerWritable(goal: Goal) throws {
+        try assertOwnerWritable(goalID: goal.id)
+    }
+
+    func assertOwnerWritable(asset: Asset) throws {
+        for allocation in asset.allocations ?? [] {
+            if let goal = allocation.goal {
+                try assertOwnerWritable(goal: goal)
+                return
+            }
+        }
+    }
+
+    func assertOwnerWritable(transaction: Transaction) throws {
+        if let asset = transaction.asset {
+            try assertOwnerWritable(asset: asset)
+        }
+    }
+
+    func assertOwnerWritable(plan: MonthlyPlan) throws {
+        try assertOwnerWritable(goalID: plan.goalId)
+    }
+
+    func assertOwnerWritable(plans: [MonthlyPlan]) throws {
+        for plan in plans {
+            try assertOwnerWritable(plan: plan)
+        }
+    }
+
+    func assertOwnerWritable(goals: [Goal]) throws {
+        for goal in goals {
+            try assertOwnerWritable(goal: goal)
+        }
     }
 }

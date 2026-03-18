@@ -201,5 +201,6 @@ Custom agents are defined in `.claude/agents/`:
 | `docs/COMPONENT_REGISTRY.md` | All UI components with ownership |
 | `docs/DEVELOPMENT.md` | Roadmap, active work, refactoring notes |
 | `docs/API_INTEGRATIONS.md` | CoinGecko and Tatum integration details |
-| `docs/CLOUDKIT_MIGRATION_PLAN.md` | Future iCloud sync plan |
+| `docs/CLOUDKIT_MIGRATION_PLAN.md` | CloudKit migration plan |
+| `docs/FAMILY_SHARING.md` | Read-only family sharing architecture and contract |
 | `docs/ANDROID_DEVELOPMENT_PLAN.md` | Android port status |

@@ -143,19 +143,37 @@ struct GoalsList: View {
 
             if familyShareEnabled && !familyShareCoordinator.sharedSections.isEmpty {
                 Section("Shared Goals") {
-                    SharedGoalsSectionView(
-                        sections: familyShareCoordinator.sharedSections,
-                        onGoalSelected: { goal in
-                            selectedSharedGoal = goal
-                        },
-                        onPrimaryAction: { section in
-                            Task {
-                                await familyShareCoordinator.handlePrimaryAction(for: section)
-                            }
-                        }
+                    FamilySharingStateBanner(
+                        title: "Shared Goals",
+                        subtitle: "Goals are grouped by owner and stay read-only for invitees.",
+                        systemImage: "person.2.fill",
+                        tint: AccessibleColors.success
                     )
                 }
                 .accessibilityIdentifier("sharedGoalsSection")
+
+                ForEach(familyShareCoordinator.sharedSections) { section in
+                    Section {
+                        SharedGoalsSectionView(
+                            section: section,
+                            onGoalSelected: { goal in
+                                selectedSharedGoal = goal
+                            },
+                            onPrimaryAction: { section in
+                                Task {
+                                    await familyShareCoordinator.handlePrimaryAction(for: section)
+                                }
+                            }
+                        )
+                        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    } header: {
+                        SharedGoalsOwnerHeaderView(section: section)
+                    }
+                    .textCase(nil)
+                    .accessibilityIdentifier("sharedGoalsOwnerSection-\(section.id)")
+                }
             }
 
             Section("Your Goals") {

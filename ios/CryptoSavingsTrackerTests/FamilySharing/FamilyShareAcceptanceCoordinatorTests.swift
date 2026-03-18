@@ -9,16 +9,25 @@ import CloudKit
 
 @MainActor
 final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
-    private func makeCoordinator(cloudSync: FamilyShareCloudSyncing? = nil) -> FamilyShareAcceptanceCoordinator {
+    private func makeCoordinator(
+        cloudSync: FamilyShareCloudSyncing? = nil,
+        telemetry: FamilyShareTelemetryTracking = FamilyShareTelemetryTracker()
+    ) -> FamilyShareAcceptanceCoordinator {
+        let defaults = UserDefaults(suiteName: "FamilyShareAcceptanceCoordinatorTests.\(UUID().uuidString)")!
+        defaults.set("test-owner", forKey: "familyShare.ownerID")
+        defaults.set("test-share", forKey: "familyShare.shareID")
+        defaults.set("Test Owner", forKey: "familyShare.ownerName")
         let factory = FamilyShareNamespaceStoreFactory(environment: .preview)
         let registry = FamilyShareNamespaceRegistry(factory: factory)
         let stateProvider = DefaultFamilyShareStateProvider(registry: registry)
-        let publisher = DefaultFamilyShareProjectionPublisher(registry: registry, cloudSync: cloudSync)
+        let publisher = DefaultFamilyShareProjectionPublisher(registry: registry, cloudSync: cloudSync, telemetry: telemetry)
+        let identityStore = FamilyShareOwnerIdentityStore(userDefaults: defaults)
         let ownerSharingService = DefaultFamilyShareOwnerSharingService(
             registry: registry,
             stateProvider: stateProvider,
             publisher: publisher,
-            cloudSync: cloudSync
+            cloudSync: cloudSync,
+            telemetry: telemetry
         )
         let migrationCoordinator = FamilyShareCacheMigrationCoordinator(registry: registry)
         let publishCoordinator = FamilyShareProjectionPublishCoordinator(publisher: publisher)
@@ -32,12 +41,34 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
             cacheMigrationCoordinator: migrationCoordinator,
             publishCoordinator: publishCoordinator,
             seeder: seeder,
-            cloudSync: cloudSync
+            identityStore: identityStore,
+            cloudSync: cloudSync,
+            telemetry: telemetry
         )
     }
 
     func testShareAllGoalsPublishesOwnerStateAndPendingShareRequest() async {
-        let coordinator = makeCoordinator()
+        let telemetry = RecordingFamilyShareTelemetryTracker()
+        let ownerNamespaceID = FamilyShareNamespaceID(ownerID: "owner", shareID: "share")
+        let coordinator = makeCoordinator(
+            cloudSync: StubFamilyShareCloudSync(
+                ownerSnapshot: FamilyShareOwnerShareSnapshot(
+                    ownerState: FamilyShareOwnerViewState(
+                        namespaceID: ownerNamespaceID,
+                        lifecycleState: .sharedActive,
+                        participantCount: 0,
+                        pendingParticipantCount: 0,
+                        activeParticipantCount: 0,
+                        revokedParticipantCount: 0,
+                        failedParticipantCount: 0,
+                        summaryCopy: "Share all of your goals with family in read-only mode.",
+                        primaryActionCopy: "Share with Family"
+                    ),
+                    participants: []
+                )
+            ),
+            telemetry: telemetry
+        )
         let goal = Goal(
             name: "School Fund",
             currency: "USD",
@@ -54,6 +85,24 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
         let familyAccessModel = coordinator.makeFamilyAccessModel(currentGoals: [goal])
         XCTAssertEqual(familyAccessModel.ownerSections.count, 1)
         XCTAssertEqual(familyAccessModel.ownerSections.first?.goals.count, 1)
+        XCTAssertTrue(telemetry.events.contains(FamilyShareTelemetryEvent.createStarted.rawValue))
+        XCTAssertTrue(telemetry.events.contains(FamilyShareTelemetryEvent.createSucceeded.rawValue))
+    }
+
+    func testShareAllGoalsTracksCreateFailureTelemetryWhenCloudSyncIsMissing() async {
+        let telemetry = RecordingFamilyShareTelemetryTracker()
+        let coordinator = makeCoordinator(telemetry: telemetry)
+        let goal = Goal(
+            name: "School Fund",
+            currency: "USD",
+            targetAmount: 1_500,
+            deadline: Date().addingTimeInterval(86_400 * 90)
+        )
+
+        await coordinator.shareAllGoals([goal])
+
+        XCTAssertTrue(telemetry.events.contains(FamilyShareTelemetryEvent.createStarted.rawValue))
+        XCTAssertTrue(telemetry.events.contains(FamilyShareTelemetryEvent.createFailed.rawValue))
     }
 
     func testSeedInviteeScenarioBuildsSharedGoalsSections() async {
@@ -65,6 +114,17 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.sharedSections.first?.state, .stale)
         XCTAssertEqual(coordinator.sharedSections.first?.primaryActionTitle, "Retry Refresh")
         XCTAssertEqual(coordinator.inviteeStates.first?.lifecycleState, .stale)
+    }
+
+    func testSeedMultiOwnerScenarioBuildsGroupedSharedGoalsSections() async {
+        let coordinator = makeCoordinator()
+
+        await coordinator.seedUITestScenario(.inviteeMultiOwner)
+
+        XCTAssertEqual(coordinator.sharedSections.count, 2)
+        XCTAssertEqual(coordinator.sharedSections.map(\.ownerName), ["Family", "Jordan"])
+        XCTAssertEqual(coordinator.sharedSections.first?.goals.count, 2)
+        XCTAssertEqual(coordinator.sharedSections.last?.goals.count, 1)
     }
 
     func testResetAllNamespacesClearsPublishedFamilySharingState() async {
@@ -136,6 +196,172 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
         XCTAssertEqual(model.participants.first?.state, .active)
         XCTAssertEqual(coordinator.settingsRowSummary(currentGoalCount: 1), "1 participant")
     }
+
+    func testInviteeTelemetryTracksViewedStates() async {
+        let telemetry = RecordingFamilyShareTelemetryTracker()
+        let coordinator = makeCoordinator(telemetry: telemetry)
+
+        await coordinator.seedUITestScenario(.inviteePending)
+        await coordinator.seedUITestScenario(.inviteeActive)
+        await coordinator.seedUITestScenario(.inviteeStale)
+        await coordinator.seedUITestScenario(.inviteeEmpty)
+        await coordinator.seedUITestScenario(.inviteeRevoked)
+        await coordinator.seedUITestScenario(.inviteeRemoved)
+        await coordinator.seedUITestScenario(.inviteeUnavailable)
+
+        XCTAssertTrue(telemetry.events.contains(FamilyShareTelemetryEvent.invitePendingViewed.rawValue))
+        XCTAssertTrue(telemetry.events.contains(FamilyShareTelemetryEvent.activeViewed.rawValue))
+        XCTAssertTrue(telemetry.events.contains(FamilyShareTelemetryEvent.refreshStale.rawValue))
+        XCTAssertTrue(telemetry.events.contains(FamilyShareTelemetryEvent.emptyViewed.rawValue))
+        XCTAssertTrue(telemetry.events.contains(FamilyShareTelemetryEvent.revokedViewed.rawValue))
+        XCTAssertTrue(telemetry.events.contains(FamilyShareTelemetryEvent.removedViewed.rawValue))
+        XCTAssertTrue(telemetry.events.contains(FamilyShareTelemetryEvent.temporarilyUnavailableViewed.rawValue))
+    }
+
+    func testTelemetryTrackerRedactsSensitiveIdentifiersAndReasons() {
+        let provider = RecordingFamilyShareTelemetryProvider()
+        let tracker = FamilyShareTelemetryTracker(provider: provider)
+        let namespaceID = FamilyShareNamespaceID(ownerID: "owner@example.com", shareID: "share-123")
+
+        tracker.track(
+            .refreshFailed,
+            payload: [
+                "namespace": namespaceID.namespaceKey,
+                "ownerID": namespaceID.ownerID,
+                "shareID": namespaceID.shareID,
+                "participant": "invitee@example.com",
+                "reason": "The shared database is unavailable for this record type."
+            ]
+        )
+
+        XCTAssertEqual(provider.records.count, 1)
+        let record = provider.records[0]
+        XCTAssertEqual(record.event, FamilyShareTelemetryEvent.refreshFailed.rawValue)
+        XCTAssertNotEqual(record.payload["namespace"], namespaceID.namespaceKey)
+        XCTAssertEqual(record.payload["ownerID"]?.count, 12)
+        XCTAssertEqual(record.payload["shareID"]?.count, 12)
+        XCTAssertEqual(record.payload["participant"]?.count, 12)
+        XCTAssertEqual(record.payload["reason"], "shared_database_unavailable")
+    }
+
+    func testNamespaceExecutionHubTracksLatestStateAcrossTransitions() async {
+        let namespaceID = FamilyShareNamespaceID(ownerID: "owner", shareID: "share")
+        let hub = FamilyShareNamespaceExecutionHub()
+        let seed = FamilyShareTestSeeder.makeSeed(for: .inviteeActive, namespaceID: namespaceID)
+
+        await hub.bootstrap(with: seed)
+        var snapshot = await hub.stateSnapshot(for: namespaceID)
+        XCTAssertEqual(snapshot?.lifecycleState, .active)
+
+        let quarantined = FamilyShareSeededNamespaceState(
+            ownerDisplayName: seed.ownerDisplayName,
+            ownerState: seed.ownerState,
+            inviteeState: FamilyShareInviteeViewState(
+                namespaceID: namespaceID,
+                ownerDisplayName: seed.ownerDisplayName,
+                lifecycleState: .temporarilyUnavailable,
+                goalCount: 0,
+                lastUpdatedAt: nil,
+                asOfCopy: nil,
+                titleCopy: "Shared Goals",
+                messageCopy: "Temporarily unavailable.",
+                primaryActionCopy: "Retry",
+                isReadOnly: true
+            ),
+            projectionPayload: nil
+        )
+
+        await hub.markFailed(with: quarantined, reason: "quarantined")
+        snapshot = await hub.stateSnapshot(for: namespaceID)
+        XCTAssertEqual(snapshot?.lifecycleState, .temporarilyUnavailable)
+
+        await hub.markRevoked(with: quarantined)
+        snapshot = await hub.stateSnapshot(for: namespaceID)
+        XCTAssertEqual(snapshot?.lifecycleState, .revoked)
+    }
+
+    func testMigrationCoordinatorQuarantinesFutureSchemaVersions() async throws {
+        let factory = FamilyShareNamespaceStoreFactory(environment: .preview)
+        let registry = FamilyShareNamespaceRegistry(factory: factory)
+        let migrationCoordinator = FamilyShareCacheMigrationCoordinator(registry: registry)
+        let namespaceID = FamilyShareNamespaceID(ownerID: "owner", shareID: "share")
+        let seed = FamilyShareSeededNamespaceState(
+            ownerDisplayName: "Owner",
+            ownerState: FamilyShareOwnerViewState(
+                namespaceID: namespaceID,
+                lifecycleState: .sharedActive,
+                participantCount: 1,
+                pendingParticipantCount: 0,
+                activeParticipantCount: 1,
+                revokedParticipantCount: 0,
+                failedParticipantCount: 0,
+                summaryCopy: "Shared.",
+                primaryActionCopy: "Manage Participants"
+            ),
+            inviteeState: FamilyShareInviteeViewState(
+                namespaceID: namespaceID,
+                ownerDisplayName: "Owner",
+                lifecycleState: .active,
+                goalCount: 1,
+                lastUpdatedAt: Date(),
+                asOfCopy: nil,
+                titleCopy: "Shared Goals",
+                messageCopy: "Shared.",
+                primaryActionCopy: "Retry Refresh",
+                isReadOnly: true
+            ),
+            projectionPayload: FamilyShareProjectionPayload(
+                namespaceID: namespaceID,
+                ownerDisplayName: "Owner",
+                schemaVersion: FamilyShareCacheSchema.currentVersion + 1,
+                projectionVersion: 1,
+                activeProjectionVersion: 1,
+                freshnessStateRawValue: FamilyShareLifecycleState.active.rawValue,
+                lifecycleStateRawValue: FamilyShareOwnerLifecycleState.sharedActive.rawValue,
+                publishedAt: Date(),
+                lastReconciledAt: Date(),
+                lastRefreshAttemptAt: Date(),
+                lastRefreshErrorCode: nil,
+                lastRefreshErrorMessage: nil,
+                summaryTitle: "Shared Goals",
+                summaryCopy: "Shared.",
+                participantCount: 1,
+                pendingParticipantCount: 0,
+                revokedParticipantCount: 0,
+                goals: [],
+                ownerSections: []
+            )
+        )
+
+        try registry.seed(seed)
+        let result = try await migrationCoordinator.ensureCompatible(namespaceID: namespaceID)
+
+        XCTAssertTrue(result.quarantined)
+        XCTAssertTrue(result.requiresRebuild)
+        XCTAssertFalse(result.didMigrate)
+    }
+
+    func testRootRecordLocatorStorePersistsSharedZoneLocator() async {
+        let defaults = UserDefaults(suiteName: #function)!
+        defaults.removePersistentDomain(forName: #function)
+        let store = FamilyShareRootRecordLocatorStore(userDefaults: defaults)
+        let namespaceID = FamilyShareNamespaceID(ownerID: "owner-1", shareID: "share-1")
+        let recordID = CKRecord.ID(
+            recordName: "family-share.owner-1.share-1.root",
+            zoneID: CKRecordZone.ID(zoneName: "shared-zone", ownerName: "owner-record-name")
+        )
+
+        await store.save(recordID: recordID, for: namespaceID)
+        let locator = await store.locator(for: namespaceID)
+
+        XCTAssertEqual(locator?.recordName, recordID.recordName)
+        XCTAssertEqual(locator?.zoneName, recordID.zoneID.zoneName)
+        XCTAssertEqual(locator?.zoneOwnerName, recordID.zoneID.ownerName)
+
+        await store.remove(for: namespaceID)
+        let clearedLocator = await store.locator(for: namespaceID)
+        XCTAssertNil(clearedLocator)
+    }
 }
 
 private final class StubFamilyShareCloudSync: FamilyShareCloudSyncing {
@@ -149,7 +375,10 @@ private final class StubFamilyShareCloudSync: FamilyShareCloudSyncing {
     }
 
     func prepareShare(for request: FamilyShareCloudSharingPreparationRequest) async throws -> (share: CKShare, container: CKContainer) {
-        throw NSError(domain: "StubFamilyShareCloudSync", code: 1)
+        let zoneID = CKRecordZone.ID(zoneName: "stub-zone", ownerName: CKCurrentUserDefaultName)
+        let rootRecord = CKRecord(recordType: "FamilyShareProjectionRoot", recordID: CKRecord.ID(recordName: "stub-root", zoneID: zoneID))
+        let share = CKShare(rootRecord: rootRecord, shareID: CKRecord.ID(recordName: "stub-share", zoneID: zoneID))
+        return (share, CKContainer.default())
     }
 
     func acceptInvitation(metadata: CKShare.Metadata) async throws -> FamilyShareInvitationMetadataSnapshot {
@@ -169,5 +398,26 @@ private final class StubFamilyShareCloudSync: FamilyShareCloudSyncing {
     }
 
     func revoke(namespaceID: FamilyShareNamespaceID) async throws {
+    }
+}
+
+private final class RecordingFamilyShareTelemetryTracker: FamilyShareTelemetryTracking {
+    private(set) var events: [String] = []
+
+    func track(_ event: FamilyShareTelemetryEvent, payload: [String : String] = [:]) {
+        events.append(event.rawValue)
+    }
+}
+
+private final class RecordingFamilyShareTelemetryProvider: FamilyShareTelemetryProviding {
+    struct Record {
+        let event: String
+        let payload: [String: String]
+    }
+
+    private(set) var records: [Record] = []
+
+    func track(event: String, payload: [String : String]) {
+        records.append(Record(event: event, payload: payload))
     }
 }

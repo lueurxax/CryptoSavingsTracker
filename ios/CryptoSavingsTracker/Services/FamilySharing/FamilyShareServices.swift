@@ -101,7 +101,7 @@ enum FamilyShareCacheMigrationError: Error, LocalizedError, Sendable {
     }
 }
 
-actor FamilyShareNamespaceActor: FamilyShareNamespaceManaging {
+actor FamilyShareNamespaceActor {
     let namespaceID: FamilyShareNamespaceID
     private var acceptanceOutcome: FamilyShareAcceptanceOutcome = .pending
     private var lifecycleState: FamilyShareLifecycleState = .invitePendingAcceptance
@@ -161,6 +161,62 @@ actor FamilyShareNamespaceActor: FamilyShareNamespaceManaging {
             inviteeState: inviteeState,
             projectionPayload: projectionPayload
         )
+    }
+}
+
+actor FamilyShareNamespaceExecutionHub {
+    private var actors: [String: FamilyShareNamespaceActor] = [:]
+
+    func bootstrap(with state: FamilyShareSeededNamespaceState) async {
+        let actor = actor(for: state)
+        await actor.bootstrap(with: state)
+    }
+
+    func refresh(with state: FamilyShareSeededNamespaceState) async {
+        let actor = actor(for: state)
+        await actor.refresh(with: state)
+    }
+
+    func markAccepted(with state: FamilyShareSeededNamespaceState) async {
+        let actor = actor(for: state)
+        await actor.bootstrap(with: state)
+        await actor.markAccepted()
+    }
+
+    func markFailed(with state: FamilyShareSeededNamespaceState, reason: String?) async {
+        let actor = actor(for: state)
+        await actor.bootstrap(with: state)
+        await actor.markFailed(reason: reason)
+    }
+
+    func markRevoked(with state: FamilyShareSeededNamespaceState) async {
+        let actor = actor(for: state)
+        await actor.bootstrap(with: state)
+        await actor.markRevoked()
+    }
+
+    func reset() {
+        actors.removeAll()
+    }
+
+    func stateSnapshot(for namespaceID: FamilyShareNamespaceID) async -> FamilyShareNamespaceActorSnapshot? {
+        guard let actor = actors[namespaceID.namespaceKey] else { return nil }
+        return await actor.stateSnapshot()
+    }
+
+    private func actor(for state: FamilyShareSeededNamespaceState) -> FamilyShareNamespaceActor {
+        let namespaceID = state.ownerState.namespaceID
+        if let existing = actors[namespaceID.namespaceKey] {
+            return existing
+        }
+        let created = FamilyShareNamespaceActor(
+            namespaceID: namespaceID,
+            ownerState: state.ownerState,
+            inviteeState: state.inviteeState,
+            projectionPayload: state.projectionPayload
+        )
+        actors[namespaceID.namespaceKey] = created
+        return created
     }
 }
 
@@ -252,6 +308,65 @@ final class DefaultFamilyShareStateProvider: FamilyShareStateProviding, FamilySh
 }
 
 @MainActor
+final class FamilyShareAccessGuard: FamilyShareAccessChecking {
+    private let registry: FamilyShareNamespaceRegistry
+
+    init(registry: FamilyShareNamespaceRegistry) {
+        self.registry = registry
+    }
+
+    func isSharedGoalID(_ goalID: UUID) -> Bool {
+        let goalIDString = goalID.uuidString
+        for namespaceID in registry.allNamespaceIDs() {
+            if let seededState = try? registry.seededState(for: namespaceID),
+               seededState.projectionPayload?.goals.contains(where: { $0.goalID == goalIDString }) == true {
+                return true
+            }
+        }
+        return false
+    }
+
+    func assertOwnerWritable(goalID: UUID) throws {
+        guard isSharedGoalID(goalID) == false else {
+            throw FamilyShareReadOnlyAccessError.sharedGoalReadOnly
+        }
+    }
+
+    func assertOwnerWritable(goal: Goal) throws {
+        try assertOwnerWritable(goalID: goal.id)
+    }
+
+    func assertOwnerWritable(asset: Asset) throws {
+        let goalIDs = (asset.allocations ?? []).compactMap(\.goal?.id)
+        if let sharedGoalID = goalIDs.first(where: { isSharedGoalID($0) }) {
+            try assertOwnerWritable(goalID: sharedGoalID)
+        }
+    }
+
+    func assertOwnerWritable(transaction: Transaction) throws {
+        if let asset = transaction.asset {
+            try assertOwnerWritable(asset: asset)
+        }
+    }
+
+    func assertOwnerWritable(plan: MonthlyPlan) throws {
+        try assertOwnerWritable(goalID: plan.goalId)
+    }
+
+    func assertOwnerWritable(plans: [MonthlyPlan]) throws {
+        if let sharedPlan = plans.first(where: { isSharedGoalID($0.goalId) }) {
+            try assertOwnerWritable(plan: sharedPlan)
+        }
+    }
+
+    func assertOwnerWritable(goals: [Goal]) throws {
+        if let sharedGoal = goals.first(where: { isSharedGoalID($0.id) }) {
+            try assertOwnerWritable(goal: sharedGoal)
+        }
+    }
+}
+
+@MainActor
 final class DefaultFamilyShareProjectionPublisher: FamilyShareProjectionPublishing {
     private let registry: FamilyShareNamespaceRegistry
     private let cloudSync: FamilyShareCloudSyncing?
@@ -337,6 +452,7 @@ final class DefaultFamilyShareOwnerSharingService: FamilyShareOwnerSharingServic
     private let publisher: FamilyShareProjectionPublishing
     private let cloudSync: FamilyShareCloudSyncing?
     private let telemetry: FamilyShareTelemetryTracking
+    private let namespaceExecutionHub: FamilyShareNamespaceExecutionHub
 
     init(
         registry: FamilyShareNamespaceRegistry? = nil,
@@ -351,6 +467,7 @@ final class DefaultFamilyShareOwnerSharingService: FamilyShareOwnerSharingServic
         self.publisher = publisher ?? DefaultFamilyShareProjectionPublisher(registry: resolvedRegistry)
         self.cloudSync = cloudSync
         self.telemetry = telemetry
+        self.namespaceExecutionHub = FamilyShareNamespaceExecutionHub()
     }
 
     func scopePreview(for namespaceID: FamilyShareNamespaceID) async throws -> FamilyShareScopePreviewSummary {
@@ -423,6 +540,14 @@ final class DefaultFamilyShareOwnerSharingService: FamilyShareOwnerSharingServic
                 projectionPayload: currentState.projectionPayload?.updatingLifecycleState(FamilyShareOwnerLifecycleState.revoked.rawValue)
             )
         )
+        await namespaceExecutionHub.markRevoked(
+            with: FamilyShareSeededNamespaceState(
+                ownerDisplayName: currentState.ownerDisplayName,
+                ownerState: revokedOwnerState,
+                inviteeState: revokedInviteeState,
+                projectionPayload: currentState.projectionPayload?.updatingLifecycleState(FamilyShareOwnerLifecycleState.revoked.rawValue)
+            )
+        )
     }
 }
 
@@ -435,7 +560,27 @@ final class FamilyShareCacheMigrationCoordinator: FamilyShareCacheMigrating {
     }
 
     func ensureCompatible(namespaceID: FamilyShareNamespaceID) async throws -> FamilyShareCacheMigrationResult {
-        guard let current = try registry.seededState(for: namespaceID) else {
+        let current: FamilyShareSeededNamespaceState?
+        do {
+            current = try registry.seededState(for: namespaceID)
+        } catch {
+            registry.purge(namespaceID: namespaceID)
+            try seedQuarantinedState(
+                namespaceID: namespaceID,
+                ownerDisplayName: namespaceID.ownerID,
+                reason: error.localizedDescription
+            )
+            return FamilyShareCacheMigrationResult(
+                namespaceID: namespaceID,
+                previousSchemaVersion: nil,
+                currentSchemaVersion: FamilyShareCacheSchema.currentVersion,
+                didMigrate: false,
+                requiresRebuild: true,
+                quarantined: true
+            )
+        }
+
+        guard let current else {
             return FamilyShareCacheMigrationResult(
                 namespaceID: namespaceID,
                 previousSchemaVersion: nil,
@@ -447,13 +592,18 @@ final class FamilyShareCacheMigrationCoordinator: FamilyShareCacheMigrating {
         }
 
         guard let projectionPayload = current.projectionPayload else {
+            try seedQuarantinedState(
+                namespaceID: namespaceID,
+                ownerDisplayName: current.ownerDisplayName,
+                reason: "The shared cache needs to be rebuilt before it can be trusted."
+            )
             return FamilyShareCacheMigrationResult(
                 namespaceID: namespaceID,
                 previousSchemaVersion: nil,
                 currentSchemaVersion: FamilyShareCacheSchema.currentVersion,
                 didMigrate: false,
                 requiresRebuild: true,
-                quarantined: false
+                quarantined: true
             )
         }
 
@@ -461,16 +611,42 @@ final class FamilyShareCacheMigrationCoordinator: FamilyShareCacheMigrating {
         let currentVersion = FamilyShareCacheSchema.currentVersion
 
         if previousVersion > currentVersion {
-            throw FamilyShareCacheMigrationError.unsupportedFutureSchemaVersion(
-                current: currentVersion,
-                required: previousVersion
+            registry.purge(namespaceID: namespaceID)
+            try seedQuarantinedState(
+                namespaceID: namespaceID,
+                ownerDisplayName: current.ownerDisplayName,
+                reason: FamilyShareCacheMigrationError.unsupportedFutureSchemaVersion(
+                    current: currentVersion,
+                    required: previousVersion
+                ).localizedDescription
+            )
+            return FamilyShareCacheMigrationResult(
+                namespaceID: namespaceID,
+                previousSchemaVersion: previousVersion,
+                currentSchemaVersion: currentVersion,
+                didMigrate: false,
+                requiresRebuild: true,
+                quarantined: true
             )
         }
 
         if previousVersion < FamilyShareCacheSchema.supportedVersions.lowerBound {
-            throw FamilyShareCacheMigrationError.unsupportedHistoricalSchemaVersion(
-                current: FamilyShareCacheSchema.supportedVersions.lowerBound,
-                required: previousVersion
+            registry.purge(namespaceID: namespaceID)
+            try seedQuarantinedState(
+                namespaceID: namespaceID,
+                ownerDisplayName: current.ownerDisplayName,
+                reason: FamilyShareCacheMigrationError.unsupportedHistoricalSchemaVersion(
+                    current: FamilyShareCacheSchema.supportedVersions.lowerBound,
+                    required: previousVersion
+                ).localizedDescription
+            )
+            return FamilyShareCacheMigrationResult(
+                namespaceID: namespaceID,
+                previousSchemaVersion: previousVersion,
+                currentSchemaVersion: currentVersion,
+                didMigrate: false,
+                requiresRebuild: true,
+                quarantined: true
             )
         }
 
@@ -501,6 +677,42 @@ final class FamilyShareCacheMigrationCoordinator: FamilyShareCacheMigrating {
             didMigrate: false,
             requiresRebuild: false,
             quarantined: false
+        )
+    }
+
+    private func seedQuarantinedState(
+        namespaceID: FamilyShareNamespaceID,
+        ownerDisplayName: String,
+        reason: String
+    ) throws {
+        try registry.seed(
+            FamilyShareSeededNamespaceState(
+                ownerDisplayName: ownerDisplayName,
+                ownerState: FamilyShareOwnerViewState(
+                    namespaceID: namespaceID,
+                    lifecycleState: .shareFailed,
+                    participantCount: 0,
+                    pendingParticipantCount: 0,
+                    activeParticipantCount: 0,
+                    revokedParticipantCount: 0,
+                    failedParticipantCount: 1,
+                    summaryCopy: "The shared cache needs to be rebuilt before it can be trusted.",
+                    primaryActionCopy: "Manage Participants"
+                ),
+                inviteeState: FamilyShareInviteeViewState(
+                    namespaceID: namespaceID,
+                    ownerDisplayName: ownerDisplayName,
+                    lifecycleState: .temporarilyUnavailable,
+                    goalCount: 0,
+                    lastUpdatedAt: nil,
+                    asOfCopy: nil,
+                    titleCopy: "Shared Goals",
+                    messageCopy: reason,
+                    primaryActionCopy: "Retry",
+                    isReadOnly: true
+                ),
+                projectionPayload: nil
+            )
         )
     }
 }
@@ -601,6 +813,9 @@ final class FamilyShareOwnerIdentityStore {
     }
 
     func namespaceID(for snapshot: FamilyShareInvitationMetadataSnapshot) -> FamilyShareNamespaceID {
+        if let parsed = snapshot.rootRecordLookupCandidates.compactMap(FamilyShareNamespaceID.init(recordLocator:)).first {
+            return parsed
+        }
         let ownerID = sanitize(snapshot.rootRecordName ?? snapshot.ownerDisplayName)
         let shareID = sanitize(snapshot.hierarchicalRootRecordName ?? snapshot.shareURLString ?? snapshot.ownerDisplayName)
         return FamilyShareNamespaceID(ownerID: ownerID, shareID: shareID)
@@ -643,6 +858,8 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     private let cloudSync: FamilyShareCloudSyncing?
     private let rollout: FamilyShareRollout
     private let telemetry: FamilyShareTelemetryTracking
+    private let namespaceExecutionHub: FamilyShareNamespaceExecutionHub
+    private var trackedInviteeTelemetryKeys: Set<String> = []
 
     init(
         registry: FamilyShareNamespaceRegistry? = nil,
@@ -683,6 +900,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         self.cloudSync = cloudSync
         self.rollout = rollout
         self.telemetry = telemetry
+        self.namespaceExecutionHub = FamilyShareNamespaceExecutionHub()
         self.ownerNamespaceID = resolvedIdentityStore.ownerNamespaceID()
         self.ownerState = FamilyShareOwnerViewState(
             namespaceID: resolvedIdentityStore.ownerNamespaceID(),
@@ -705,7 +923,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         guard rollout.isEnabled() else {
             inviteeStates = []
             sharedSections = []
-            ownerState = defaultOwnerState()
+            ownerState = defaultOwnerState(for: ownerNamespaceID)
             ownerParticipants = []
             return
         }
@@ -713,7 +931,27 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             let namespaceIDs = registry.allNamespaceIDs()
             for namespaceID in namespaceIDs {
                 do {
-                    _ = try await cacheMigrationCoordinator.ensureCompatible(namespaceID: namespaceID)
+                    let migrationResult = try await cacheMigrationCoordinator.ensureCompatible(namespaceID: namespaceID)
+                    if migrationResult.quarantined {
+                        telemetry.track(
+                            .migrationFailed,
+                            payload: [
+                                "namespace": namespaceID.namespaceKey,
+                                "reason": "quarantined",
+                                "requires_rebuild": migrationResult.requiresRebuild ? "true" : "false"
+                            ]
+                        )
+                        try await quarantineNamespace(namespaceID: namespaceID)
+                    } else if migrationResult.requiresRebuild {
+                        telemetry.track(
+                            .rebuildStarted,
+                            payload: ["namespace": namespaceID.namespaceKey]
+                        )
+                        telemetry.track(
+                            .rebuildSucceeded,
+                            payload: ["namespace": namespaceID.namespaceKey]
+                        )
+                    }
                 } catch {
                     telemetry.track(
                         .migrationFailed,
@@ -723,7 +961,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 }
             }
 
-            let storedOwnerState = try await stateProvider.ownerState(for: ownerNamespaceID) ?? defaultOwnerState()
+            let storedOwnerState = try await stateProvider.ownerState(for: ownerNamespaceID) ?? defaultOwnerState(for: ownerNamespaceID)
             var resolvedOwnerState = storedOwnerState
             var resolvedOwnerParticipants = fallbackParticipants(for: storedOwnerState)
             var ownerShareErrorMessage: String?
@@ -752,12 +990,13 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 .filter { $0.namespaceID != ownerNamespaceID }
             sharedSections = try await inviteeStateProvider.sharedOwnerSections()
                 .filter { $0.ownerID != ownerNamespaceID.ownerID || $0.shareID != ownerNamespaceID.shareID }
+            trackInviteeViewTelemetry()
             latestErrorMessage = ownerShareErrorMessage
         } catch {
             latestErrorMessage = error.localizedDescription
             inviteeStates = []
             sharedSections = []
-            ownerState = defaultOwnerState()
+            ownerState = defaultOwnerState(for: ownerNamespaceID)
             ownerParticipants = []
         }
     }
@@ -836,10 +1075,18 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         }
 
         do {
+            telemetry.track(.createStarted, payload: ["namespace": ownerNamespaceID.namespaceKey])
             telemetry.track(.shareRequested, payload: ["goal_count": "\(goals.count)"])
             let payload = try makeProjectionPayload(for: goals)
             _ = try await publishCoordinator.publish(payload)
             guard let cloudSync else {
+                telemetry.track(
+                    .createFailed,
+                    payload: [
+                        "namespace": ownerNamespaceID.namespaceKey,
+                        "reason": "family sharing cloud sync unavailable"
+                    ]
+                )
                 latestErrorMessage = "Family sharing cloud sync is unavailable."
                 return
             }
@@ -857,8 +1104,19 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 share: prepared.share,
                 container: prepared.container
             )
+            telemetry.track(.createSucceeded, payload: ["namespace": ownerNamespaceID.namespaceKey])
+            if let seededState = try? registry.seededState(for: ownerNamespaceID) {
+                await namespaceExecutionHub.bootstrap(with: seededState)
+            }
             await refreshAllState()
         } catch {
+            telemetry.track(
+                .createFailed,
+                payload: [
+                    "namespace": ownerNamespaceID.namespaceKey,
+                    "reason": (error as NSError).localizedDescription
+                ]
+            )
             latestErrorMessage = error.localizedDescription
         }
     }
@@ -943,7 +1201,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         switch mappedScenario {
         case .ownerNotShared, .ownerSharedActive:
             namespaceID = ownerNamespaceID
-        case .inviteeActive, .inviteeEmpty, .inviteeStale, .inviteeRevoked, .inviteeRemoved, .inviteeUnavailable:
+        case .inviteePending, .inviteeActive, .inviteeMultiOwner, .inviteeEmpty, .inviteeStale, .inviteeRevoked, .inviteeRemoved, .inviteeUnavailable:
             namespaceID = FamilyShareNamespaceID(ownerID: "shared-owner", shareID: "shared-household")
         }
 
@@ -958,12 +1216,14 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
 
     func resetAllNamespaces() async {
         registry.purgeAllNamespaces()
+        await namespaceExecutionHub.reset()
+        trackedInviteeTelemetryKeys.removeAll()
         inviteeStates = []
         sharedSections = []
         pendingCloudSharingRequest = nil
         latestErrorMessage = nil
         lastSeededScenario = nil
-        ownerState = defaultOwnerState()
+        ownerState = defaultOwnerState(for: ownerNamespaceID)
         ownerParticipants = []
     }
 
@@ -1001,45 +1261,85 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
 
                 let seededState = try await cloudSync.fetchAcceptedProjection(from: acceptedSnapshot)
                 try registry.seed(seededState)
+                await namespaceExecutionHub.markAccepted(with: seededState)
+                telemetry.track(.acceptSucceeded, payload: ["namespace": seededState.ownerState.namespaceID.namespaceKey])
                 telemetry.track(.accepted, payload: ["namespace": seededState.ownerState.namespaceID.namespaceKey])
             } else {
                 let namespaceID = identityStore.namespaceID(for: snapshot)
                 if try registry.seededState(for: namespaceID) == nil {
-                    try registry.seed(
-                        FamilyShareSeededNamespaceState(
+                    let seededState = FamilyShareSeededNamespaceState(
+                        ownerDisplayName: snapshot.ownerDisplayName,
+                        ownerState: FamilyShareOwnerViewState(
+                            namespaceID: namespaceID,
+                            lifecycleState: .sharedActive,
+                            participantCount: 1,
+                            pendingParticipantCount: 0,
+                            activeParticipantCount: 1,
+                            revokedParticipantCount: 0,
+                            failedParticipantCount: 0,
+                            summaryCopy: "Shared goal set available for read-only access.",
+                            primaryActionCopy: "Manage Participants"
+                        ),
+                        inviteeState: FamilyShareInviteeViewState(
+                            namespaceID: namespaceID,
                             ownerDisplayName: snapshot.ownerDisplayName,
-                            ownerState: FamilyShareOwnerViewState(
-                                namespaceID: namespaceID,
-                                lifecycleState: .sharedActive,
-                                participantCount: 1,
-                                pendingParticipantCount: 0,
-                                activeParticipantCount: 1,
-                                revokedParticipantCount: 0,
-                                failedParticipantCount: 0,
-                                summaryCopy: "Shared goal set available for read-only access.",
-                                primaryActionCopy: "Manage Participants"
-                            ),
-                            inviteeState: FamilyShareInviteeViewState(
-                                namespaceID: namespaceID,
-                                ownerDisplayName: snapshot.ownerDisplayName,
-                                lifecycleState: .emptySharedDataset,
-                                goalCount: 0,
-                                lastUpdatedAt: Date(),
-                                asOfCopy: Date().formatted(date: .abbreviated, time: .shortened),
-                                titleCopy: "Shared Goals",
-                                messageCopy: "The invitation was accepted. Pull the latest shared goals to populate this section.",
-                                primaryActionCopy: "Retry",
-                                isReadOnly: true
-                            ),
-                            projectionPayload: nil
-                        )
+                            lifecycleState: .emptySharedDataset,
+                            goalCount: 0,
+                            lastUpdatedAt: Date(),
+                            asOfCopy: Date().formatted(date: .abbreviated, time: .shortened),
+                            titleCopy: "Shared Goals",
+                            messageCopy: "The invitation was accepted. Pull the latest shared goals to populate this section.",
+                            primaryActionCopy: "Retry",
+                            isReadOnly: true
+                        ),
+                        projectionPayload: nil
                     )
+                    try registry.seed(seededState)
+                    await namespaceExecutionHub.markAccepted(with: seededState)
+                    telemetry.track(.acceptSucceeded, payload: ["namespace": namespaceID.namespaceKey])
+                    telemetry.track(.accepted, payload: ["namespace": namespaceID.namespaceKey])
                 }
             }
             await refreshAllState()
         } catch {
+            let namespaceID = identityStore.namespaceID(for: (metadata.map { FamilyShareInvitationMetadataSnapshot(metadata: $0) }) ?? snapshot)
+            if (try? registry.seededState(for: namespaceID)) == nil {
+                let failedState = FamilyShareSeededNamespaceState(
+                    ownerDisplayName: snapshot.ownerDisplayName,
+                    ownerState: FamilyShareOwnerViewState(
+                        namespaceID: namespaceID,
+                        lifecycleState: .shareFailed,
+                        participantCount: 0,
+                        pendingParticipantCount: 0,
+                        activeParticipantCount: 0,
+                        revokedParticipantCount: 0,
+                        failedParticipantCount: 1,
+                        summaryCopy: "The invitation was accepted, but shared goals could not be loaded yet.",
+                        primaryActionCopy: "Manage Participants"
+                    ),
+                    inviteeState: FamilyShareInviteeViewState(
+                        namespaceID: namespaceID,
+                        ownerDisplayName: snapshot.ownerDisplayName,
+                        lifecycleState: .temporarilyUnavailable,
+                        goalCount: 0,
+                        lastUpdatedAt: nil,
+                        asOfCopy: nil,
+                        titleCopy: "Shared Goals",
+                        messageCopy: "The invitation was accepted, but the shared goal set is not available yet. Try again in a moment.",
+                        primaryActionCopy: "Retry",
+                        isReadOnly: true
+                    ),
+                    projectionPayload: nil
+                )
+                try? registry.seed(failedState)
+                await namespaceExecutionHub.markFailed(
+                    with: failedState,
+                    reason: error.localizedDescription
+                )
+            }
             telemetry.track(.acceptFailed, payload: ["reason": error.localizedDescription])
             latestErrorMessage = error.localizedDescription
+            await refreshAllState()
         }
     }
 
@@ -1049,10 +1349,69 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             do {
                 let seededState = try await cloudSync.refreshProjection(namespaceID: namespaceID)
                 try registry.seed(seededState)
+                await namespaceExecutionHub.refresh(with: seededState)
                 telemetry.track(.refreshSucceeded, payload: ["namespace": namespaceID.namespaceKey])
+                trackViewEvent(for: seededState.inviteeState)
                 return
             } catch {
                 telemetry.track(.refreshFailed, payload: ["namespace": namespaceID.namespaceKey, "reason": error.localizedDescription])
+                if let current = try await stateProvider.seededState(for: namespaceID) {
+                    let mappedLifecycleState = sharedLifecycleState(forRefreshError: error)
+                    let inviteeState = FamilyShareInviteeViewState(
+                        namespaceID: namespaceID,
+                        ownerDisplayName: current.ownerDisplayName,
+                        lifecycleState: mappedLifecycleState,
+                        goalCount: mappedLifecycleState == .removedOrNoLongerShared ? 0 : (current.projectionPayload?.goals.count ?? current.inviteeState?.goalCount ?? 0),
+                        lastUpdatedAt: current.inviteeState?.lastUpdatedAt,
+                        asOfCopy: current.inviteeState?.asOfCopy,
+                        titleCopy: current.inviteeState?.titleCopy ?? "Shared Goals",
+                        messageCopy: sharedMessageCopy(for: mappedLifecycleState, fallback: current.inviteeState?.messageCopy),
+                        primaryActionCopy: FamilyShareSurfaceState(rawValue: mappedLifecycleState.rawValue)?.primaryActionTitle ?? "Retry",
+                        isReadOnly: true
+                    )
+                    let updatedPayload = mappedLifecycleState == .removedOrNoLongerShared ? nil : current.projectionPayload.map { payload in
+                        FamilyShareProjectionPayload(
+                            namespaceID: payload.namespaceID,
+                            ownerDisplayName: payload.ownerDisplayName,
+                            schemaVersion: payload.schemaVersion,
+                            projectionVersion: payload.projectionVersion,
+                            activeProjectionVersion: payload.activeProjectionVersion,
+                            freshnessStateRawValue: mappedLifecycleState.rawValue,
+                            lifecycleStateRawValue: payload.lifecycleStateRawValue,
+                            publishedAt: payload.publishedAt,
+                            lastReconciledAt: payload.lastReconciledAt,
+                            lastRefreshAttemptAt: Date(),
+                            lastRefreshErrorCode: (error as NSError).domain,
+                            lastRefreshErrorMessage: error.localizedDescription,
+                            summaryTitle: payload.summaryTitle,
+                            summaryCopy: sharedMessageCopy(for: mappedLifecycleState, fallback: payload.summaryCopy),
+                            participantCount: payload.participantCount,
+                            pendingParticipantCount: payload.pendingParticipantCount,
+                            revokedParticipantCount: payload.revokedParticipantCount,
+                            goals: payload.goals,
+                            ownerSections: payload.ownerSections
+                        )
+                    }
+                    try registry.seed(
+                        FamilyShareSeededNamespaceState(
+                            ownerDisplayName: current.ownerDisplayName,
+                            ownerState: current.ownerState,
+                            inviteeState: inviteeState,
+                            projectionPayload: updatedPayload
+                        )
+                    )
+                    await namespaceExecutionHub.markFailed(
+                        with: FamilyShareSeededNamespaceState(
+                            ownerDisplayName: current.ownerDisplayName,
+                            ownerState: current.ownerState,
+                            inviteeState: inviteeState,
+                            projectionPayload: updatedPayload
+                        ),
+                        reason: error.localizedDescription
+                    )
+                    trackViewEvent(for: inviteeState)
+                    return
+                }
             }
         }
         guard let current = try await stateProvider.seededState(for: namespaceID) else { return }
@@ -1112,6 +1471,162 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 projectionPayload: updatedPayload
             )
         )
+        await namespaceExecutionHub.bootstrap(
+            with: FamilyShareSeededNamespaceState(
+                ownerDisplayName: current.ownerDisplayName,
+                ownerState: current.ownerState,
+                inviteeState: inviteeState,
+                projectionPayload: updatedPayload
+            )
+        )
+        trackViewEvent(for: inviteeState)
+    }
+
+    private func sharedLifecycleState(forRefreshError error: Error) -> FamilyShareLifecycleState {
+        if let familyError = error as? FamilyShareCloudKitError, familyError == .rootRecordMissing {
+            return .removedOrNoLongerShared
+        }
+
+        let nsError = error as NSError
+        if nsError.domain == CKError.errorDomain,
+           let code = CKError.Code(rawValue: nsError.code) {
+            switch code {
+            case .unknownItem:
+                return .removedOrNoLongerShared
+            case .permissionFailure, .notAuthenticated:
+                return .revoked
+            default:
+                break
+            }
+        }
+
+        return .temporarilyUnavailable
+    }
+
+    private func sharedMessageCopy(for lifecycleState: FamilyShareLifecycleState, fallback: String?) -> String {
+        switch lifecycleState {
+        case .removedOrNoLongerShared:
+            return "This shared goal set is no longer available."
+        case .revoked:
+            return "Access to this shared goal set was revoked. Ask the owner to share it again."
+        case .temporarilyUnavailable:
+            return "Shared goals are temporarily unavailable. Try again in a moment."
+        case .stale:
+            return "Shared goals may be out of date. Retry to refresh this goal set."
+        case .emptySharedDataset:
+            return "This shared goal set is available, but no goals are visible yet."
+        case .invitePendingAcceptance:
+            return "Finish accepting the invitation to view the shared goal set."
+        case .active:
+            return fallback ?? "Latest shared goal set is available."
+        }
+    }
+
+    private func trackViewEvent(for inviteeState: FamilyShareInviteeViewState?) {
+        guard let inviteeState else { return }
+        let telemetryKey = "\(inviteeState.namespaceID.namespaceKey)|\(inviteeState.lifecycleState.rawValue)"
+        guard trackedInviteeTelemetryKeys.insert(telemetryKey).inserted else { return }
+        switch inviteeState.lifecycleState {
+        case .invitePendingAcceptance:
+            telemetry.track(.invitePendingViewed, payload: ["namespace": inviteeState.namespaceID.namespaceKey])
+        case .active:
+            telemetry.track(.activeViewed, payload: ["namespace": inviteeState.namespaceID.namespaceKey])
+        case .emptySharedDataset:
+            telemetry.track(.emptyViewed, payload: ["namespace": inviteeState.namespaceID.namespaceKey])
+        case .stale:
+            telemetry.track(.refreshStale, payload: ["namespace": inviteeState.namespaceID.namespaceKey])
+        case .temporarilyUnavailable:
+            telemetry.track(.temporarilyUnavailableViewed, payload: ["namespace": inviteeState.namespaceID.namespaceKey])
+        case .revoked:
+            telemetry.track(.revokedViewed, payload: ["namespace": inviteeState.namespaceID.namespaceKey])
+        case .removedOrNoLongerShared:
+            telemetry.track(.removedViewed, payload: ["namespace": inviteeState.namespaceID.namespaceKey])
+        }
+    }
+
+    private func trackInviteeViewTelemetry() {
+        let sectionStates = sharedSections.map { section -> FamilyShareInviteeViewState? in
+            let namespaceID = FamilyShareNamespaceID(ownerID: section.ownerID, shareID: section.shareID)
+            let lifecycleState = FamilyShareLifecycleState(rawValue: section.state.rawValue) ?? .active
+            return FamilyShareInviteeViewState(
+                namespaceID: namespaceID,
+                ownerDisplayName: section.ownerName,
+                lifecycleState: lifecycleState,
+                goalCount: section.goals.count,
+                lastUpdatedAt: section.goals.first?.lastUpdatedAt,
+                asOfCopy: nil,
+                titleCopy: section.state.displayTitle,
+                messageCopy: section.summaryCopy ?? section.state.supportingCopy,
+                primaryActionCopy: section.primaryActionTitle ?? "Retry",
+                isReadOnly: true
+            )
+        }
+        (inviteeStates + sectionStates.compactMap { $0 }).forEach(trackViewEvent(for:))
+    }
+
+    private func quarantineNamespace(namespaceID: FamilyShareNamespaceID) async throws {
+        guard let current = try await stateProvider.seededState(for: namespaceID) else {
+            let quarantinedState = FamilyShareSeededNamespaceState(
+                ownerDisplayName: namespaceID.ownerID,
+                ownerState: FamilyShareOwnerViewState(
+                    namespaceID: namespaceID,
+                    lifecycleState: .shareFailed,
+                    participantCount: 0,
+                    pendingParticipantCount: 0,
+                    activeParticipantCount: 0,
+                    revokedParticipantCount: 0,
+                    failedParticipantCount: 1,
+                    summaryCopy: "Shared goals are temporarily unavailable while the cache is rebuilt.",
+                    primaryActionCopy: "Share with Family"
+                ),
+                inviteeState: FamilyShareInviteeViewState(
+                    namespaceID: namespaceID,
+                    ownerDisplayName: namespaceID.ownerID,
+                    lifecycleState: .temporarilyUnavailable,
+                    goalCount: 0,
+                    lastUpdatedAt: nil,
+                    asOfCopy: nil,
+                    titleCopy: "Shared Goals",
+                    messageCopy: "Shared goals are temporarily unavailable while this namespace is rebuilt.",
+                    primaryActionCopy: "Retry",
+                    isReadOnly: true
+                ),
+                projectionPayload: nil
+            )
+            try registry.seed(quarantinedState)
+            await namespaceExecutionHub.markFailed(with: quarantinedState, reason: "quarantined")
+            return
+        }
+
+        let quarantinedState = FamilyShareSeededNamespaceState(
+            ownerDisplayName: current.ownerDisplayName,
+            ownerState: FamilyShareOwnerViewState(
+                namespaceID: namespaceID,
+                lifecycleState: .shareFailed,
+                participantCount: current.ownerState.participantCount,
+                pendingParticipantCount: current.ownerState.pendingParticipantCount,
+                activeParticipantCount: current.ownerState.activeParticipantCount,
+                revokedParticipantCount: current.ownerState.revokedParticipantCount,
+                failedParticipantCount: current.ownerState.failedParticipantCount + 1,
+                summaryCopy: "Shared goals are temporarily unavailable while the cache is rebuilt.",
+                primaryActionCopy: "Manage Participants"
+            ),
+            inviteeState: FamilyShareInviteeViewState(
+                namespaceID: namespaceID,
+                ownerDisplayName: current.ownerDisplayName,
+                lifecycleState: .temporarilyUnavailable,
+                goalCount: 0,
+                lastUpdatedAt: current.inviteeState?.lastUpdatedAt,
+                asOfCopy: current.inviteeState?.asOfCopy,
+                titleCopy: current.inviteeState?.titleCopy ?? "Shared Goals",
+                messageCopy: "Shared goals are temporarily unavailable while this namespace is rebuilt.",
+                primaryActionCopy: "Retry",
+                isReadOnly: true
+            ),
+            projectionPayload: nil
+        )
+        try registry.seed(quarantinedState)
+        await namespaceExecutionHub.markFailed(with: quarantinedState, reason: "quarantined")
     }
 
     private func makeProjectionPayload(for goals: [Goal]) throws -> FamilyShareProjectionPayload {
@@ -1187,9 +1702,9 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         )
     }
 
-    private func defaultOwnerState() -> FamilyShareOwnerViewState {
+    private func defaultOwnerState(for namespaceID: FamilyShareNamespaceID) -> FamilyShareOwnerViewState {
         FamilyShareOwnerViewState(
-            namespaceID: ownerNamespaceID,
+            namespaceID: namespaceID,
             lifecycleState: .notShared,
             participantCount: 0,
             pendingParticipantCount: 0,

@@ -15,7 +15,9 @@ enum UITestFlags {
     enum FamilyShareScenario: String {
         case ownerNotShared = "owner_not_shared"
         case ownerSharedActive = "owner_shared_active"
+        case inviteePending = "invitee_pending"
         case inviteeActive = "invitee_active"
+        case inviteeMultiOwner = "invitee_multi_owner"
         case inviteeEmpty = "invitee_empty"
         case inviteeStale = "invitee_stale"
         case inviteeRevoked = "invitee_revoked"
