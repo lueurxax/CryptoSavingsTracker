@@ -5,7 +5,8 @@
             "command": "xcrun",
             "args": [
                 "mcpbridge"
-            ]
+            ],
+            "enabled": true
         }
     }
 }

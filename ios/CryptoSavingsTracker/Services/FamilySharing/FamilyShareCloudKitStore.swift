@@ -475,6 +475,7 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
 
     private func goalRecord(for payload: FamilyShareProjectedGoalPayload, rootRecordID: CKRecord.ID) -> CKRecord {
         let record = CKRecord(recordType: RecordType.goal, recordID: Self.goalRecordID(for: payload.namespaceID, goalID: payload.goalID))
+        record.setParent(rootRecordID)
         record[Field.rootReference] = CKRecord.Reference(recordID: rootRecordID, action: .none)
         record[Field.namespaceKey] = payload.namespaceID.namespaceKey as CKRecordValue
         record[Field.ownerID] = payload.ownerID as CKRecordValue
