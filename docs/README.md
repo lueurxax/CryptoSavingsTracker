@@ -50,6 +50,7 @@
 | [GOAL_DASHBOARD.md](GOAL_DASHBOARD.md) | Goal dashboard architecture: scene model, next-action resolver, module contract | Developers |
 | [NAVIGATION_PRESENTATION_CONSISTENCY.md](NAVIGATION_PRESENTATION_CONSISTENCY.md) | Navigation architecture, modal policy (MOD-01...MOD-05), CI enforcement | Developers |
 | [VISUAL_SYSTEM_UNIFICATION.md](VISUAL_SYSTEM_UNIFICATION.md) | Visual token contract, surface/elevation policy, CI gates, release certification | Developers |
+| [FAMILY_SHARING.md](FAMILY_SHARING.md) | Read-only family sharing: CloudKit architecture, invitee surface, permission model, projection publish, reputation redesign | Developers |
 | [USER_GUIDES.md](USER_GUIDES.md) | Testing guide, migration guide, troubleshooting | Developers, QA |
 
 ### Shared Reference Documentation
@@ -497,6 +498,7 @@ let container = try ModelContainer(for:
 | sample-data.md | 2026-01-04 | ✅ Current | Complete |
 
 ### Recent Updates
+- **2026-03-21**: Converted Shared Goals Reputation Redesign proposal to FAMILY_SHARING.md; removed 10 proposal/review/audit files
 - **2026-03-16**: Converted 4 implemented proposals to documentation (Goal Dashboard, Budget Flow Hardening, Commit Dock Scroll Collapse, UI/UX Incremental Improvements); removed 16 proposal/review files
 - **2026-03-04**: Converted implemented Navigation and Visual System proposals to proper documentation
 - **2026-03-02**: Added MONTHLY_PLANNING_BUDGET_HEALTH_WIDGET.md from implemented proposal

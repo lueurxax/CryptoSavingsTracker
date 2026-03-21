@@ -3,7 +3,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | Implemented |
-| Last Updated | 2026-03-18 |
+| Last Updated | 2026-03-21 |
 | Platform | iOS 18+, iPadOS 18+ |
 | Audience | Developers |
 
@@ -301,3 +301,31 @@ All family sharing services registered in `DIContainer`:
 ### UI Tests
 
 `FamilySharingUITests`: end-to-end flows using test seeder scenarios.
+
+---
+
+## Invitee Surface Redesign (2026-03-21)
+
+The shared goals invitee list was redesigned to fix a reputation incident where the original layout was visually broken on iPhone (wrapped badges, device names as owner identity, excessive nested card chrome).
+
+### Design Decisions
+
+1. **Entry treatment**: section title changed from "Shared Goals" to "Shared with You"; legacy green explainer banner removed
+2. **Ownership line**: one stable line per row: `Shared by {ownerName} · Read-only` — replaces decorative circular badge
+3. **Owner identity resolver**: deterministic neutral fallbacks; device names (`iPhone`, `MacBook`) are never shown as primary owner identity. Fallback chain: display name > `Family member {N}` (deterministic index) > `Family member`
+4. **Section structure**: removed nested owner-card wrapper; standard section headers with lighter visual treatment
+5. **Row hierarchy**: strict 4-layer ordering — title, ownership metadata, progress, amount. `currentMonthSummary` hidden from list row by default
+6. **Status separation**: share availability is section-level (banners for stale/unavailable/revoked states); goal lifecycle is row-level (only `Achieved` and `Expired` chips shown by default)
+7. **Cache migration**: legacy cached invitee data rehydrates correctly into the new canonical contract; preview fixtures and UI-test seeds updated to prevent legacy copy/state field rehydration
+
+### Affected Files
+
+| File | Change |
+|------|--------|
+| `Views/FamilySharing/SharedGoalRowView.swift` | Row layout: 4-layer hierarchy, ownership line, chip rules |
+| `Views/FamilySharing/SharedGoalsSectionView.swift` | Section headers, state banners, removed nested card wrapper |
+| `Views/FamilySharing/SharedGoalDetailView.swift` | Aligned detail view with new contract |
+| `Views/FamilySharing/FamilySharingModels.swift` | View models updated for owner identity resolver and new projection contract |
+| `Services/FamilySharing/FamilyShareServices.swift` | Owner identity resolver with blocked-label suppression |
+| `Utilities/FamilySharing/FamilyShareCacheStore.swift` | Cache migration for legacy invitee records |
+| `Views/FamilySharing/SharedGoalsReputationRedesignPreview.swift` | Preview fixtures for all redesign states |
