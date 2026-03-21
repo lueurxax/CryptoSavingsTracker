@@ -17,10 +17,17 @@ Before shipping or promoting the build:
 
 1. `FamilyShareAcceptanceCoordinatorTests` must pass.
 2. `PersistenceMutationServicesTests` must pass.
-3. `FamilySharingUITests` must pass.
+3. Family-sharing redesign UI evidence must pass as deterministic per-test invocations, not as one class-level run:
+   - `testSettingsShowsFamilyAccessBeforeLocalBridgeSync`
+   - `testInviteeScenarioShowsSharedWithYouAndReadOnlyDetail`
+   - `testInviteeScenarioShowsMultiOwnerGroupingAndStickyOwnerHeaders`
+   - `testInviteeScenarioShowsNonActiveStateBannerAndPrimaryAction`
+   - `testInviteeScenarioSuppressesBlockedDeviceOwnerLabels`
+   - `testInviteeScenarioUsesLockedOwnershipLineAndSuppressesHealthyLifecycleChip`
+   - `testScopePreviewKeepsPersistentCTAVisibleAtAccessibilitySize`
 4. Manual smoke on two Apple IDs must confirm:
    - owner can create a share from `Settings -> Family Access`,
-   - invitee can accept and see `Shared Goals`,
+   - invitee can accept and see `Shared with You`,
    - shared detail remains read-only,
    - invitee refresh works after app relaunch,
    - revoke or removal degrades into a reason-specific unavailable state.

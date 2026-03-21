@@ -25,6 +25,11 @@ struct CryptoSavingsTrackerApp: App {
     #endif
 
     init() {
+        if UITestFlags.isEnabled {
+            UserDefaults.standard.set("ui-test-owner", forKey: "familyShare.ownerID")
+            UserDefaults.standard.set("ui-test-household", forKey: "familyShare.shareID")
+            UserDefaults.standard.set("UI Test Owner", forKey: "familyShare.ownerName")
+        }
         // Clean up any cloud-backed store files left by a retired cutover attempt.
         // Must run before any cloud-backed ModelContainer is opened.
         PersistenceController.performDeferredCloudStoreCleanupIfNeeded()
@@ -418,6 +423,9 @@ struct CryptoSavingsTrackerApp: App {
 
             try context.save()
             OnboardingManager.shared.completeOnboarding()
+            UserDefaults.standard.set("ui-test-owner", forKey: "familyShare.ownerID")
+            UserDefaults.standard.set("ui-test-household", forKey: "familyShare.shareID")
+            UserDefaults.standard.set("UI Test Owner", forKey: "familyShare.ownerName")
             await DIContainer.shared.familyShareAcceptanceCoordinator.resetAllNamespaces()
             AppLog.info("UITEST_RESET_DATA cleared all entities", category: .ui)
         } catch {

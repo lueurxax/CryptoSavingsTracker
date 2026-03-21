@@ -369,7 +369,7 @@ final class FamilySharedDatasetCache {
         lastRefreshAttemptAt: Date? = nil,
         lastRefreshErrorCode: String? = nil,
         lastRefreshErrorMessage: String? = nil,
-        summaryTitle: String = "Shared Goals",
+        summaryTitle: String = "Shared with You",
         summaryCopy: String = "",
         participantCount: Int = 0,
         pendingParticipantCount: Int = 0,

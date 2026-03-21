@@ -10,7 +10,9 @@ enum FamilyShareTestScenario: String, CaseIterable, Sendable {
     case ownerSharedActive = "owner_shared_active"
     case inviteePending = "invitee_pending"
     case inviteeActive = "invitee_active"
+    case inviteeBlockedOwner = "invitee_blocked_owner"
     case inviteeMultiOwner = "invitee_multi_owner"
+    case inviteeMultiOwnerUnresolved = "invitee_multi_owner_unresolved"
     case inviteeEmpty = "invitee_empty"
     case inviteeStale = "invitee_stale"
     case inviteeRevoked = "invitee_revoked"
@@ -34,6 +36,16 @@ struct FamilyShareTestSeeder {
                 shareID: namespaceID.shareID + "-secondary"
             )
             try registry.seed(Self.makeSecondaryOwnerSeed(namespaceID: secondaryNamespaceID))
+            return
+        }
+
+        if scenario == .inviteeMultiOwnerUnresolved {
+            try registry.seed(Self.makeBlockedOwnerSeed(namespaceID: namespaceID, rawOwnerDisplayName: "iPhone"))
+            let secondaryNamespaceID = FamilyShareNamespaceID(
+                ownerID: namespaceID.ownerID + "-blocked",
+                shareID: namespaceID.shareID + "-secondary"
+            )
+            try registry.seed(Self.makeBlockedOwnerSeed(namespaceID: secondaryNamespaceID, rawOwnerDisplayName: "iPad"))
             return
         }
 
@@ -87,39 +99,47 @@ struct FamilyShareTestSeeder {
             )
         case .inviteeActive:
             return activeSeed(namespaceID: namespaceID, ownerState: .sharedActive)
+        case .inviteeBlockedOwner:
+            return makeRedesignedBlockedOwnerSeed(namespaceID: namespaceID)
         case .inviteeMultiOwner:
             return activeSeed(namespaceID: namespaceID, ownerState: .sharedActive)
+        case .inviteeMultiOwnerUnresolved:
+            return makeBlockedOwnerSeed(namespaceID: namespaceID, rawOwnerDisplayName: "iPhone")
         case .inviteeEmpty:
-            return activeSeed(namespaceID: namespaceID, ownerState: .sharedActive, goalCount: 0, lifecycleState: .emptySharedDataset, primaryAction: "Retry")
+            return activeSeed(namespaceID: namespaceID, ownerState: .sharedActive, goalCount: 0, lifecycleState: .emptySharedDataset, title: "No shared items yet", primaryAction: "Retry")
         case .inviteeStale:
-            return activeSeed(namespaceID: namespaceID, ownerState: .sharedActive, lifecycleState: .stale, title: "This shared view may be out of date", primaryAction: "Retry Refresh")
+            return activeSeed(namespaceID: namespaceID, ownerState: .sharedActive, lifecycleState: .stale, title: "Shared with You", primaryAction: "Retry Refresh")
         case .inviteeRevoked:
-            return activeSeed(namespaceID: namespaceID, ownerState: .revoked, lifecycleState: .revoked, title: "Access revoked by owner", primaryAction: "Ask owner to re-share")
+            return activeSeed(namespaceID: namespaceID, ownerState: .revoked, lifecycleState: .revoked, title: "Access revoked", primaryAction: "Ask owner to re-share")
         case .inviteeRemoved:
-            return activeSeed(namespaceID: namespaceID, ownerState: .revoked, lifecycleState: .removedOrNoLongerShared, title: "Shared goals no longer available", primaryAction: "Dismiss")
+            return activeSeed(namespaceID: namespaceID, ownerState: .revoked, lifecycleState: .removedOrNoLongerShared, title: "No longer shared", primaryAction: "Dismiss")
         case .inviteeUnavailable:
-            return activeSeed(namespaceID: namespaceID, ownerState: .shareFailed, lifecycleState: .temporarilyUnavailable, title: "Shared goals temporarily unavailable", primaryAction: "Retry")
+            return activeSeed(namespaceID: namespaceID, ownerState: .shareFailed, lifecycleState: .temporarilyUnavailable, title: "Shared with You", primaryAction: "Retry")
         }
     }
 
     private static func activeSeed(
         namespaceID: FamilyShareNamespaceID,
         ownerState: FamilyShareOwnerLifecycleState,
-        goalCount: Int = 2,
+        goalCount: Int = 3,
         lifecycleState: FamilyShareLifecycleState = .active,
-        title: String = "Read-only shared by Family",
-        primaryAction: String = "Retry",
-        ownerDisplayName: String = "Family"
+        title: String = "Shared with You",
+        primaryAction: String = "Refresh",
+        ownerDisplayName: String = "Alex"
     ) -> FamilyShareSeededNamespaceState {
+        let resolvedOwnerDisplayName = normalizedOwnerDisplayName(from: ownerDisplayName)
         let inviteeState = FamilyShareInviteeViewState(
             namespaceID: namespaceID,
-            ownerDisplayName: ownerDisplayName,
+            ownerDisplayName: resolvedOwnerDisplayName,
             lifecycleState: lifecycleState,
             goalCount: goalCount,
             lastUpdatedAt: Date(),
             asOfCopy: "As of \(Date().formatted(date: .abbreviated, time: .shortened))",
             titleCopy: title,
-            messageCopy: lifecycleState == .active ? "Shared goals are read-only." : "This shared dataset needs attention.",
+            messageCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                lifecycleState: lifecycleState,
+                fallback: inviteeMessageCopy(for: lifecycleState)
+            ),
             primaryActionCopy: primaryAction,
             isReadOnly: true
         )
@@ -132,13 +152,13 @@ struct FamilyShareTestSeeder {
             activeParticipantCount: ownerState == .sharedActive ? 1 : 0,
             revokedParticipantCount: ownerState == .revoked ? 1 : 0,
             failedParticipantCount: ownerState == .shareFailed ? 1 : 0,
-            summaryCopy: "Family sharing state seeded for tests.",
+            summaryCopy: ownerState == .sharedActive ? "1 participant has active read-only access." : "Family sharing state seeded for tests.",
             primaryActionCopy: ownerState == .notShared ? "Share with Family" : "Manage Participants"
         )
 
         let payload = goalCount > 0 ? FamilyShareProjectionPayload(
             namespaceID: namespaceID,
-            ownerDisplayName: ownerDisplayName,
+            ownerDisplayName: resolvedOwnerDisplayName,
             schemaVersion: FamilyShareCacheSchema.currentVersion,
             projectionVersion: 1,
             activeProjectionVersion: 1,
@@ -149,17 +169,18 @@ struct FamilyShareTestSeeder {
             lastRefreshAttemptAt: Date(),
             lastRefreshErrorCode: lifecycleState == .temporarilyUnavailable ? "shared_database_unavailable" : nil,
             lastRefreshErrorMessage: lifecycleState == .temporarilyUnavailable ? "Shared goals temporarily unavailable." : nil,
-            summaryTitle: "Shared Goals",
-            summaryCopy: "Read-only shared dataset seeded for tests.",
+            summaryTitle: "Shared with You",
+            summaryCopy: "Read-only shared goals grouped by owner.",
             participantCount: ownerViewState.participantCount,
             pendingParticipantCount: ownerViewState.pendingParticipantCount,
             revokedParticipantCount: ownerViewState.revokedParticipantCount,
             goals: (1...goalCount).map { index in
-                FamilyShareProjectedGoalPayload(
+                let status = redesignedGoalStatus(for: index)
+                return FamilyShareProjectedGoalPayload(
                     id: "\(namespaceID.namespaceKey)-goal-\(index)",
                     namespaceID: namespaceID,
                     ownerID: namespaceID.ownerID,
-                    ownerDisplayName: ownerDisplayName,
+                    ownerDisplayName: resolvedOwnerDisplayName,
                     goalID: "goal-\(index)",
                     goalName: "Shared Goal \(index)",
                     goalEmoji: index == 1 ? "🎯" : "💰",
@@ -168,11 +189,11 @@ struct FamilyShareTestSeeder {
                     currentAmount: Decimal(250 * index),
                     progressRatio: Double(index) / Double(goalCount + 1),
                     deadline: Calendar.current.date(byAdding: .month, value: index, to: Date()) ?? Date(),
-                    goalStatusRawValue: "active",
+                    goalStatusRawValue: status,
                     forecastStateRawValue: "high",
                     freshnessStateRawValue: lifecycleState.rawValue,
                     lastUpdatedAt: Date(),
-                    summaryCopy: "Goal \(index) remains read-only.",
+                    summaryCopy: redesignedGoalSummaryCopy(for: status, index: index),
                     sortIndex: index
                 )
             },
@@ -181,17 +202,17 @@ struct FamilyShareTestSeeder {
                     id: "\(namespaceID.namespaceKey)-section-1",
                     namespaceID: namespaceID,
                     ownerID: namespaceID.ownerID,
-                    ownerDisplayName: ownerDisplayName,
+                    ownerDisplayName: resolvedOwnerDisplayName,
                     goalCount: goalCount,
                     freshnessStateRawValue: lifecycleState.rawValue,
                     sortIndex: 1,
-                    inlineChipCopy: "Shared by \(ownerDisplayName)"
+                    inlineChipCopy: ""
                 )
             ]
         ) : nil
 
         return FamilyShareSeededNamespaceState(
-            ownerDisplayName: ownerDisplayName,
+            ownerDisplayName: resolvedOwnerDisplayName,
             ownerState: ownerViewState,
             inviteeState: inviteeState,
             projectionPayload: payload
@@ -218,7 +239,7 @@ struct FamilyShareTestSeeder {
                 forecastStateRawValue: "on_track",
                 freshnessStateRawValue: FamilyShareLifecycleState.active.rawValue,
                 lastUpdatedAt: .now,
-                summaryCopy: "Vacation Fund remains read-only.",
+                    summaryCopy: redesignedGoalSummaryCopy(for: "active", index: 1),
                 sortIndex: 0
             )
         ]
@@ -243,14 +264,17 @@ struct FamilyShareTestSeeder {
                 goalCount: goals.count,
                 lastUpdatedAt: .now,
                 asOfCopy: "As of \(Date().formatted(date: .abbreviated, time: .shortened))",
-                titleCopy: "Read-only shared by Jordan",
-                messageCopy: "Shared goals are read-only.",
+                titleCopy: FamilyShareOwnerIdentityResolver.inviteeEntryTitle,
+                messageCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                    lifecycleState: .active,
+                    fallback: "Goals are grouped by owner and stay read-only."
+                ),
                 primaryActionCopy: "Refresh",
                 isReadOnly: true
             ),
             projectionPayload: FamilyShareProjectionPayload(
                 namespaceID: namespaceID,
-                ownerDisplayName: ownerDisplayName,
+                ownerDisplayName: FamilyShareOwnerIdentityResolver.resolve(displayName: ownerDisplayName).displayName,
                 schemaVersion: FamilyShareCacheSchema.currentVersion,
                 projectionVersion: 1,
                 activeProjectionVersion: 1,
@@ -261,8 +285,11 @@ struct FamilyShareTestSeeder {
                 lastRefreshAttemptAt: .now,
                 lastRefreshErrorCode: nil,
                 lastRefreshErrorMessage: nil,
-                summaryTitle: "Shared Goals",
-                summaryCopy: "Read-only shared dataset seeded for tests.",
+                summaryTitle: FamilyShareOwnerIdentityResolver.inviteeEntryTitle,
+                summaryCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                    lifecycleState: .active,
+                    fallback: "Read-only shared goals grouped by owner."
+                ),
                 participantCount: 1,
                 pendingParticipantCount: 0,
                 revokedParticipantCount: 0,
@@ -271,15 +298,120 @@ struct FamilyShareTestSeeder {
                     FamilyShareOwnerSectionPayload(
                         id: "\(namespaceID.namespaceKey)-section-1",
                         namespaceID: namespaceID,
-                        ownerID: namespaceID.ownerID,
-                        ownerDisplayName: ownerDisplayName,
+                    ownerID: namespaceID.ownerID,
+                    ownerDisplayName: FamilyShareOwnerIdentityResolver.resolve(displayName: ownerDisplayName).displayName,
                         goalCount: 1,
                         freshnessStateRawValue: FamilyShareLifecycleState.active.rawValue,
                         sortIndex: 1,
-                        inlineChipCopy: "Shared by Jordan"
+                        inlineChipCopy: ""
                     )
                 ]
             )
         )
+    }
+
+    static func normalizedOwnerDisplayName(from rawValue: String) -> String {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let blocked = ["iphone", "ipad", "macbook", "unknown device", "unknown"]
+        if blocked.contains(where: { trimmed.lowercased().contains($0) }) {
+            return "Family member"
+        }
+        return trimmed.isEmpty ? "Family member" : trimmed
+    }
+
+    static func makeRedesignedBlockedOwnerSeed(namespaceID: FamilyShareNamespaceID) -> FamilyShareSeededNamespaceState {
+        let ownerDisplayName = normalizedOwnerDisplayName(from: "iPhone")
+        return redesignedSeed(
+            namespaceID: namespaceID,
+            ownerDisplayName: ownerDisplayName,
+            ownerState: .sharedActive,
+            lifecycleState: .active,
+            title: "Shared with You",
+            primaryAction: "Refresh"
+        )
+    }
+
+    static func makeBlockedOwnerSeed(
+        namespaceID: FamilyShareNamespaceID,
+        rawOwnerDisplayName: String
+    ) -> FamilyShareSeededNamespaceState {
+        redesignedSeed(
+            namespaceID: namespaceID,
+            ownerDisplayName: normalizedOwnerDisplayName(from: rawOwnerDisplayName),
+            ownerState: .sharedActive,
+            lifecycleState: .active,
+            title: "Shared with You",
+            primaryAction: "Refresh"
+        )
+    }
+
+    static func makeRedesignedMixedLifecycleSeed(namespaceID: FamilyShareNamespaceID, ownerDisplayName: String = "Alex") -> FamilyShareSeededNamespaceState {
+        redesignedSeed(
+            namespaceID: namespaceID,
+            ownerDisplayName: ownerDisplayName,
+            ownerState: .sharedActive,
+            lifecycleState: .active,
+            title: "Shared with You",
+            primaryAction: "Refresh"
+        )
+    }
+
+    private static func redesignedSeed(
+        namespaceID: FamilyShareNamespaceID,
+        ownerDisplayName: String,
+        ownerState: FamilyShareOwnerLifecycleState,
+        lifecycleState: FamilyShareLifecycleState,
+        title: String,
+        primaryAction: String
+    ) -> FamilyShareSeededNamespaceState {
+        activeSeed(
+            namespaceID: namespaceID,
+            ownerState: ownerState,
+            goalCount: 3,
+            lifecycleState: lifecycleState,
+            title: title,
+            primaryAction: primaryAction,
+            ownerDisplayName: ownerDisplayName
+        )
+    }
+
+    private static func redesignedGoalStatus(for index: Int) -> String {
+        switch index {
+        case 1: return "active"
+        case 2: return "achieved"
+        default: return "expired"
+        }
+    }
+
+    private static func redesignedGoalSummaryCopy(for status: String, index: Int) -> String {
+        switch status {
+        case "active":
+            return "Goal \(index) is still in progress."
+        case "achieved":
+            return "Goal \(index) was achieved earlier this month."
+        case "expired":
+            return "Goal \(index) expired before full funding."
+        default:
+            return "Goal \(index) remains read-only."
+        }
+    }
+
+    private static func inviteeMessageCopy(for lifecycleState: FamilyShareLifecycleState) -> String {
+        switch lifecycleState {
+        case .active:
+            return "Goals are grouped by owner and stay read-only."
+        case .invitePendingAcceptance:
+            return "The invitation is waiting for acceptance."
+        case .emptySharedDataset:
+            return "No shared items are visible yet."
+        case .stale:
+            return "The shared cache may be out of date."
+        case .temporarilyUnavailable:
+            return "This shared dataset is temporarily unavailable right now."
+        case .revoked:
+            return "Access was removed by the owner."
+        case .removedOrNoLongerShared:
+            return "This shared dataset is no longer available."
+        }
     }
 }

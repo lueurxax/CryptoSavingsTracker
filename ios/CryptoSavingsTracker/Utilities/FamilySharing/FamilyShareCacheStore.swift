@@ -170,6 +170,7 @@ final class FamilyShareNamespaceRegistry {
         let namespaceID = seededState.ownerState.namespaceID
         let store = try store(for: namespaceID)
         let context = store.mainContext
+        let canonicalProjection = seededState.canonicalInviteeProjection
 
         let existingRoots = try context.fetch(FetchDescriptor<FamilySharedDatasetCache>(predicate: #Predicate {
             $0.namespaceKey == namespaceID.namespaceKey
@@ -187,7 +188,7 @@ final class FamilyShareNamespaceRegistry {
 
         let root = FamilySharedDatasetCache(
             namespaceID: namespaceID,
-            ownerDisplayName: seededState.ownerDisplayName,
+            ownerDisplayName: FamilyShareOwnerIdentityResolver.resolve(displayName: seededState.ownerDisplayName).displayName,
             schemaVersion: seededState.projectionPayload?.schemaVersion ?? FamilyShareCacheSchema.currentVersion,
             projectionVersion: seededState.projectionPayload?.projectionVersion ?? 1,
             activeProjectionVersion: seededState.projectionPayload?.activeProjectionVersion ?? 1,
@@ -198,47 +199,45 @@ final class FamilyShareNamespaceRegistry {
             lastRefreshAttemptAt: seededState.projectionPayload?.lastRefreshAttemptAt,
             lastRefreshErrorCode: seededState.projectionPayload?.lastRefreshErrorCode,
             lastRefreshErrorMessage: seededState.projectionPayload?.lastRefreshErrorMessage,
-            summaryTitle: seededState.projectionPayload?.summaryTitle ?? "Shared Goals",
-            summaryCopy: seededState.projectionPayload?.summaryCopy ?? seededState.ownerState.summaryCopy,
+            summaryTitle: canonicalProjection.entryTitle,
+            summaryCopy: canonicalProjection.entrySummary,
             participantCount: seededState.ownerState.participantCount,
             pendingParticipantCount: seededState.ownerState.pendingParticipantCount,
             revokedParticipantCount: seededState.ownerState.revokedParticipantCount
         )
         context.insert(root)
 
-        if let payload = seededState.projectionPayload {
-            for goal in payload.goals {
+        for (sectionIndex, section) in canonicalProjection.sections.enumerated() {
+            for (goalIndex, goal) in section.goals.enumerated() {
                 context.insert(FamilySharedGoalCache(
                     namespaceID: namespaceID,
-                    ownerDisplayName: goal.ownerDisplayName,
-                    goalID: goal.goalID,
+                    ownerDisplayName: goal.ownerIdentity.displayName,
+                    goalID: goal.id,
                     goalName: goal.goalName,
-                    goalEmoji: goal.goalEmoji,
+                    goalEmoji: goal.emoji,
                     currency: goal.currency,
-                    targetAmount: goal.targetAmount,
-                    currentAmount: goal.currentAmount,
-                    progressRatio: goal.progressRatio,
+                    targetAmount: Decimal(goal.targetAmount),
+                    currentAmount: Decimal(goal.currentAmount),
+                    progressRatio: goal.progress,
                     deadline: goal.deadline,
-                    goalStatusRawValue: goal.goalStatusRawValue,
-                    forecastStateRawValue: goal.forecastStateRawValue,
-                    freshnessStateRawValue: goal.freshnessStateRawValue,
+                    goalStatusRawValue: goal.lifecycleState.rawValue,
+                    forecastStateRawValue: nil,
+                    freshnessStateRawValue: goal.shareState.rawValue,
                     lastUpdatedAt: goal.lastUpdatedAt,
-                    summaryCopy: goal.summaryCopy,
-                    sortIndex: goal.sortIndex
+                    summaryCopy: goal.detailSummary ?? goal.amountSummary,
+                    sortIndex: goalIndex
                 ))
             }
 
-            for section in payload.ownerSections {
-                context.insert(FamilySharedOwnerSectionCache(
-                    namespaceID: namespaceID,
-                    ownerDisplayName: section.ownerDisplayName,
-                    goalCount: section.goalCount,
-                    freshnessStateRawValue: section.freshnessStateRawValue,
-                    lifecycleStateRawValue: seededState.ownerState.lifecycleState.rawValue,
-                    sortIndex: section.sortIndex,
-                    inlineChipCopy: section.inlineChipCopy
-                ))
-            }
+            context.insert(FamilySharedOwnerSectionCache(
+                namespaceID: namespaceID,
+                ownerDisplayName: section.ownerIdentity.displayName,
+                goalCount: section.goals.count,
+                freshnessStateRawValue: section.state.rawValue,
+                lifecycleStateRawValue: seededState.ownerState.lifecycleState.rawValue,
+                sortIndex: sectionIndex,
+                inlineChipCopy: section.ownerIdentity.displayName
+            ))
         }
 
         try context.save()
@@ -256,6 +255,7 @@ final class FamilyShareNamespaceRegistry {
             $0.namespaceKey == namespaceID.namespaceKey
         })).first
         guard let root else { return nil }
+        let ownerIdentity = FamilyShareOwnerIdentityResolver.resolve(displayName: root.ownerDisplayName)
 
         let goals = try context.fetch(FetchDescriptor<FamilySharedGoalCache>(predicate: #Predicate {
             $0.namespaceKey == namespaceID.namespaceKey
@@ -266,7 +266,7 @@ final class FamilyShareNamespaceRegistry {
 
         let projectionPayload = root.projectionVersion > 0 ? FamilyShareProjectionPayload(
             namespaceID: namespaceID,
-            ownerDisplayName: root.ownerDisplayName,
+            ownerDisplayName: ownerIdentity.displayName,
             schemaVersion: root.schemaVersion,
             projectionVersion: root.projectionVersion,
             activeProjectionVersion: root.activeProjectionVersion,
@@ -277,17 +277,24 @@ final class FamilyShareNamespaceRegistry {
             lastRefreshAttemptAt: root.lastRefreshAttemptAt,
             lastRefreshErrorCode: root.lastRefreshErrorCode,
             lastRefreshErrorMessage: root.lastRefreshErrorMessage,
-            summaryTitle: root.summaryTitle,
-            summaryCopy: root.summaryCopy,
+            summaryTitle: FamilyShareOwnerIdentityResolver.canonicalInviteeTitle(
+                lifecycleState: FamilyShareLifecycleState(rawValue: root.freshnessStateRawValue) ?? .active,
+                fallback: root.summaryTitle
+            ),
+            summaryCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                lifecycleState: FamilyShareLifecycleState(rawValue: root.freshnessStateRawValue) ?? .active,
+                fallback: root.summaryCopy
+            ),
             participantCount: root.participantCount,
             pendingParticipantCount: root.pendingParticipantCount,
             revokedParticipantCount: root.revokedParticipantCount,
             goals: goals.sorted(by: { $0.sortIndex < $1.sortIndex }).map { cache in
-                FamilyShareProjectedGoalPayload(
+                let resolvedOwnerIdentity = FamilyShareOwnerIdentityResolver.resolve(displayName: cache.ownerDisplayName)
+                return FamilyShareProjectedGoalPayload(
                     id: cache.cacheKey,
                     namespaceID: namespaceID,
                     ownerID: cache.ownerID,
-                    ownerDisplayName: cache.ownerDisplayName,
+                    ownerDisplayName: resolvedOwnerIdentity.displayName,
                     goalID: cache.goalID,
                     goalName: cache.goalName,
                     goalEmoji: cache.goalEmoji,
@@ -300,20 +307,25 @@ final class FamilyShareNamespaceRegistry {
                     forecastStateRawValue: cache.forecastStateRawValue,
                     freshnessStateRawValue: cache.freshnessStateRawValue,
                     lastUpdatedAt: cache.lastUpdatedAt,
-                    summaryCopy: cache.summaryCopy,
+                    summaryCopy: FamilyShareOwnerIdentityResolver.canonicalGoalContributionSummary(
+                        currency: cache.currency,
+                        currentAmount: NSDecimalNumber(decimal: cache.currentAmount).doubleValue,
+                        targetAmount: NSDecimalNumber(decimal: cache.targetAmount).doubleValue
+                    ),
                     sortIndex: cache.sortIndex
                 )
             },
             ownerSections: sections.sorted(by: { $0.sortIndex < $1.sortIndex }).map { cache in
-                FamilyShareOwnerSectionPayload(
+                let resolvedOwnerIdentity = FamilyShareOwnerIdentityResolver.resolve(displayName: cache.ownerDisplayName)
+                return FamilyShareOwnerSectionPayload(
                     id: cache.cacheKey,
                     namespaceID: namespaceID,
                     ownerID: cache.ownerID,
-                    ownerDisplayName: cache.ownerDisplayName,
+                    ownerDisplayName: resolvedOwnerIdentity.displayName,
                     goalCount: cache.goalCount,
                     freshnessStateRawValue: cache.freshnessStateRawValue,
                     sortIndex: cache.sortIndex,
-                    inlineChipCopy: cache.inlineChipCopy
+                    inlineChipCopy: resolvedOwnerIdentity.displayName
                 )
             }
         ) : nil
@@ -339,13 +351,19 @@ final class FamilyShareNamespaceRegistry {
 
         let inviteeState = FamilyShareInviteeViewState(
             namespaceID: namespaceID,
-            ownerDisplayName: root.ownerDisplayName,
+            ownerDisplayName: ownerIdentity.displayName,
             lifecycleState: lifecycleState,
             goalCount: goals.count,
             lastUpdatedAt: root.lastReconciledAt ?? root.publishedAt,
             asOfCopy: root.publishedAt.map { "As of \($0.formatted(date: .abbreviated, time: .shortened))" },
-            titleCopy: root.summaryTitle,
-            messageCopy: root.summaryCopy,
+            titleCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeTitle(
+                lifecycleState: lifecycleState,
+                fallback: root.summaryTitle
+            ),
+            messageCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                lifecycleState: lifecycleState,
+                fallback: root.summaryCopy
+            ),
             primaryActionCopy: primaryActionCopy,
             isReadOnly: true
         )
@@ -358,12 +376,15 @@ final class FamilyShareNamespaceRegistry {
             activeParticipantCount: max(0, root.participantCount - root.pendingParticipantCount - root.revokedParticipantCount),
             revokedParticipantCount: root.revokedParticipantCount,
             failedParticipantCount: 0,
-            summaryCopy: root.summaryCopy,
+            summaryCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                lifecycleState: lifecycleState,
+                fallback: root.summaryCopy
+            ),
             primaryActionCopy: root.lifecycleStateRawValue == FamilyShareOwnerLifecycleState.notShared.rawValue ? "Share with Family" : "Manage Participants"
         )
 
         return FamilyShareSeededNamespaceState(
-            ownerDisplayName: root.ownerDisplayName,
+            ownerDisplayName: ownerIdentity.displayName,
             ownerState: ownerState,
             inviteeState: inviteeState,
             projectionPayload: projectionPayload
@@ -403,6 +424,10 @@ final class FamilyShareNamespaceRegistry {
     }
 
     private func evictIfNeeded(beforeAdding namespaceID: FamilyShareNamespaceID) {
+        if factory.descriptor(for: namespaceID).isStoredInMemoryOnly || stores.values.contains(where: { $0.descriptor.isStoredInMemoryOnly }) {
+            return
+        }
+
         guard stores.count >= maximumOpenStores else { return }
         let evictionCandidates = accessOrder
             .filter { $0.key != namespaceID }

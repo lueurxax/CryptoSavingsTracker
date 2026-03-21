@@ -416,7 +416,9 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         goals: [CKRecord],
         namespaceID: FamilyShareNamespaceID
     ) throws -> FamilyShareProjectionPayload {
-        let ownerDisplayName = rootRecord[Field.ownerDisplayName] as? String ?? "Shared Family"
+        let ownerDisplayName = rootRecord[Field.ownerDisplayName] as? String ?? FamilyShareOwnerIdentityResolver.inviteeFallbackOwnerLabel
+        let freshnessStateRawValue = rootRecord[Field.freshnessState] as? String ?? FamilyShareLifecycleState.active.rawValue
+        let lifecycleState = FamilyShareLifecycleState(rawValue: freshnessStateRawValue) ?? .active
         let goalPayloads = try goals.map { record in
             FamilyShareProjectedGoalPayload(
                 id: record.recordID.recordName,
@@ -447,15 +449,21 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
             schemaVersion: Int(rootRecord[Field.schemaVersion] as? Int64 ?? 1),
             projectionVersion: Int(rootRecord[Field.projectionVersion] as? Int64 ?? 1),
             activeProjectionVersion: Int(rootRecord[Field.activeProjectionVersion] as? Int64 ?? 1),
-            freshnessStateRawValue: rootRecord[Field.freshnessState] as? String ?? FamilyShareLifecycleState.active.rawValue,
+            freshnessStateRawValue: freshnessStateRawValue,
             lifecycleStateRawValue: rootRecord[Field.lifecycleState] as? String ?? FamilyShareOwnerLifecycleState.sharedActive.rawValue,
             publishedAt: rootRecord[Field.publishedAt] as? Date,
             lastReconciledAt: rootRecord[Field.lastReconciledAt] as? Date,
             lastRefreshAttemptAt: rootRecord[Field.lastRefreshAttemptAt] as? Date,
             lastRefreshErrorCode: rootRecord[Field.lastRefreshErrorCode] as? String,
             lastRefreshErrorMessage: rootRecord[Field.lastRefreshErrorMessage] as? String,
-            summaryTitle: rootRecord[Field.summaryTitle] as? String ?? "Shared Goals",
-            summaryCopy: rootRecord[Field.summaryCopy] as? String ?? "Shared goals are read-only.",
+            summaryTitle: FamilyShareOwnerIdentityResolver.canonicalInviteeTitle(
+                lifecycleState: lifecycleState,
+                fallback: rootRecord[Field.summaryTitle] as? String
+            ),
+            summaryCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                lifecycleState: lifecycleState,
+                fallback: rootRecord[Field.summaryCopy] as? String
+            ),
             participantCount: Int(rootRecord[Field.participantCount] as? Int64 ?? 0),
             pendingParticipantCount: Int(rootRecord[Field.pendingParticipantCount] as? Int64 ?? 0),
             revokedParticipantCount: Int(rootRecord[Field.revokedParticipantCount] as? Int64 ?? 0),
@@ -467,9 +475,9 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
                     ownerID: namespaceID.ownerID,
                     ownerDisplayName: ownerDisplayName,
                     goalCount: goalPayloads.count,
-                    freshnessStateRawValue: rootRecord[Field.freshnessState] as? String ?? FamilyShareLifecycleState.active.rawValue,
+                    freshnessStateRawValue: freshnessStateRawValue,
                     sortIndex: 0,
-                    inlineChipCopy: "Shared by \(ownerDisplayName)"
+                    inlineChipCopy: ""
                 )
             ]
         )

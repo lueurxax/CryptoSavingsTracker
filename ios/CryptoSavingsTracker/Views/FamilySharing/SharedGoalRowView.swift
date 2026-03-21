@@ -6,10 +6,10 @@
 import SwiftUI
 
 struct SharedGoalRowView: View {
-    let goal: FamilySharedGoalSummary
+    let goal: FamilyShareInviteeGoalProjection
     let onTap: (() -> Void)?
 
-    init(goal: FamilySharedGoalSummary, onTap: (() -> Void)? = nil) {
+    init(goal: FamilyShareInviteeGoalProjection, onTap: (() -> Void)? = nil) {
         self.goal = goal
         self.onTap = onTap
     }
@@ -31,41 +31,54 @@ struct SharedGoalRowView: View {
         HStack(alignment: .top, spacing: 14) {
             goalIcon
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 8) {
                     Text(goal.goalName)
                         .font(.headline)
                         .foregroundStyle(.primary)
                         .lineLimit(2)
+                        .minimumScaleFactor(0.9)
 
                     Spacer(minLength: 0)
 
-                    FamilySharingStatusChip(
-                        text: goal.state.displayTitle,
-                        systemImage: goal.state.systemImage,
-                        tint: goal.state.tint
-                    )
+                    if let rowLifecycleChipTitle = goal.lifecycleState.defaultRowChipTitle {
+                        FamilySharingStatusChip(
+                            text: rowLifecycleChipTitle,
+                            systemImage: lifecycleSystemImage,
+                            tint: goal.lifecycleState.tint
+                        )
+                        .fixedSize(horizontal: true, vertical: false)
+                    }
                 }
 
-                HStack(spacing: 10) {
-                    Text(goal.ownerChip)
-                    Text("•")
-                    Text(goal.currentMonthSummary)
-                }
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
+                Text(goal.ownershipLine)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .minimumScaleFactor(0.85)
 
                 ProgressView(value: goal.progress)
-                    .tint(goal.state.tint)
+                    .tint(goal.lifecycleState.tint)
 
-                HStack {
-                    Text(goal.formattedCurrent)
-                    Spacer(minLength: 8)
-                    Text("of")
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 8)
-                    Text(goal.formattedTarget)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        Text(goal.formattedCurrent)
+                        Spacer(minLength: 8)
+                        Text("of")
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 8)
+                        Text(goal.formattedTarget)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(goal.formattedCurrent)
+                        HStack(spacing: 4) {
+                            Text("of")
+                                .foregroundStyle(.secondary)
+                            Text(goal.formattedTarget)
+                        }
+                    }
                 }
                 .font(.subheadline)
                 .foregroundStyle(.primary)
@@ -91,7 +104,7 @@ struct SharedGoalRowView: View {
     private var goalIcon: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 14)
-                .fill(goal.state.tint.opacity(0.12))
+                .fill(goal.lifecycleState.tint.opacity(0.12))
                 .frame(width: 48, height: 48)
 
             Text(goal.emoji ?? "🎯")
@@ -99,18 +112,34 @@ struct SharedGoalRowView: View {
         }
     }
 
+    private var lifecycleSystemImage: String {
+        switch goal.lifecycleState {
+        case .current: return "clock.arrow.circlepath"
+        case .onTrack: return "checkmark.circle"
+        case .justStarted: return "sparkles"
+        case .achieved: return "checkmark.circle.fill"
+        case .expired: return "calendar.badge.exclamationmark"
+        }
+    }
+
     private var accessibilityLabel: Text {
-        Text(goal.goalName)
+        var label = Text(goal.goalName)
             + Text(", ")
-            + Text(goal.ownerChip)
+            + Text(goal.ownershipLine)
+
+        if let rowLifecycleChipTitle = goal.lifecycleState.defaultRowChipTitle {
+            label = label + Text(", ") + Text(rowLifecycleChipTitle)
+        }
+
+        label = label
             + Text(", ")
-            + Text(goal.state.displayTitle)
-            + Text(", ")
-            + Text(goal.currentMonthSummary)
+            + Text("\(goal.formattedCurrent) of \(goal.formattedTarget)")
+
+        return label
     }
 }
 
-private extension FamilySharedGoalSummary {
+private extension FamilyShareInviteeGoalProjection {
     var uiTestIdentifier: String {
         id.replacingOccurrences(of: "|", with: "-")
     }

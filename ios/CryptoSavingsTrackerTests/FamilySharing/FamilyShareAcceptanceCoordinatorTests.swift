@@ -5,6 +5,7 @@
 
 import XCTest
 import CloudKit
+import SwiftData
 @testable import CryptoSavingsTracker
 
 @MainActor
@@ -122,9 +123,83 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
         await coordinator.seedUITestScenario(.inviteeMultiOwner)
 
         XCTAssertEqual(coordinator.sharedSections.count, 2)
-        XCTAssertEqual(coordinator.sharedSections.map(\.ownerName), ["Family", "Jordan"])
-        XCTAssertEqual(coordinator.sharedSections.first?.goals.count, 2)
+        XCTAssertEqual(coordinator.sharedSections.map(\.ownerIdentity.displayName), ["Alex", "Jordan"])
+        XCTAssertEqual(coordinator.sharedSections.first?.goals.count, 3)
         XCTAssertEqual(coordinator.sharedSections.last?.goals.count, 1)
+    }
+
+    func testSeedUnresolvedMultiOwnerScenarioDisambiguatesFallbackSectionHeaders() async {
+        let coordinator = makeCoordinator()
+
+        await coordinator.seedUITestScenario(.inviteeMultiOwnerUnresolved)
+
+        XCTAssertEqual(coordinator.sharedSections.count, 2)
+        XCTAssertEqual(coordinator.sharedSections.map(\.ownerIdentity.displayName), ["Family member 1", "Family member 2"])
+        XCTAssertTrue(coordinator.sharedSections.allSatisfy(\.ownerIdentity.isFallback))
+        XCTAssertEqual(coordinator.sharedSections.flatMap(\.goals).map(\.ownershipLine), Array(repeating: "Shared by family member · Read-only", count: 6))
+    }
+
+    func testRedesignedInviteeActiveFixtureUsesCanonicalSharedWithYouCopy() {
+        let namespaceID = FamilyShareNamespaceID(ownerID: "owner", shareID: "share")
+        let seed = FamilyShareTestSeeder.makeRedesignedMixedLifecycleSeed(namespaceID: namespaceID)
+
+        XCTAssertEqual(seed.inviteeState?.titleCopy, "Shared with You")
+        XCTAssertEqual(seed.inviteeState?.messageCopy, "Goals are grouped by owner and stay read-only.")
+        XCTAssertEqual(seed.projectionPayload?.summaryTitle, "Shared with You")
+        XCTAssertEqual(seed.projectionPayload?.summaryCopy, "Read-only shared goals grouped by owner.")
+        XCTAssertEqual(seed.projectionPayload?.goals.map(\.goalStatusRawValue), ["active", "achieved", "expired"])
+        XCTAssertEqual(seed.projectionPayload?.goals.map(\.summaryCopy), [
+            "Goal 1 is still in progress.",
+            "Goal 2 was achieved earlier this month.",
+            "Goal 3 expired before full funding."
+        ])
+        XCTAssertEqual(seed.projectionPayload?.ownerSections.first?.inlineChipCopy, "")
+        XCTAssertFalse((seed.projectionPayload?.summaryTitle ?? "").contains("Shared Goals"))
+    }
+
+    func testBlockedOwnerLabelIsNormalizedBeforeFixtureEmission() {
+        let namespaceID = FamilyShareNamespaceID(ownerID: "owner", shareID: "share")
+        let normalized = FamilyShareTestSeeder.normalizedOwnerDisplayName(from: "iPhone")
+        let seed = FamilyShareTestSeeder.makeSeed(for: .inviteeBlockedOwner, namespaceID: namespaceID)
+        let projection = seed.canonicalInviteeProjection
+
+        XCTAssertEqual(normalized, "Family member")
+        XCTAssertEqual(seed.ownerDisplayName, "Family member")
+        XCTAssertEqual(seed.inviteeState?.ownerDisplayName, "Family member")
+        XCTAssertEqual(seed.projectionPayload?.ownerDisplayName, "Family member")
+        XCTAssertEqual(projection.sections.first?.goals.first?.ownershipLine, "Shared by family member · Read-only")
+        XCTAssertFalse((seed.projectionPayload?.summaryTitle ?? "").contains("Shared Goals"))
+    }
+
+    func testRedesignedInviteeProjectionKeepsListAndDetailOwnerIdentityInSync() {
+        let namespaceID = FamilyShareNamespaceID(ownerID: "owner", shareID: "share")
+        let seed = FamilyShareTestSeeder.makeRedesignedMixedLifecycleSeed(namespaceID: namespaceID, ownerDisplayName: "Alex")
+        let projection = seed.canonicalInviteeProjection
+
+        XCTAssertEqual(seed.inviteeState?.ownerDisplayName, seed.projectionPayload?.ownerDisplayName)
+        XCTAssertTrue(seed.projectionPayload?.goals.allSatisfy { $0.ownerDisplayName == "Alex" } == true)
+        XCTAssertTrue(seed.projectionPayload?.ownerSections.allSatisfy { $0.ownerDisplayName == "Alex" } == true)
+        XCTAssertEqual(seed.inviteeState?.titleCopy, "Shared with You")
+        XCTAssertEqual(seed.projectionPayload?.summaryTitle, "Shared with You")
+        XCTAssertEqual(projection.sections.first?.ownerIdentity.displayName, "Alex")
+        XCTAssertEqual(projection.sections.first?.goals.first?.ownerIdentity.displayName, "Alex")
+        XCTAssertEqual(projection.sections.first?.goals.first?.ownershipLine, "Shared by Alex · Read-only")
+    }
+
+    func testStaleFixturePreservesRowLifecycleWhenSectionIsUnhealthy() {
+        let namespaceID = FamilyShareNamespaceID(ownerID: "owner", shareID: "share")
+        let seed = FamilyShareTestSeeder.makeSeed(for: .inviteeStale, namespaceID: namespaceID)
+
+        XCTAssertEqual(seed.inviteeState?.titleCopy, "Shared with You")
+        XCTAssertEqual(seed.inviteeState?.primaryActionCopy, "Retry Refresh")
+        XCTAssertEqual(seed.inviteeState?.messageCopy, "The shared cache may be out of date.")
+        XCTAssertEqual(seed.projectionPayload?.goals.map(\.goalStatusRawValue), ["active", "achieved", "expired"])
+        XCTAssertTrue(seed.projectionPayload?.goals.contains(where: { $0.summaryCopy.contains("achieved") }) == true)
+        XCTAssertTrue(seed.projectionPayload?.goals.contains(where: { $0.summaryCopy.contains("expired") }) == true)
+        let projection = seed.canonicalInviteeProjection
+        XCTAssertEqual(projection.sections.first?.state, .stale)
+        XCTAssertEqual(projection.sections.first?.goals.map(\.lifecycleState.displayTitle), ["Current", "Achieved", "Expired"])
+        XCTAssertEqual(projection.sections.first?.goals.map(\.lifecycleState.defaultRowChipTitle), [nil, "Achieved", "Expired"])
     }
 
     func testResetAllNamespacesClearsPublishedFamilySharingState() async {
@@ -172,7 +247,7 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
                     activeParticipantCount: 1,
                     revokedParticipantCount: 0,
                     failedParticipantCount: 0,
-                    summaryCopy: "1 family member has active read-only access.",
+                    summaryCopy: "1 participant has active read-only access.",
                     primaryActionCopy: "Manage Participants"
                 ),
                 participants: [
@@ -263,7 +338,7 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
                 goalCount: 0,
                 lastUpdatedAt: nil,
                 asOfCopy: nil,
-                titleCopy: "Shared Goals",
+                titleCopy: "Shared with You",
                 messageCopy: "Temporarily unavailable.",
                 primaryActionCopy: "Retry",
                 isReadOnly: true
@@ -295,7 +370,7 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
                 activeParticipantCount: 1,
                 revokedParticipantCount: 0,
                 failedParticipantCount: 0,
-                summaryCopy: "Shared.",
+                summaryCopy: "Read-only shared goals grouped by owner.",
                 primaryActionCopy: "Manage Participants"
             ),
             inviteeState: FamilyShareInviteeViewState(
@@ -305,8 +380,8 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
                 goalCount: 1,
                 lastUpdatedAt: Date(),
                 asOfCopy: nil,
-                titleCopy: "Shared Goals",
-                messageCopy: "Shared.",
+                titleCopy: "Shared with You",
+                messageCopy: "Goals are grouped by owner and stay read-only.",
                 primaryActionCopy: "Retry Refresh",
                 isReadOnly: true
             ),
@@ -323,8 +398,8 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
                 lastRefreshAttemptAt: Date(),
                 lastRefreshErrorCode: nil,
                 lastRefreshErrorMessage: nil,
-                summaryTitle: "Shared Goals",
-                summaryCopy: "Shared.",
+                summaryTitle: "Shared with You",
+                summaryCopy: "Read-only shared goals grouped by owner.",
                 participantCount: 1,
                 pendingParticipantCount: 0,
                 revokedParticipantCount: 0,
@@ -339,6 +414,42 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
         XCTAssertTrue(result.quarantined)
         XCTAssertTrue(result.requiresRebuild)
         XCTAssertFalse(result.didMigrate)
+    }
+
+    func testLegacyInviteeCachePayloadIsCanonicalizedOnRehydrate() async throws {
+        let factory = FamilyShareNamespaceStoreFactory(environment: .preview)
+        let registry = FamilyShareNamespaceRegistry(factory: factory)
+        let stateProvider = DefaultFamilyShareStateProvider(registry: registry)
+
+        let primaryNamespaceID = FamilyShareNamespaceID(ownerID: "legacy-owner-a", shareID: "legacy-share-a")
+        let secondaryNamespaceID = FamilyShareNamespaceID(ownerID: "legacy-owner-b", shareID: "legacy-share-b")
+
+        try seedLegacyInviteeCache(
+            registry: registry,
+            namespaceID: primaryNamespaceID,
+            rawOwnerDisplayName: "iPhone"
+        )
+        try seedLegacyInviteeCache(
+            registry: registry,
+            namespaceID: secondaryNamespaceID,
+            rawOwnerDisplayName: "iPad"
+        )
+
+        let primarySeed = try XCTUnwrap(registry.seededState(for: primaryNamespaceID))
+        XCTAssertEqual(primarySeed.ownerDisplayName, "Family member")
+        XCTAssertEqual(primarySeed.inviteeState?.titleCopy, "Shared with You")
+        XCTAssertEqual(primarySeed.inviteeState?.ownerDisplayName, "Family member")
+        XCTAssertEqual(primarySeed.projectionPayload?.summaryTitle, "Shared with You")
+        XCTAssertEqual(primarySeed.projectionPayload?.summaryCopy, "Goals are grouped by owner and stay read-only.")
+        XCTAssertEqual(primarySeed.projectionPayload?.ownerSections.first?.ownerDisplayName, "Family member")
+        XCTAssertEqual(primarySeed.projectionPayload?.goals.first?.ownerDisplayName, "Family member")
+
+        let projection = try await stateProvider.sharedInviteeProjection()
+        XCTAssertEqual(projection.entryTitle, "Shared with You")
+        XCTAssertEqual(projection.sections.map(\.ownerIdentity.displayName), ["Family member 1", "Family member 2"])
+        XCTAssertTrue(
+            projection.sections.flatMap(\.goals).allSatisfy { $0.ownershipLine == "Shared by family member · Read-only" }
+        )
     }
 
     func testRootRecordLocatorStorePersistsSharedZoneLocator() async {
@@ -361,6 +472,72 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
         await store.remove(for: namespaceID)
         let clearedLocator = await store.locator(for: namespaceID)
         XCTAssertNil(clearedLocator)
+    }
+
+    private func seedLegacyInviteeCache(
+        registry: FamilyShareNamespaceRegistry,
+        namespaceID: FamilyShareNamespaceID,
+        rawOwnerDisplayName: String
+    ) throws {
+        let store = try registry.store(for: namespaceID)
+        let context = store.mainContext
+
+        context.insert(
+            FamilySharedDatasetCache(
+                namespaceID: namespaceID,
+                ownerDisplayName: rawOwnerDisplayName,
+                schemaVersion: FamilyShareCacheSchema.currentVersion,
+                projectionVersion: 1,
+                activeProjectionVersion: 1,
+                freshnessStateRawValue: FamilyShareLifecycleState.active.rawValue,
+                lifecycleStateRawValue: FamilyShareOwnerLifecycleState.sharedActive.rawValue,
+                publishedAt: Date(),
+                lastReconciledAt: Date(),
+                lastRefreshAttemptAt: Date(),
+                lastRefreshErrorCode: nil,
+                lastRefreshErrorMessage: nil,
+                summaryTitle: "Shared Goals",
+                summaryCopy: "Shared goals are read-only.",
+                participantCount: 1,
+                pendingParticipantCount: 0,
+                revokedParticipantCount: 0
+            )
+        )
+
+        context.insert(
+            FamilySharedGoalCache(
+                namespaceID: namespaceID,
+                ownerDisplayName: rawOwnerDisplayName,
+                goalID: "legacy-goal-\(namespaceID.shareID)",
+                goalName: "Legacy shared goal",
+                goalEmoji: "🎯",
+                currency: "EUR",
+                targetAmount: 500,
+                currentAmount: 200,
+                progressRatio: 0.4,
+                deadline: Date(),
+                goalStatusRawValue: "active",
+                forecastStateRawValue: "on_track",
+                freshnessStateRawValue: FamilyShareLifecycleState.active.rawValue,
+                lastUpdatedAt: Date(),
+                summaryCopy: "Shared by family",
+                sortIndex: 0
+            )
+        )
+
+        context.insert(
+            FamilySharedOwnerSectionCache(
+                namespaceID: namespaceID,
+                ownerDisplayName: rawOwnerDisplayName,
+                goalCount: 1,
+                freshnessStateRawValue: FamilyShareLifecycleState.active.rawValue,
+                lifecycleStateRawValue: FamilyShareOwnerLifecycleState.sharedActive.rawValue,
+                sortIndex: 0,
+                inlineChipCopy: "Shared by family"
+            )
+        )
+
+        try context.save()
     }
 }
 

@@ -122,7 +122,7 @@ struct GoalsList: View {
     @State private var showingAddGoal = false
     @State private var showingSettings = false
     @State private var editingGoal: Goal?
-    @State private var selectedSharedGoal: FamilySharedGoalSummary?
+    @State private var selectedSharedGoal: FamilyShareInviteeGoalProjection?
     @State private var monthlyPlanningViewModel: MonthlyPlanningViewModel?
     @State private var refreshTrigger = UUID()
     @Environment(\.modelContext) private var modelContext
@@ -141,18 +141,16 @@ struct GoalsList: View {
                 .listRowSeparator(.hidden)
             }
 
-            if familyShareEnabled && !familyShareCoordinator.sharedSections.isEmpty {
-                Section("Shared Goals") {
-                    FamilySharingStateBanner(
-                        title: "Shared Goals",
-                        subtitle: "Goals are grouped by owner and stay read-only for invitees.",
-                        systemImage: "person.2.fill",
-                        tint: AccessibleColors.success
-                    )
+            if familyShareEnabled && !familyShareCoordinator.inviteeProjection.sections.isEmpty {
+                Section {
+                    EmptyView()
+                } header: {
+                    Text(familyShareCoordinator.inviteeProjection.entryTitle)
+                        .textCase(nil)
                 }
                 .accessibilityIdentifier("sharedGoalsSection")
 
-                ForEach(familyShareCoordinator.sharedSections) { section in
+                ForEach(familyShareCoordinator.inviteeProjection.sections) { section in
                     Section {
                         SharedGoalsSectionView(
                             section: section,
@@ -172,7 +170,7 @@ struct GoalsList: View {
                         SharedGoalsOwnerHeaderView(section: section)
                     }
                     .textCase(nil)
-                    .accessibilityIdentifier("sharedGoalsOwnerSection-\(section.id)")
+                    .accessibilityIdentifier("sharedGoalsOwnerSection-\(section.namespaceID.namespaceKey.replacingOccurrences(of: "|", with: "-"))")
                 }
             }
 

@@ -143,3 +143,13 @@ tmp-figma-*.png
 *.key
 secrets/
 credentials/
+
+# =============================================================================
+# Local agent/workspace scratch
+# =============================================================================
+
+.massgen/
+workspace*/
+temp_workspaces/
+._*/
+snapshots/

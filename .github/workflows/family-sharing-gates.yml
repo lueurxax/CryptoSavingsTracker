@@ -58,4 +58,40 @@ jobs:
             -scheme CryptoSavingsTrackerUITests \
             -destination 'platform=iOS Simulator,name=iPhone 16' \
             test \
-            -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests
+            -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testSettingsShowsFamilyAccessBeforeLocalBridgeSync
+          xcodebuild \
+            -project ios/CryptoSavingsTracker.xcodeproj \
+            -scheme CryptoSavingsTrackerUITests \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            test \
+            -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioShowsSharedWithYouAndReadOnlyDetail
+          xcodebuild \
+            -project ios/CryptoSavingsTracker.xcodeproj \
+            -scheme CryptoSavingsTrackerUITests \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            test \
+            -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioShowsMultiOwnerGroupingAndStickyOwnerHeaders
+          xcodebuild \
+            -project ios/CryptoSavingsTracker.xcodeproj \
+            -scheme CryptoSavingsTrackerUITests \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            test \
+            -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioShowsNonActiveStateBannerAndPrimaryAction
+          xcodebuild \
+            -project ios/CryptoSavingsTracker.xcodeproj \
+            -scheme CryptoSavingsTrackerUITests \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            test \
+            -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioSuppressesBlockedDeviceOwnerLabels
+          xcodebuild \
+            -project ios/CryptoSavingsTracker.xcodeproj \
+            -scheme CryptoSavingsTrackerUITests \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            test \
+            -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioUsesLockedOwnershipLineAndSuppressesHealthyLifecycleChip
+          xcodebuild \
+            -project ios/CryptoSavingsTracker.xcodeproj \
+            -scheme CryptoSavingsTrackerUITests \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            test \
+            -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testScopePreviewKeepsPersistentCTAVisibleAtAccessibilitySize

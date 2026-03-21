@@ -19,7 +19,7 @@ protocol FamilyShareStateProviding {
 
 protocol FamilyShareInviteeStateProviding {
     func inviteeStates() async throws -> [FamilyShareInviteeViewState]
-    func sharedOwnerSections() async throws -> [FamilyShareOwnerSection]
+    func sharedInviteeProjection() async throws -> FamilyShareInviteeProjection
 }
 
 protocol FamilyShareProjectionPublishing {
@@ -256,54 +256,30 @@ final class DefaultFamilyShareStateProvider: FamilyShareStateProviding, FamilySh
             }
     }
 
-    func sharedOwnerSections() async throws -> [FamilyShareOwnerSection] {
-        try registry
+    func sharedInviteeProjection() async throws -> FamilyShareInviteeProjection {
+        let sections = try registry
             .seededStates()
-            .map { seededState in
-                let namespaceID = seededState.ownerState.namespaceID
-                let inviteeState = seededState.inviteeState
-                let surfaceState = FamilyShareSurfaceState(rawValue: inviteeState?.lifecycleState.rawValue ?? "") ?? .active
-                let goals = seededState.projectionPayload?.goals
-                    .sorted(by: { $0.sortIndex < $1.sortIndex })
-                    .map { payload in
-                        FamilySharedGoalSummary(
-                            id: payload.id,
-                            namespaceID: payload.namespaceID,
-                            ownerName: payload.ownerDisplayName,
-                            goalName: payload.goalName,
-                            emoji: payload.goalEmoji,
-                            currency: payload.currency,
-                            targetAmount: NSDecimalNumber(decimal: payload.targetAmount).doubleValue,
-                            currentAmount: NSDecimalNumber(decimal: payload.currentAmount).doubleValue,
-                            deadline: payload.deadline,
-                            lastUpdatedAt: payload.lastUpdatedAt,
-                            state: FamilyShareSurfaceState(rawValue: payload.freshnessStateRawValue) ?? surfaceState,
-                            contributionSummary: payload.summaryCopy,
-                            currentMonthSummary: payload.goalStatusRawValue
-                        )
-                    } ?? []
-
-                return FamilyShareOwnerSection(
-                    ownerID: namespaceID.ownerID,
-                    shareID: namespaceID.shareID,
-                    ownerName: seededState.ownerDisplayName,
-                    goals: goals,
-                    isCurrentOwner: false,
-                    state: surfaceState,
-                    summaryCopy: inviteeState?.messageCopy ?? seededState.ownerState.summaryCopy,
-                    primaryActionTitle: inviteeState?.primaryActionCopy
-                )
-            }
+            .map(\.canonicalInviteeProjection)
+            .flatMap(\.sections)
             .sorted { lhs, rhs in
-                let ownerSort = lhs.ownerName.localizedCaseInsensitiveCompare(rhs.ownerName)
+                let ownerSort = lhs.ownerIdentity.displayName.localizedCaseInsensitiveCompare(rhs.ownerIdentity.displayName)
                 if ownerSort != .orderedSame {
                     return ownerSort == .orderedAscending
                 }
-                if lhs.ownerID != rhs.ownerID {
-                    return lhs.ownerID < rhs.ownerID
+                if lhs.namespaceID.ownerID != rhs.namespaceID.ownerID {
+                    return lhs.namespaceID.ownerID < rhs.namespaceID.ownerID
                 }
-                return lhs.shareID < rhs.shareID
+                return lhs.namespaceID.shareID < rhs.namespaceID.shareID
             }
+        let disambiguatedSections = FamilyShareOwnerIdentityResolver.disambiguatedSectionOwnerIdentities(for: sections)
+
+        return FamilyShareInviteeProjection(
+            entryTitle: FamilyShareOwnerIdentityResolver.inviteeEntryTitle,
+            entrySummary: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                lifecycleState: .active
+            ),
+            sections: disambiguatedSections
+        )
     }
 }
 
@@ -706,7 +682,7 @@ final class FamilyShareCacheMigrationCoordinator: FamilyShareCacheMigrating {
                     goalCount: 0,
                     lastUpdatedAt: nil,
                     asOfCopy: nil,
-                    titleCopy: "Shared Goals",
+                    titleCopy: FamilyShareOwnerIdentityResolver.inviteeEntryTitle,
                     messageCopy: reason,
                     primaryActionCopy: "Retry",
                     isReadOnly: true
@@ -840,7 +816,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     @Published private(set) var lastSeededScenario: FamilyShareTestScenario?
     @Published private(set) var ownerState: FamilyShareOwnerViewState
     @Published private(set) var ownerParticipants: [FamilyShareParticipantSnapshot] = []
-    @Published private(set) var sharedSections: [FamilyShareOwnerSection] = []
+    @Published private(set) var inviteeProjection: FamilyShareInviteeProjection = .empty
     @Published private(set) var inviteeStates: [FamilyShareInviteeViewState] = []
     @Published var pendingCloudSharingRequest: FamilyShareCloudSharingRequest?
     @Published var latestErrorMessage: String?
@@ -860,6 +836,11 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     private let telemetry: FamilyShareTelemetryTracking
     private let namespaceExecutionHub: FamilyShareNamespaceExecutionHub
     private var trackedInviteeTelemetryKeys: Set<String> = []
+    private var refreshGeneration: Int = 0
+
+    var sharedSections: [FamilyShareInviteeSectionProjection] {
+        inviteeProjection.sections
+    }
 
     init(
         registry: FamilyShareNamespaceRegistry? = nil,
@@ -920,9 +901,13 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     }
 
     func refreshAllState() async {
+        refreshGeneration += 1
+        let generation = refreshGeneration
+
         guard rollout.isEnabled() else {
+            guard generation == refreshGeneration else { return }
             inviteeStates = []
-            sharedSections = []
+            inviteeProjection = .empty
             ownerState = defaultOwnerState(for: ownerNamespaceID)
             ownerParticipants = []
             return
@@ -984,18 +969,26 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 }
             }
 
+            guard generation == refreshGeneration else { return }
             ownerState = resolvedOwnerState
             ownerParticipants = resolvedOwnerParticipants
             inviteeStates = try await inviteeStateProvider.inviteeStates()
                 .filter { $0.namespaceID != ownerNamespaceID }
-            sharedSections = try await inviteeStateProvider.sharedOwnerSections()
-                .filter { $0.ownerID != ownerNamespaceID.ownerID || $0.shareID != ownerNamespaceID.shareID }
+            let projection = try await inviteeStateProvider.sharedInviteeProjection()
+            inviteeProjection = FamilyShareInviteeProjection(
+                entryTitle: projection.entryTitle,
+                entrySummary: projection.entrySummary,
+                sections: projection.sections.filter {
+                    $0.namespaceID.ownerID != ownerNamespaceID.ownerID || $0.namespaceID.shareID != ownerNamespaceID.shareID
+                }
+            )
             trackInviteeViewTelemetry()
             latestErrorMessage = ownerShareErrorMessage
         } catch {
+            guard generation == refreshGeneration else { return }
             latestErrorMessage = error.localizedDescription
             inviteeStates = []
-            sharedSections = []
+            inviteeProjection = .empty
             ownerState = defaultOwnerState(for: ownerNamespaceID)
             ownerParticipants = []
         }
@@ -1003,7 +996,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
 
     func makeFamilyAccessModel(currentGoals: [Goal]) -> FamilyAccessModel {
         let currentOwnerState = ownerState
-        let ownerName = identityStore.ownerDisplayName()
+        let ownerName = normalizedOwnerDisplayName()
         let ownerSection = FamilyShareOwnerSection(
             ownerID: ownerNamespaceID.ownerID,
             shareID: ownerNamespaceID.shareID,
@@ -1093,14 +1086,14 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             let prepared = try await cloudSync.prepareShare(
                 for: FamilyShareCloudSharingPreparationRequest(
                     namespaceID: ownerNamespaceID,
-                    ownerDisplayName: identityStore.ownerDisplayName(),
-                    shareTitle: "\(identityStore.ownerDisplayName())'s Shared Goals"
+                    ownerDisplayName: normalizedOwnerDisplayName(),
+                    shareTitle: "\(normalizedOwnerDisplayName())'s Shared Goals"
                 )
             )
             pendingCloudSharingRequest = FamilyShareCloudSharingRequest(
                 namespaceID: ownerNamespaceID,
-                ownerDisplayName: identityStore.ownerDisplayName(),
-                shareTitle: "\(identityStore.ownerDisplayName())'s Shared Goals",
+                ownerDisplayName: normalizedOwnerDisplayName(),
+                shareTitle: "\(normalizedOwnerDisplayName())'s Shared Goals",
                 share: prepared.share,
                 container: prepared.container
             )
@@ -1139,14 +1132,14 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             let prepared = try await cloudSync.prepareShare(
                 for: FamilyShareCloudSharingPreparationRequest(
                     namespaceID: ownerNamespaceID,
-                    ownerDisplayName: identityStore.ownerDisplayName(),
-                    shareTitle: "\(identityStore.ownerDisplayName())'s Shared Goals"
+                    ownerDisplayName: normalizedOwnerDisplayName(),
+                    shareTitle: "\(normalizedOwnerDisplayName())'s Shared Goals"
                 )
             )
             pendingCloudSharingRequest = FamilyShareCloudSharingRequest(
                 namespaceID: ownerNamespaceID,
-                ownerDisplayName: identityStore.ownerDisplayName(),
-                shareTitle: "\(identityStore.ownerDisplayName())'s Shared Goals",
+                ownerDisplayName: normalizedOwnerDisplayName(),
+                shareTitle: "\(normalizedOwnerDisplayName())'s Shared Goals",
                 share: prepared.share,
                 container: prepared.container
             )
@@ -1164,8 +1157,8 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         }
     }
 
-    func handlePrimaryAction(for section: FamilyShareOwnerSection) async {
-        let namespaceID = FamilyShareNamespaceID(ownerID: section.ownerID, shareID: section.shareID)
+    func handlePrimaryAction(for section: FamilyShareInviteeSectionProjection) async {
+        let namespaceID = section.namespaceID
         do {
             switch section.state {
             case .active, .stale, .temporarilyUnavailable, .emptySharedDataset:
@@ -1201,7 +1194,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         switch mappedScenario {
         case .ownerNotShared, .ownerSharedActive:
             namespaceID = ownerNamespaceID
-        case .inviteePending, .inviteeActive, .inviteeMultiOwner, .inviteeEmpty, .inviteeStale, .inviteeRevoked, .inviteeRemoved, .inviteeUnavailable:
+        case .inviteePending, .inviteeActive, .inviteeBlockedOwner, .inviteeMultiOwner, .inviteeMultiOwnerUnresolved, .inviteeEmpty, .inviteeStale, .inviteeRevoked, .inviteeRemoved, .inviteeUnavailable:
             namespaceID = FamilyShareNamespaceID(ownerID: "shared-owner", shareID: "shared-household")
         }
 
@@ -1219,7 +1212,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         await namespaceExecutionHub.reset()
         trackedInviteeTelemetryKeys.removeAll()
         inviteeStates = []
-        sharedSections = []
+        inviteeProjection = .empty
         pendingCloudSharingRequest = nil
         latestErrorMessage = nil
         lastSeededScenario = nil
@@ -1287,8 +1280,11 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                             goalCount: 0,
                             lastUpdatedAt: Date(),
                             asOfCopy: Date().formatted(date: .abbreviated, time: .shortened),
-                            titleCopy: "Shared Goals",
-                            messageCopy: "The invitation was accepted. Pull the latest shared goals to populate this section.",
+                            titleCopy: FamilyShareOwnerIdentityResolver.inviteeEntryTitle,
+                            messageCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                                lifecycleState: .emptySharedDataset,
+                                fallback: "The invitation was accepted. Pull the latest shared goals to populate this section."
+                            ),
                             primaryActionCopy: "Retry",
                             isReadOnly: true
                         ),
@@ -1317,18 +1313,21 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                         summaryCopy: "The invitation was accepted, but shared goals could not be loaded yet.",
                         primaryActionCopy: "Manage Participants"
                     ),
-                    inviteeState: FamilyShareInviteeViewState(
-                        namespaceID: namespaceID,
-                        ownerDisplayName: snapshot.ownerDisplayName,
-                        lifecycleState: .temporarilyUnavailable,
-                        goalCount: 0,
-                        lastUpdatedAt: nil,
-                        asOfCopy: nil,
-                        titleCopy: "Shared Goals",
-                        messageCopy: "The invitation was accepted, but the shared goal set is not available yet. Try again in a moment.",
-                        primaryActionCopy: "Retry",
-                        isReadOnly: true
-                    ),
+                        inviteeState: FamilyShareInviteeViewState(
+                            namespaceID: namespaceID,
+                            ownerDisplayName: snapshot.ownerDisplayName,
+                            lifecycleState: .temporarilyUnavailable,
+                            goalCount: 0,
+                            lastUpdatedAt: nil,
+                            asOfCopy: nil,
+                            titleCopy: FamilyShareOwnerIdentityResolver.inviteeEntryTitle,
+                            messageCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                                lifecycleState: .temporarilyUnavailable,
+                                fallback: "The invitation was accepted, but the shared goal set is not available yet. Try again in a moment."
+                            ),
+                            primaryActionCopy: "Retry",
+                            isReadOnly: true
+                        ),
                     projectionPayload: nil
                 )
                 try? registry.seed(failedState)
@@ -1364,7 +1363,10 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                         goalCount: mappedLifecycleState == .removedOrNoLongerShared ? 0 : (current.projectionPayload?.goals.count ?? current.inviteeState?.goalCount ?? 0),
                         lastUpdatedAt: current.inviteeState?.lastUpdatedAt,
                         asOfCopy: current.inviteeState?.asOfCopy,
-                        titleCopy: current.inviteeState?.titleCopy ?? "Shared Goals",
+                        titleCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeTitle(
+                            lifecycleState: mappedLifecycleState,
+                            fallback: current.inviteeState?.titleCopy
+                        ),
                         messageCopy: sharedMessageCopy(for: mappedLifecycleState, fallback: current.inviteeState?.messageCopy),
                         primaryActionCopy: FamilyShareSurfaceState(rawValue: mappedLifecycleState.rawValue)?.primaryActionTitle ?? "Retry",
                         isReadOnly: true
@@ -1433,8 +1435,16 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             goalCount: current.projectionPayload?.goals.count ?? current.inviteeState?.goalCount ?? 0,
             lastUpdatedAt: Date(),
             asOfCopy: Date().formatted(date: .abbreviated, time: .shortened),
-            titleCopy: current.inviteeState?.titleCopy ?? "Shared Goals",
-            messageCopy: refreshedState == .active ? "Latest shared goal set is available." : (current.inviteeState?.messageCopy ?? "Shared goals are not ready yet."),
+            titleCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeTitle(
+                lifecycleState: refreshedState,
+                fallback: current.inviteeState?.titleCopy
+            ),
+            messageCopy: refreshedState == .active
+                ? FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                    lifecycleState: .active,
+                    fallback: current.inviteeState?.messageCopy
+                )
+                : (current.inviteeState?.messageCopy ?? "Shared goals are not ready yet."),
             primaryActionCopy: FamilyShareSurfaceState(rawValue: refreshedState.rawValue)?.primaryActionTitle ?? "Retry",
             isReadOnly: true
         )
@@ -1518,7 +1528,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         case .invitePendingAcceptance:
             return "Finish accepting the invitation to view the shared goal set."
         case .active:
-            return fallback ?? "Latest shared goal set is available."
+            return fallback ?? "Goals are grouped by owner and stay read-only."
         }
     }
 
@@ -1545,17 +1555,17 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     }
 
     private func trackInviteeViewTelemetry() {
-        let sectionStates = sharedSections.map { section -> FamilyShareInviteeViewState? in
-            let namespaceID = FamilyShareNamespaceID(ownerID: section.ownerID, shareID: section.shareID)
+        let sectionStates = inviteeProjection.sections.map { section -> FamilyShareInviteeViewState? in
+            let namespaceID = section.namespaceID
             let lifecycleState = FamilyShareLifecycleState(rawValue: section.state.rawValue) ?? .active
             return FamilyShareInviteeViewState(
                 namespaceID: namespaceID,
-                ownerDisplayName: section.ownerName,
+                ownerDisplayName: section.ownerIdentity.displayName,
                 lifecycleState: lifecycleState,
                 goalCount: section.goals.count,
                 lastUpdatedAt: section.goals.first?.lastUpdatedAt,
                 asOfCopy: nil,
-                titleCopy: section.state.displayTitle,
+                titleCopy: inviteeProjection.entryTitle,
                 messageCopy: section.summaryCopy ?? section.state.supportingCopy,
                 primaryActionCopy: section.primaryActionTitle ?? "Retry",
                 isReadOnly: true
@@ -1579,18 +1589,21 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                     summaryCopy: "Shared goals are temporarily unavailable while the cache is rebuilt.",
                     primaryActionCopy: "Share with Family"
                 ),
-                inviteeState: FamilyShareInviteeViewState(
-                    namespaceID: namespaceID,
-                    ownerDisplayName: namespaceID.ownerID,
-                    lifecycleState: .temporarilyUnavailable,
-                    goalCount: 0,
-                    lastUpdatedAt: nil,
-                    asOfCopy: nil,
-                    titleCopy: "Shared Goals",
-                    messageCopy: "Shared goals are temporarily unavailable while this namespace is rebuilt.",
-                    primaryActionCopy: "Retry",
-                    isReadOnly: true
-                ),
+                    inviteeState: FamilyShareInviteeViewState(
+                        namespaceID: namespaceID,
+                        ownerDisplayName: namespaceID.ownerID,
+                        lifecycleState: .temporarilyUnavailable,
+                        goalCount: 0,
+                        lastUpdatedAt: nil,
+                        asOfCopy: nil,
+                        titleCopy: FamilyShareOwnerIdentityResolver.inviteeEntryTitle,
+                        messageCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                            lifecycleState: .temporarilyUnavailable,
+                            fallback: "Shared goals are temporarily unavailable while this namespace is rebuilt."
+                        ),
+                        primaryActionCopy: "Retry",
+                        isReadOnly: true
+                    ),
                 projectionPayload: nil
             )
             try registry.seed(quarantinedState)
@@ -1618,8 +1631,14 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 goalCount: 0,
                 lastUpdatedAt: current.inviteeState?.lastUpdatedAt,
                 asOfCopy: current.inviteeState?.asOfCopy,
-                titleCopy: current.inviteeState?.titleCopy ?? "Shared Goals",
-                messageCopy: "Shared goals are temporarily unavailable while this namespace is rebuilt.",
+                titleCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeTitle(
+                    lifecycleState: .temporarilyUnavailable,
+                    fallback: current.inviteeState?.titleCopy
+                ),
+                messageCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                    lifecycleState: .temporarilyUnavailable,
+                    fallback: "Shared goals are temporarily unavailable while this namespace is rebuilt."
+                ),
                 primaryActionCopy: "Retry",
                 isReadOnly: true
             ),
@@ -1630,7 +1649,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     }
 
     private func makeProjectionPayload(for goals: [Goal]) throws -> FamilyShareProjectionPayload {
-        let ownerName = identityStore.ownerDisplayName()
+        let ownerName = normalizedOwnerDisplayName()
         let sortedGoals = goals.sorted {
             if $0.deadline != $1.deadline {
                 return $0.deadline < $1.deadline
@@ -1661,7 +1680,11 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 forecastStateRawValue: nil,
                 freshnessStateRawValue: FamilyShareLifecycleState.active.rawValue,
                 lastUpdatedAt: goal.lastModifiedDate,
-                summaryCopy: goal.status,
+                summaryCopy: FamilyShareOwnerIdentityResolver.canonicalGoalContributionSummary(
+                    currency: goal.currency,
+                    currentAmount: goal.manualTotal,
+                    targetAmount: goal.targetAmount
+                ),
                 sortIndex: index
             )
         }
@@ -1675,7 +1698,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 goalCount: goalPayloads.count,
                 freshnessStateRawValue: FamilyShareLifecycleState.active.rawValue,
                 sortIndex: 0,
-                inlineChipCopy: "Shared by \(ownerName)"
+                inlineChipCopy: ownerName
             )
         ]
 
@@ -1692,14 +1715,21 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             lastRefreshAttemptAt: publishedAt,
             lastRefreshErrorCode: nil,
             lastRefreshErrorMessage: nil,
-            summaryTitle: "Shared Goals",
-            summaryCopy: "All current goals are shared in read-only mode.",
+            summaryTitle: FamilyShareOwnerIdentityResolver.inviteeEntryTitle,
+            summaryCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                lifecycleState: .active,
+                fallback: "All current goals are shared in read-only mode."
+            ),
             participantCount: participantCount,
             pendingParticipantCount: pendingCount,
             revokedParticipantCount: ownerState.revokedParticipantCount,
             goals: goalPayloads,
             ownerSections: ownerSections
         )
+    }
+
+    private func normalizedOwnerDisplayName() -> String {
+        FamilyShareOwnerIdentityResolver.resolve(displayName: identityStore.ownerDisplayName()).displayName
     }
 
     private func defaultOwnerState(for namespaceID: FamilyShareNamespaceID) -> FamilyShareOwnerViewState {

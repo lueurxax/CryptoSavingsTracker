@@ -65,16 +65,19 @@ struct FamilySharingBadge: View {
     var body: some View {
         Label {
             Text(text)
-                .font(.caption.weight(.semibold))
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
         } icon: {
             Image(systemName: systemImage)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(reduceTransparency ? Color(.secondarySystemBackground) : tint.opacity(0.12))
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background(reduceTransparency ? Color(.secondarySystemBackground) : tint.opacity(0.10))
         .foregroundStyle(tint)
         .clipShape(Capsule())
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(text))
     }
 }
 
@@ -117,17 +120,21 @@ struct FamilySharingSectionHeader: View {
     let title: String
     let subtitle: String?
     let tint: Color
+    var showsAccentIndicator: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 Text(title)
                     .font(.headline)
+                    .lineLimit(1)
                 Spacer(minLength: 0)
-                Rectangle()
-                    .fill(tint.opacity(0.18))
-                    .frame(width: 42, height: 4)
-                    .clipShape(Capsule())
+                if showsAccentIndicator {
+                    Rectangle()
+                        .fill(tint.opacity(0.18))
+                        .frame(width: 42, height: 4)
+                        .clipShape(Capsule())
+                }
             }
 
             if let subtitle {
@@ -137,6 +144,37 @@ struct FamilySharingSectionHeader: View {
             }
         }
         .padding(.horizontal, 4)
+    }
+}
+
+enum FamilyShareIdentityDisplay {
+    private static let blockedOwnerLabels: Set<String> = [
+        "iphone",
+        "this iphone",
+        "ipad",
+        "this ipad",
+        "ipod",
+        "this ipod",
+        "unknown",
+        "unknown device",
+        "device"
+    ]
+
+    static func ownerDisplayName(for rawDisplayName: String) -> String {
+        let normalized = rawDisplayName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let lowered = normalized.lowercased()
+        guard normalized.isEmpty == false else {
+            return "family member"
+        }
+        if blockedOwnerLabels.contains(lowered) || lowered.contains("iphone") || lowered.contains("ipad") || lowered.contains("ipod") {
+            return "family member"
+        }
+        return normalized
+    }
+
+    static func sharedByLine(for rawDisplayName: String) -> String {
+        "Shared by \(ownerDisplayName(for: rawDisplayName))"
     }
 }
 
