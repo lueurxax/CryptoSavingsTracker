@@ -5,6 +5,9 @@ import Testing
 
 @MainActor
 struct PersistenceMutationServicesTests {
+    private final class NotificationCaptureBox: @unchecked Sendable {
+        var userInfo: [AnyHashable: Any]?
+    }
 
     @Test("GoalMutationService inserts and saves detached goal")
     func goalMutationServicePersistsDetachedGoal() async throws {
@@ -179,6 +182,66 @@ struct PersistenceMutationServicesTests {
         #expect(throws: FamilyShareReadOnlyAccessError.self) {
             try service.markPlanCompleted(plan)
         }
+    }
+
+    @Test("PlanningMutationService posts shared-goal change when feasibility updates goal semantics")
+    func planningMutationServicePostsSharedGoalChangeForFeasibilityUpdates() async throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let exchangeRates = MockExchangeRateService()
+        let goal = TestDataFactory.createSampleGoal(name: "Feasibility Goal")
+        context.insert(goal)
+        try context.save()
+
+        let service = PlanningMutationService(
+            modelContext: context,
+            exchangeRateService: exchangeRates,
+            accessGuard: AllowAllFamilyShareAccessGuard()
+        )
+
+        let capture = NotificationCaptureBox()
+        let token = NotificationCenter.default.addObserver(
+            forName: .sharedGoalDataDidChange,
+            object: nil,
+            queue: nil
+        ) { notification in
+            capture.userInfo = notification.userInfo
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
+
+        _ = try service.applyFeasibilitySuggestion(
+            .reduceTarget(goalId: goal.id, goalName: goal.name, to: 3500, currency: goal.currency),
+            goals: [goal]
+        )
+
+        let affectedGoalIDs = capture.userInfo?["affectedGoalIDs"] as? [UUID]
+        #expect(capture.userInfo?["reason"] as? String == "goalMutation")
+        #expect(affectedGoalIDs == [goal.id])
+    }
+
+    @Test("OnboardingMutationService posts shared-goal change after template goal creation")
+    func onboardingMutationServicePostsSharedGoalChange() async throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let service = OnboardingMutationService(modelContext: context)
+
+        let capture = NotificationCaptureBox()
+        let token = NotificationCenter.default.addObserver(
+            forName: .sharedGoalDataDidChange,
+            object: nil,
+            queue: nil
+        ) { notification in
+            capture.userInfo = notification.userInfo
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
+
+        try await service.createGoalFromTemplate(.allTemplates[0], userProfile: UserProfile())
+
+        let goals = try context.fetch(FetchDescriptor<Goal>())
+        let affectedGoalIDs = capture.userInfo?["affectedGoalIDs"] as? [UUID]
+        #expect(goals.count == 1)
+        #expect(capture.userInfo?["reason"] as? String == "goalMutation")
+        #expect(affectedGoalIDs == [goals[0].id])
     }
 }
 

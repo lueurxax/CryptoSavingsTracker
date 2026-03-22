@@ -11,7 +11,7 @@ import SwiftUI
 import Combine
 
 @MainActor
-class DashboardViewModel: ObservableObject {
+class DashboardViewModel: ObservableObject, ErrorAwareViewModel {
     @Published var balanceHistory: [BalanceHistoryPoint] = []
     @Published var assetComposition: [AssetComposition] = []
     @Published var forecastData: [ForecastPoint] = []
@@ -21,13 +21,15 @@ class DashboardViewModel: ObservableObject {
     @Published var daysRemaining: Int = 0
     @Published var dailyTarget: Double = 0
     @Published var streak: Int = 0
-    
+
     // Loading states
     @Published var isLoading: Bool = false
     @Published var balanceHistoryState: ChartLoadingState = .idle
     @Published var assetCompositionState: ChartLoadingState = .idle
     @Published var forecastState: ChartLoadingState = .idle
     @Published var heatmapState: ChartLoadingState = .idle
+    @Published var viewState: ViewState = .idle
+    var lastSuccessfulLoad: Date?
     
     // Computed loading states for backward compatibility
     var isLoadingBalanceHistory: Bool { balanceHistoryState.isLoading }
@@ -64,11 +66,18 @@ class DashboardViewModel: ObservableObject {
         )
     }
     
+    func retry() async {
+        guard let goal = currentGoal else { return }
+        // loadData requires modelContext which we don't store, so we just reset viewState
+        viewState = .idle
+    }
+
     func loadData(for goal: Goal, modelContext: ModelContext) async {
         currentGoal = goal
-        
+
         // Set global loading state
         isLoading = true
+        viewState = .loading
         balanceHistoryState = .loading
         assetCompositionState = .loading
         heatmapState = .loading
@@ -92,6 +101,8 @@ class DashboardViewModel: ObservableObject {
         
         // All loading complete
         isLoading = false
+        lastSuccessfulLoad = Date()
+        viewState = .loaded
     }
     
     private func loadBalanceHistory(for goal: Goal, modelContext: ModelContext) async {

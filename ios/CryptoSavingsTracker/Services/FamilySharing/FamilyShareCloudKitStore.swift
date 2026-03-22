@@ -135,6 +135,11 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         static let lastUpdatedAt = "lastUpdatedAt"
         static let summaryCopyGoal = "goalSummaryCopy"
         static let sortIndex = "sortIndex"
+
+        // Freshness pipeline fields
+        static let rateSnapshotTimestamp = "rateSnapshotTimestamp"
+        static let projectionServerTimestamp = "projectionServerTimestamp"
+        static let contentHash = "contentHash"
     }
 
     private let container: CKContainer
@@ -180,8 +185,18 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
             ]
         )
 
-        try await modify(recordsToSave: [rootRecord] + goalRecords, recordIDsToDelete: recordIDsToDelete, in: database)
+        let savedRecords = try await modifyReturningRecords(recordsToSave: [rootRecord] + goalRecords, recordIDsToDelete: recordIDsToDelete, in: database)
+
+        // Capture CKRecord.modificationDate from the root record for projectionServerTimestamp
+        if let savedRoot = savedRecords.first(where: { $0.recordType == RecordType.root }),
+           let serverDate = savedRoot.modificationDate {
+            lastPublishServerTimestamp = serverDate
+        }
     }
+
+    /// Server-assigned timestamp from the most recent successful publish.
+    /// Used to populate `projectionServerTimestamp` in the published payload.
+    private(set) var lastPublishServerTimestamp: Date?
 
     func prepareShare(for request: FamilyShareCloudSharingPreparationRequest) async throws -> (share: CKShare, container: CKContainer) {
         guard rollout.isEnabled() else {
@@ -479,7 +494,10 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
                     sortIndex: 0,
                     inlineChipCopy: ""
                 )
-            ]
+            ],
+            rateSnapshotTimestamp: rootRecord[Field.rateSnapshotTimestamp] as? Date,
+            projectionServerTimestamp: rootRecord[Field.projectionServerTimestamp] as? Date ?? rootRecord.modificationDate,
+            contentHash: rootRecord[Field.contentHash] as? String
         )
     }
 
@@ -565,6 +583,9 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         record[Field.participantCount] = Int64(payload.participantCount) as CKRecordValue
         record[Field.pendingParticipantCount] = Int64(payload.pendingParticipantCount) as CKRecordValue
         record[Field.revokedParticipantCount] = Int64(payload.revokedParticipantCount) as CKRecordValue
+        record[Field.rateSnapshotTimestamp] = payload.rateSnapshotTimestamp as CKRecordValue?
+        record[Field.projectionServerTimestamp] = payload.projectionServerTimestamp as CKRecordValue?
+        record[Field.contentHash] = payload.contentHash as CKRecordValue?
         return record
     }
 
@@ -594,14 +615,24 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
     }
 
     private func modify(recordsToSave: [CKRecord], recordIDsToDelete: [CKRecord.ID], in database: CKDatabase) async throws {
+        _ = try await modifyReturningRecords(recordsToSave: recordsToSave, recordIDsToDelete: recordIDsToDelete, in: database)
+    }
+
+    /// Modify records and return the saved records (with server-assigned fields like modificationDate).
+    private func modifyReturningRecords(recordsToSave: [CKRecord], recordIDsToDelete: [CKRecord.ID], in database: CKDatabase) async throws -> [CKRecord] {
         try await withCheckedThrowingContinuation { continuation in
             let operation = CKModifyRecordsOperation(recordsToSave: recordsToSave, recordIDsToDelete: recordIDsToDelete)
             operation.savePolicy = .allKeys
             operation.isAtomic = true
+            operation.perRecordSaveBlock = { _, result in
+                // Individual record results handled by perRecordSaveBlock if needed
+            }
             operation.modifyRecordsResultBlock = { result in
                 switch result {
                 case .success:
-                    continuation.resume()
+                    // Return the original records — after successful save, CKModifyRecordsOperation
+                    // updates the in-memory CKRecord objects with server-assigned fields
+                    continuation.resume(returning: recordsToSave)
                 case let .failure(error):
                     continuation.resume(throwing: error)
                 }

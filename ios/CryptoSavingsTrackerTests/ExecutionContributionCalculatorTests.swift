@@ -18,6 +18,7 @@ final class ExecutionContributionCalculatorTests: XCTestCase {
 
         func hasValidConfiguration() -> Bool { true }
         func setOfflineMode(_ offline: Bool) { }
+        func refreshRatesIfStale() async { }
     }
 
     func testRemainingToCloseWithoutConversion() async {

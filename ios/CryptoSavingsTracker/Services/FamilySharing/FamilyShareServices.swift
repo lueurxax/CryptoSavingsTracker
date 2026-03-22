@@ -7,6 +7,7 @@ import Combine
 import Foundation
 import UIKit
 import SwiftData
+import SwiftUI
 #if canImport(CloudKit)
 import CloudKit
 #endif
@@ -57,6 +58,10 @@ struct FamilySharePublicationResult: Codable, Equatable, Sendable {
     let goalCount: Int
     let ownerSectionCount: Int
     let publishedAt: Date
+
+    /// Server-assigned timestamp from CKRecord.modificationDate.
+    /// Used to populate `projectionServerTimestamp` for freshness ordering.
+    let projectionServerTimestamp: Date?
 }
 
 struct FamilyShareProjectionOutboxItem: Identifiable, Equatable, Sendable {
@@ -410,13 +415,17 @@ final class DefaultFamilyShareProjectionPublisher: FamilyShareProjectionPublishi
             throw error
         }
 
+        // Capture server-assigned timestamp from CloudKit after publish
+        let serverTimestamp = (cloudSync as? DefaultFamilyShareCloudKitStore)?.lastPublishServerTimestamp
+
         return FamilySharePublicationResult(
             namespaceID: payload.namespaceID,
             projectionVersion: payload.projectionVersion,
             activeProjectionVersion: payload.activeProjectionVersion,
             goalCount: payload.goals.count,
             ownerSectionCount: payload.ownerSections.count,
-            publishedAt: payload.publishedAt ?? Date()
+            publishedAt: payload.publishedAt ?? Date(),
+            projectionServerTimestamp: serverTimestamp
         )
     }
 }
@@ -627,13 +636,46 @@ final class FamilyShareCacheMigrationCoordinator: FamilyShareCacheMigrating {
         }
 
         if previousVersion < currentVersion {
+            let migratedPayload = projectionPayload.migratedForCurrentFreshnessSchema(
+                currentVersion: currentVersion
+            )
+            let migratedSeed = FamilyShareSeededNamespaceState(
+                ownerDisplayName: current.ownerDisplayName,
+                ownerState: FamilyShareOwnerViewState(
+                    namespaceID: current.ownerState.namespaceID,
+                    lifecycleState: current.ownerState.lifecycleState,
+                    participantCount: current.ownerState.participantCount,
+                    pendingParticipantCount: current.ownerState.pendingParticipantCount,
+                    activeParticipantCount: current.ownerState.activeParticipantCount,
+                    revokedParticipantCount: current.ownerState.revokedParticipantCount,
+                    failedParticipantCount: current.ownerState.failedParticipantCount,
+                    summaryCopy: current.ownerState.summaryCopy,
+                    primaryActionCopy: current.ownerState.primaryActionCopy
+                ),
+                inviteeState: current.inviteeState.map { inviteeState in
+                    FamilyShareInviteeViewState(
+                        namespaceID: inviteeState.namespaceID,
+                        ownerDisplayName: inviteeState.ownerDisplayName,
+                        lifecycleState: inviteeState.lifecycleState,
+                        goalCount: inviteeState.goalCount,
+                        lastUpdatedAt: migratedPayload.lastReconciledAt ?? migratedPayload.publishedAt,
+                        asOfCopy: migratedPayload.publishedAt.map { "As of \($0.formatted(date: .abbreviated, time: .shortened))" },
+                        titleCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeTitle(
+                            lifecycleState: inviteeState.lifecycleState,
+                            fallback: inviteeState.titleCopy
+                        ),
+                        messageCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+                            lifecycleState: inviteeState.lifecycleState,
+                            fallback: inviteeState.messageCopy
+                        ),
+                        primaryActionCopy: inviteeState.primaryActionCopy,
+                        isReadOnly: inviteeState.isReadOnly
+                    )
+                },
+                projectionPayload: migratedPayload
+            )
             try registry.seed(
-                FamilyShareSeededNamespaceState(
-                    ownerDisplayName: current.ownerDisplayName,
-                    ownerState: current.ownerState,
-                    inviteeState: current.inviteeState,
-                    projectionPayload: projectionPayload.updatingSchemaVersion(currentVersion)
-                )
+                migratedSeed
             )
 
             return FamilyShareCacheMigrationResult(
@@ -835,8 +877,18 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     private let rollout: FamilyShareRollout
     private let telemetry: FamilyShareTelemetryTracking
     private let namespaceExecutionHub: FamilyShareNamespaceExecutionHub
+    private let activeGoalsProvider: () throws -> [Goal]
     private var trackedInviteeTelemetryKeys: Set<String> = []
     private var refreshGeneration: Int = 0
+
+    // MARK: - Freshness Pipeline Components
+
+    private let autoRepublishCoordinator: FamilyShareProjectionAutoRepublishCoordinator
+    private let mutationObserver: FamilyShareProjectionMutationObserver
+    private let inviteeRefreshScheduler: FamilyShareInviteeRefreshScheduler
+    private let rateRefreshDriver: FamilyShareForegroundRateRefreshDriver?
+    private let rateDriftEvaluator: FamilyShareRateDriftEvaluator
+    private var freshnessPipelineActive = false
 
     var sharedSections: [FamilyShareInviteeSectionProjection] {
         inviteeProjection.sections
@@ -853,7 +905,8 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         identityStore: FamilyShareOwnerIdentityStore? = nil,
         cloudSync: FamilyShareCloudSyncing? = nil,
         rollout: FamilyShareRollout = .shared,
-        telemetry: FamilyShareTelemetryTracking = FamilyShareTelemetryTracker()
+        telemetry: FamilyShareTelemetryTracking = FamilyShareTelemetryTracker(),
+        activeGoalsProvider: (() throws -> [Goal])? = nil
     ) {
         let resolvedRegistry = registry ?? FamilyShareNamespaceRegistry()
         let resolvedStateProvider = stateProvider ?? DefaultFamilyShareStateProvider(registry: resolvedRegistry)
@@ -882,6 +935,9 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         self.rollout = rollout
         self.telemetry = telemetry
         self.namespaceExecutionHub = FamilyShareNamespaceExecutionHub()
+        self.activeGoalsProvider = activeGoalsProvider ?? {
+            try PersistenceController.shared.activeMainContext.fetch(SwiftDataQueries.activeGoals())
+        }
         self.ownerNamespaceID = resolvedIdentityStore.ownerNamespaceID()
         self.ownerState = FamilyShareOwnerViewState(
             namespaceID: resolvedIdentityStore.ownerNamespaceID(),
@@ -894,10 +950,125 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             summaryCopy: "Share all of your goals with family in read-only mode.",
             primaryActionCopy: "Share with Family"
         )
+
+        // Initialize freshness pipeline components
+        let nsKey = resolvedIdentityStore.ownerNamespaceID().namespaceKey
+        self.autoRepublishCoordinator = FamilyShareProjectionAutoRepublishCoordinator(
+            namespaceKey: nsKey,
+            rollout: rollout
+        )
+        self.mutationObserver = FamilyShareProjectionMutationObserver(rollout: rollout)
+        self.inviteeRefreshScheduler = FamilyShareInviteeRefreshScheduler(rollout: rollout)
+        self.rateDriftEvaluator = FamilyShareRateDriftEvaluator(rollout: rollout)
+
+        // Rate refresh driver needs ExchangeRateService — use DIContainer if available
+        if rollout.isFreshnessPipelineEnabled() {
+            self.rateRefreshDriver = FamilyShareForegroundRateRefreshDriver(
+                exchangeRateService: ExchangeRateService.shared,
+                rollout: rollout
+            )
+        } else {
+            self.rateRefreshDriver = nil
+        }
+
         FamilyShareSceneBridgeHub.shared.acceptanceSink = self
+
         Task { [weak self] in
             await self?.refreshAllState()
+            await self?.startFreshnessPipeline()
         }
+    }
+
+    /// Wire the freshness pipeline into production lifecycle.
+    private func startFreshnessPipeline() async {
+        guard rollout.isFreshnessPipelineEnabled() else { return }
+        freshnessPipelineActive = true
+
+        await configureAutoRepublishCoordinator()
+
+        inviteeRefreshScheduler.setRefreshAction { [weak self] namespaceKey in
+            guard let self else { return .failure(FamilyShareCloudKitError.sharedProjectionMissing) }
+            guard let namespaceID = self.resolveNamespaceID(for: namespaceKey) else {
+                return .failure(FamilyShareCloudKitError.sharedProjectionMissing)
+            }
+            let result = await self.refreshNamespace(namespaceID)
+            await self.refreshAllState()
+            return result
+        }
+
+        // Start mutation observer — routes dirty events to coordinator
+        mutationObserver.start { [weak self] reason in
+            guard let self else { return }
+            Task {
+                await self.autoRepublishCoordinator.markDirty(reason: reason)
+            }
+        }
+
+        // Rehydrate any persisted dirty state from previous launch
+        await autoRepublishCoordinator.rehydrateIfNeeded()
+
+        // Start rate-drift evaluator — listens for rate refresh events and emits dirty events
+        let initialGoals = (try? fetchActiveGoals()) ?? []
+        let initialPublishedAmounts = (try? registry.seededState(for: ownerNamespaceID)?.projectionPayload?.goals.reduce(into: [UUID: Decimal]()) { partialResult, goal in
+            guard let goalID = UUID(uuidString: goal.goalID) else { return }
+            partialResult[goalID] = goal.currentAmount
+        }) ?? [:]
+        await rateDriftEvaluator.start(
+            goalInputs: makeGoalProgressInputs(from: initialGoals),
+            lastPublished: initialPublishedAmounts,
+            handler: { [weak self] reason in
+                guard let self else { return }
+                Task {
+                    await self.autoRepublishCoordinator.markDirty(reason: reason)
+                }
+            }
+        )
+
+        if shouldRunOwnerRateRefreshDriver(for: ownerState) {
+            rateRefreshDriver?.start()
+        } else {
+            rateRefreshDriver?.suspend()
+        }
+    }
+
+    private func configureAutoRepublishCoordinator() async {
+        let payloadBuilder = { [weak self] () async throws -> FamilySharePublishReceipt? in
+            guard let self else { return nil }
+            let goals = try self.fetchActiveGoals()
+            return try await self.publishProjectionImmediately(for: goals)
+        }
+        await autoRepublishCoordinator.setPublishAction(payloadBuilder)
+        await autoRepublishCoordinator.setRemoteChangeDateProvider { [weak self] in
+            guard let self else { return nil }
+            return self.lastKnownOwnerProjectionServerTimestamp()
+        }
+    }
+
+    /// Last known goals passed to shareAllGoals — cached for auto-republish rebuilds.
+    /// Updated by shareAllGoals and by updateSharedGoalsCache when mutations occur.
+    private var lastSharedGoals: [Goal] = []
+
+    /// Fetch active goals for projection rebuild.
+    /// Prefers authoritative SwiftData state; falls back to the in-memory cache only
+    /// if fetching fails unexpectedly.
+    private func fetchActiveGoals() throws -> [Goal] {
+        do {
+            let goals = try activeGoalsProvider()
+            lastSharedGoals = goals
+            return goals
+        } catch {
+            if lastSharedGoals.isEmpty == false {
+                AppLog.warning("Falling back to cached shared goals for projection rebuild: \(error)", category: .ui)
+                return lastSharedGoals
+            }
+            throw error
+        }
+    }
+
+    /// Update the shared goals cache with fresh goal references.
+    /// Called from shareAllGoals and when goals change via mutation observer.
+    func updateSharedGoalsCache(_ goals: [Goal]) {
+        lastSharedGoals = goals
     }
 
     func refreshAllState() async {
@@ -905,12 +1076,11 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         let generation = refreshGeneration
 
         guard rollout.isEnabled() else {
-            guard generation == refreshGeneration else { return }
-            inviteeStates = []
-            inviteeProjection = .empty
-            ownerState = defaultOwnerState(for: ownerNamespaceID)
-            ownerParticipants = []
+            await teardownFreshnessPipelineIfNeeded()
             return
+        }
+        if rollout.isFreshnessPipelineEnabled(), freshnessPipelineActive == false {
+            await startFreshnessPipeline()
         }
         do {
             let namespaceIDs = registry.allNamespaceIDs()
@@ -972,6 +1142,13 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             guard generation == refreshGeneration else { return }
             ownerState = resolvedOwnerState
             ownerParticipants = resolvedOwnerParticipants
+            if rollout.isFreshnessPipelineEnabled() {
+                if shouldRunOwnerRateRefreshDriver(for: resolvedOwnerState) {
+                    rateRefreshDriver?.start()
+                } else {
+                    rateRefreshDriver?.suspend()
+                }
+            }
             inviteeStates = try await inviteeStateProvider.inviteeStates()
                 .filter { $0.namespaceID != ownerNamespaceID }
             let projection = try await inviteeStateProvider.sharedInviteeProjection()
@@ -1067,11 +1244,12 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             return
         }
 
+        // Cache goals for auto-republish rebuilds
+        lastSharedGoals = goals
+
         do {
             telemetry.track(.createStarted, payload: ["namespace": ownerNamespaceID.namespaceKey])
             telemetry.track(.shareRequested, payload: ["goal_count": "\(goals.count)"])
-            let payload = try makeProjectionPayload(for: goals)
-            _ = try await publishCoordinator.publish(payload)
             guard let cloudSync else {
                 telemetry.track(
                     .createFailed,
@@ -1083,6 +1261,10 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 latestErrorMessage = "Family sharing cloud sync is unavailable."
                 return
             }
+
+            await configureAutoRepublishCoordinator()
+            _ = try await autoRepublishCoordinator.publishNow(reason: .participantChange)
+
             let prepared = try await cloudSync.prepareShare(
                 for: FamilyShareCloudSharingPreparationRequest(
                     namespaceID: ownerNamespaceID,
@@ -1148,6 +1330,44 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         }
     }
 
+    func refreshFamilyAccessOwnerData(currentGoals: [Goal]) async {
+        guard rollout.isEnabled() else {
+            latestErrorMessage = FamilyShareCloudKitError.rolloutDisabled.localizedDescription
+            return
+        }
+
+        updateSharedGoalsCache(currentGoals)
+
+        if rollout.isFreshnessPipelineEnabled(),
+           currentGoals.isEmpty == false,
+           shouldRunOwnerRateRefreshDriver(for: ownerState) {
+            do {
+                await configureAutoRepublishCoordinator()
+                _ = try await autoRepublishCoordinator.publishNow(reason: .manualRefresh)
+            } catch {
+                latestErrorMessage = error.localizedDescription
+            }
+        }
+
+        await refreshAllState()
+    }
+
+    func noteOwnerParticipantsDidChange() async {
+        guard rollout.isFreshnessPipelineEnabled() else {
+            await refreshAllState()
+            return
+        }
+
+        do {
+            await configureAutoRepublishCoordinator()
+            _ = try await autoRepublishCoordinator.publishNow(reason: .participantChange)
+        } catch {
+            latestErrorMessage = error.localizedDescription
+        }
+
+        await refreshAllState()
+    }
+
     func revokeOwnerShare() async {
         do {
             try await ownerSharingService.revoke(namespaceID: ownerNamespaceID)
@@ -1159,21 +1379,62 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
 
     func handlePrimaryAction(for section: FamilyShareInviteeSectionProjection) async {
         let namespaceID = section.namespaceID
-        do {
-            switch section.state {
-            case .active, .stale, .temporarilyUnavailable, .emptySharedDataset:
-                try await refreshNamespace(namespaceID)
-            case .invitePendingAcceptance:
-                latestErrorMessage = "Accept the CloudKit invitation from Mail or Messages to finish setup."
-            case .revoked:
-                latestErrorMessage = "The owner needs to share this goal set again."
-            case .removedOrNoLongerShared:
-                registry.purge(namespaceID: namespaceID)
-            }
+        switch section.state {
+        case .active, .stale, .temporarilyUnavailable, .emptySharedDataset:
+            inviteeRefreshScheduler.onManualRefresh(namespaceKey: namespaceID.namespaceKey)
+        case .invitePendingAcceptance:
+            latestErrorMessage = "Accept the CloudKit invitation from Mail or Messages to finish setup."
+        case .revoked:
+            latestErrorMessage = "The owner needs to share this goal set again."
+        case .removedOrNoLongerShared:
+            registry.purge(namespaceID: namespaceID)
             await refreshAllState()
-        } catch {
-            latestErrorMessage = error.localizedDescription
         }
+    }
+
+    func handleScenePhaseChange(_ scenePhase: ScenePhase) {
+        guard rollout.isFreshnessPipelineEnabled() else { return }
+        let isSeededUITestScenario = UITestFlags.familyShareScenario != nil
+
+        switch scenePhase {
+        case .active:
+            if shouldRunOwnerRateRefreshDriver(for: ownerState) {
+                rateRefreshDriver?.start()
+            }
+            if isSeededUITestScenario {
+                return
+            }
+            let inviteeNamespaceKeys = registry
+                .allNamespaceIDs()
+                .filter { $0 != ownerNamespaceID }
+                .map(\.namespaceKey)
+            if inviteeNamespaceKeys.isEmpty {
+                Task { [weak self] in
+                    await self?.refreshAllState()
+                }
+            } else {
+                inviteeRefreshScheduler.onForegroundEntry(namespaceKeys: inviteeNamespaceKeys)
+            }
+        case .background:
+            rateRefreshDriver?.suspend()
+        case .inactive:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    func noteSharedSectionBecameVisible(_ namespaceID: FamilyShareNamespaceID) {
+        guard UITestFlags.familyShareScenario == nil else { return }
+        inviteeRefreshScheduler.onFirstVisibility(namespaceKey: namespaceID.namespaceKey)
+    }
+
+    func freshnessSubstate(for namespaceID: FamilyShareNamespaceID) -> FamilyShareFreshnessSubstate {
+        inviteeRefreshScheduler.substateByNamespace[namespaceID.namespaceKey] ?? .idle
+    }
+
+    func freshnessLastChecked(for namespaceID: FamilyShareNamespaceID) -> Date? {
+        inviteeRefreshScheduler.lastCheckedByNamespace[namespaceID.namespaceKey]
     }
 
     func dismissPendingCloudSharingRequest() {
@@ -1342,19 +1603,155 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         }
     }
 
-    private func refreshNamespace(_ namespaceID: FamilyShareNamespaceID) async throws {
+    private func publishProjectionImmediately(for goals: [Goal]) async throws -> FamilySharePublishReceipt? {
+        let payload = try await makeProjectionPayload(for: goals)
+        if let cachedPayload = try registry.seededState(for: ownerNamespaceID)?.projectionPayload,
+           let incomingHash = payload.contentHash,
+           let cachedHash = cachedPayload.contentHash,
+           incomingHash == cachedHash {
+            telemetry.track(.contentHashDedup, payload: ["namespace": ownerNamespaceID.namespaceKey])
+            await recordPublishedProjection(
+                goals: goals,
+                payload: payload,
+                result: FamilySharePublicationResult(
+                    namespaceID: cachedPayload.namespaceID,
+                    projectionVersion: cachedPayload.projectionVersion,
+                    activeProjectionVersion: cachedPayload.activeProjectionVersion,
+                    goalCount: cachedPayload.goals.count,
+                    ownerSectionCount: cachedPayload.ownerSections.count,
+                    publishedAt: cachedPayload.publishedAt ?? Date(),
+                    projectionServerTimestamp: cachedPayload.projectionServerTimestamp
+                )
+            )
+            return nil
+        }
+        let result = try await publishCoordinator.publish(payload)
+        await recordPublishedProjection(goals: goals, payload: payload, result: result)
+        return FamilySharePublishReceipt(
+            serverTimestamp: result.projectionServerTimestamp ?? result.publishedAt,
+            recordCount: result.goalCount + result.ownerSectionCount + 1
+        )
+    }
+
+    private func recordPublishedProjection(
+        goals: [Goal],
+        payload: FamilyShareProjectionPayload,
+        result: FamilySharePublicationResult
+    ) async {
+        var updatedPayload = payload
+        updatedPayload.projectionServerTimestamp = result.projectionServerTimestamp
+
+        if result.projectionServerTimestamp != nil {
+            try? registry.seed(
+                FamilyShareSeededNamespaceState(
+                    ownerDisplayName: payload.ownerDisplayName,
+                    ownerState: ownerState,
+                    inviteeState: nil,
+                    projectionPayload: updatedPayload
+                )
+            )
+        }
+
+        lastSharedGoals = goals
+        let publishedAmounts: [UUID: Decimal] = Dictionary(uniqueKeysWithValues: updatedPayload.goals.compactMap { projectedGoal in
+            guard let goalID = UUID(uuidString: projectedGoal.goalID) else { return nil }
+            return (goalID, projectedGoal.currentAmount)
+        })
+        await rateDriftEvaluator.updateTrackedGoals(
+            makeGoalProgressInputs(from: goals),
+            lastPublished: publishedAmounts
+        )
+    }
+
+    private func makeGoalProgressInputs(from goals: [Goal]) -> [GoalProgressInput] {
+        goals.map { goal in
+            GoalProgressInput(
+                goalID: goal.id,
+                currency: goal.currency,
+                targetAmount: Decimal(goal.targetAmount),
+                allocations: (goal.allocations ?? []).compactMap { alloc in
+                    guard let asset = alloc.asset else { return nil }
+                    return AllocationInput(
+                        assetCurrency: asset.currency,
+                        allocatedAmount: Decimal(alloc.amountValue)
+                    )
+                }
+            )
+        }
+    }
+
+    private func resolveNamespaceID(for namespaceKey: String) -> FamilyShareNamespaceID? {
+        registry.allNamespaceIDs().first { $0.namespaceKey == namespaceKey }
+    }
+
+    private func shouldRunOwnerRateRefreshDriver(for ownerState: FamilyShareOwnerViewState) -> Bool {
+        switch ownerState.lifecycleState {
+        case .sharedActive, .invitePending:
+            return true
+        case .notShared, .revoked, .shareFailed:
+            return false
+        }
+    }
+
+    private func lastKnownOwnerProjectionServerTimestamp() -> Date? {
+        guard let payload = try? registry.seededState(for: ownerNamespaceID)?.projectionPayload else {
+            return nil
+        }
+        return payload.projectionServerTimestamp ?? payload.publishedAt
+    }
+
+    private func teardownFreshnessPipelineIfNeeded() async {
+        guard freshnessPipelineActive else { return }
+        mutationObserver.teardown()
+        inviteeRefreshScheduler.teardown()
+        await rateDriftEvaluator.teardown()
+        rateRefreshDriver?.teardown()
+        await autoRepublishCoordinator.teardown()
+        freshnessPipelineActive = false
+    }
+
+    private func refreshNamespace(_ namespaceID: FamilyShareNamespaceID) async -> FamilyShareRefreshResult {
         telemetry.track(.refreshRequested, payload: ["namespace": namespaceID.namespaceKey])
         if let cloudSync {
             do {
                 let seededState = try await cloudSync.refreshProjection(namespaceID: namespaceID)
+
+                // Three-phase invitee ordering check (proposal Section 6.8.2)
+                if let incoming = seededState.projectionPayload,
+                   let cached = try? await stateProvider.seededState(for: namespaceID)?.projectionPayload {
+                    // Phase 1: Atomic version check
+                    if incoming.projectionVersion < cached.activeProjectionVersion {
+                        telemetry.track(.refreshSucceeded, payload: ["namespace": namespaceID.namespaceKey, "ordering": "rejected_version"])
+                        return .noNewData // Discard — incomplete publish from old topology
+                    }
+                    // Phase 2: Content dedup — matching hash = no-op
+                    if let incomingHash = incoming.contentHash,
+                       let cachedHash = cached.contentHash,
+                       incomingHash == cachedHash {
+                        telemetry.track(.contentHashDedup, payload: ["namespace": namespaceID.namespaceKey])
+                        return .noNewData // No semantic change
+                    }
+                    // Phase 3: contentHash differs → accept unconditionally (semantic change)
+                    // If contentHash is nil (pre-migration), fall back to projectionServerTimestamp
+                    if incoming.contentHash == nil || cached.contentHash == nil {
+                        if let incomingTs = incoming.projectionServerTimestamp,
+                           let cachedTs = cached.projectionServerTimestamp,
+                           incomingTs <= cachedTs {
+                            telemetry.track(.refreshSucceeded, payload: ["namespace": namespaceID.namespaceKey, "ordering": "rejected_timestamp"])
+                            return .noNewData // Incoming is not newer
+                        }
+                    }
+                    // Accept: contentHash differs or pre-migration fallback passed
+                }
+
                 try registry.seed(seededState)
                 await namespaceExecutionHub.refresh(with: seededState)
                 telemetry.track(.refreshSucceeded, payload: ["namespace": namespaceID.namespaceKey])
                 trackViewEvent(for: seededState.inviteeState)
-                return
+                return .success(updatedProjection: true)
             } catch {
                 telemetry.track(.refreshFailed, payload: ["namespace": namespaceID.namespaceKey, "reason": error.localizedDescription])
-                if let current = try await stateProvider.seededState(for: namespaceID) {
+                if let current = try? await stateProvider.seededState(for: namespaceID) {
                     let mappedLifecycleState = sharedLifecycleState(forRefreshError: error)
                     let inviteeState = FamilyShareInviteeViewState(
                         namespaceID: namespaceID,
@@ -1391,10 +1788,13 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                             pendingParticipantCount: payload.pendingParticipantCount,
                             revokedParticipantCount: payload.revokedParticipantCount,
                             goals: payload.goals,
-                            ownerSections: payload.ownerSections
+                            ownerSections: payload.ownerSections,
+                            rateSnapshotTimestamp: payload.rateSnapshotTimestamp,
+                            projectionServerTimestamp: payload.projectionServerTimestamp,
+                            contentHash: payload.contentHash
                         )
                     }
-                    try registry.seed(
+                    try? registry.seed(
                         FamilyShareSeededNamespaceState(
                             ownerDisplayName: current.ownerDisplayName,
                             ownerState: current.ownerState,
@@ -1412,11 +1812,14 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                         reason: error.localizedDescription
                     )
                     trackViewEvent(for: inviteeState)
-                    return
+                    return .failure(error)
                 }
+                return .failure(error)
             }
         }
-        guard let current = try await stateProvider.seededState(for: namespaceID) else { return }
+        guard let current = try? await stateProvider.seededState(for: namespaceID) else {
+            return .failure(FamilyShareCloudKitError.sharedProjectionMissing)
+        }
         let currentState = current.inviteeState?.lifecycleState ?? .emptySharedDataset
         let refreshedState: FamilyShareLifecycleState
         switch currentState {
@@ -1469,11 +1872,14 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 pendingParticipantCount: payload.pendingParticipantCount,
                 revokedParticipantCount: payload.revokedParticipantCount,
                 goals: payload.goals,
-                ownerSections: payload.ownerSections
+                ownerSections: payload.ownerSections,
+                rateSnapshotTimestamp: payload.rateSnapshotTimestamp,
+                projectionServerTimestamp: payload.projectionServerTimestamp,
+                contentHash: payload.contentHash
             )
         }
 
-        try registry.seed(
+        try? registry.seed(
             FamilyShareSeededNamespaceState(
                 ownerDisplayName: current.ownerDisplayName,
                 ownerState: current.ownerState,
@@ -1490,6 +1896,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             )
         )
         trackViewEvent(for: inviteeState)
+        return .success(updatedProjection: true)
     }
 
     private func sharedLifecycleState(forRefreshError error: Error) -> FamilyShareLifecycleState {
@@ -1648,7 +2055,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         await namespaceExecutionHub.markFailed(with: quarantinedState, reason: "quarantined")
     }
 
-    private func makeProjectionPayload(for goals: [Goal]) throws -> FamilyShareProjectionPayload {
+    private func makeProjectionPayload(for goals: [Goal]) async throws -> FamilyShareProjectionPayload {
         let ownerName = normalizedOwnerDisplayName()
         let sortedGoals = goals.sorted {
             if $0.deadline != $1.deadline {
@@ -1661,9 +2068,62 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         let participantCount = ownerState.participantCount
         let pendingCount = ownerState.pendingParticipantCount
         let publishedAt = Date()
+        let exchangeRateService = ExchangeRateService.shared
+
+        // Build GoalProgressInput value types for the pure calculator
+        let calculator = GoalProgressCalculator()
+        let inputs = sortedGoals.map { goal in
+            GoalProgressInput(
+                goalID: goal.id,
+                currency: goal.currency,
+                targetAmount: Decimal(goal.targetAmount),
+                allocations: (goal.allocations ?? []).compactMap { allocation in
+                    guard let asset = allocation.asset else { return nil }
+                    return AllocationInput(
+                        assetCurrency: asset.currency,
+                        allocatedAmount: Decimal(allocation.amountValue)
+                    )
+                }
+            )
+        }
+
+        // Build rate snapshot from currently cached exchange rates
+        var rateMap: [CurrencyPair: Decimal] = [:]
+        var ratePairs: Set<CurrencyPair> = []
+        for input in inputs {
+            for alloc in input.allocations {
+                let from = alloc.assetCurrency.uppercased()
+                let to = input.currency.uppercased()
+                if from != to {
+                    let pair = CurrencyPair(from: from, to: to)
+                    ratePairs.insert(pair)
+                    if rateMap[pair] == nil {
+                        if let rate = try? await exchangeRateService.fetchRate(from: from, to: to) {
+                            rateMap[pair] = Decimal(rate)
+                        }
+                    }
+                }
+            }
+        }
+        let rateTimestamp = exchangeRateService.rateSnapshotTimestamp(for: ratePairs) ?? publishedAt
+        let rateSnapshot = RateSnapshot(rates: rateMap, timestamp: rateTimestamp)
+        let progressResults = calculator.calculateProgress(for: inputs, rates: rateSnapshot)
 
         let goalPayloads = sortedGoals.enumerated().map { index, goal in
-            FamilyShareProjectedGoalPayload(
+            let result = progressResults[goal.id]
+            // Use calculator result; only fall back to manualTotal when rate conversion fails
+            let currentAmount: Decimal
+            let progressRatio: Double
+            if let calcResult = result, calcResult.currentAmount > 0 || (goal.allocations ?? []).isEmpty {
+                currentAmount = calcResult.currentAmount
+                progressRatio = calcResult.progressRatio
+            } else {
+                // Fallback for goals where all rate conversions failed
+                currentAmount = Decimal(goal.manualTotal)
+                progressRatio = goal.targetAmount > 0 ? min(max(goal.manualTotal / goal.targetAmount, 0), 1) : 0
+            }
+
+            return FamilyShareProjectedGoalPayload(
                 id: "\(ownerNamespaceID.namespaceKey)|\(goal.id.uuidString)",
                 namespaceID: ownerNamespaceID,
                 ownerID: ownerNamespaceID.ownerID,
@@ -1673,8 +2133,8 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 goalEmoji: goal.emoji,
                 currency: goal.currency,
                 targetAmount: Decimal(goal.targetAmount),
-                currentAmount: Decimal(goal.manualTotal),
-                progressRatio: goal.targetAmount > 0 ? min(max(goal.manualTotal / goal.targetAmount, 0), 1) : 0,
+                currentAmount: currentAmount,
+                progressRatio: progressRatio,
                 deadline: goal.deadline,
                 goalStatusRawValue: goal.status,
                 forecastStateRawValue: nil,
@@ -1682,12 +2142,24 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 lastUpdatedAt: goal.lastModifiedDate,
                 summaryCopy: FamilyShareOwnerIdentityResolver.canonicalGoalContributionSummary(
                     currency: goal.currency,
-                    currentAmount: goal.manualTotal,
+                    currentAmount: NSDecimalNumber(decimal: currentAmount).doubleValue,
                     targetAmount: goal.targetAmount
                 ),
                 sortIndex: index
             )
         }
+
+        // Compute contentHash over all invitee-visible state
+        let hasher = FamilyShareContentHasher()
+        let goalData = goalPayloads.map { g in
+            (goalID: UUID(uuidString: g.goalID) ?? UUID(), currentAmount: g.currentAmount, targetAmount: g.targetAmount)
+        }
+        let contentHash = hasher.hash(
+            goalData: goalData,
+            rateSnapshotTimestamp: rateTimestamp,
+            ownerDisplayName: ownerName,
+            participantIDs: ownerParticipants.map { $0.id }
+        )
 
         let ownerSections = [
             FamilyShareOwnerSectionPayload(
@@ -1724,7 +2196,10 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             pendingParticipantCount: pendingCount,
             revokedParticipantCount: ownerState.revokedParticipantCount,
             goals: goalPayloads,
-            ownerSections: ownerSections
+            ownerSections: ownerSections,
+            rateSnapshotTimestamp: rateTimestamp,
+            projectionServerTimestamp: nil, // Set from CKRecord.modificationDate after publish
+            contentHash: contentHash
         )
     }
 
@@ -1914,6 +2389,33 @@ extension FamilyShareInvitationMetadataSnapshot {
 #endif
 
 private extension FamilyShareProjectionPayload {
+    func migratedForCurrentFreshnessSchema(currentVersion: Int) -> FamilyShareProjectionPayload {
+        return FamilyShareProjectionPayload(
+            namespaceID: namespaceID,
+            ownerDisplayName: ownerDisplayName,
+            schemaVersion: currentVersion,
+            projectionVersion: projectionVersion,
+            activeProjectionVersion: activeProjectionVersion,
+            freshnessStateRawValue: freshnessStateRawValue,
+            lifecycleStateRawValue: lifecycleStateRawValue,
+            publishedAt: publishedAt,
+            lastReconciledAt: lastReconciledAt,
+            lastRefreshAttemptAt: lastRefreshAttemptAt,
+            lastRefreshErrorCode: lastRefreshErrorCode,
+            lastRefreshErrorMessage: lastRefreshErrorMessage,
+            summaryTitle: summaryTitle,
+            summaryCopy: summaryCopy,
+            participantCount: participantCount,
+            pendingParticipantCount: pendingParticipantCount,
+            revokedParticipantCount: revokedParticipantCount,
+            goals: goals,
+            ownerSections: ownerSections,
+            rateSnapshotTimestamp: rateSnapshotTimestamp ?? publishedAt,
+            projectionServerTimestamp: projectionServerTimestamp,
+            contentHash: contentHash
+        )
+    }
+
     func updatingSchemaVersion(_ schemaVersion: Int) -> FamilyShareProjectionPayload {
         FamilyShareProjectionPayload(
             namespaceID: namespaceID,
@@ -1934,7 +2436,10 @@ private extension FamilyShareProjectionPayload {
             pendingParticipantCount: pendingParticipantCount,
             revokedParticipantCount: revokedParticipantCount,
             goals: goals,
-            ownerSections: ownerSections
+            ownerSections: ownerSections,
+            rateSnapshotTimestamp: rateSnapshotTimestamp,
+            projectionServerTimestamp: projectionServerTimestamp,
+            contentHash: contentHash
         )
     }
 
@@ -1958,7 +2463,10 @@ private extension FamilyShareProjectionPayload {
             pendingParticipantCount: pendingParticipantCount,
             revokedParticipantCount: revokedParticipantCount,
             goals: goals,
-            ownerSections: ownerSections
+            ownerSections: ownerSections,
+            rateSnapshotTimestamp: rateSnapshotTimestamp,
+            projectionServerTimestamp: projectionServerTimestamp,
+            contentHash: contentHash
         )
     }
 }

@@ -392,6 +392,14 @@ struct FamilyShareInviteeGoalProjection: Identifiable, Hashable, Codable, Sendab
     var lifecycleState: FamilyShareGoalLifecycleState
     var detailSummary: String?
 
+    // MARK: - Freshness Pipeline Fields
+    /// Projection-level publish timestamp used for canonical freshness provenance.
+    var projectionPublishedAt: Date?
+    /// Rate snapshot timestamp from the projection (for Freshness card provenance).
+    var rateSnapshotTimestamp: Date?
+    /// Server-assigned timestamp from CKRecord.modificationDate (canonical freshness source).
+    var projectionServerTimestamp: Date?
+
     var progress: Double {
         guard targetAmount > 0 else { return 0 }
         return min(max(currentAmount / targetAmount, 0), 1)
@@ -426,6 +434,18 @@ struct FamilyShareInviteeSectionProjection: Identifiable, Hashable, Codable, Sen
     var state: FamilyShareSurfaceState
     var summaryCopy: String?
     var primaryActionTitle: String?
+
+    // MARK: - Freshness Pipeline Fields
+
+    /// When the projection was last published by the owner.
+    var publishedAt: Date?
+
+    /// Timestamp of exchange rates used to compute goal amounts.
+    var rateSnapshotTimestamp: Date?
+
+    /// Server-assigned timestamp from CKRecord.modificationDate.
+    /// Used for canonical freshness when available (preferred over publishedAt).
+    var projectionServerTimestamp: Date?
 
     var showsStateBanner: Bool {
         state != .active || goals.isEmpty
@@ -731,10 +751,13 @@ extension FamilyShareSeededNamespaceState {
                     targetAmount: NSDecimalNumber(decimal: goal.targetAmount).doubleValue,
                     currentAmount: NSDecimalNumber(decimal: goal.currentAmount).doubleValue,
                     deadline: goal.deadline,
-                    lastUpdatedAt: goal.lastUpdatedAt,
+                    lastUpdatedAt: projectionPayload?.publishedAt ?? goal.lastUpdatedAt,
                     shareState: sectionState,
                     lifecycleState: FamilyShareOwnerIdentityResolver.canonicalGoalLifecycleState(rawValue: goal.goalStatusRawValue),
-                    detailSummary: FamilyShareOwnerIdentityResolver.canonicalGoalDetailSummary(goal.summaryCopy)
+                    detailSummary: FamilyShareOwnerIdentityResolver.canonicalGoalDetailSummary(goal.summaryCopy),
+                    projectionPublishedAt: projectionPayload?.publishedAt,
+                    rateSnapshotTimestamp: projectionPayload?.rateSnapshotTimestamp,
+                    projectionServerTimestamp: projectionPayload?.projectionServerTimestamp
                 )
             } ?? []
 
@@ -751,7 +774,10 @@ extension FamilyShareSeededNamespaceState {
             primaryActionTitle: FamilyShareOwnerIdentityResolver.canonicalPrimaryAction(
                 lifecycleState: inviteeLifecycle,
                 fallback: inviteeState?.primaryActionCopy
-            )
+            ),
+            publishedAt: projectionPayload?.publishedAt,
+            rateSnapshotTimestamp: projectionPayload?.rateSnapshotTimestamp,
+            projectionServerTimestamp: projectionPayload?.projectionServerTimestamp
         )
 
         return FamilyShareInviteeProjection(

@@ -153,3 +153,6 @@ workspace*/
 temp_workspaces/
 ._*/
 snapshots/
+tmp/freshness-review-derived/
+tmp/freshness-review-derived-r*/
+artifacts/**/DerivedData/

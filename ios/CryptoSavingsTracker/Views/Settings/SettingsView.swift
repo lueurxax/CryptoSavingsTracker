@@ -62,7 +62,7 @@ struct SettingsView: View {
                                 },
                                 onRefresh: {
                                     Task {
-                                        await familyShareCoordinator.refreshAllState()
+                                        await familyShareCoordinator.refreshFamilyAccessOwnerData(currentGoals: activeGoals)
                                     }
                                 },
                                 onShowScopePreview: {},
@@ -198,7 +198,7 @@ struct SettingsView: View {
                 onDidSave: {
                     familyShareCoordinator.dismissPendingCloudSharingRequest()
                     Task {
-                        await familyShareCoordinator.refreshAllState()
+                        await familyShareCoordinator.noteOwnerParticipantsDidChange()
                     }
                 },
                 onDidFail: { message in

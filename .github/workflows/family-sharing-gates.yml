@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "docs/proposals/CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL.md"
+      - "docs/proposals/SHARED_GOALS_FRESHNESS_SYNC_PROPOSAL.md"
       - "docs/runbooks/family-sharing-release-gate.md"
       - "ios/CryptoSavingsTracker/CryptoSavingsTrackerApp.swift"
       - "ios/CryptoSavingsTracker/Models/FamilySharing/**"
@@ -22,6 +23,7 @@ on:
       - "release/**"
     paths:
       - "docs/proposals/CLOUDKIT_READONLY_FAMILY_SHARING_PROPOSAL.md"
+      - "docs/proposals/SHARED_GOALS_FRESHNESS_SYNC_PROPOSAL.md"
       - "docs/runbooks/family-sharing-release-gate.md"
       - "ios/CryptoSavingsTracker/CryptoSavingsTrackerApp.swift"
       - "ios/CryptoSavingsTracker/Models/FamilySharing/**"
@@ -50,6 +52,16 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 16' \
             test \
             -only-testing:CryptoSavingsTrackerTests/FamilyShareAcceptanceCoordinatorTests \
+            -only-testing:CryptoSavingsTrackerTests/FamilyShareFreshnessLabelTests \
+            -only-testing:CryptoSavingsTrackerTests/FamilyShareFreshnessPolicyTests \
+            -only-testing:CryptoSavingsTrackerTests/FamilyShareForegroundRateRefreshDriverTests \
+            -only-testing:CryptoSavingsTrackerTests/FamilyShareInviteeRefreshSchedulerTests \
+            -only-testing:CryptoSavingsTrackerTests/FamilyShareRateDriftEvaluatorTests \
+            -only-testing:CryptoSavingsTrackerTests/FamilyShareReconciliationBarrierTests \
+            -only-testing:CryptoSavingsTrackerTests/FamilyShareProjectionAutoRepublishCoordinatorTests \
+            -only-testing:CryptoSavingsTrackerTests/FamilyShareInviteeOrderingTests \
+            -only-testing:CryptoSavingsTrackerTests/FamilyShareMaterialityPolicyTests \
+            -only-testing:CryptoSavingsTrackerTests/GoalProgressCalculatorTests \
             -only-testing:CryptoSavingsTrackerTests/PersistenceMutationServicesTests
       - name: Run iOS family sharing UI tests
         run: |
@@ -95,3 +107,21 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 16' \
             test \
             -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testScopePreviewKeepsPersistentCTAVisibleAtAccessibilitySize
+          xcodebuild \
+            -project ios/CryptoSavingsTracker.xcodeproj \
+            -scheme CryptoSavingsTrackerUITests \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            test \
+            -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeEmptyNamespaceShowsFreshnessHeaderButNoRows
+          xcodebuild \
+            -project ios/CryptoSavingsTracker.xcodeproj \
+            -scheme CryptoSavingsTrackerUITests \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            test \
+            -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeUnavailableNamespaceShowsRetryWithoutRows
+          xcodebuild \
+            -project ios/CryptoSavingsTracker.xcodeproj \
+            -scheme CryptoSavingsTrackerUITests \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            test \
+            -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeDetailFreshnessCardCollapsesExactTimestampAtAccessibilitySize

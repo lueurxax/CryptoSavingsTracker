@@ -15,7 +15,12 @@ class NotificationManager {
     private init() {}
 
     private var isUITestRun: Bool {
-        ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("UITEST") })
+        let processInfo = ProcessInfo.processInfo
+        let arguments = processInfo.arguments
+        let environment = processInfo.environment
+        return arguments.contains(where: { $0.hasPrefix("UITEST") })
+            || environment["XCTestConfigurationFilePath"] != nil
+            || environment["UITEST_FAMILY_SHARE_SCENARIO"] != nil
     }
     
     func requestPermission() async -> Bool {

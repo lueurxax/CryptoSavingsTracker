@@ -13,6 +13,7 @@ final class ExecutionProgressCalculatorTests: XCTestCase {
 
         func hasValidConfiguration() -> Bool { true }
         func setOfflineMode(_ offline: Bool) { }
+        func refreshRatesIfStale() async { }
     }
 
     private func makeContainer() throws -> ModelContainer {

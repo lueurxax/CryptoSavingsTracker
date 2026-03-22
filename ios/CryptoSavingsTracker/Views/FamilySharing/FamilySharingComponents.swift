@@ -204,18 +204,36 @@ struct FamilyShareMetricPill: View {
 }
 
 struct FamilySharingStatusChip: View {
+    enum Mode {
+        case full
+        case iconOnly
+    }
+
     let text: String
     let systemImage: String
     let tint: Color
+    var mode: Mode = .full
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        Label(text, systemImage: systemImage)
+        Group {
+            switch mode {
+            case .full:
+                Label(text, systemImage: systemImage)
+                    .labelStyle(.titleAndIcon)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.9)
+            case .iconOnly:
+                Image(systemName: systemImage)
+                    .accessibilityLabel(Text(text))
+            }
+        }
             .font(.caption.weight(.semibold))
-            .padding(.horizontal, 10)
+            .padding(.horizontal, mode == .full ? 10 : 8)
             .padding(.vertical, 6)
             .background(reduceTransparency ? Color(.secondarySystemBackground) : tint.opacity(0.12))
             .foregroundStyle(tint)
             .clipShape(Capsule())
+            .fixedSize(horizontal: true, vertical: true)
     }
 }

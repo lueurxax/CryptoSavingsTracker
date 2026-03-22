@@ -29,11 +29,13 @@ final class GoalMutationService: GoalMutationServiceProtocol {
         if goal.reminderFrequency != nil {
             await notificationManager.scheduleReminders(for: goal)
         }
+        postSharedGoalDataDidChange(goalIDs: [goal.id])
     }
 
     func saveGoal(_ goal: Goal) async throws {
         try accessGuard.assertOwnerWritable(goal: goal)
         try await persist(goal, insertIfNeeded: true)
+        postSharedGoalDataDidChange(goalIDs: [goal.id])
     }
 
     func archiveGoal(_ goal: Goal) async throws {
@@ -41,6 +43,7 @@ final class GoalMutationService: GoalMutationServiceProtocol {
         await notificationManager.cancelNotifications(for: goal)
         goal.archive()
         try saveContext(operation: "Unable to archive goal")
+        postSharedGoalDataDidChange(goalIDs: [goal.id])
     }
 
     func restoreGoal(_ goal: Goal) async throws {
@@ -50,12 +53,25 @@ final class GoalMutationService: GoalMutationServiceProtocol {
         if goal.reminderFrequency != nil {
             await notificationManager.scheduleReminders(for: goal)
         }
+        postSharedGoalDataDidChange(goalIDs: [goal.id])
     }
 
     func resumeGoal(_ goal: Goal) throws {
         try accessGuard.assertOwnerWritable(goal: goal)
         goal.restoreToActive()
         try saveContext(operation: "Unable to resume goal")
+        postSharedGoalDataDidChange(goalIDs: [goal.id])
+    }
+
+    private func postSharedGoalDataDidChange(goalIDs: [UUID]) {
+        NotificationCenter.default.post(
+            name: .sharedGoalDataDidChange,
+            object: nil,
+            userInfo: [
+                "affectedGoalIDs": goalIDs,
+                "reason": "goalMutation"
+            ]
+        )
     }
 
     private func persist(_ goal: Goal, insertIfNeeded: Bool) async throws {
@@ -124,6 +140,7 @@ final class AssetMutationService: AssetMutationServiceProtocol {
 
         do {
             try modelContext.save()
+            postAssetSharedGoalDataDidChange(asset: newAsset, goalIDs: [goal.id])
             return newAsset
         } catch {
             modelContext.delete(history)
@@ -166,18 +183,46 @@ final class AssetMutationService: AssetMutationServiceProtocol {
 
     func deleteAsset(_ asset: Asset) throws {
         try accessGuard.assertOwnerWritable(asset: asset)
+        let goalIDs = (asset.allocations ?? []).compactMap { $0.goal?.id }
         modelContext.delete(asset)
         try saveContext(operation: "Unable to delete asset")
+        postAssetSharedGoalDataDidChange(asset: asset, goalIDs: goalIDs)
     }
 
     func deleteAssets(_ assets: [Asset]) throws {
         for asset in assets {
             try accessGuard.assertOwnerWritable(asset: asset)
         }
+        let goalIDs = assets.flatMap { ($0.allocations ?? []).compactMap { $0.goal?.id } }
         for asset in assets {
             modelContext.delete(asset)
         }
         try saveContext(operation: "Unable to delete assets")
+        if !goalIDs.isEmpty {
+            NotificationCenter.default.post(
+                name: .sharedGoalDataDidChange,
+                object: nil,
+                userInfo: [
+                    "affectedGoalIDs": goalIDs,
+                    "reason": "assetMutation"
+                ]
+            )
+        }
+    }
+
+    private func postAssetSharedGoalDataDidChange(asset: Asset, goalIDs: [UUID]) {
+        let ids = goalIDs.isEmpty
+            ? (asset.allocations ?? []).compactMap { $0.goal?.id }
+            : goalIDs
+        guard !ids.isEmpty else { return }
+        NotificationCenter.default.post(
+            name: .sharedGoalDataDidChange,
+            object: nil,
+            userInfo: [
+                "affectedGoalIDs": ids,
+                "reason": "assetMutation"
+            ]
+        )
     }
 
     private func saveContext(operation: String) throws {
@@ -246,15 +291,27 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
             throw PersistenceMutationError.saveFailed("Unable to save transaction", underlying: error)
         }
 
+        let affectedGoalIDs = (asset.allocations ?? []).compactMap { $0.goal?.id }
+
         NotificationCenter.default.post(name: .goalProgressRefreshed, object: nil)
         NotificationCenter.default.post(
             name: .monthlyPlanningAssetUpdated,
             object: asset,
             userInfo: [
                 "assetId": asset.id,
-                "goalIds": (asset.allocations ?? []).compactMap { $0.goal?.id }
+                "goalIds": affectedGoalIDs
             ]
         )
+        if !affectedGoalIDs.isEmpty {
+            NotificationCenter.default.post(
+                name: .sharedGoalDataDidChange,
+                object: nil,
+                userInfo: [
+                    "affectedGoalIDs": affectedGoalIDs,
+                    "reason": "transactionMutation"
+                ]
+            )
+        }
 
         return newTransaction
     }
@@ -262,10 +319,21 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
     func deleteTransaction(_ transaction: Transaction) throws {
         try accessGuard.assertOwnerWritable(transaction: transaction)
         let asset = transaction.asset
+        let affectedGoalIDs = (asset?.allocations ?? []).compactMap { $0.goal?.id }
         modelContext.delete(transaction)
         try saveContext(operation: "Unable to delete transaction")
 
         NotificationCenter.default.post(name: .goalProgressRefreshed, object: nil)
+        if !affectedGoalIDs.isEmpty {
+            NotificationCenter.default.post(
+                name: .sharedGoalDataDidChange,
+                object: nil,
+                userInfo: [
+                    "affectedGoalIDs": affectedGoalIDs,
+                    "reason": "transactionMutation"
+                ]
+            )
+        }
         if let asset {
             NotificationCenter.default.post(
                 name: .monthlyPlanningAssetUpdated,
@@ -382,6 +450,7 @@ final class PlanningMutationService: PlanningMutationServiceProtocol {
 
     func applyFeasibilitySuggestion(_ suggestion: FeasibilitySuggestion, goals: [Goal]) throws -> Bool {
         try accessGuard.assertOwnerWritable(goals: goals)
+        var affectedGoalIDs: Set<UUID> = []
         switch suggestion {
         case .increaseBudget, .editGoal:
             return false
@@ -391,12 +460,15 @@ final class PlanningMutationService: PlanningMutationServiceProtocol {
                 return false
             }
             goal.deadline = updated
+            affectedGoalIDs.insert(goal.id)
         case .reduceTarget(let goalId, _, let to, _):
             guard let goal = goals.first(where: { $0.id == goalId }) else { return false }
             goal.targetAmount = to
+            affectedGoalIDs.insert(goal.id)
         }
 
         try saveContext(operation: "Unable to apply feasibility suggestion")
+        postSharedGoalDataDidChange(goalIDs: affectedGoalIDs, reason: "goalMutation")
         return true
     }
 
@@ -406,6 +478,7 @@ final class PlanningMutationService: PlanningMutationServiceProtocol {
         budgetCurrency: String
     ) async throws {
         try accessGuard.assertOwnerWritable(plans: currentPlans)
+        var affectedGoalIDs: Set<UUID> = []
         let contributionMap = Dictionary(
             uniqueKeysWithValues: (plan.schedule.first?.contributions ?? []).map { ($0.goalId, $0.amount) }
         )
@@ -423,9 +496,11 @@ final class PlanningMutationService: PlanningMutationServiceProtocol {
             }
 
             monthlyPlan.setCustomAmount(plannedAmount > 0 ? converted : 0)
+            affectedGoalIDs.insert(monthlyPlan.goalId)
         }
 
         try saveContext(operation: "Unable to apply budget to plans")
+        postSharedGoalDataDidChange(goalIDs: affectedGoalIDs, reason: "goalMutation")
     }
 
     private func saveContext(operation: String) throws {
@@ -434,6 +509,18 @@ final class PlanningMutationService: PlanningMutationServiceProtocol {
         } catch {
             throw PersistenceMutationError.saveFailed(operation, underlying: error)
         }
+    }
+
+    private func postSharedGoalDataDidChange(goalIDs: Set<UUID>, reason: String) {
+        guard goalIDs.isEmpty == false else { return }
+        NotificationCenter.default.post(
+            name: .sharedGoalDataDidChange,
+            object: nil,
+            userInfo: [
+                "affectedGoalIDs": Array(goalIDs),
+                "reason": reason
+            ]
+        )
     }
 }
 
@@ -480,5 +567,14 @@ final class OnboardingMutationService: OnboardingMutationServiceProtocol {
         if goal.reminderFrequency != nil {
             await notificationManager.scheduleReminders(for: goal)
         }
+
+        NotificationCenter.default.post(
+            name: .sharedGoalDataDidChange,
+            object: nil,
+            userInfo: [
+                "affectedGoalIDs": [goal.id],
+                "reason": "goalMutation"
+            ]
+        )
     }
 }

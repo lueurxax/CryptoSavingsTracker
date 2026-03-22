@@ -42,6 +42,19 @@ protocol ExchangeRateServiceProtocol {
     func fetchRate(from: String, to: String) async throws -> Double
     func hasValidConfiguration() -> Bool
     func setOfflineMode(_ offline: Bool)
+
+    /// Triggers a rate fetch if any tracked currency pair's cache has expired (5-minute TTL).
+    /// No-op if all rates are still fresh. Posts `exchangeRatesDidRefresh` on successful fetch.
+    /// Used by `FamilyShareForegroundRateRefreshDriver` to proactively keep rates current.
+    func refreshRatesIfStale() async
+
+    /// Returns the conservative snapshot timestamp for the supplied rate pairs.
+    /// For mixed-age batches this is the oldest available pair timestamp.
+    func rateSnapshotTimestamp(for pairs: Set<CurrencyPair>) -> Date?
+}
+
+extension ExchangeRateServiceProtocol {
+    func rateSnapshotTimestamp(for pairs: Set<CurrencyPair>) -> Date? { nil }
 }
 
 protocol FlexAdjustmentServiceProtocol {

@@ -312,6 +312,67 @@ struct FamilyShareProjectionPayload: Codable, Equatable, Sendable {
     let revokedParticipantCount: Int
     let goals: [FamilyShareProjectedGoalPayload]
     let ownerSections: [FamilyShareOwnerSectionPayload]
+
+    // MARK: - Freshness Pipeline Fields (Proposal)
+
+    /// Timestamp of exchange rates used to compute currentAmount values.
+    var rateSnapshotTimestamp: Date?
+
+    /// Server-assigned timestamp from CKRecord.modificationDate after publish.
+    /// Pre-migration fallback for ordering when contentHash is nil.
+    var projectionServerTimestamp: Date?
+
+    /// SHA-256 hash of all invitee-visible state for semantic dedup.
+    var contentHash: String?
+
+    /// Memberwise init with defaults for freshness fields (backward compatibility).
+    init(
+        namespaceID: FamilyShareNamespaceID,
+        ownerDisplayName: String,
+        schemaVersion: Int,
+        projectionVersion: Int,
+        activeProjectionVersion: Int,
+        freshnessStateRawValue: String,
+        lifecycleStateRawValue: String,
+        publishedAt: Date?,
+        lastReconciledAt: Date?,
+        lastRefreshAttemptAt: Date?,
+        lastRefreshErrorCode: String?,
+        lastRefreshErrorMessage: String?,
+        summaryTitle: String,
+        summaryCopy: String,
+        participantCount: Int,
+        pendingParticipantCount: Int,
+        revokedParticipantCount: Int,
+        goals: [FamilyShareProjectedGoalPayload],
+        ownerSections: [FamilyShareOwnerSectionPayload],
+        rateSnapshotTimestamp: Date? = nil,
+        projectionServerTimestamp: Date? = nil,
+        contentHash: String? = nil
+    ) {
+        self.namespaceID = namespaceID
+        self.ownerDisplayName = ownerDisplayName
+        self.schemaVersion = schemaVersion
+        self.projectionVersion = projectionVersion
+        self.activeProjectionVersion = activeProjectionVersion
+        self.freshnessStateRawValue = freshnessStateRawValue
+        self.lifecycleStateRawValue = lifecycleStateRawValue
+        self.publishedAt = publishedAt
+        self.lastReconciledAt = lastReconciledAt
+        self.lastRefreshAttemptAt = lastRefreshAttemptAt
+        self.lastRefreshErrorCode = lastRefreshErrorCode
+        self.lastRefreshErrorMessage = lastRefreshErrorMessage
+        self.summaryTitle = summaryTitle
+        self.summaryCopy = summaryCopy
+        self.participantCount = participantCount
+        self.pendingParticipantCount = pendingParticipantCount
+        self.revokedParticipantCount = revokedParticipantCount
+        self.goals = goals
+        self.ownerSections = ownerSections
+        self.rateSnapshotTimestamp = rateSnapshotTimestamp
+        self.projectionServerTimestamp = projectionServerTimestamp
+        self.contentHash = contentHash
+    }
 }
 
 struct FamilyShareSeededNamespaceState: Codable, Equatable, Sendable {
@@ -322,8 +383,8 @@ struct FamilyShareSeededNamespaceState: Codable, Equatable, Sendable {
 }
 
 enum FamilyShareCacheSchema {
-    static let currentVersion = 1
-    static let supportedVersions: ClosedRange<Int> = 1...1
+    static let currentVersion = 2
+    static let supportedVersions: ClosedRange<Int> = 1...2
 
     static var schema: Schema {
         Schema([
@@ -356,6 +417,18 @@ final class FamilySharedDatasetCache {
     var pendingParticipantCount: Int
     var revokedParticipantCount: Int
 
+    // MARK: - Freshness Pipeline Fields (Proposal)
+
+    /// Timestamp of exchange rates used to compute currentAmount values.
+    var rateSnapshotTimestamp: Date?
+
+    /// Server-assigned timestamp from CKRecord.modificationDate.
+    /// Pre-migration fallback for ordering when contentHash is nil.
+    var projectionServerTimestamp: Date?
+
+    /// SHA-256 hash of all invitee-visible state for semantic dedup.
+    var contentHash: String?
+
     init(
         namespaceID: FamilyShareNamespaceID,
         ownerDisplayName: String,
@@ -373,7 +446,10 @@ final class FamilySharedDatasetCache {
         summaryCopy: String = "",
         participantCount: Int = 0,
         pendingParticipantCount: Int = 0,
-        revokedParticipantCount: Int = 0
+        revokedParticipantCount: Int = 0,
+        rateSnapshotTimestamp: Date? = nil,
+        projectionServerTimestamp: Date? = nil,
+        contentHash: String? = nil
     ) {
         self.namespaceKey = namespaceID.namespaceKey
         self.ownerID = namespaceID.ownerID
@@ -394,6 +470,9 @@ final class FamilySharedDatasetCache {
         self.participantCount = participantCount
         self.pendingParticipantCount = pendingParticipantCount
         self.revokedParticipantCount = revokedParticipantCount
+        self.rateSnapshotTimestamp = rateSnapshotTimestamp
+        self.projectionServerTimestamp = projectionServerTimestamp
+        self.contentHash = contentHash
     }
 }
 

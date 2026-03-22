@@ -33,6 +33,7 @@ final class DeduplicationService {
 
         if totalRemoved > 0 {
             try context.save()
+            postSharedGoalRepairIfNeeded(in: context)
             logger.info("Deduplication complete: removed \(totalRemoved) duplicate(s)")
         } else {
             logger.info("Deduplication complete: no duplicates found")
@@ -135,6 +136,21 @@ final class DeduplicationService {
             logger.debug("Transaction: removed \(removed) duplicate(s)")
         }
         return removed
+    }
+
+    private func postSharedGoalRepairIfNeeded(in context: ModelContext) {
+        let goalIDs = (try? context.fetch(FetchDescriptor<Goal>(predicate: #Predicate { goal in
+            goal.lifecycleStatusRawValue == "active"
+        })))?.map(\.id) ?? []
+        guard goalIDs.isEmpty == false else { return }
+        NotificationCenter.default.post(
+            name: .sharedGoalDataDidChange,
+            object: nil,
+            userInfo: [
+                "affectedGoalIDs": goalIDs,
+                "reason": "importOrRepair"
+            ]
+        )
     }
 
     /// Deduplicate MonthlyPlan by (monthLabel, goalId). Keep the most recently modified.

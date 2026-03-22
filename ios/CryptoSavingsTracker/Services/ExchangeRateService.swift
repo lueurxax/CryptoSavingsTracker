@@ -88,6 +88,9 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
         let canonicalFrom = Self.normalizedCurrencyCode(from)
         let canonicalTo = Self.normalizedCurrencyCode(to)
 
+        // Track this pair for staleness checking by refreshRatesIfStale()
+        trackPair(from: canonicalFrom, to: canonicalTo)
+
         if canonicalFrom == canonicalTo {
             return 1.0
         }
@@ -380,6 +383,75 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
         isOffline = offline
         if offline {
             AppLog.info("Exchange rate service operating in offline mode", category: .api)
+        }
+    }
+
+    // MARK: - Freshness Pipeline Support
+
+    /// Set of currency pairs that have been fetched during the current session.
+    /// Used by `refreshRatesIfStale()` to know which pairs to check.
+    private var trackedPairs: Set<String> = []
+
+    /// Triggers a rate fetch for all tracked pairs whose cache has expired.
+    /// No-op if all rates are still fresh. Posts `exchangeRatesDidRefresh`
+    /// after any successful fetch batch.
+    func refreshRatesIfStale() async {
+        let stalePairs = cacheQueue.sync { () -> [(String, String)] in
+            var result: [(String, String)] = []
+            for key in trackedPairs {
+                let parts = key.split(separator: "→")
+                guard parts.count == 2 else { continue }
+                let from = String(parts[0])
+                let to = String(parts[1])
+                if getCachedRate(from: from, to: to) == nil {
+                    result.append((from, to))
+                }
+            }
+            return result
+        }
+
+        guard !stalePairs.isEmpty else { return }
+
+        var refreshedPairs: Set<CurrencyPair> = []
+        var refreshedRates: [CurrencyPair: Decimal] = [:]
+        for (from, to) in stalePairs {
+            do {
+                let refreshedRate = try await fetchRate(from: from, to: to)
+                let pair = CurrencyPair(from: from, to: to)
+                refreshedPairs.insert(pair)
+                refreshedRates[pair] = Decimal(refreshedRate)
+            } catch {
+                AppLog.warning("Failed to refresh stale rate \(from)→\(to): \(error)", category: .api)
+            }
+        }
+
+        if !refreshedPairs.isEmpty {
+            NotificationCenter.default.post(
+                name: .exchangeRatesDidRefresh,
+                object: self,
+                userInfo: [
+                    "refreshedPairs": refreshedPairs,
+                    "refreshedRates": refreshedRates,
+                    "rateSnapshotTimestamp": Date()
+                ]
+            )
+        }
+    }
+
+    func rateSnapshotTimestamp(for pairs: Set<CurrencyPair>) -> Date? {
+        cacheQueue.sync {
+            let timestamps = pairs.compactMap { pair in
+                lastFetchTime["\(pair.from.uppercased())-\(pair.to.uppercased())"]
+            }
+            return timestamps.min()
+        }
+    }
+
+    /// Track a currency pair for staleness checking by `refreshRatesIfStale()`.
+    private func trackPair(from: String, to: String) {
+        let key = "\(from.uppercased())→\(to.uppercased())"
+        cacheQueue.async(flags: .barrier) { [weak self] in
+            self?.trackedPairs.insert(key)
         }
     }
 }

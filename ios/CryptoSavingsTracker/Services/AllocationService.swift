@@ -110,6 +110,14 @@ struct AllocationService {
                 "goalIds": goalIds
             ]
         )
+        NotificationCenter.default.post(
+            name: .sharedGoalDataDidChange,
+            object: nil,
+            userInfo: [
+                "affectedGoalIDs": goalIds,
+                "reason": "assetMutation"
+            ]
+        )
 
         if !Self.isTestRun {
             let goals = newAllocations.map(\.goal)

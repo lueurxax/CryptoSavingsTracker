@@ -227,6 +227,7 @@ class MockExchangeRateService: ExchangeRateServiceProtocol {
 
     func hasValidConfiguration() -> Bool { true }
     func setOfflineMode(_ offline: Bool) {}
+    func refreshRatesIfStale() async {}
 }
 
 // MARK: - Phase 2 Bridge Test Support

@@ -203,7 +203,10 @@ final class FamilyShareNamespaceRegistry {
             summaryCopy: canonicalProjection.entrySummary,
             participantCount: seededState.ownerState.participantCount,
             pendingParticipantCount: seededState.ownerState.pendingParticipantCount,
-            revokedParticipantCount: seededState.ownerState.revokedParticipantCount
+            revokedParticipantCount: seededState.ownerState.revokedParticipantCount,
+            rateSnapshotTimestamp: seededState.projectionPayload?.rateSnapshotTimestamp,
+            projectionServerTimestamp: seededState.projectionPayload?.projectionServerTimestamp,
+            contentHash: seededState.projectionPayload?.contentHash
         )
         context.insert(root)
 
@@ -327,7 +330,10 @@ final class FamilyShareNamespaceRegistry {
                     sortIndex: cache.sortIndex,
                     inlineChipCopy: resolvedOwnerIdentity.displayName
                 )
-            }
+            },
+            rateSnapshotTimestamp: root.rateSnapshotTimestamp,
+            projectionServerTimestamp: root.projectionServerTimestamp,
+            contentHash: root.contentHash
         ) : nil
 
         let lifecycleState = FamilyShareLifecycleState(rawValue: root.freshnessStateRawValue) ?? .active

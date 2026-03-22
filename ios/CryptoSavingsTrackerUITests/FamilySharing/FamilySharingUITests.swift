@@ -54,20 +54,29 @@ final class FamilySharingUITests: XCTestCase {
             .firstMatch
     }
 
+    private func isVisibleOnScreen(_ element: XCUIElement) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        guard frame.isEmpty == false else { return false }
+        let window = app.windows.firstMatch
+        guard window.exists else { return element.isHittable }
+        return frame.intersects(window.frame)
+    }
+
     @discardableResult
     private func scrollUntilVisible(_ element: XCUIElement, maxSwipes: Int = 4) -> Bool {
-        if element.exists {
+        if isVisibleOnScreen(element) {
             return true
         }
 
         for _ in 0..<maxSwipes {
             app.swipeUp()
-            if element.waitForExistence(timeout: 1) {
+            if element.waitForExistence(timeout: 1), isVisibleOnScreen(element) {
                 return true
             }
         }
 
-        return element.exists
+        return isVisibleOnScreen(element)
     }
 
     @discardableResult
@@ -77,10 +86,22 @@ final class FamilySharingUITests: XCTestCase {
         let sharedGoalRow = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH %@", "sharedGoalRow-"))
             .firstMatch
+        let freshnessHeader = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "sharedGoalsFreshnessHeader-"))
+            .firstMatch
+        let emptyState = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "sharedGoalsEmptyState-"))
+            .firstMatch
         if sharedWithYou.waitForExistence(timeout: timeout) {
             return true
         }
         if sharedSection.waitForExistence(timeout: 1) {
+            return true
+        }
+        if freshnessHeader.waitForExistence(timeout: 1) {
+            return true
+        }
+        if emptyState.waitForExistence(timeout: 1) {
             return true
         }
         return sharedGoalRow.waitForExistence(timeout: 1)
@@ -112,6 +133,9 @@ final class FamilySharingUITests: XCTestCase {
         sharedGoalRow.tap()
 
         XCTAssertTrue(app.staticTexts["Read-only"].waitForExistence(timeout: 5), "Shared goal detail should expose read-only state")
+        let freshnessCard = anyElement(withIdentifier: "sharedGoalDetailFreshnessCard")
+        XCTAssertTrue(freshnessCard.waitForExistence(timeout: 5), "Shared goal detail should expose freshness card")
+        XCTAssertTrue(scrollUntilVisible(freshnessCard, maxSwipes: 6), "Freshness card should be reachable in shared goal detail")
         XCTAssertFalse(app.buttons["Add Asset"].exists, "Shared goal detail must not expose owner mutation CTAs")
         XCTAssertFalse(app.buttons["Add Transaction"].exists, "Shared goal detail must not expose owner mutation CTAs")
     }
@@ -148,12 +172,21 @@ final class FamilySharingUITests: XCTestCase {
         launchApp(familyShareScenario: "invitee_stale")
 
         XCTAssertTrue(waitForSharedGoalsHydration(), "Shared with You section should hydrate before stale-state assertions")
-        XCTAssertTrue(scrollUntilVisible(app.staticTexts["Out of date"], maxSwipes: 2), "Stale state banner should be visible")
         XCTAssertTrue(
             scrollUntilVisible(app.buttons["Retry Refresh"], maxSwipes: 2),
             "Non-active shared state should expose a primary action"
         )
+        let lastSharedMessage = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "Last shared")).firstMatch
+        let ratesOldMessage = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "Rates are")).firstMatch
+        XCTAssertTrue(
+            lastSharedMessage.exists || ratesOldMessage.exists,
+            "Stale section should expose freshness copy"
+        )
         XCTAssertTrue(app.staticTexts["Achieved"].exists || app.staticTexts["Expired"].exists, "Row lifecycle states should remain visible when the section is unhealthy")
+        let legacyBanner = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "sharedGoalsStateBanner-"))
+            .firstMatch
+        XCTAssertFalse(legacyBanner.exists, "Stale namespaces should use freshness header semantics instead of an escalated banner")
         XCTAssertFalse(app.staticTexts["Shared Goals"].exists, "Legacy Shared Goals explainer copy must not appear")
     }
 
@@ -202,5 +235,72 @@ final class FamilySharingUITests: XCTestCase {
 
         XCTAssertTrue(app.buttons["Continue"].waitForExistence(timeout: 5), "Scope preview must keep Continue discoverable")
         XCTAssertTrue(app.buttons["Cancel"].exists, "Scope preview must keep Cancel discoverable")
+    }
+
+    func testNoSharedNamespacesSuppressesFreshnessChrome() {
+        launchApp()
+
+        XCTAssertFalse(app.staticTexts["Shared with You"].waitForExistence(timeout: 3), "No shared section should render without invitee namespaces")
+        let freshnessHeader = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "sharedGoalsFreshnessHeader-"))
+            .firstMatch
+        XCTAssertFalse(freshnessHeader.exists, "Freshness chrome must be suppressed when no shared namespaces exist")
+    }
+
+    func testInviteeEmptyNamespaceShowsFreshnessHeaderButNoRows() {
+        launchApp(familyShareScenario: "invitee_empty")
+
+        XCTAssertTrue(waitForSharedGoalsHydration())
+        XCTAssertTrue(
+            app.staticTexts["No shared goals in this group."].waitForExistence(timeout: 5),
+            "Empty namespace should expose the empty shared-goals copy"
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier BEGINSWITH %@", "sharedGoalRow-"))
+                .firstMatch
+                .exists
+        )
+    }
+
+    func testInviteeUnavailableNamespaceShowsRetryWithoutRows() {
+        launchApp(familyShareScenario: "invitee_unavailable")
+
+        XCTAssertTrue(waitForSharedGoalsHydration())
+        XCTAssertTrue(scrollUntilVisible(app.buttons["Retry"], maxSwipes: 2))
+        XCTAssertTrue(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "temporarily unavailable")).firstMatch.waitForExistence(timeout: 5),
+            "Unavailable namespace should expose recovery copy"
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier BEGINSWITH %@", "sharedGoalRow-"))
+                .firstMatch
+                .exists
+        )
+    }
+
+    func testInviteeDetailFreshnessCardCollapsesExactTimestampAtAccessibilitySize() {
+        launchApp(familyShareScenario: "invitee_active", contentSizeCategory: "UICTContentSizeCategoryAccessibilityXL")
+
+        XCTAssertTrue(waitForSharedGoalsHydration())
+        let sharedGoalRow = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "sharedGoalRow-"))
+            .firstMatch
+        XCTAssertTrue(sharedGoalRow.waitForExistence(timeout: 5))
+        sharedGoalRow.tap()
+
+        let freshnessCard = anyElement(withIdentifier: "sharedGoalDetailFreshnessCard")
+        XCTAssertTrue(
+            freshnessCard.waitForExistence(timeout: 5),
+            "Detail should finish navigation before freshness assertions"
+        )
+        XCTAssertTrue(
+            scrollUntilVisible(freshnessCard, maxSwipes: 8),
+            "Freshness card should be reachable at accessibility sizes"
+        )
+        XCTAssertEqual(freshnessCard.value as? String, "Collapsed")
+        freshnessCard.tap()
+        XCTAssertEqual(freshnessCard.value as? String, "Expanded")
     }
 }

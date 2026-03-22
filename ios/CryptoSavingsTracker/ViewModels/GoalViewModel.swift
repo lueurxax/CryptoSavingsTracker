@@ -10,11 +10,13 @@ import SwiftData
 import Combine
 
 @MainActor
-class GoalViewModel: ObservableObject {
+class GoalViewModel: ObservableObject, ErrorAwareViewModel {
     @Published var currentTotal: Double = 0
     @Published var progress: Double = 0
     @Published var suggestedDeposit: Double = 0
     @Published var isLoading: Bool = false
+    @Published var viewState: ViewState = .idle
+    var lastSuccessfulLoad: Date?
     
     private let goal: Goal
     private var modelContext: ModelContext?
@@ -51,22 +53,29 @@ class GoalViewModel: ObservableObject {
     
     func refreshValues() async {
         isLoading = true
-        
+        viewState = .loading
+
         // Add small delay to show loading state properly
         if currentTotal == 0 && progress == 0 {
             try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         }
-        
+
         let total = await calculateCurrentTotal()
         let prog = calculateProgress(currentTotal: total)
         let deposit = calculateSuggestedDeposit(currentTotal: total)
-        
+
         await MainActor.run {
             self.currentTotal = total
             self.progress = prog
             self.suggestedDeposit = deposit
             self.isLoading = false
+            self.lastSuccessfulLoad = Date()
+            self.viewState = .loaded
         }
+    }
+
+    func retry() async {
+        await refreshValues()
     }
     
     private func calculateCurrentTotal() async -> Double {

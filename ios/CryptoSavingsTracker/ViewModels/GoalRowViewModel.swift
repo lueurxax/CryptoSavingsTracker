@@ -13,7 +13,7 @@ import Combine
 
 /// ViewModel for unified goal row display across all platforms
 @MainActor
-class GoalRowViewModel: ObservableObject {
+class GoalRowViewModel: ObservableObject, ErrorAwareViewModel {
     // MARK: - Published Properties
     @Published var asyncProgress: Double = 0
     @Published var asyncCurrentTotal: Double = 0
@@ -23,6 +23,8 @@ class GoalRowViewModel: ObservableObject {
     @Published var hasError: Bool = false
     @Published var shimmerOffset: Double = -0.5
     @Published var hasLoadedInitialData = false
+    @Published var viewState: ViewState = .idle
+    var lastSuccessfulLoad: Date?
     
     // MARK: - Properties
     let goal: Goal
@@ -152,12 +154,17 @@ class GoalRowViewModel: ObservableObject {
     // MARK: - Public Methods
     
     /// Load currency-converted progress data asynchronously
+    func retry() async {
+        await loadAsyncProgress()
+    }
+
     func loadAsyncProgress() async {
         // Prevent duplicate initial loads
         guard !isLoading else { return }
-        
+
         isLoading = true
         hasError = false
+        viewState = .loading
         
         // Use the proper service that does currency conversion
         let newProgress = await GoalCalculationService.getProgress(for: goal)
@@ -183,8 +190,10 @@ class GoalRowViewModel: ObservableObject {
                 
                 hasLoadedInitialData = true
             }
-            
+
             isLoading = false
+            lastSuccessfulLoad = Date()
+            viewState = .loaded
         }
     }
     

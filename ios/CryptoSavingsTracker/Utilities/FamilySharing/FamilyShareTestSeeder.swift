@@ -106,15 +106,39 @@ struct FamilyShareTestSeeder {
         case .inviteeMultiOwnerUnresolved:
             return makeBlockedOwnerSeed(namespaceID: namespaceID, rawOwnerDisplayName: "iPhone")
         case .inviteeEmpty:
-            return activeSeed(namespaceID: namespaceID, ownerState: .sharedActive, goalCount: 0, lifecycleState: .emptySharedDataset, title: "No shared items yet", primaryAction: "Retry")
+            return activeSeed(
+                namespaceID: namespaceID,
+                ownerState: .sharedActive,
+                goalCount: 0,
+                lifecycleState: .emptySharedDataset,
+                title: "No shared items yet",
+                primaryAction: "Retry",
+                includeProjectionWhenGoalCountZero: true
+            )
         case .inviteeStale:
-            return activeSeed(namespaceID: namespaceID, ownerState: .sharedActive, lifecycleState: .stale, title: "Shared with You", primaryAction: "Retry Refresh")
+            return activeSeed(
+                namespaceID: namespaceID,
+                ownerState: .sharedActive,
+                lifecycleState: .stale,
+                title: "Shared with You",
+                primaryAction: "Retry Refresh",
+                publishedAt: .now.addingTimeInterval(-8 * 60 * 60),
+                rateSnapshotTimestamp: .now.addingTimeInterval(-8 * 60 * 60)
+            )
         case .inviteeRevoked:
             return activeSeed(namespaceID: namespaceID, ownerState: .revoked, lifecycleState: .revoked, title: "Access revoked", primaryAction: "Ask owner to re-share")
         case .inviteeRemoved:
             return activeSeed(namespaceID: namespaceID, ownerState: .revoked, lifecycleState: .removedOrNoLongerShared, title: "No longer shared", primaryAction: "Dismiss")
         case .inviteeUnavailable:
-            return activeSeed(namespaceID: namespaceID, ownerState: .shareFailed, lifecycleState: .temporarilyUnavailable, title: "Shared with You", primaryAction: "Retry")
+            return activeSeed(
+                namespaceID: namespaceID,
+                ownerState: .shareFailed,
+                goalCount: 0,
+                lifecycleState: .temporarilyUnavailable,
+                title: "Shared with You",
+                primaryAction: "Retry",
+                includeProjectionWhenGoalCountZero: true
+            )
         }
     }
 
@@ -125,7 +149,10 @@ struct FamilyShareTestSeeder {
         lifecycleState: FamilyShareLifecycleState = .active,
         title: String = "Shared with You",
         primaryAction: String = "Refresh",
-        ownerDisplayName: String = "Alex"
+        ownerDisplayName: String = "Alex",
+        includeProjectionWhenGoalCountZero: Bool = false,
+        publishedAt: Date = .now,
+        rateSnapshotTimestamp: Date? = nil
     ) -> FamilyShareSeededNamespaceState {
         let resolvedOwnerDisplayName = normalizedOwnerDisplayName(from: ownerDisplayName)
         let inviteeState = FamilyShareInviteeViewState(
@@ -156,7 +183,32 @@ struct FamilyShareTestSeeder {
             primaryActionCopy: ownerState == .notShared ? "Share with Family" : "Manage Participants"
         )
 
-        let payload = goalCount > 0 ? FamilyShareProjectionPayload(
+        let shouldIncludeProjection = goalCount > 0 || includeProjectionWhenGoalCountZero
+        let projectedGoals: [FamilyShareProjectedGoalPayload] = goalCount > 0 ? (1...goalCount).map { index in
+            let status = redesignedGoalStatus(for: index)
+            return FamilyShareProjectedGoalPayload(
+                id: "\(namespaceID.namespaceKey)-goal-\(index)",
+                namespaceID: namespaceID,
+                ownerID: namespaceID.ownerID,
+                ownerDisplayName: resolvedOwnerDisplayName,
+                goalID: "goal-\(index)",
+                goalName: "Shared Goal \(index)",
+                goalEmoji: index == 1 ? "🎯" : "💰",
+                currency: "USD",
+                targetAmount: Decimal(1000 * index),
+                currentAmount: Decimal(250 * index),
+                progressRatio: Double(index) / Double(goalCount + 1),
+                deadline: Calendar.current.date(byAdding: .month, value: index, to: Date()) ?? Date(),
+                goalStatusRawValue: status,
+                forecastStateRawValue: "high",
+                freshnessStateRawValue: lifecycleState.rawValue,
+                lastUpdatedAt: Date(),
+                summaryCopy: redesignedGoalSummaryCopy(for: status, index: index),
+                sortIndex: index
+            )
+        } : []
+
+        let payload = shouldIncludeProjection ? FamilyShareProjectionPayload(
             namespaceID: namespaceID,
             ownerDisplayName: resolvedOwnerDisplayName,
             schemaVersion: FamilyShareCacheSchema.currentVersion,
@@ -164,9 +216,9 @@ struct FamilyShareTestSeeder {
             activeProjectionVersion: 1,
             freshnessStateRawValue: lifecycleState.rawValue,
             lifecycleStateRawValue: ownerState.rawValue,
-            publishedAt: Date(),
-            lastReconciledAt: Date(),
-            lastRefreshAttemptAt: Date(),
+            publishedAt: publishedAt,
+            lastReconciledAt: publishedAt,
+            lastRefreshAttemptAt: publishedAt,
             lastRefreshErrorCode: lifecycleState == .temporarilyUnavailable ? "shared_database_unavailable" : nil,
             lastRefreshErrorMessage: lifecycleState == .temporarilyUnavailable ? "Shared goals temporarily unavailable." : nil,
             summaryTitle: "Shared with You",
@@ -174,29 +226,7 @@ struct FamilyShareTestSeeder {
             participantCount: ownerViewState.participantCount,
             pendingParticipantCount: ownerViewState.pendingParticipantCount,
             revokedParticipantCount: ownerViewState.revokedParticipantCount,
-            goals: (1...goalCount).map { index in
-                let status = redesignedGoalStatus(for: index)
-                return FamilyShareProjectedGoalPayload(
-                    id: "\(namespaceID.namespaceKey)-goal-\(index)",
-                    namespaceID: namespaceID,
-                    ownerID: namespaceID.ownerID,
-                    ownerDisplayName: resolvedOwnerDisplayName,
-                    goalID: "goal-\(index)",
-                    goalName: "Shared Goal \(index)",
-                    goalEmoji: index == 1 ? "🎯" : "💰",
-                    currency: "USD",
-                    targetAmount: Decimal(1000 * index),
-                    currentAmount: Decimal(250 * index),
-                    progressRatio: Double(index) / Double(goalCount + 1),
-                    deadline: Calendar.current.date(byAdding: .month, value: index, to: Date()) ?? Date(),
-                    goalStatusRawValue: status,
-                    forecastStateRawValue: "high",
-                    freshnessStateRawValue: lifecycleState.rawValue,
-                    lastUpdatedAt: Date(),
-                    summaryCopy: redesignedGoalSummaryCopy(for: status, index: index),
-                    sortIndex: index
-                )
-            },
+            goals: projectedGoals,
             ownerSections: [
                 FamilyShareOwnerSectionPayload(
                     id: "\(namespaceID.namespaceKey)-section-1",
@@ -208,7 +238,8 @@ struct FamilyShareTestSeeder {
                     sortIndex: 1,
                     inlineChipCopy: ""
                 )
-            ]
+            ],
+            rateSnapshotTimestamp: rateSnapshotTimestamp ?? publishedAt
         ) : nil
 
         return FamilyShareSeededNamespaceState(

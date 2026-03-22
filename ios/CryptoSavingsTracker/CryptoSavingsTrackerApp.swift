@@ -18,6 +18,7 @@ import UIKit
 struct CryptoSavingsTrackerApp: App {
     static let previewModelContainer: ModelContainer = PersistenceStackFactory.makePreviewContainer()
 
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var persistenceController: PersistenceController
     @StateObject private var familyShareAcceptanceCoordinator: FamilyShareAcceptanceCoordinator
     #if os(iOS)
@@ -38,6 +39,9 @@ struct CryptoSavingsTrackerApp: App {
         _persistenceController = StateObject(wrappedValue: PersistenceController.shared)
         _familyShareAcceptanceCoordinator = StateObject(wrappedValue: DIContainer.shared.familyShareAcceptanceCoordinator)
 
+        // Start observing CloudKit import events for the freshness pipeline reconciliation barrier
+        FamilyShareReconciliationBarrier.startObservingImports()
+
         // Suppress haptic feedback warnings in iOS Simulator
         #if targetEnvironment(simulator) && os(iOS)
         // Disable haptic feedback system in simulator to prevent CHHapticPattern warnings
@@ -51,8 +55,10 @@ struct CryptoSavingsTrackerApp: App {
         Task {
             await StartupThrottler.shared.waitForStartup()
             let args = ProcessInfo.processInfo.arguments
-            let isXCTestRun = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            let environment = ProcessInfo.processInfo.environment
+            let isXCTestRun = environment["XCTestConfigurationFilePath"] != nil
             let isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
+                || environment["UITEST_FAMILY_SHARE_SCENARIO"] != nil
             let isPreviewRun = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
             let isTestRun = isXCTestRun || isUITestRun || isPreviewRun
 
@@ -83,8 +89,10 @@ struct CryptoSavingsTrackerApp: App {
     private static func checkAutomation() async {
         // Tests should not trigger automation or notification scheduling (causes permission prompts and flakiness).
         let args = ProcessInfo.processInfo.arguments
-        let isXCTestRun = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        let environment = ProcessInfo.processInfo.environment
+        let isXCTestRun = environment["XCTestConfigurationFilePath"] != nil
         let isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
+            || environment["UITEST_FAMILY_SHARE_SCENARIO"] != nil
         let isPreviewRun = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
         if isXCTestRun || isUITestRun || isPreviewRun { return }
 
@@ -468,6 +476,9 @@ struct CryptoSavingsTrackerApp: App {
             .environmentObject(familyShareAcceptanceCoordinator)
         }
         .modelContainer(persistenceController.activeContainer)
+        .onChange(of: scenePhase) { _, newPhase in
+            familyShareAcceptanceCoordinator.handleScenePhaseChange(newPhase)
+        }
         #if os(macOS)
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1100, height: 700)

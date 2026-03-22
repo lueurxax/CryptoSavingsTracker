@@ -41,14 +41,7 @@ struct SharedGoalRowView: View {
 
                     Spacer(minLength: 0)
 
-                    if let rowLifecycleChipTitle = goal.lifecycleState.defaultRowChipTitle {
-                        FamilySharingStatusChip(
-                            text: rowLifecycleChipTitle,
-                            systemImage: lifecycleSystemImage,
-                            tint: goal.lifecycleState.tint
-                        )
-                        .fixedSize(horizontal: true, vertical: false)
-                    }
+                    trailingAccessory
                 }
 
                 Text(goal.ownershipLine)
@@ -84,10 +77,6 @@ struct SharedGoalRowView: View {
                 .foregroundStyle(.primary)
             }
 
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.top, 4)
         }
         .padding(14)
         .background(
@@ -99,6 +88,34 @@ struct SharedGoalRowView: View {
                 .stroke(VisualComponentTokens.dashboardCardStroke, lineWidth: 1)
         )
         .accessibilityIdentifier("sharedGoalRow-\(goal.uiTestIdentifier).content")
+    }
+
+    @ViewBuilder
+    private var trailingAccessory: some View {
+        HStack(alignment: .center, spacing: 8) {
+            if let rowLifecycleChipTitle = goal.lifecycleState.defaultRowChipTitle {
+                ViewThatFits(in: .horizontal) {
+                    FamilySharingStatusChip(
+                        text: rowLifecycleChipTitle,
+                        systemImage: lifecycleSystemImage,
+                        tint: goal.lifecycleState.tint
+                    )
+
+                    FamilySharingStatusChip(
+                        text: rowLifecycleChipTitle,
+                        systemImage: lifecycleSystemImage,
+                        tint: goal.lifecycleState.tint,
+                        mode: .iconOnly
+                    )
+                }
+            }
+
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .fixedSize(horizontal: true, vertical: true)
+        .padding(.top, 2)
     }
 
     private var goalIcon: some View {

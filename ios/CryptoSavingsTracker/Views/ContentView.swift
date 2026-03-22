@@ -166,8 +166,6 @@ struct GoalsList: View {
                         .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                    } header: {
-                        SharedGoalsOwnerHeaderView(section: section)
                     }
                     .textCase(nil)
                     .accessibilityIdentifier("sharedGoalsOwnerSection-\(section.namespaceID.namespaceKey.replacingOccurrences(of: "|", with: "-"))")

@@ -10,7 +10,7 @@ import SwiftData
 import Combine
 
 @MainActor
-class AssetViewModel: ObservableObject {
+class AssetViewModel: ObservableObject, ErrorAwareViewModel {
     @Published var onChainBalance: Double = 0
     @Published var manualBalance: Double = 0
     @Published var totalBalance: Double = 0
@@ -21,6 +21,8 @@ class AssetViewModel: ObservableObject {
     @Published var lastBalanceUpdate: Date?
     @Published var balanceState: BalanceState = .loading
     @Published var isCachedData: Bool = false
+    @Published var viewState: ViewState = .idle
+    var lastSuccessfulLoad: Date?
     
     private let asset: Asset
     private let tatumService: TatumServiceProtocol
@@ -34,10 +36,15 @@ class AssetViewModel: ObservableObject {
         self.totalBalance = asset.manualBalance
     }
     
+    func retry() async {
+        await refreshBalances(forceRefresh: true)
+    }
+
     func refreshBalances(forceRefresh: Bool = false) async {
         isLoadingBalance = true
         balanceError = nil
         balanceState = .loading
+        viewState = .loading
         
         // Update manual balance
         manualBalance = asset.manualBalance
@@ -80,6 +87,12 @@ class AssetViewModel: ObservableObject {
         
         totalBalance = manualBalance + onChainBalance
         isLoadingBalance = false
+        lastSuccessfulLoad = Date()
+        if balanceError != nil {
+            viewState = .degraded("Some balance data may be stale")
+        } else {
+            viewState = .loaded
+        }
     }
     
     func fetchTransactions(forceRefresh: Bool = false) async {

@@ -59,6 +59,32 @@ enum FamilyShareTelemetryEvent: String {
     case migrationFailed = "family_share_namespace_migration_failed"
     case rebuildStarted = "family_share_namespace_rebuild_started"
     case rebuildSucceeded = "family_share_namespace_rebuild_succeeded"
+
+    // MARK: - Freshness Pipeline Telemetry
+
+    case autoPublishRequested = "family_share_auto_publish_requested"
+    case autoPublishCoalesced = "family_share_auto_publish_coalesced"
+    case autoPublishSucceeded = "family_share_auto_publish_succeeded"
+    case autoPublishFailed = "family_share_auto_publish_failed"
+    case rateDriftEvaluated = "family_share_rate_drift_evaluated"
+    case rateDriftBelowThreshold = "family_share_rate_drift_below_threshold"
+    case inviteeForegroundRefreshRequested = "family_share_invitee_foreground_refresh_requested"
+    case inviteeRefreshSucceeded = "family_share_invitee_refresh_succeeded"
+    case inviteeRefreshFailed = "family_share_invitee_refresh_failed"
+    case inviteeStaleViewed = "family_share_invitee_stale_viewed"
+    case publishBackoffEntered = "family_share_publish_backoff_entered"
+    case publishRecovered = "family_share_publish_recovered"
+    case offlinePublishQueued = "family_share_offline_publish_queued"
+    case offlinePublishDrained = "family_share_offline_publish_drained"
+    case rateSnapshotAgeAtPublish = "family_share_rate_snapshot_age_at_publish"
+    case clockSkewDetected = "family_share_clock_skew_detected"
+    case freshnessRollback = "family_share_freshness_rollback"
+    case inviteeRefreshSubstateChanged = "family_share_invitee_refresh_substate_changed"
+    case publishSuppressedStaleLocal = "family_share_publish_suppressed_stale_local"
+    case reconciliationBarrierWaited = "family_share_reconciliation_barrier_waited"
+    case contentHashDedup = "family_share_content_hash_dedup"
+    case inviteeCheckedNoNewData = "family_share_invitee_checked_no_new_data"
+    case namespaceRevokedTerminal = "family_share_namespace_revoked_terminal"
 }
 
 enum FamilyShareTelemetryRedactor {
@@ -189,6 +215,15 @@ final class FamilyShareRollout: @unchecked Sendable {
             ]
         )
         return value
+    }
+
+    /// Whether the freshness pipeline (auto-republish, invitee refresh scheduler,
+    /// rate-drift evaluation, foreground rate refresh driver) is enabled.
+    ///
+    /// Currently wired to the same flag as `isEnabled()`. Can be separated
+    /// into its own flag for independent rollout if needed.
+    nonisolated func isFreshnessPipelineEnabled() -> Bool {
+        return isEnabled()
     }
 
     nonisolated func setDebugOverride(_ value: Bool?) {

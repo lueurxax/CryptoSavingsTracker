@@ -8,14 +8,18 @@ import SwiftUI
 struct SharedGoalDetailView: View {
     let goal: FamilyShareInviteeGoalProjection
     let onDismiss: () -> Void
+    @EnvironmentObject private var familyShareCoordinator: FamilyShareAcceptanceCoordinator
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var contentSpacing: CGFloat {
+        dynamicTypeSize >= .accessibility1 ? 16 : 20
+    }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: contentSpacing) {
                 header
-                stateBanner
-                metricsGrid
-                detailsCard
+                detailBody
                 Button("Done", action: onDismiss)
                     .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -29,6 +33,21 @@ struct SharedGoalDetailView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Close", action: onDismiss)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var detailBody: some View {
+        if dynamicTypeSize >= .accessibility1 {
+            freshnessCard
+            stateBanner
+            metricsGrid
+            detailsCard
+        } else {
+            metricsGrid
+            freshnessCard
+            stateBanner
+            detailsCard
         }
     }
 
@@ -69,18 +88,21 @@ struct SharedGoalDetailView: View {
         }
     }
 
+    @ViewBuilder
     private var stateBanner: some View {
-        FamilySharingCard(
-            title: stateBannerTitle,
-            systemImage: goal.shareState.systemImage,
-            tint: goal.shareState.tint
-        ) {
-            Text(goal.shareState == .active ? "Invitees can view this goal but cannot edit it." : goal.shareState.supportingCopy)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
+        if goal.shareState != .active {
+            FamilySharingCard(
+                title: stateBannerTitle,
+                systemImage: goal.shareState.systemImage,
+                tint: goal.shareState.tint
+            ) {
+                Text(goal.shareState.supportingCopy)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityIdentifier("sharedGoalDetailStateBanner-\(goal.id)")
         }
-        .accessibilityIdentifier("sharedGoalDetailStateBanner-\(goal.id)")
     }
 
     private var stateBannerTitle: String {
@@ -96,8 +118,26 @@ struct SharedGoalDetailView: View {
                 FamilyShareMetricPill(title: "Current", value: goal.formattedCurrent, tint: goal.lifecycleState.tint)
                 FamilyShareMetricPill(title: "Target", value: goal.formattedTarget, tint: AccessibleColors.primaryInteractive)
                 FamilyShareMetricPill(title: "Deadline", value: goal.deadline.formatted(date: .abbreviated, time: .omitted), tint: AccessibleColors.secondaryInteractive)
-                FamilyShareMetricPill(title: "Updated", value: goal.lastUpdatedAt?.formatted(date: .abbreviated, time: .shortened) ?? "Unknown", tint: AccessibleColors.primaryInteractive)
             }
+        }
+    }
+
+    /// Freshness card showing provenance timestamps (proposal Section 8.2).
+    /// Prefers server-assigned `projectionServerTimestamp` over device-local `lastUpdatedAt`
+    /// per Section 6.6.1 canonical clock source.
+    @ViewBuilder
+    private var freshnessCard: some View {
+        let canonicalPublishTime = goal.projectionServerTimestamp ?? goal.projectionPublishedAt
+        if let publishedAt = canonicalPublishTime {
+            FamilyShareFreshnessCardView(
+                label: FamilyShareFreshnessLabel(
+                    publishedAt: publishedAt,
+                    rateSnapshotAt: goal.rateSnapshotTimestamp,
+                    substate: goal.namespaceID.map { familyShareCoordinator.freshnessSubstate(for: $0) } ?? .idle,
+                    lastChecked: goal.namespaceID.flatMap { familyShareCoordinator.freshnessLastChecked(for: $0) },
+                    namespaceKey: goal.namespaceID?.namespaceKey
+                )
+            )
         }
     }
 
