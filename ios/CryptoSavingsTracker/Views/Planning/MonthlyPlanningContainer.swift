@@ -34,6 +34,7 @@ class ExecutionStateCoordinator: ObservableObject {
 /// Implementation detail that binds the container to a single `ModelContext`.
 private struct MonthlyPlanningContainerContent: View {
     let modelContext: ModelContext
+    @Environment(\.colorScheme) private var colorScheme
     @State private var executionRecord: MonthlyExecutionRecord?
     @State private var isLoading = true
     @State private var showStartTrackingConfirmation = false
@@ -59,31 +60,27 @@ private struct MonthlyPlanningContainerContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !planningVisualEnabled {
-                PlanningView(viewModel: planningViewModel)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                // State indicator banner
-                if !isLoading {
-                    stateIndicatorBanner(cycleState: cycleState)
-                }
+            if planningVisualEnabled && !isLoading {
+                stateIndicatorBanner(cycleState: cycleState)
+            }
 
-                // Use AND logic: show execution only if BOTH local @State AND coordinator say so
-                // This ensures either source setting false will immediately show planning
-                if isLoading {
-                    ProgressView("Loading...")
-                } else if isExecuting && executionCoordinator.isExecuting {
-                    // Show execution view with shared coordinator
-                    MonthlyExecutionView(modelContext: modelContext, coordinator: executionCoordinator)
-                } else {
-                    // Show planning view with start tracking button
-                    planningViewWithStartButton
-                }
+            // Keep the execution/planning shell consistent regardless of rollout flag.
+            // The old bare PlanningView fallback dropped the start-tracking CTA and bypassed
+            // execution mode entirely, which is a product regression.
+            if isLoading {
+                ProgressView("Loading...")
+            } else if isExecuting && executionCoordinator.isExecuting {
+                MonthlyExecutionView(modelContext: modelContext, coordinator: executionCoordinator)
+            } else {
+                planningViewWithStartButton
             }
         }
         .navigationTitle("Monthly Planning")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(AccessibleColors.surfaceBase, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(colorScheme == .dark ? .dark : .light, for: .navigationBar)
         #endif
         .onChange(of: executionCoordinator.isExecuting) { _, newValue in
             // Sync local @State from coordinator changes
