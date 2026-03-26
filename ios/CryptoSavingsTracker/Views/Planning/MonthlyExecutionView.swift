@@ -12,6 +12,7 @@ import SwiftData
 struct MonthlyExecutionView: View {
     @StateObject private var viewModel: MonthlyExecutionViewModel
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var showCompletedSection = true
     @State private var showingCurrencyPicker = false
@@ -56,7 +57,14 @@ struct MonthlyExecutionView: View {
             }
             .padding()
         }
+        .background(AccessibleColors.surfaceBase.ignoresSafeArea())
         .navigationTitle("Monthly Execution")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(AccessibleColors.surfaceBase, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(colorScheme == .dark ? .dark : .light, for: .navigationBar)
+        #endif
         .task {
             await viewModel.loadCurrentMonth()
         }
@@ -291,11 +299,11 @@ struct MonthlyExecutionView: View {
             }
         }
         .padding()
-        .background(AccessibleColors.lightBackground)
+        .background(AccessibleColors.surfaceSubtle)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(AccessibleColors.secondaryText.opacity(0.12), lineWidth: 1)
+                .stroke(Color.primary.opacity(colorScheme == .dark ? 0.18 : 0.08), lineWidth: 1)
         )
     }
 
@@ -328,7 +336,10 @@ struct MonthlyExecutionView: View {
             .buttonStyle(.borderedProminent)
         }
         .padding()
-        .background(Color.blue.opacity(0.1))
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.blue.opacity(colorScheme == .dark ? 0.18 : 0.10))
+        )
         .cornerRadius(12)
     }
 
@@ -389,11 +400,11 @@ struct MonthlyExecutionView: View {
             }
         }
         .padding()
-        .background(AccessibleColors.lightBackground)
+        .background(AccessibleColors.surfaceSubtle)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(AccessibleColors.secondaryText.opacity(0.12), lineWidth: 1)
+                .stroke(Color.primary.opacity(colorScheme == .dark ? 0.18 : 0.08), lineWidth: 1)
         )
     }
 
@@ -432,11 +443,11 @@ struct MonthlyExecutionView: View {
                     }
                 }
                 .padding()
-                .background(AccessibleColors.lightBackground)
+                .background(AccessibleColors.surfaceSubtle)
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(AccessibleColors.secondaryText.opacity(0.12), lineWidth: 1)
+                        .stroke(Color.primary.opacity(colorScheme == .dark ? 0.18 : 0.08), lineWidth: 1)
                 )
             }
         }
@@ -521,6 +532,7 @@ struct GoalProgressCard: View {
     let displayCurrency: String
     let viewModel: MonthlyExecutionViewModel
     let onAddContribution: (() -> Void)?
+    @Environment(\.colorScheme) private var colorScheme
 
     private var progressPercentage: Int {
         let total = max(goalSnapshot.plannedAmount, 0.0001)
@@ -589,8 +601,19 @@ struct GoalProgressCard: View {
             }
         }
         .padding()
-        .background(isFulfilled ? AccessibleColors.successBackground : AccessibleColors.mediumBackground)
+        .background(cardBackground)
         .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.primary.opacity(colorScheme == .dark ? 0.14 : 0.06), lineWidth: 1)
+        )
+    }
+
+    private var cardBackground: Color {
+        if isFulfilled {
+            return AccessibleColors.successBackground
+        }
+        return colorScheme == .dark ? AccessibleColors.surfaceBase : AccessibleColors.mediumBackground
     }
 
     private func formatCurrency(_ amount: Double, currency: String) -> String {

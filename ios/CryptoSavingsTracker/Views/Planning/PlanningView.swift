@@ -93,6 +93,7 @@ struct iOSCompactPlanningView: View {
     let staleDrafts: [MonthlyPlan]
     let goalNamesByID: [UUID: String]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTab = 0
     @State private var showingBudgetSheet = false
@@ -211,8 +212,12 @@ struct iOSCompactPlanningView: View {
             tabButton(title: "Adjust", tag: 1, icon: "slider.horizontal.3")
             tabButton(title: "Stats", tag: 2, icon: "chart.bar.fill")
         }
-        .background(AccessibleColors.mediumBackground)
+        .background(AccessibleColors.surfaceSubtle)
         .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.06), lineWidth: 1)
+        )
     }
 
     @ViewBuilder
@@ -274,7 +279,7 @@ struct iOSCompactPlanningView: View {
                         .font(.subheadline)
                         .fontWeight(selectedTab == tag ? .semibold : .regular)
                 }
-                .foregroundColor(selectedTab == tag ? AccessibleColors.primaryInteractive : .secondary)
+                .foregroundColor(selectedTab == tag ? AccessibleColors.primaryInteractive : inactiveTabColor)
 
                 // Underline indicator
                 Rectangle()
@@ -289,6 +294,10 @@ struct iOSCompactPlanningView: View {
         .buttonStyle(.plain)
         .accessibilityLabel("\(title) tab")
         .accessibilityAddTraits(selectedTab == tag ? .isSelected : [])
+    }
+
+    private var inactiveTabColor: Color {
+        colorScheme == .dark ? Color.white.opacity(0.72) : .secondary
     }
     
     // MARK: - Consolidated Header (combines context + summary)

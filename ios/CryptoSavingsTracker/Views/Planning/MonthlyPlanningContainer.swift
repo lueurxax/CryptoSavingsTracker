@@ -42,6 +42,8 @@ private struct MonthlyPlanningContainerContent: View {
     @State private var showFinishMonthConfirmation = false
     @State private var showActionErrorAlert = false
     @State private var actionErrorMessage = ""
+    @State private var showingSettings = false
+    @State private var showingAddGoal = false
     @State private var hasInitiallyLoaded = false
     @State private var isExecuting = false  // Local @State synced from coordinator
     @State private var cycleState: UiCycleState = .planning(
@@ -75,12 +77,34 @@ private struct MonthlyPlanningContainerContent: View {
                 planningViewWithStartButton
             }
         }
+        .background(AccessibleColors.surfaceBase.ignoresSafeArea())
         .navigationTitle("Monthly Planning")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(AccessibleColors.surfaceBase, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(colorScheme == .dark ? .dark : .light, for: .navigationBar)
+        .toolbar {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel("Settings")
+                .accessibilityIdentifier("openSettingsButton")
+                .platformTouchTarget()
+
+                Button {
+                    showingAddGoal = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Add goal")
+                .accessibilityIdentifier("addGoalButton")
+                .platformTouchTarget()
+            }
+        }
         #endif
         .onChange(of: executionCoordinator.isExecuting) { _, newValue in
             // Sync local @State from coordinator changes
@@ -156,6 +180,12 @@ private struct MonthlyPlanningContainerContent: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(actionErrorMessage)
+        }
+        .navigationDestination(isPresented: $showingAddGoal) {
+            AddGoalView()
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
         }
     }
 
