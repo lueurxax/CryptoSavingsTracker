@@ -62,7 +62,7 @@ private struct MonthlyPlanningContainerContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if planningVisualEnabled && !isLoading {
+            if shouldShowStateIndicatorBanner {
                 stateIndicatorBanner(cycleState: cycleState)
             }
 
@@ -223,6 +223,19 @@ private struct MonthlyPlanningContainerContent: View {
             return true
         }
         return false
+    }
+
+    private var shouldShowStateIndicatorBanner: Bool {
+        guard !isLoading else { return false }
+        switch cycleState {
+        case .planning:
+            return planningVisualEnabled
+        case .executing, .closed, .conflict:
+            // Execution and closed-month controls are operational, not decorative.
+            // Hiding them behind the planning visual rollout makes core actions like
+            // "Finish Month" unreachable in production builds.
+            return true
+        }
     }
 
     @ViewBuilder
