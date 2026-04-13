@@ -148,11 +148,17 @@ credentials/
 # Local agent/workspace scratch
 # =============================================================================
 
+.chainworks/
+.mcp.json
+.claude/settings.local.json
+.claude/settings.json.invalid-*.bak
+.forge-codex-acp/
 .massgen/
 workspace*/
 temp_workspaces/
 ._*/
 snapshots/
+tmp/
 tmp/freshness-review-derived/
 tmp/freshness-review-derived-r*/
 artifacts/**/DerivedData/

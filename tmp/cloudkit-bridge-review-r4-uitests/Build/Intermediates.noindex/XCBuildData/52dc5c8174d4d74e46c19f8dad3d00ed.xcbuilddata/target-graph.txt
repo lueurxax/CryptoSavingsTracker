@@ -1,4 +1,0 @@
-Target dependency graph (2 targets)
-Target 'CryptoSavingsTrackerUITests' in project 'CryptoSavingsTracker'
-➜ Explicit dependency on target 'CryptoSavingsTracker' in project 'CryptoSavingsTracker'
-Target 'CryptoSavingsTracker' in project 'CryptoSavingsTracker' (no dependencies)
