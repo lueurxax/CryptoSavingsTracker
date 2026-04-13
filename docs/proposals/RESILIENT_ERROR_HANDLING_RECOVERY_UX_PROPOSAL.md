@@ -274,7 +274,7 @@ struct ErrorTranslator {
 ## 7) Out of Scope
 
 - Offline mutation queuing (covered in separate Offline-First proposal)
-- Push notification for background sync failures (covered in Shared Goals Freshness Sync proposal)
+- Push notification for background sync failures (covered in Family Sharing freshness sync documentation)
 - Analytics/telemetry for error rates (future work)
 - Android error handling parity (separate effort)
 
@@ -284,4 +284,4 @@ struct ErrorTranslator {
 
 - `docs/ARCHITECTURE.md` - Service layer architecture
 - `Utilities/ErrorHandling.swift` - Current error types
-- `docs/proposals/SHARED_GOALS_FRESHNESS_SYNC_PROPOSAL.md` - Related freshness concerns for shared data
+- `docs/FAMILY_SHARING_FRESHNESS_SYNC.md` - Related freshness concerns for shared data

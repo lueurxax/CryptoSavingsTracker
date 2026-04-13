@@ -217,18 +217,23 @@ final class LocalBridgeImportApplyService {
             throw LocalBridgeImportApplyError.validationFailed(freshReview.blockingIssues)
         }
 
-        try validatePackageShape(package.snapshotEnvelope)
+        let effectiveEnvelope = try normalizeEnvelopeForApply(
+            package.snapshotEnvelope,
+            currentSnapshot: currentSnapshot
+        )
+        try validatePackageShape(effectiveEnvelope)
 
         let writeContext = ModelContext(container)
         let indexes = try makeIndexes(in: writeContext)
-        let applyPlan = try makeApplyPlan(for: package.snapshotEnvelope, using: indexes, in: writeContext)
+        let applyPlan = try makeApplyPlan(for: effectiveEnvelope, using: indexes, in: writeContext)
         applyPlan.apply()
         writeContext.processPendingChanges()
 
         let predictedSnapshot = try snapshotExportService.exportSnapshot(from: writeContext)
-        guard predictedSnapshot.manifest.baseDatasetFingerprint == package.editedDatasetFingerprint else {
+        let expectedAuthoritativeEnvelope = try authoritativeEnvelopeAfterApply(effectiveEnvelope)
+        guard predictedSnapshot.manifest.baseDatasetFingerprint == expectedAuthoritativeEnvelope.manifest.baseDatasetFingerprint else {
             throw LocalBridgeImportApplyError.applyPlanFingerprintMismatch(
-                expected: package.editedDatasetFingerprint,
+                expected: expectedAuthoritativeEnvelope.manifest.baseDatasetFingerprint,
                 actual: predictedSnapshot.manifest.baseDatasetFingerprint
             )
         }
@@ -249,6 +254,262 @@ final class LocalBridgeImportApplyService {
             receipt: receipt,
             entityCounts: predictedSnapshot.entityCounts
         )
+    }
+
+    private func normalizeEnvelopeForApply(
+        _ incoming: SnapshotEnvelope,
+        currentSnapshot: SnapshotEnvelope
+    ) throws -> SnapshotEnvelope {
+        let goals = overlay(currentSnapshot.goals, with: incoming.goals, id: \.id)
+        let assets = overlay(currentSnapshot.assets, with: incoming.assets, id: \.id)
+        var transactions = overlay(currentSnapshot.transactions, with: incoming.transactions, id: \.id)
+        var assetAllocations = overlay(currentSnapshot.assetAllocations, with: incoming.assetAllocations, id: \.id)
+        var allocationHistories = overlay(currentSnapshot.allocationHistories, with: incoming.allocationHistories, id: \.id)
+        var monthlyPlans = overlay(currentSnapshot.monthlyPlans, with: incoming.monthlyPlans, id: \.id)
+        var monthlyExecutionRecords = overlay(currentSnapshot.monthlyExecutionRecords, with: incoming.monthlyExecutionRecords, id: \.id)
+        var completedExecutions = overlay(currentSnapshot.completedExecutions, with: incoming.completedExecutions, id: \.id)
+        var executionSnapshots = overlay(currentSnapshot.executionSnapshots, with: incoming.executionSnapshots, id: \.id)
+        var completionEvents = overlay(currentSnapshot.completionEvents, with: incoming.completionEvents, id: \.eventId)
+
+        let activeGoalIDs = Set(goals.values.filter { $0.recordState == .active }.map(\.id))
+        let activeAssetIDs = Set(assets.values.filter { $0.recordState == .active }.map(\.id))
+
+        transactions = Dictionary(uniqueKeysWithValues: transactions.values.map { snapshot in
+            guard
+                snapshot.recordState == .active,
+                let assetId = snapshot.assetId,
+                !activeAssetIDs.contains(assetId)
+            else {
+                return (snapshot.id, snapshot)
+            }
+            return (snapshot.id, deleted(snapshot))
+        })
+
+        assetAllocations = Dictionary(uniqueKeysWithValues: assetAllocations.values.map { snapshot in
+            guard snapshot.recordState == .active else { return (snapshot.id, snapshot) }
+            guard
+                let assetId = snapshot.assetId,
+                let goalId = snapshot.goalId,
+                activeAssetIDs.contains(assetId),
+                activeGoalIDs.contains(goalId)
+            else {
+                return (snapshot.id, deleted(snapshot))
+            }
+            return (snapshot.id, snapshot)
+        })
+
+        allocationHistories = Dictionary(uniqueKeysWithValues: allocationHistories.values.map { snapshot in
+            guard snapshot.recordState == .active else { return (snapshot.id, snapshot) }
+            let normalizedAssetID = snapshot.assetId.flatMap { activeAssetIDs.contains($0) ? $0 : nil }
+            let normalizedGoalID = snapshot.goalId.flatMap { activeGoalIDs.contains($0) ? $0 : nil }
+            return (
+                snapshot.id,
+                BridgeAllocationHistorySnapshot(
+                    id: snapshot.id,
+                    recordState: .active,
+                    assetId: normalizedAssetID,
+                    goalId: normalizedGoalID,
+                    amount: snapshot.amount,
+                    timestamp: snapshot.timestamp,
+                    createdAt: snapshot.createdAt,
+                    monthLabel: snapshot.monthLabel
+                )
+            )
+        })
+
+        let provisionalRecordIDs = Set(monthlyExecutionRecords.values.filter { $0.recordState == .active }.map(\.id))
+        monthlyPlans = Dictionary(uniqueKeysWithValues: monthlyPlans.values.map { snapshot in
+            guard snapshot.recordState == .active else { return (snapshot.id, snapshot) }
+            guard activeGoalIDs.contains(snapshot.goalId) else {
+                return (snapshot.id, deleted(snapshot))
+            }
+            let normalizedExecutionRecordID = snapshot.executionRecordId.flatMap {
+                provisionalRecordIDs.contains($0) ? $0 : nil
+            }
+            return (
+                snapshot.id,
+                BridgeMonthlyPlanSnapshot(
+                    id: snapshot.id,
+                    recordState: .active,
+                    goalId: snapshot.goalId,
+                    monthLabel: snapshot.monthLabel,
+                    requiredMonthly: snapshot.requiredMonthly,
+                    remainingAmount: snapshot.remainingAmount,
+                    monthsRemaining: snapshot.monthsRemaining,
+                    currency: snapshot.currency,
+                    statusRawValue: snapshot.statusRawValue,
+                    stateRawValue: snapshot.stateRawValue,
+                    executionRecordId: normalizedExecutionRecordID,
+                    flexStateRawValue: snapshot.flexStateRawValue,
+                    customAmount: snapshot.customAmount,
+                    isProtected: snapshot.isProtected,
+                    isSkipped: snapshot.isSkipped,
+                    createdDate: snapshot.createdDate,
+                    lastModifiedDate: snapshot.lastModifiedDate
+                )
+            )
+        })
+
+        let activePlanIDs = Set(monthlyPlans.values.filter { $0.recordState == .active }.map(\.id))
+        monthlyExecutionRecords = Dictionary(uniqueKeysWithValues: monthlyExecutionRecords.values.map { snapshot in
+            guard snapshot.recordState == .active else { return (snapshot.id, snapshot) }
+            return (
+                snapshot.id,
+                BridgeMonthlyExecutionRecordSnapshot(
+                    id: snapshot.id,
+                    recordState: .active,
+                    monthLabel: snapshot.monthLabel,
+                    statusRawValue: snapshot.statusRawValue,
+                    createdAt: snapshot.createdAt,
+                    startedAt: snapshot.startedAt,
+                    completedAt: snapshot.completedAt,
+                    canUndoUntil: snapshot.canUndoUntil,
+                    goalIds: snapshot.goalIds.filter { activeGoalIDs.contains($0) },
+                    snapshotId: snapshot.snapshotId,
+                    completedExecutionId: snapshot.completedExecutionId,
+                    planIds: snapshot.planIds.filter { activePlanIDs.contains($0) },
+                    completionEventIds: snapshot.completionEventIds
+                )
+            )
+        })
+
+        let activeRecordIDs = Set(monthlyExecutionRecords.values.filter { $0.recordState == .active }.map(\.id))
+        executionSnapshots = Dictionary(uniqueKeysWithValues: executionSnapshots.values.map { snapshot in
+            guard snapshot.recordState == .active else { return (snapshot.id, snapshot) }
+            guard activeRecordIDs.contains(snapshot.executionRecordId) else {
+                return (snapshot.id, deleted(snapshot))
+            }
+            return (snapshot.id, snapshot)
+        })
+        completedExecutions = Dictionary(uniqueKeysWithValues: completedExecutions.values.map { snapshot in
+            guard snapshot.recordState == .active else { return (snapshot.id, snapshot) }
+            guard activeRecordIDs.contains(snapshot.executionRecordId) else {
+                return (snapshot.id, deleted(snapshot))
+            }
+            return (snapshot.id, snapshot)
+        })
+
+        let activeCompletedExecutionIDs = Set(completedExecutions.values.filter { $0.recordState == .active }.map(\.id))
+        completionEvents = Dictionary(uniqueKeysWithValues: completionEvents.values.map { snapshot in
+            guard snapshot.recordState == .active else { return (snapshot.eventId, snapshot) }
+            guard
+                activeRecordIDs.contains(snapshot.executionRecordId),
+                activeCompletedExecutionIDs.contains(snapshot.completionSnapshotId)
+            else {
+                return (snapshot.eventId, deleted(snapshot))
+            }
+            return (snapshot.eventId, snapshot)
+        })
+
+        let activeExecutionSnapshotIDs = Set(executionSnapshots.values.filter { $0.recordState == .active }.map(\.id))
+        let activeCompletionEventIDs = Set(completionEvents.values.filter { $0.recordState == .active }.map(\.eventId))
+        monthlyExecutionRecords = Dictionary(uniqueKeysWithValues: monthlyExecutionRecords.values.map { snapshot in
+            guard snapshot.recordState == .active else { return (snapshot.id, snapshot) }
+            return (
+                snapshot.id,
+                BridgeMonthlyExecutionRecordSnapshot(
+                    id: snapshot.id,
+                    recordState: .active,
+                    monthLabel: snapshot.monthLabel,
+                    statusRawValue: snapshot.statusRawValue,
+                    createdAt: snapshot.createdAt,
+                    startedAt: snapshot.startedAt,
+                    completedAt: snapshot.completedAt,
+                    canUndoUntil: snapshot.canUndoUntil,
+                    goalIds: snapshot.goalIds.filter { activeGoalIDs.contains($0) },
+                    snapshotId: snapshot.snapshotId.flatMap { activeExecutionSnapshotIDs.contains($0) ? $0 : nil },
+                    completedExecutionId: snapshot.completedExecutionId.flatMap { activeCompletedExecutionIDs.contains($0) ? $0 : nil },
+                    planIds: snapshot.planIds.filter { activePlanIDs.contains($0) },
+                    completionEventIds: snapshot.completionEventIds.filter { activeCompletionEventIDs.contains($0) }
+                )
+            )
+        })
+
+        let normalizedEnvelope = SnapshotEnvelope(
+            manifest: incoming.manifest.withBaseDatasetFingerprint(""),
+            goals: goals.values.sorted { $0.id.uuidString < $1.id.uuidString },
+            assets: assets.values.sorted { $0.id.uuidString < $1.id.uuidString },
+            transactions: transactions.values.sorted { $0.id.uuidString < $1.id.uuidString },
+            assetAllocations: assetAllocations.values.sorted { $0.id.uuidString < $1.id.uuidString },
+            allocationHistories: allocationHistories.values.sorted { $0.id.uuidString < $1.id.uuidString },
+            monthlyPlans: monthlyPlans.values.sorted { $0.id.uuidString < $1.id.uuidString },
+            monthlyExecutionRecords: monthlyExecutionRecords.values.sorted { $0.id.uuidString < $1.id.uuidString },
+            completedExecutions: completedExecutions.values.sorted { $0.id.uuidString < $1.id.uuidString },
+            executionSnapshots: executionSnapshots.values.sorted { $0.id.uuidString < $1.id.uuidString },
+            completionEvents: completionEvents.values.sorted { $0.eventId.uuidString < $1.eventId.uuidString }
+        )
+        let normalizedManifest = SnapshotManifest(
+            snapshotID: incoming.manifest.snapshotID,
+            canonicalEncodingVersion: incoming.manifest.canonicalEncodingVersion,
+            snapshotSchemaVersion: incoming.manifest.snapshotSchemaVersion,
+            exportedAt: incoming.manifest.exportedAt,
+            appModelSchemaVersion: incoming.manifest.appModelSchemaVersion,
+            entityCounts: normalizedEnvelope.entityCounts,
+            baseDatasetFingerprint: ""
+        )
+        return try SnapshotEnvelope(
+            manifest: normalizedManifest,
+            goals: normalizedEnvelope.goals,
+            assets: normalizedEnvelope.assets,
+            transactions: normalizedEnvelope.transactions,
+            assetAllocations: normalizedEnvelope.assetAllocations,
+            allocationHistories: normalizedEnvelope.allocationHistories,
+            monthlyPlans: normalizedEnvelope.monthlyPlans,
+            monthlyExecutionRecords: normalizedEnvelope.monthlyExecutionRecords,
+            completedExecutions: normalizedEnvelope.completedExecutions,
+            executionSnapshots: normalizedEnvelope.executionSnapshots,
+            completionEvents: normalizedEnvelope.completionEvents
+        ).withComputedFingerprint()
+    }
+
+    private func authoritativeEnvelopeAfterApply(_ envelope: SnapshotEnvelope) throws -> SnapshotEnvelope {
+        let authoritativeManifest = SnapshotManifest(
+            snapshotID: envelope.manifest.snapshotID,
+            canonicalEncodingVersion: envelope.manifest.canonicalEncodingVersion,
+            snapshotSchemaVersion: envelope.manifest.snapshotSchemaVersion,
+            exportedAt: envelope.manifest.exportedAt,
+            appModelSchemaVersion: envelope.manifest.appModelSchemaVersion,
+            entityCounts: [],
+            baseDatasetFingerprint: ""
+        )
+
+        let authoritativeEnvelope = SnapshotEnvelope(
+            manifest: authoritativeManifest,
+            goals: envelope.goals.filter { $0.recordState != .deleted },
+            assets: envelope.assets.filter { $0.recordState != .deleted },
+            transactions: envelope.transactions.filter { $0.recordState != .deleted },
+            assetAllocations: envelope.assetAllocations.filter { $0.recordState != .deleted },
+            allocationHistories: envelope.allocationHistories.filter { $0.recordState != .deleted },
+            monthlyPlans: envelope.monthlyPlans.filter { $0.recordState != .deleted },
+            monthlyExecutionRecords: envelope.monthlyExecutionRecords.filter { $0.recordState != .deleted },
+            completedExecutions: envelope.completedExecutions.filter { $0.recordState != .deleted },
+            executionSnapshots: envelope.executionSnapshots.filter { $0.recordState != .deleted },
+            completionEvents: envelope.completionEvents.filter { $0.recordState != .deleted }
+        )
+
+        let normalizedManifest = SnapshotManifest(
+            snapshotID: authoritativeEnvelope.manifest.snapshotID,
+            canonicalEncodingVersion: authoritativeEnvelope.manifest.canonicalEncodingVersion,
+            snapshotSchemaVersion: authoritativeEnvelope.manifest.snapshotSchemaVersion,
+            exportedAt: authoritativeEnvelope.manifest.exportedAt,
+            appModelSchemaVersion: authoritativeEnvelope.manifest.appModelSchemaVersion,
+            entityCounts: authoritativeEnvelope.entityCounts,
+            baseDatasetFingerprint: ""
+        )
+
+        return try SnapshotEnvelope(
+            manifest: normalizedManifest,
+            goals: authoritativeEnvelope.goals,
+            assets: authoritativeEnvelope.assets,
+            transactions: authoritativeEnvelope.transactions,
+            assetAllocations: authoritativeEnvelope.assetAllocations,
+            allocationHistories: authoritativeEnvelope.allocationHistories,
+            monthlyPlans: authoritativeEnvelope.monthlyPlans,
+            monthlyExecutionRecords: authoritativeEnvelope.monthlyExecutionRecords,
+            completedExecutions: authoritativeEnvelope.completedExecutions,
+            executionSnapshots: authoritativeEnvelope.executionSnapshots,
+            completionEvents: authoritativeEnvelope.completionEvents
+        ).withComputedFingerprint()
     }
 
     private func validatePackageShape(_ envelope: SnapshotEnvelope) throws {
@@ -276,19 +537,30 @@ final class LocalBridgeImportApplyService {
         issues.append(contentsOf: duplicateLogicalKeyIssues(for: envelope.executionSnapshots, entityName: "ExecutionSnapshot", logicalKey: executionSnapshotLogicalKey))
         issues.append(contentsOf: duplicateLogicalKeyIssues(for: envelope.completionEvents, entityName: "CompletionEvent", logicalKey: completionEventLogicalKey))
 
-        let goalIDs = Set(envelope.goals.map(\.id))
-        let assetIDs = Set(envelope.assets.map(\.id))
-        let monthlyExecutionRecordIDs = Set(envelope.monthlyExecutionRecords.map(\.id))
-        let monthlyPlanIDs = Set(envelope.monthlyPlans.map(\.id))
-        let completedExecutionIDs = Set(envelope.completedExecutions.map(\.id))
-        let executionSnapshotIDs = Set(envelope.executionSnapshots.map(\.id))
-        let completionEventIDs = Set(envelope.completionEvents.map(\.eventId))
+        let activeGoals = envelope.goals.filter { $0.recordState == .active }
+        let activeAssets = envelope.assets.filter { $0.recordState == .active }
+        let activeTransactions = envelope.transactions.filter { $0.recordState == .active }
+        let activeAssetAllocations = envelope.assetAllocations.filter { $0.recordState == .active }
+        let activeAllocationHistories = envelope.allocationHistories.filter { $0.recordState == .active }
+        let activeMonthlyPlans = envelope.monthlyPlans.filter { $0.recordState == .active }
+        let activeMonthlyExecutionRecords = envelope.monthlyExecutionRecords.filter { $0.recordState == .active }
+        let activeCompletedExecutions = envelope.completedExecutions.filter { $0.recordState == .active }
+        let activeExecutionSnapshots = envelope.executionSnapshots.filter { $0.recordState == .active }
+        let activeCompletionEvents = envelope.completionEvents.filter { $0.recordState == .active }
 
-        for transaction in envelope.transactions where transaction.assetId != nil && !assetIDs.contains(transaction.assetId!) {
+        let goalIDs = Set(activeGoals.map(\.id))
+        let assetIDs = Set(activeAssets.map(\.id))
+        let monthlyExecutionRecordIDs = Set(activeMonthlyExecutionRecords.map(\.id))
+        let monthlyPlanIDs = Set(activeMonthlyPlans.map(\.id))
+        let completedExecutionIDs = Set(activeCompletedExecutions.map(\.id))
+        let executionSnapshotIDs = Set(activeExecutionSnapshots.map(\.id))
+        let completionEventIDs = Set(activeCompletionEvents.map(\.eventId))
+
+        for transaction in activeTransactions where transaction.assetId != nil && !assetIDs.contains(transaction.assetId!) {
             issues.append("Transaction \(transaction.id.uuidString) references missing asset \(transaction.assetId!.uuidString).")
         }
 
-        for allocation in envelope.assetAllocations {
+        for allocation in activeAssetAllocations {
             guard let assetId = allocation.assetId else {
                 issues.append("AssetAllocation \(allocation.id.uuidString) is missing assetId.")
                 continue
@@ -305,32 +577,24 @@ final class LocalBridgeImportApplyService {
             }
         }
 
-        for history in envelope.allocationHistories {
-            guard let assetId = history.assetId else {
-                issues.append("AllocationHistory \(history.id.uuidString) is missing assetId.")
-                continue
-            }
-            guard let goalId = history.goalId else {
-                issues.append("AllocationHistory \(history.id.uuidString) is missing goalId.")
-                continue
-            }
-            if !assetIDs.contains(assetId) {
+        for history in activeAllocationHistories {
+            if let assetId = history.assetId, !assetIDs.contains(assetId) {
                 issues.append("AllocationHistory \(history.id.uuidString) references missing asset \(assetId.uuidString).")
             }
-            if !goalIDs.contains(goalId) {
+            if let goalId = history.goalId, !goalIDs.contains(goalId) {
                 issues.append("AllocationHistory \(history.id.uuidString) references missing goal \(goalId.uuidString).")
             }
         }
 
-        for plan in envelope.monthlyPlans where plan.executionRecordId != nil && !monthlyExecutionRecordIDs.contains(plan.executionRecordId!) {
+        for plan in activeMonthlyPlans where plan.executionRecordId != nil && !monthlyExecutionRecordIDs.contains(plan.executionRecordId!) {
             issues.append("MonthlyPlan \(plan.id.uuidString) references missing execution record \(plan.executionRecordId!.uuidString).")
         }
 
-        let plansByExecutionRecord = Dictionary(grouping: envelope.monthlyPlans.compactMap { plan in
+        let plansByExecutionRecord = Dictionary(grouping: activeMonthlyPlans.compactMap { plan in
             plan.executionRecordId.map { ($0, plan.id) }
         }, by: \.0).mapValues { Set($0.map(\.1)) }
 
-        for record in envelope.monthlyExecutionRecords {
+        for record in activeMonthlyExecutionRecords {
             let referencedGoalIDs = Set(record.goalIds)
             let missingGoalIDs = referencedGoalIDs.subtracting(goalIDs)
             if !missingGoalIDs.isEmpty {
@@ -360,15 +624,15 @@ final class LocalBridgeImportApplyService {
             }
         }
 
-        for completion in envelope.completedExecutions where !monthlyExecutionRecordIDs.contains(completion.executionRecordId) {
+        for completion in activeCompletedExecutions where !monthlyExecutionRecordIDs.contains(completion.executionRecordId) {
             issues.append("CompletedExecution \(completion.id.uuidString) references missing execution record \(completion.executionRecordId.uuidString).")
         }
 
-        for snapshot in envelope.executionSnapshots where !monthlyExecutionRecordIDs.contains(snapshot.executionRecordId) {
+        for snapshot in activeExecutionSnapshots where !monthlyExecutionRecordIDs.contains(snapshot.executionRecordId) {
             issues.append("ExecutionSnapshot \(snapshot.id.uuidString) references missing execution record \(snapshot.executionRecordId.uuidString).")
         }
 
-        for event in envelope.completionEvents {
+        for event in activeCompletionEvents {
             if !monthlyExecutionRecordIDs.contains(event.executionRecordId) {
                 issues.append("CompletionEvent \(event.eventId.uuidString) references missing execution record \(event.executionRecordId.uuidString).")
             }
@@ -407,6 +671,18 @@ final class LocalBridgeImportApplyService {
         var keptCompletionEventIDs = Set<UUID>()
 
         for snapshot in envelope.goals {
+            if snapshot.recordState == .deleted {
+                let goal = try resolveExistingForDelete(
+                    incomingID: snapshot.id,
+                    entityName: "Goal",
+                    existingByID: indexes.goals,
+                    logicalMatches: indexes.goalList.filter { goalLogicalKey($0) == goalLogicalKey(snapshot) },
+                    id: \Goal.id
+                )
+                context.delete(goal)
+                keptGoalIDs.insert(goal.id)
+                continue
+            }
             let match = try resolveMatch(
                 incomingID: snapshot.id,
                 entityName: "Goal",
@@ -445,6 +721,18 @@ final class LocalBridgeImportApplyService {
         }
 
         for snapshot in envelope.assets {
+            if snapshot.recordState == .deleted {
+                let asset = try resolveExistingForDelete(
+                    incomingID: snapshot.id,
+                    entityName: "Asset",
+                    existingByID: indexes.assets,
+                    logicalMatches: indexes.assetList.filter { assetLogicalKey($0) == assetLogicalKey(snapshot) },
+                    id: \Asset.id
+                )
+                context.delete(asset)
+                keptAssetIDs.insert(asset.id)
+                continue
+            }
             let match = try resolveMatch(
                 incomingID: snapshot.id,
                 entityName: "Asset",
@@ -468,6 +756,20 @@ final class LocalBridgeImportApplyService {
         }
 
         for snapshot in envelope.monthlyExecutionRecords {
+            if snapshot.recordState == .deleted {
+                let record = try resolveExistingForDelete(
+                    incomingID: snapshot.id,
+                    entityName: "MonthlyExecutionRecord",
+                    existingByID: indexes.monthlyExecutionRecords,
+                    logicalMatches: indexes.monthlyExecutionRecordList.filter {
+                        monthlyExecutionRecordLogicalKey($0) == monthlyExecutionRecordLogicalKey(snapshot)
+                    },
+                    id: \MonthlyExecutionRecord.id
+                )
+                context.delete(record)
+                keptRecordIDs.insert(record.id)
+                continue
+            }
             let match = try resolveMatch(
                 incomingID: snapshot.id,
                 entityName: "MonthlyExecutionRecord",
@@ -511,6 +813,20 @@ final class LocalBridgeImportApplyService {
         }
 
         for snapshot in envelope.monthlyPlans {
+            if snapshot.recordState == .deleted {
+                let plan = try resolveExistingForDelete(
+                    incomingID: snapshot.id,
+                    entityName: "MonthlyPlan",
+                    existingByID: indexes.monthlyPlans,
+                    logicalMatches: indexes.monthlyPlanList.filter {
+                        monthlyPlanLogicalKey($0) == monthlyPlanLogicalKey(monthLabel: snapshot.monthLabel, goalID: snapshot.goalId)
+                    },
+                    id: \MonthlyPlan.id
+                )
+                context.delete(plan)
+                keptPlanIDs.insert(plan.id)
+                continue
+            }
             guard let goal = goalsByIncomingID[snapshot.goalId] else {
                 throw LocalBridgeImportApplyError.validationFailed([
                     "MonthlyPlan \(snapshot.id.uuidString) references unresolved goal \(snapshot.goalId.uuidString)."
@@ -572,6 +888,28 @@ final class LocalBridgeImportApplyService {
         }
 
         for snapshot in envelope.transactions {
+            if snapshot.recordState == .deleted {
+                let transaction = try resolveExistingForDelete(
+                    incomingID: snapshot.id,
+                    entityName: "Transaction",
+                    existingByID: indexes.transactions,
+                    logicalMatches: indexes.transactionList.filter {
+                        transactionLogicalKey($0) == transactionLogicalKey(
+                            assetID: snapshot.assetId,
+                            externalID: snapshot.externalId,
+                            date: snapshot.date,
+                            amount: snapshot.amount,
+                            sourceRawValue: snapshot.sourceRawValue,
+                            counterparty: snapshot.counterparty,
+                            comment: snapshot.comment
+                        )
+                    },
+                    id: \Transaction.id
+                )
+                context.delete(transaction)
+                keptTransactionIDs.insert(transaction.id)
+                continue
+            }
             let asset = try resolveAsset(
                 incomingAssetID: snapshot.assetId,
                 forEntityName: "Transaction",
@@ -622,6 +960,20 @@ final class LocalBridgeImportApplyService {
         }
 
         for snapshot in envelope.assetAllocations {
+            if snapshot.recordState == .deleted {
+                let allocation = try resolveExistingForDelete(
+                    incomingID: snapshot.id,
+                    entityName: "AssetAllocation",
+                    existingByID: indexes.assetAllocations,
+                    logicalMatches: indexes.assetAllocationList.filter {
+                        assetAllocationLogicalKey($0) == assetAllocationLogicalKey(assetID: snapshot.assetId, goalID: snapshot.goalId)
+                    },
+                    id: \AssetAllocation.id
+                )
+                context.delete(allocation)
+                keptAllocationIDs.insert(allocation.id)
+                continue
+            }
             guard let incomingAssetID = snapshot.assetId else {
                 throw LocalBridgeImportApplyError.validationFailed([
                     "AssetAllocation \(snapshot.id.uuidString) is missing assetId."
@@ -667,42 +1019,66 @@ final class LocalBridgeImportApplyService {
         }
 
         for snapshot in envelope.allocationHistories {
-            guard let incomingAssetID = snapshot.assetId else {
-                throw LocalBridgeImportApplyError.validationFailed([
-                    "AllocationHistory \(snapshot.id.uuidString) is missing assetId."
-                ])
+            if snapshot.recordState == .deleted {
+                let history = try resolveExistingForDelete(
+                    incomingID: snapshot.id,
+                    entityName: "AllocationHistory",
+                    existingByID: indexes.allocationHistories,
+                    logicalMatches: indexes.allocationHistoryList.filter {
+                        allocationHistoryLogicalKey($0) == allocationHistoryLogicalKey(
+                            assetID: snapshot.assetId,
+                            goalID: snapshot.goalId,
+                            timestamp: snapshot.timestamp,
+                            createdAt: snapshot.createdAt,
+                            amount: snapshot.amount
+                        )
+                    },
+                    id: \AllocationHistory.id
+                )
+                context.delete(history)
+                keptHistoryIDs.insert(history.id)
+                continue
             }
-            guard let incomingGoalID = snapshot.goalId else {
-                throw LocalBridgeImportApplyError.validationFailed([
-                    "AllocationHistory \(snapshot.id.uuidString) is missing goalId."
-                ])
-            }
-            guard let asset = assetsByIncomingID[incomingAssetID] else {
-                throw LocalBridgeImportApplyError.validationFailed([
-                    "AllocationHistory \(snapshot.id.uuidString) references unresolved asset \(incomingAssetID.uuidString)."
-                ])
-            }
-            guard let goal = goalsByIncomingID[incomingGoalID] else {
-                throw LocalBridgeImportApplyError.validationFailed([
-                    "AllocationHistory \(snapshot.id.uuidString) references unresolved goal \(incomingGoalID.uuidString)."
-                ])
-            }
-            let match = try resolveMatch(
-                incomingID: snapshot.id,
-                entityName: "AllocationHistory",
-                existingByID: indexes.allocationHistories,
-                logicalMatches: indexes.allocationHistoryList.filter {
-                    allocationHistoryLogicalKey($0) == allocationHistoryLogicalKey(
-                        assetID: asset.id,
-                        goalID: goal.id,
-                        timestamp: snapshot.timestamp,
-                        createdAt: snapshot.createdAt,
-                        amount: snapshot.amount
-                    )
-                },
-                id: \AllocationHistory.id
-            ) {
-                AllocationHistory(asset: asset, goal: goal, amount: snapshot.amount, timestamp: snapshot.timestamp)
+            let asset = try resolveAsset(
+                incomingAssetID: snapshot.assetId,
+                forEntityName: "AllocationHistory",
+                entityID: snapshot.id,
+                from: assetsByIncomingID
+            )
+            let goal = try resolveGoal(
+                incomingGoalID: snapshot.goalId,
+                forEntityName: "AllocationHistory",
+                entityID: snapshot.id,
+                from: goalsByIncomingID
+            )
+            let match: BridgeImportMatch<AllocationHistory>
+            if asset == nil || goal == nil {
+                guard let existing = indexes.allocationHistories[snapshot.id] else {
+                    throw LocalBridgeImportApplyError.validationFailed([
+                        "AllocationHistory \(snapshot.id.uuidString) cannot nullify missing parent references without an authoritative ID match."
+                    ])
+                }
+                match = BridgeImportMatch(model: existing, isInsert: false)
+            } else {
+                let resolvedAsset = asset!
+                let resolvedGoal = goal!
+                match = try resolveMatch(
+                    incomingID: snapshot.id,
+                    entityName: "AllocationHistory",
+                    existingByID: indexes.allocationHistories,
+                    logicalMatches: indexes.allocationHistoryList.filter {
+                        allocationHistoryLogicalKey($0) == allocationHistoryLogicalKey(
+                            assetID: resolvedAsset.id,
+                            goalID: resolvedGoal.id,
+                            timestamp: snapshot.timestamp,
+                            createdAt: snapshot.createdAt,
+                            amount: snapshot.amount
+                        )
+                    },
+                    id: \AllocationHistory.id
+                ) {
+                    AllocationHistory(asset: resolvedAsset, goal: resolvedGoal, amount: snapshot.amount, timestamp: snapshot.timestamp)
+                }
             }
             let history = match.model
             if match.isInsert {
@@ -713,22 +1089,36 @@ final class LocalBridgeImportApplyService {
             history.timestamp = snapshot.timestamp
             history.createdAt = snapshot.createdAt
             history.monthLabel = snapshot.monthLabel
-            history.assetId = asset.id
-            history.goalId = goal.id
+            history.assetId = asset?.id
+            history.goalId = goal?.id
             history.asset = asset
             history.goal = goal
             keptHistoryIDs.insert(history.id)
         }
 
-        for snapshot in envelope.monthlyExecutionRecords {
+        for snapshot in envelope.monthlyExecutionRecords where snapshot.recordState == .active {
             guard let record = recordsByIncomingID[snapshot.id] else { continue }
             let linkedPlans = envelope.monthlyPlans.compactMap { planSnapshot in
-                planSnapshot.executionRecordId == snapshot.id ? plansByIncomingID[planSnapshot.id] : nil
+                planSnapshot.recordState == .active && planSnapshot.executionRecordId == snapshot.id ? plansByIncomingID[planSnapshot.id] : nil
             }.sorted { $0.id.uuidString < $1.id.uuidString }
             record.plans = linkedPlans.isEmpty ? nil : linkedPlans
         }
 
         for snapshot in envelope.executionSnapshots {
+            if snapshot.recordState == .deleted {
+                let executionSnapshot = try resolveExistingForDelete(
+                    incomingID: snapshot.id,
+                    entityName: "ExecutionSnapshot",
+                    existingByID: indexes.executionSnapshots,
+                    logicalMatches: indexes.executionSnapshotList.filter {
+                        executionSnapshotLogicalKey($0) == executionSnapshotLogicalKey(capturedAt: snapshot.capturedAt, totalPlanned: snapshot.totalPlanned)
+                    },
+                    id: \ExecutionSnapshot.id
+                )
+                context.delete(executionSnapshot)
+                keptExecutionSnapshotIDs.insert(executionSnapshot.id)
+                continue
+            }
             guard let record = recordsByIncomingID[snapshot.executionRecordId] else {
                 throw LocalBridgeImportApplyError.validationFailed([
                     "ExecutionSnapshot \(snapshot.id.uuidString) references unresolved execution record \(snapshot.executionRecordId.uuidString)."
@@ -765,6 +1155,20 @@ final class LocalBridgeImportApplyService {
         }
 
         for snapshot in envelope.completedExecutions {
+            if snapshot.recordState == .deleted {
+                let completedExecution = try resolveExistingForDelete(
+                    incomingID: snapshot.id,
+                    entityName: "CompletedExecution",
+                    existingByID: indexes.completedExecutions,
+                    logicalMatches: indexes.completedExecutionList.filter {
+                        completedExecutionLogicalKey($0) == completedExecutionLogicalKey(monthLabel: snapshot.monthLabel)
+                    },
+                    id: \CompletedExecution.id
+                )
+                context.delete(completedExecution)
+                keptCompletedExecutionIDs.insert(completedExecution.id)
+                continue
+            }
             guard let record = recordsByIncomingID[snapshot.executionRecordId] else {
                 throw LocalBridgeImportApplyError.validationFailed([
                     "CompletedExecution \(snapshot.id.uuidString) references unresolved execution record \(snapshot.executionRecordId.uuidString)."
@@ -814,6 +1218,20 @@ final class LocalBridgeImportApplyService {
         }
 
         for snapshot in envelope.completionEvents {
+            if snapshot.recordState == .deleted {
+                let event = try resolveExistingForDelete(
+                    incomingID: snapshot.eventId,
+                    entityName: "CompletionEvent",
+                    existingByID: indexes.completionEvents,
+                    logicalMatches: indexes.completionEventList.filter {
+                        completionEventLogicalKey($0) == completionEventLogicalKey(monthLabel: snapshot.monthLabel, sequence: snapshot.sequence)
+                    },
+                    id: \CompletionEvent.eventId
+                )
+                context.delete(event)
+                keptCompletionEventIDs.insert(event.eventId)
+                continue
+            }
             guard let record = recordsByIncomingID[snapshot.executionRecordId] else {
                 throw LocalBridgeImportApplyError.validationFailed([
                     "CompletionEvent \(snapshot.eventId.uuidString) references unresolved execution record \(snapshot.executionRecordId.uuidString)."
@@ -869,7 +1287,7 @@ final class LocalBridgeImportApplyService {
             keptCompletionEventIDs.insert(event.eventId)
         }
 
-        for snapshot in envelope.monthlyExecutionRecords {
+        for snapshot in envelope.monthlyExecutionRecords where snapshot.recordState == .active {
             guard let record = recordsByIncomingID[snapshot.id] else { continue }
             if let snapshotID = snapshot.snapshotId {
                 record.snapshot = executionSnapshotsByIncomingID[snapshotID]
@@ -890,28 +1308,45 @@ final class LocalBridgeImportApplyService {
         }
 
         return BridgeImportApplyPlan {
-            self.deleteMissing(indexes.transactions.values, keeping: keptTransactionIDs, in: context, id: \.id)
-            self.deleteMissing(indexes.assetAllocations.values, keeping: keptAllocationIDs, in: context, id: \.id)
-            self.deleteMissing(indexes.allocationHistories.values, keeping: keptHistoryIDs, in: context, id: \.id)
-            self.deleteMissing(indexes.monthlyPlans.values, keeping: keptPlanIDs, in: context, id: \.id)
-            self.deleteMissing(indexes.completionEvents.values, keeping: keptCompletionEventIDs, in: context, id: \.eventId)
-            self.deleteMissing(indexes.executionSnapshots.values, keeping: keptExecutionSnapshotIDs, in: context, id: \.id)
-            self.deleteMissing(indexes.completedExecutions.values, keeping: keptCompletedExecutionIDs, in: context, id: \.id)
-            self.deleteMissing(indexes.monthlyExecutionRecords.values, keeping: keptRecordIDs, in: context, id: \.id)
-            self.deleteMissing(indexes.assets.values, keeping: keptAssetIDs, in: context, id: \.id)
-            self.deleteMissing(indexes.goals.values, keeping: keptGoalIDs, in: context, id: \.id)
+            _ = keptTransactionIDs
+            _ = keptAllocationIDs
+            _ = keptHistoryIDs
+            _ = keptPlanIDs
+            _ = keptCompletionEventIDs
+            _ = keptExecutionSnapshotIDs
+            _ = keptCompletedExecutionIDs
+            _ = keptRecordIDs
+            _ = keptAssetIDs
+            _ = keptGoalIDs
         }
     }
 
-    private func deleteMissing<Model: PersistentModel>(
-        _ models: Dictionary<UUID, Model>.Values,
-        keeping keptIDs: Set<UUID>,
-        in context: ModelContext,
+    private func resolveExistingForDelete<Model>(
+        incomingID: UUID,
+        entityName: String,
+        existingByID: [UUID: Model],
+        logicalMatches: [Model],
         id: KeyPath<Model, UUID>
-    ) {
-        for model in models where !keptIDs.contains(model[keyPath: id]) {
-            context.delete(model)
+    ) throws -> Model {
+        if logicalMatches.count > 1 {
+            throw LocalBridgeImportApplyError.validationFailed([
+                "Ambiguous \(entityName) logical delete match for incoming ID \(incomingID.uuidString)."
+            ])
         }
+
+        let idMatch = existingByID[incomingID]
+        let logicalMatch = logicalMatches.first
+        if let idMatch, let logicalMatch, idMatch[keyPath: id] != logicalMatch[keyPath: id] {
+            throw LocalBridgeImportApplyError.validationFailed([
+                "\(entityName) \(incomingID.uuidString) has conflicting ID and logical-key delete matches."
+            ])
+        }
+        guard let matched = idMatch ?? logicalMatch else {
+            throw LocalBridgeImportApplyError.validationFailed([
+                "\(entityName) \(incomingID.uuidString) marked deleted but no authoritative match exists."
+            ])
+        }
+        return matched
     }
 
     private func duplicateIDIssues<Element>(
@@ -1021,6 +1456,133 @@ final class LocalBridgeImportApplyService {
         }
         return record
     }
+
+    private func resolveGoal(
+        incomingGoalID: UUID?,
+        forEntityName entityName: String,
+        entityID: UUID,
+        from resolvedGoals: [UUID: Goal]
+    ) throws -> Goal? {
+        guard let incomingGoalID else { return nil }
+        guard let goal = resolvedGoals[incomingGoalID] else {
+            throw LocalBridgeImportApplyError.validationFailed([
+                "\(entityName) \(entityID.uuidString) references unresolved goal \(incomingGoalID.uuidString)."
+            ])
+        }
+        return goal
+    }
+
+    private func overlay<Element>(
+        _ current: [Element],
+        with incoming: [Element],
+        id: KeyPath<Element, UUID>
+    ) -> [UUID: Element] {
+        var merged = Dictionary(uniqueKeysWithValues: current.map { ($0[keyPath: id], $0) })
+        for element in incoming {
+            merged[element[keyPath: id]] = element
+        }
+        return merged
+    }
+
+    private func overlay(
+        _ current: [BridgeCompletionEventSnapshot],
+        with incoming: [BridgeCompletionEventSnapshot],
+        id: KeyPath<BridgeCompletionEventSnapshot, UUID>
+    ) -> [UUID: BridgeCompletionEventSnapshot] {
+        var merged = Dictionary(uniqueKeysWithValues: current.map { ($0[keyPath: id], $0) })
+        for element in incoming {
+            merged[element[keyPath: id]] = element
+        }
+        return merged
+    }
+}
+
+private func deleted(_ snapshot: BridgeTransactionSnapshot) -> BridgeTransactionSnapshot {
+    BridgeTransactionSnapshot(
+        id: snapshot.id,
+        recordState: .deleted,
+        assetId: snapshot.assetId,
+        amount: snapshot.amount,
+        date: snapshot.date,
+        sourceRawValue: snapshot.sourceRawValue,
+        externalId: snapshot.externalId,
+        counterparty: snapshot.counterparty,
+        comment: snapshot.comment
+    )
+}
+
+private func deleted(_ snapshot: BridgeAssetAllocationSnapshot) -> BridgeAssetAllocationSnapshot {
+    BridgeAssetAllocationSnapshot(
+        id: snapshot.id,
+        recordState: .deleted,
+        assetId: snapshot.assetId,
+        goalId: snapshot.goalId,
+        amount: snapshot.amount,
+        createdDate: snapshot.createdDate,
+        lastModifiedDate: snapshot.lastModifiedDate
+    )
+}
+
+private func deleted(_ snapshot: BridgeMonthlyPlanSnapshot) -> BridgeMonthlyPlanSnapshot {
+    BridgeMonthlyPlanSnapshot(
+        id: snapshot.id,
+        recordState: .deleted,
+        goalId: snapshot.goalId,
+        monthLabel: snapshot.monthLabel,
+        requiredMonthly: snapshot.requiredMonthly,
+        remainingAmount: snapshot.remainingAmount,
+        monthsRemaining: snapshot.monthsRemaining,
+        currency: snapshot.currency,
+        statusRawValue: snapshot.statusRawValue,
+        stateRawValue: snapshot.stateRawValue,
+        executionRecordId: snapshot.executionRecordId,
+        flexStateRawValue: snapshot.flexStateRawValue,
+        customAmount: snapshot.customAmount,
+        isProtected: snapshot.isProtected,
+        isSkipped: snapshot.isSkipped,
+        createdDate: snapshot.createdDate,
+        lastModifiedDate: snapshot.lastModifiedDate
+    )
+}
+
+private func deleted(_ snapshot: BridgeExecutionSnapshotPayload) -> BridgeExecutionSnapshotPayload {
+    BridgeExecutionSnapshotPayload(
+        id: snapshot.id,
+        recordState: .deleted,
+        executionRecordId: snapshot.executionRecordId,
+        capturedAt: snapshot.capturedAt,
+        totalPlanned: snapshot.totalPlanned,
+        goalSnapshots: snapshot.goalSnapshots
+    )
+}
+
+private func deleted(_ snapshot: BridgeCompletedExecutionSnapshot) -> BridgeCompletedExecutionSnapshot {
+    BridgeCompletedExecutionSnapshot(
+        id: snapshot.id,
+        recordState: .deleted,
+        executionRecordId: snapshot.executionRecordId,
+        monthLabel: snapshot.monthLabel,
+        completedAt: snapshot.completedAt,
+        exchangeRatesSnapshot: snapshot.exchangeRatesSnapshot,
+        goalSnapshots: snapshot.goalSnapshots,
+        contributionSnapshots: snapshot.contributionSnapshots
+    )
+}
+
+private func deleted(_ snapshot: BridgeCompletionEventSnapshot) -> BridgeCompletionEventSnapshot {
+    BridgeCompletionEventSnapshot(
+        eventId: snapshot.eventId,
+        recordState: .deleted,
+        executionRecordId: snapshot.executionRecordId,
+        completionSnapshotId: snapshot.completionSnapshotId,
+        monthLabel: snapshot.monthLabel,
+        sequence: snapshot.sequence,
+        sourceDiscriminator: snapshot.sourceDiscriminator,
+        completedAt: snapshot.completedAt,
+        undoneAt: snapshot.undoneAt,
+        undoReason: snapshot.undoReason,
+        createdAt: snapshot.createdAt
+    )
 }
 
 private struct BridgeImportMatch<Model> {
@@ -1273,12 +1835,23 @@ private func completedExecutionLogicalKey(_ completion: CompletedExecution) -> S
     completion.monthLabel
 }
 
+private func completedExecutionLogicalKey(monthLabel: String) -> String {
+    monthLabel
+}
+
 private func executionSnapshotLogicalKey(_ snapshot: BridgeExecutionSnapshotPayload) -> String {
     snapshot.executionRecordId.uuidString
 }
 
 private func executionSnapshotLogicalKey(_ snapshot: ExecutionSnapshot) -> String {
     snapshot.executionRecord?.id.uuidString ?? "nil"
+}
+
+private func executionSnapshotLogicalKey(capturedAt: Date, totalPlanned: Double) -> String {
+    [
+        String(millisecondsSince1970(capturedAt)),
+        normalizedNumber(totalPlanned)
+    ].joined(separator: "|")
 }
 
 private func completionEventLogicalKey(_ snapshot: BridgeCompletionEventSnapshot) -> String {

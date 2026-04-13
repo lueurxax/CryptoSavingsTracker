@@ -266,7 +266,7 @@ struct AllocationService {
                 userInfo: ["goalIds": goals.map { $0.id }]
             )
         } catch {
-            AppLog.error("Failed to sync monthly plans after allocation change: \(error)", category: .monthlyPlanning)
+            AppLog.error("Failed to sync monthly plans after allocation change: \(error.localizedDescription)", category: .monthlyPlanning)
         }
     }
 

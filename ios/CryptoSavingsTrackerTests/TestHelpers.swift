@@ -335,6 +335,10 @@ final class Phase2BridgeTrustStore: BridgeTrustStoring {
         devices[index].trustState = .revoked
     }
 
+    func remove(deviceID: UUID) throws {
+        devices.removeAll { $0.id == deviceID }
+    }
+
     func removeAll() throws {
         devices.removeAll()
     }
@@ -354,12 +358,14 @@ func makePhase2BridgeEditedSnapshot(from baseSnapshot: SnapshotEnvelope) throws 
     let newAssetID = UUID()
     let newAsset = BridgeAssetSnapshot(
         id: newAssetID,
+        recordState: .active,
         currency: "ETH",
         address: "0xbridge000000000000000000000000000000000001",
         chainId: "eth"
     )
     let newTransaction = BridgeTransactionSnapshot(
         id: UUID(),
+        recordState: .active,
         assetId: newAssetID,
         amount: 1.25,
         date: Date(timeIntervalSince1970: 1_700_000_000),
@@ -384,7 +390,10 @@ func makePhase2BridgeEditedSnapshot(from baseSnapshot: SnapshotEnvelope) throws 
             BridgeEntityCount(name: "AssetAllocation", count: baseSnapshot.assetAllocations.count),
             BridgeEntityCount(name: "AllocationHistory", count: baseSnapshot.allocationHistories.count),
             BridgeEntityCount(name: "MonthlyPlan", count: baseSnapshot.monthlyPlans.count),
-            BridgeEntityCount(name: "MonthlyExecutionRecord", count: baseSnapshot.monthlyExecutionRecords.count)
+            BridgeEntityCount(name: "MonthlyExecutionRecord", count: baseSnapshot.monthlyExecutionRecords.count),
+            BridgeEntityCount(name: "CompletedExecution", count: baseSnapshot.completedExecutions.count),
+            BridgeEntityCount(name: "ExecutionSnapshot", count: baseSnapshot.executionSnapshots.count),
+            BridgeEntityCount(name: "CompletionEvent", count: baseSnapshot.completionEvents.count)
         ],
         baseDatasetFingerprint: ""
     )
@@ -397,7 +406,10 @@ func makePhase2BridgeEditedSnapshot(from baseSnapshot: SnapshotEnvelope) throws 
         assetAllocations: baseSnapshot.assetAllocations,
         allocationHistories: baseSnapshot.allocationHistories,
         monthlyPlans: baseSnapshot.monthlyPlans,
-        monthlyExecutionRecords: baseSnapshot.monthlyExecutionRecords
+        monthlyExecutionRecords: baseSnapshot.monthlyExecutionRecords,
+        completedExecutions: baseSnapshot.completedExecutions,
+        executionSnapshots: baseSnapshot.executionSnapshots,
+        completionEvents: baseSnapshot.completionEvents
     ).withComputedFingerprint()
 }
 
@@ -417,13 +429,7 @@ func makePhase2BridgeSignedPackage(
     }
 
     let unsignedPackage = SignedImportPackage(
-        packageID: BudgetSnapshotIdentity.sha256([
-            snapshot.manifest.snapshotID.uuidString,
-            baseDatasetFingerprint,
-            snapshot.manifest.baseDatasetFingerprint,
-            signingKeyID,
-            trustedDevice.fingerprint
-        ].joined(separator: "|")),
+        packageID: "",
         snapshotID: snapshot.manifest.snapshotID,
         canonicalEncodingVersion: snapshot.manifest.canonicalEncodingVersion,
         baseDatasetFingerprint: baseDatasetFingerprint,
@@ -435,10 +441,9 @@ func makePhase2BridgeSignedPackage(
         signedAt: Date(timeIntervalSince1970: 1_700_000_500),
         signature: ""
     )
-    let signature = try signingService.sign(unsignedPackage.signingPayloadData(), keyID: signingKeyID)
-
-    return SignedImportPackage(
-        packageID: unsignedPackage.packageID,
+    let packageID = BudgetSnapshotIdentity.sha256(String(decoding: try unsignedPackage.canonicalPackageBodyData(), as: UTF8.self))
+    let bodyPackage = SignedImportPackage(
+        packageID: packageID,
         snapshotID: unsignedPackage.snapshotID,
         canonicalEncodingVersion: unsignedPackage.canonicalEncodingVersion,
         baseDatasetFingerprint: unsignedPackage.baseDatasetFingerprint,
@@ -448,6 +453,21 @@ func makePhase2BridgeSignedPackage(
         signingAlgorithm: unsignedPackage.signingAlgorithm,
         signerPublicKeyRepresentation: unsignedPackage.signerPublicKeyRepresentation,
         signedAt: unsignedPackage.signedAt,
+        signature: ""
+    )
+    let signature = try signingService.sign(bodyPackage.signingPayloadData(), keyID: signingKeyID)
+
+    return SignedImportPackage(
+        packageID: packageID,
+        snapshotID: bodyPackage.snapshotID,
+        canonicalEncodingVersion: bodyPackage.canonicalEncodingVersion,
+        baseDatasetFingerprint: bodyPackage.baseDatasetFingerprint,
+        editedDatasetFingerprint: bodyPackage.editedDatasetFingerprint,
+        snapshotEnvelope: bodyPackage.snapshotEnvelope,
+        signingKeyID: bodyPackage.signingKeyID,
+        signingAlgorithm: bodyPackage.signingAlgorithm,
+        signerPublicKeyRepresentation: bodyPackage.signerPublicKeyRepresentation,
+        signedAt: bodyPackage.signedAt,
         signature: signature
     )
 }

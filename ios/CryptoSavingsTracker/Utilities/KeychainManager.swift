@@ -147,7 +147,10 @@ final class KeychainManager {
                 try storeAPIKey(coinGeckoKey, for: "coingecko")
                 AppLog.info("Migrated CoinGecko API key to Keychain", category: .api)
             } catch {
-                AppLog.error("Failed to migrate CoinGecko API key: \(error)", category: .api)
+                AppLog.error(
+                    "Failed to migrate CoinGecko API key: \(error.localizedDescription)",
+                    category: .api
+                )
             }
         }
         
@@ -159,7 +162,10 @@ final class KeychainManager {
                 try storeAPIKey(tatumKey, for: "tatum")
                 AppLog.info("Migrated Tatum API key to Keychain", category: .api)
             } catch {
-                AppLog.error("Failed to migrate Tatum API key: \(error)", category: .api)
+                AppLog.error(
+                    "Failed to migrate Tatum API key: \(error.localizedDescription)",
+                    category: .api
+                )
             }
         }
     }

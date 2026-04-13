@@ -1,0 +1,576 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Settings/MonthlyPlanningSettingsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Monthly Planning Settings",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 71
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 78
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 84
+        }
+      },
+      {
+        "comment": "",
+        "key": "Advanced Options",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 194
+        }
+      },
+      {
+        "comment": "",
+        "key": "Display currency for monthly planning",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 229
+        }
+      },
+      {
+        "comment": "",
+        "key": "Double tap to select currency for showing total requirements",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 230
+        }
+      },
+      {
+        "comment": "",
+        "key": "Currently %@",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 231
+        }
+      },
+      {
+        "comment": "",
+        "key": "Total monthly requirements preview",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 258
+        }
+      },
+      {
+        "comment": "",
+        "key": "Display Preferences",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 142
+        }
+      },
+      {
+        "comment": "",
+        "key": "Choose which currency to show your total monthly requirements in.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 144
+        }
+      },
+      {
+        "comment": "",
+        "key": "Monthly Budget",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 150
+        }
+      },
+      {
+        "comment": "",
+        "key": "Optional: set a monthly budget to plan contributions by a fixed amount.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 152
+        }
+      },
+      {
+        "comment": "",
+        "key": "Payment cycle deadline",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 312
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select which day of the month payments are due",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 313
+        }
+      },
+      {
+        "comment": "",
+        "key": "Currently %lld%@ of every month",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 314
+        }
+      },
+      {
+        "comment": "",
+        "key": "Next payment deadline",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 341
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@, %lld days remaining",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 342
+        }
+      },
+      {
+        "comment": "",
+        "key": "Payment Cycle",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 160
+        }
+      },
+      {
+        "comment": "",
+        "key": "Set when your monthly payments are due. We'll calculate requirements based on this schedule.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 162
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enable payment reminder notifications",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 353
+        }
+      },
+      {
+        "comment": "",
+        "key": "Toggle to enable or disable payment deadline notifications",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 354
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reminder notification timing",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 426
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select how many days before payment deadline to receive notifications",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 427
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld day%@ before",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 428
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reminders",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 173
+        }
+      },
+      {
+        "comment": "",
+        "key": "You'll receive reminders %lld day%@ before your payment deadline.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 176
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enable to receive payment deadline reminders.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 178
+        }
+      },
+      {
+        "comment": "",
+        "key": "Automatically start tracking on the 1st of each month",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 365
+        }
+      },
+      {
+        "comment": "",
+        "key": "When enabled, monthly tracking will start automatically with an undo grace period",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 366
+        }
+      },
+      {
+        "comment": "",
+        "key": "Automatically complete tracking on the last day of month",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 375
+        }
+      },
+      {
+        "comment": "",
+        "key": "When enabled, monthly tracking will be marked complete automatically with an undo grace period",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 376
+        }
+      },
+      {
+        "comment": "",
+        "key": "Undo grace period for automated actions",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 395
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select how long you have to undo automated state transitions",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 396
+        }
+      },
+      {
+        "comment": "",
+        "key": "Automation",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 188
+        }
+      },
+      {
+        "comment": "",
+        "key": "Automatically start tracking on the 1st of each month and mark complete on the last day. All automated actions include an undo grace period.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 190
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset monthly planning settings to defaults",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 476
+        }
+      },
+      {
+        "comment": "",
+        "key": "Double tap to restore all settings to their original values",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 477
+        }
+      },
+      {
+        "comment": "",
+        "key": "Display Currency",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 210
+        }
+      },
+      {
+        "comment": "",
+        "key": "Total Preview",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 244
+        }
+      },
+      {
+        "comment": "",
+        "key": "Monthly Budget",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 264
+        }
+      },
+      {
+        "comment": "",
+        "key": "Payment Day",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 293
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%@ of month",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 302
+        }
+      },
+      {
+        "comment": "",
+        "key": "Next Payment",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 323
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld days remaining",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 332
+        }
+      },
+      {
+        "comment": "",
+        "key": "Payment Reminders",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 349
+        }
+      },
+      {
+        "comment": "",
+        "key": "Auto-start new month",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 361
+        }
+      },
+      {
+        "comment": "",
+        "key": "Auto-complete previous month",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 371
+        }
+      },
+      {
+        "comment": "",
+        "key": "Undo grace period",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 381
+        }
+      },
+      {
+        "comment": "",
+        "key": "Grace Period",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 386
+        }
+      },
+      {
+        "comment": "",
+        "key": "24 hours",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 387
+        }
+      },
+      {
+        "comment": "",
+        "key": "48 hours",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 388
+        }
+      },
+      {
+        "comment": "",
+        "key": "7 days",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 389
+        }
+      },
+      {
+        "comment": "",
+        "key": "No undo",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 390
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reminder Days",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 412
+        }
+      },
+      {
+        "comment": "",
+        "key": "Notification Days",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 417
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld day%@ before",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 419
+        }
+      },
+      {
+        "comment": "",
+        "key": "Validation",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 436
+        }
+      },
+      {
+        "comment": "",
+        "key": "Valid",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 445
+        }
+      },
+      {
+        "comment": "",
+        "key": "Check settings",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 452
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset to Defaults",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 473
+        }
+      },
+      {
+        "comment": "",
+        "key": "Payment Day",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 523
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%@ of every month",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 506
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 528
+        }
+      },
+      {
+        "comment": "",
+        "key": "Amount",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 594
+        }
+      },
+      {
+        "comment": "",
+        "key": "Monthly Budget",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 677
+        }
+      },
+      {
+        "comment": "",
+        "key": "Use calculated minimum",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 667
+        }
+      },
+      {
+        "comment": "",
+        "key": "Calculating minimum...",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 656
+        }
+      },
+      {
+        "comment": "",
+        "key": "Calculated minimum",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 662
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 683
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 686
+        }
+      },
+      {
+        "comment": "",
+        "key": "Clear Budget",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 695
+        }
+      }
+    ]
+  },
+  "version": 1
+}

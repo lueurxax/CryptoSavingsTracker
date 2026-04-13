@@ -1,0 +1,152 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Components/MonthlyPlanningWidget.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Monthly savings requirements widget",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 50
+        }
+      },
+      {
+        "comment": "",
+        "key": "Shows total monthly savings needed across all goals. Double tap to expand for detailed breakdown",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 51
+        }
+      },
+      {
+        "comment": "",
+        "key": "Show less",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 116
+        }
+      },
+      {
+        "comment": "",
+        "key": "Show more",
+        "location": {
+          "startingColumn": 60,
+          "startingLine": 116
+        }
+      },
+      {
+        "comment": "",
+        "key": "Required This Month",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 76
+        }
+      },
+      {
+        "comment": "",
+        "key": "Calculating...",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 84
+        }
+      },
+      {
+        "comment": "",
+        "key": "View Monthly Plan",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 158
+        }
+      },
+      {
+        "comment": "",
+        "key": "Adjust amounts and start tracking",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 161
+        }
+      },
+      {
+        "comment": "",
+        "key": "Flex controls",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 260
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal Breakdown",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 289
+        }
+      },
+      {
+        "comment": "",
+        "key": "+ %lld more goals",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 302
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%% complete",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 327
+        }
+      },
+      {
+        "comment": "",
+        "key": "Flex Adjustment",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 354
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 358
+        }
+      },
+      {
+        "comment": "",
+        "key": "Total: %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 375
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 379
+        }
+      },
+      {
+        "comment": "",
+        "key": "No Active Goals",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 402
+        }
+      },
+      {
+        "comment": "",
+        "key": "Create your first savings goal to see monthly requirements",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 406
+        }
+      }
+    ]
+  },
+  "version": 1
+}

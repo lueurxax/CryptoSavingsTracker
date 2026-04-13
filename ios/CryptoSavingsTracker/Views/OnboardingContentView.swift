@@ -35,6 +35,9 @@ struct OnboardingContentView: View {
         .onAppear {
             checkOnboardingStatus()
         }
+        .onChange(of: goals.count) { _, _ in
+            checkOnboardingStatus()
+        }
         .onChange(of: onboardingManager.hasCompletedOnboarding) { oldValue, newValue in
             if newValue && shouldShowOnboarding {
                 // Add small delay for smooth transition
@@ -48,14 +51,22 @@ struct OnboardingContentView: View {
     }
     
     private var shouldShowOnboarding: Bool {
-        return showOnboarding && !onboardingManager.hasCompletedOnboarding
+        if showOnboarding {
+            // In test-forced mode, force onboarding for empty-state reproducibility.
+            if UITestFlags.shouldForceOnboarding {
+                return goals.isEmpty
+            }
+            return !onboardingManager.hasCompletedOnboarding && goals.isEmpty
+        }
+        return false
     }
     
     private func checkOnboardingStatus() {
         // Show onboarding if:
-        // 1. User hasn't completed onboarding AND
-        // 2. No goals exist (first time user)
-        let shouldShow = !onboardingManager.hasCompletedOnboarding && goals.isEmpty
+        // 1. User hasn't completed onboarding (production path), OR
+        // 2. Tests explicitly force onboarding for reproducibility, and
+        // 3. No goals exist (empty-state entry point)
+        let shouldShow = (!onboardingManager.hasCompletedOnboarding || UITestFlags.shouldForceOnboarding) && goals.isEmpty
         
         if shouldShow != showOnboarding {
             withAnimation(.easeInOut(duration: 0.4)) {

@@ -98,7 +98,8 @@ struct UnifiedGoalRowView: View {
             Text(goal.name)
                 .font(style == .compact ? .headline : .headline)
                 .fontWeight(.medium)
-                .lineLimit(1)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
 
             Spacer()
 

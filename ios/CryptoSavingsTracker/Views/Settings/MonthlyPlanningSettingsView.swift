@@ -278,7 +278,22 @@ struct MonthlyPlanningSettingsView: View {
                 }
             }
             .foregroundColor(.primary)
+            .accessibilityIdentifier("settings.monthlyPlanning.budget")
+            .accessibilityLabel("Monthly budget")
+            .accessibilityHint("Double tap to review or change the monthly budget used for planning.")
+            .accessibilityValue(monthlyBudgetAccessibilityValue)
         }
+    }
+
+    private var monthlyBudgetAccessibilityValue: String {
+        guard let budget = settings.monthlyBudget, budget > 0 else {
+            return "Not set"
+        }
+
+        return CurrencyFormatter.accessibilityFormat(
+            amount: budget,
+            currency: settings.budgetCurrency
+        )
     }
 
     private func formattedBudgetLabel() -> String {
@@ -349,7 +364,7 @@ struct MonthlyPlanningSettingsView: View {
             Label("Payment Reminders", systemImage: "bell")
                 .foregroundColor(.primary)
         }
-        .tint(.blue)
+        .tint(AccessibleColors.primaryInteractive)
         .accessibilityLabel("Enable payment reminder notifications")
         .accessibilityHint("Toggle to enable or disable payment deadline notifications")
     }
@@ -361,7 +376,7 @@ struct MonthlyPlanningSettingsView: View {
             Label("Auto-start new month", systemImage: "play.circle")
                 .foregroundColor(.primary)
         }
-        .tint(.blue)
+        .tint(AccessibleColors.primaryInteractive)
         .accessibilityLabel("Automatically start tracking on the 1st of each month")
         .accessibilityHint("When enabled, monthly tracking will start automatically with an undo grace period")
     }
@@ -371,7 +386,7 @@ struct MonthlyPlanningSettingsView: View {
             Label("Auto-complete previous month", systemImage: "checkmark.circle")
                 .foregroundColor(.primary)
         }
-        .tint(.blue)
+        .tint(AccessibleColors.primaryInteractive)
         .accessibilityLabel("Automatically complete tracking on the last day of month")
         .accessibilityHint("When enabled, monthly tracking will be marked complete automatically with an undo grace period")
     }
@@ -390,7 +405,7 @@ struct MonthlyPlanningSettingsView: View {
                 Text("No undo").tag(0)
             }
             .pickerStyle(.menu)
-            .tint(.blue)
+            .tint(AccessibleColors.primaryInteractive)
         }
         .accessibilityLabel("Undo grace period for automated actions")
         .accessibilityHint("Select how long you have to undo automated state transitions")
@@ -421,7 +436,7 @@ struct MonthlyPlanningSettingsView: View {
                 }
             }
             .pickerStyle(.menu)
-            .tint(.blue)
+            .tint(AccessibleColors.primaryInteractive)
         }
         .accessibilityLabel("Reminder notification timing")
         .accessibilityHint("Select how many days before payment deadline to receive notifications")
@@ -510,7 +525,7 @@ struct PaymentDayPickerSheet: View {
                         
                         if selectedDay == day {
                             Image(systemName: "checkmark")
-                                .foregroundColor(.blue)
+                                .foregroundColor(AccessibleColors.primaryInteractive)
                         }
                     }
                     .contentShape(Rectangle())
@@ -640,7 +655,7 @@ struct BudgetEditorSheet: View {
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(Color.gray.opacity(0.1))
+                            .background(Color.accessibleSurfaceSubtle)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                         .buttonStyle(.plain)

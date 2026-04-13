@@ -26,7 +26,11 @@ Normative sequencing rule:
 - Migration is fail-closed on source-data blockers. Real local stores can contain unresolved `AllocationHistory` references or similar integrity problems, so diagnostics and repair are now part of the Phase 1 operator contract rather than optional tooling.
 - Phase 1.5 hard cutover decision is now accepted and in force: local backward compatibility is retired, bridge work may assume CloudKit-only durable state.
 - The current macOS experience is not a separate companion product. The same app already ships a macOS surface with its own main window and Settings window in `CryptoSavingsTrackerApp.swift`.
-- The current app now implements the signed file-based manual bridge contract: trusted-device storage, signed snapshot export, import-package storage, import review, signature verification, and apply all exist in the product runtime. QR scanning and Multipeer transport are later hardening, not part of the minimum Phase 2A bridge contract.
+- The current app now implements a signed file-based manual bridge baseline: trusted-device storage, signed snapshot export, import-package storage, a dedicated navigated import-review destination, signature verification, drift validation against a fresh local export, and controlled apply all exist in the product runtime. QR scanning and Multipeer transport are later hardening, not part of the minimum Phase 2A bridge contract.
+- The current bridge runtime does not yet prove the stronger target-state contract in every area. In particular:
+  - the live `Import Review` surface is currently a navigated and dismissible review destination rather than a blocking full-screen boundary,
+  - the live operator review DTO is the generic `BridgeImportReviewSummaryDTO` shape (`entityDeltas` + `concreteDiffs`), not a fully typed `goalDiffs` / `allocationDiffs` / `transactionDiffs` / `monthlyPlanDiffs` schema,
+  - the live export/apply path is best described as `CloudKit-primary + drift revalidation`, not as a fully proven foreground reconciliation barrier.
 
 ## Sequencing
 This proposal is valid only with the following delivery order:
@@ -145,7 +149,7 @@ Minimum operator-visible controls:
 Required summary state shown in the top-level entry row:
 - current bridge availability
 - last sync outcome
-- pending action state such as `Update Required`, `Review Required`, or `Trust Revoked`
+- pending action state such as `Update Required`, `Review Import`, or `Trust Revoked`
 
 ### Sync Now States
 - `idle`
@@ -164,7 +168,7 @@ Required summary state shown in the top-level entry row:
 - iPhone Settings hosts discovery only; operational bridge flows run inside a dedicated iPhone `Local Bridge Sync` destination.
 - macOS Settings or a dedicated Sync window inside the current macOS app hosts the bridge destination and manual return of edited snapshots.
 - The bridge editor on macOS must not bind directly to the app's live persistent store. Even though the existing macOS app uses shared windows today, the bridge edit surface is a separate transient workspace.
-- The current `SettingsView.swift` implementation already exposes the dedicated `Local Bridge Sync` destination and compact top-level summary row. The current implementation now includes trust storage, bootstrap-token modeling, authoritative snapshot export DTOs, file-backed signed import package storage, structural import-review validation, cryptographic signature verification, and signed import apply. QR scanning and Multipeer transport remain later hardening beyond the minimum Phase 2A contract.
+- The current `SettingsView.swift` implementation already exposes the dedicated `Local Bridge Sync` destination and compact top-level summary row. The current implementation now includes trust storage, bootstrap-token modeling, authoritative snapshot export DTOs, file-backed signed import package storage, structural import-review validation, cryptographic signature verification, and signed import apply. The current review surface is navigated from `LocalBridgeSyncView` and remains operator-dismissible from that parent flow. QR scanning and Multipeer transport remain later hardening beyond the minimum Phase 2A contract.
 
 ### macOS Snapshot Workspace Boundary
 - The macOS bridge editor operates on a transient snapshot workspace created from `SnapshotEnvelope`, not on the live app-backed `ModelContainer`.
@@ -177,25 +181,43 @@ Required summary state shown in the top-level entry row:
 
 ### iPhone Import Review Boundary
 - Successful signature and schema validation do not immediately mutate the authoritative dataset.
-- After validation, iPhone must present a dedicated blocking full-screen `Import Review` flow before apply.
-- The review screen must show:
+- After validation, iPhone must present a dedicated `Import Review` flow before apply.
+
+Current implemented baseline:
+- The live runtime opens `Import Review` as a dedicated navigated review destination from `LocalBridgeSyncView`.
+- The live review surface is currently dismissible from the parent bridge flow; it is not yet evidence-backed as a blocking full-screen hard stop.
+- The live operator contract is the generic `BridgeImportReviewSummaryDTO` shape:
   - signed package origin device
-  - trust status for the sending device
-  - `snapshotID`
+  - trust and signature state for the sending device
+  - `packageID`
   - changed-entity counts by type
-  - concrete money-impacting diffs for changed goals, transactions, allocations, and monthly plans
-  - destructive warnings for deletes, relationship nullification, or replacement of existing planning/execution records
-  - schema or version warnings relevant to the operator
-- The review screen must support explicit `Apply` and `Cancel`.
-- Choosing `Cancel` closes the review without mutating the authoritative dataset.
-- The operator must be able to explain what will change from the review summary before committing apply.
+  - generic `entityDeltas`
+  - generic `concreteDiffs`
+  - destructive warnings, blocking issues, and validation/drift state
+- The live review destination exposes `Approve & Apply to CloudKit`, `Reject`, and `Reset to Pending`.
+- The parent bridge flow separately exposes `Dismiss Review`, which closes the review destination but preserves the loaded package for later reopen.
+- `Reject`, `Reset to Pending`, and parent-level `Dismiss Review` each leave the authoritative dataset unchanged.
+
+Target-state hardening:
+- If product still wants a stronger review boundary, that uplift is:
+  - a blocking full-screen presentation before apply, and
+  - richer finance-grade typed diff groupings for goals, allocations, transactions, and monthly plans.
+- That stronger typed/full-screen review is not described here as already implemented baseline behavior.
+- In the current implemented baseline, the operator can inspect what will change from the same review surface before committing apply, but the review UI does not yet enforce a strict "diff evidence above approval CTA" fence.
 
 ### CloudKit Reconciliation Boundary
-- For bridge purposes, the authoritative dataset means the CloudKit-backed runtime state after a successful foreground reconciliation checkpoint, not merely whatever local snapshot is currently mounted.
-- iPhone must complete a foreground CloudKit reconciliation checkpoint before snapshot export.
-- iPhone must complete a second reconciliation checkpoint, or prove there are no unresolved fetch/send obligations since the last checkpoint, immediately before final import apply.
-- If reconciliation status is `unknown`, `stale`, `reconciling`, or `blockedPendingCloudSync`, export and apply are blocked.
-- Blocked reconciliation must surface a visible operator status and recovery action inside the dedicated bridge destination.
+- For bridge purposes, the authoritative dataset means the CloudKit-backed runtime state, not a legacy local-primary store or an independently editable Mac replica.
+
+Current implemented baseline:
+- Export and apply already assume a CloudKit-primary runtime.
+- The live bridge path re-exports current local CloudKit-backed data for drift validation before import apply.
+- The current runtime also surfaces bridge-local state such as `reconciled`, but that should be read as controller/runtime status rather than proof of a separately enforced foreground reconciliation barrier.
+
+Target-state hardening:
+- A stricter bridge safety contract would gate export on a foreground CloudKit reconciliation checkpoint.
+- A stricter bridge safety contract would also require a second reconciliation checkpoint, or a proof that no unresolved fetch/send obligations remain, immediately before final import apply.
+- If that stronger barrier is shipped, export/apply must be blocked when reconciliation status is `unknown`, `stale`, `reconciling`, or `blockedPendingCloudSync`.
+- Any blocked reconciliation state must surface a visible operator status and recovery action inside the dedicated bridge destination.
 
 ## User Flows
 ### Flow 1: Prepare for Phase 2
@@ -209,9 +231,9 @@ Required summary state shown in the top-level entry row:
 3. macOS signs and exports a `SignedImportPackage` from that workspace and writes it to a shareable file artifact.
 4. User moves that package artifact to iPhone through the supported file handoff path for the current build.
 5. iPhone loads the package artifact, validates its signature, and either rejects it or opens `Import Review`.
-6. During `Import Review`, iPhone shows signed-package summary, concrete money-impact diffs, changed-entity counts, and destructive warnings before any mutation.
-7. If the operator cancels review, the authoritative dataset remains unchanged.
-8. Immediately before apply, iPhone reruns the CloudKit reconciliation checkpoint or proves there are no unresolved CloudKit obligations since the last successful checkpoint.
+6. During `Import Review`, iPhone shows signed-package summary, generic concrete diff rows, changed-entity counts, and destructive warnings in the same review surface before any mutation is committed. In the current baseline, approval controls are still positioned above part of the detailed diff evidence and that stricter presentation fence remains target-state hardening rather than already-shipped behavior.
+7. If the operator rejects the package, resets the decision to pending, or dismisses review from the parent bridge flow, the authoritative dataset remains unchanged.
+8. Immediately before apply, iPhone must still be operating against a CloudKit-backed runtime that remains safe for bridge apply. If a stricter explicit reconciliation checkpoint is later shipped, rerun that checkpoint immediately before final apply.
 9. If the operator confirms apply and the transaction succeeds, the change is written into the CloudKit-backed runtime dataset and the sync status is updated.
 10. Until iPhone accept, no live persistent macOS store is mutated by the bridge edit session.
 
@@ -350,11 +372,11 @@ Session-scoped validation metadata:
   "snapshotSchemaVersion": 1,
   "exportedAt": 1773504000000,
   "appModelSchemaVersion": "cloudkit-model-v1",
-  "entityCounts": {
-    "goals": 4,
-    "assets": 8,
-    "transactions": 142
-  },
+  "entityCounts": [
+    { "name": "Goal", "count": 4 },
+    { "name": "Asset", "count": 8 },
+    { "name": "Transaction", "count": 142 }
+  ],
   "baseDatasetFingerprint": "sha256-of-canonical-authoritative-export"
 }
 ```
@@ -376,7 +398,10 @@ Full export package transferred from iPhone to macOS:
   "assetAllocations": [],
   "allocationHistories": [],
   "monthlyPlans": [],
-  "monthlyExecutionRecords": []
+  "monthlyExecutionRecords": [],
+  "completedExecutions": [],
+  "executionSnapshots": [],
+  "completionEvents": []
 }
 ```
 
@@ -412,115 +437,88 @@ macOS editor/session state reported to the operator:
 ```
 
 ### ImportReviewSummary
-Operator-facing summary generated on iPhone after validation and before apply:
+Current implemented operator-facing summary generated on iPhone after validation and before apply:
 
 ```json
 {
-  "snapshotID": "uuid",
-  "sourceDeviceName": "MacBook-Andrey",
-  "trustState": "trusted",
-  "changedEntityCounts": {
-    "goals": 1,
-    "assets": 0,
-    "transactions": 4,
-    "assetAllocations": 2,
-    "allocationHistories": 2,
-    "monthlyPlans": 1,
-    "monthlyExecutionRecords": 0
+  "package": {
+    "packageID": "sha256-of-canonical-package-body",
+    "packageVersion": "bridge-import-v1",
+    "canonicalEncodingVersion": "bridge-snapshot-v1",
+    "sourceDeviceName": "MacBook-Andrey",
+    "sourceDeviceFingerprint": "ABCD1234EFGH5678",
+    "producedAt": 1773507600000,
+    "expiresAt": 1773594000000,
+    "payloadBytes": 81234,
+    "digestHexPrefix": "5f4dcc3b5aa7",
+    "signatureStatus": "valid",
+    "trustStatus": "activeTrusted"
   },
-  "goalDiffs": [
-    {
-      "goalName": "Emergency Fund",
-      "targetAmountBefore": "15000",
-      "targetAmountAfter": "18000",
-      "deadlineBeforeMs": 1773504000000,
-      "deadlineAfterMs": 1781280000000
-    }
-  ],
-  "allocationDiffs": [
-    {
-      "assetDisplayName": "BTC Wallet",
-      "goalName": "Emergency Fund",
-      "amountBefore": "0.35",
-      "amountAfter": "0.50",
-      "shareBeforePct": "35",
-      "shareAfterPct": "50"
-    }
-  ],
-  "transactionDiffs": [
-    {
-      "changeType": "added",
-      "assetDisplayName": "BTC Wallet",
-      "transactionDateMs": 1773504000000,
-      "amountBefore": null,
-      "amountAfter": "250",
-      "currency": "USD",
-      "counterpartyBefore": null,
-      "counterpartyAfter": "Kraken",
-      "commentBefore": null,
-      "commentAfter": "Monthly top-up"
-    },
-    {
-      "changeType": "deleted",
-      "assetDisplayName": "BTC Wallet",
-      "transactionDateMs": 1773417600000,
-      "amountBefore": "50",
-      "amountAfter": null,
-      "currency": "USD",
-      "counterpartyBefore": "Manual",
-      "counterpartyAfter": null,
-      "commentBefore": "Fee correction",
-      "commentAfter": null
-    }
-  ],
-  "transactionDeltaSummary": {
-    "addedCount": 3,
-    "editedCount": 1,
-    "deletedCount": 1,
-    "netAmountDeltaByCurrency": {
-      "USD": "450",
-      "BTC": "0.015"
-    }
-  },
-  "monthlyPlanDiffs": [
-    {
-      "monthLabel": "2026-03",
-      "goalName": "Emergency Fund",
-      "changeType": "replaced",
-      "requiredMonthlyBefore": "900",
-      "requiredMonthlyAfter": "1200",
-      "effectiveAmountBefore": "900",
-      "effectiveAmountAfter": "1100",
-      "flexStateBefore": "flexible",
-      "flexStateAfter": "protected",
-      "isSkippedBefore": false,
-      "isSkippedAfter": false
-    }
-  ],
-  "monthlyPlanReplacementSummary": {
-    "affectedMonths": ["2026-03"],
-    "replacedPlanCount": 1
-  },
-  "destructiveWarnings": [
-    "1 transaction will be deleted",
+  "validationStatus": "warnings",
+  "driftStatus": "none",
+  "warnings": [
     "1 monthly plan will be replaced"
   ],
-  "requiresExplicitConfirmation": true
+  "blockingIssues": [],
+  "entityDeltas": [
+    {
+      "entityName": "Goal",
+      "incomingCount": 4,
+      "existingCount": 4,
+      "changedCount": 1
+    },
+    {
+      "entityName": "MonthlyPlan",
+      "incomingCount": 4,
+      "existingCount": 4,
+      "changedCount": 1
+    }
+  ],
+  "concreteDiffs": [
+    {
+      "id": "Goal-uuid-updated",
+      "entityName": "Goal",
+      "entityID": "uuid",
+      "changeKind": "updated",
+      "title": "Goal Emergency Fund",
+      "beforeSummary": "Emergency Fund • 15000 USD • deadline 2026-03-13T00:00:00Z • status active",
+      "afterSummary": "Emergency Fund • 18000 USD • deadline 2026-06-12T00:00:00Z • status active"
+    },
+    {
+      "id": "AssetAllocation-uuid-updated",
+      "entityName": "AssetAllocation",
+      "entityID": "uuid",
+      "changeKind": "updated",
+      "title": "Allocation 8f31c2ab",
+      "beforeSummary": "asset 4A3E6E72-9B48-4B53-91A2-2E6F03F1A0CC • goal 2D5148EE-7AE1-4C1E-A447-FF26F2AC3E44 • amount 0.35",
+      "afterSummary": "asset 4A3E6E72-9B48-4B53-91A2-2E6F03F1A0CC • goal 2D5148EE-7AE1-4C1E-A447-FF26F2AC3E44 • amount 0.50"
+    },
+    {
+      "id": "MonthlyPlan-uuid-updated",
+      "entityName": "MonthlyPlan",
+      "entityID": "uuid",
+      "changeKind": "updated",
+      "title": "Monthly Plan 2026-03",
+      "beforeSummary": "goal 2D5148EE-7AE1-4C1E-A447-FF26F2AC3E44 • month 2026-03 • required 900 • remaining 2500 • state active",
+      "afterSummary": "goal 2D5148EE-7AE1-4C1E-A447-FF26F2AC3E44 • month 2026-03 • required 1200 • remaining 2200 • state active"
+    }
+  ]
 }
 ```
 
-`transactionDeltaSummary` and `monthlyPlanReplacementSummary` are supplemental scan aids only. They do not replace the required concrete `transactionDiffs` and `monthlyPlanDiffs` contract used for operator review before apply.
+This current-baseline example is intentionally literal to the shipped generic diff generator. If product later upgrades the review to typed `goalDiffs` / `allocationDiffs` / `transactionDiffs` / `monthlyPlanDiffs`, that should be treated as a future UX hardening layer, not as already-shipped baseline contract.
 
 ### ImportValidationResult
-Result shown to the operator after validation:
+Current operator-visible validation result surface in `LocalBridgeSyncView`:
+- drift status
+- operator decision
+- summary text
+- validation warnings
+- changed-entity counts
 
-```json
-{
-  "snapshotID": "uuid",
-  "status": "accepted | acceptedAlreadyApplied | rejectedDueToDrift | rejectedDueToSignature | rejectedDueToSchemaMismatch | rejectedDueToAmbiguousMatch | rejectedDueToOrphanReference | rejectedDueToVersionMismatch | blockedPendingCloudSync",
-  "reason": "string"
-}
-```
+The live baseline does not currently present a separate operator-facing JSON payload with `snapshotID`, `status`, and `reason`.
+
+If product later needs an internal or support-oriented result schema, it should be treated as non-UI diagnostics unless and until a dedicated operator-visible surface adopts it explicitly.
 
 ### BridgeCapabilityManifest
 Handshake-time compatibility contract:
@@ -541,7 +539,7 @@ This appendix is mandatory for any implementation of the bridge. The bridge must
 ### Canonical Encoding Rules
 - Snapshot fingerprints are computed from the canonical UTF-8 JSON bytes of `SnapshotEnvelope` only. Signature material, `packageID`, transport metadata, and UI state are excluded from the hash.
 - The root field order of `SnapshotEnvelope` and `SignedImportPackage` is fixed exactly as shown in this appendix. All nested object keys are serialized in lexicographic order.
-- All top-level arrays use the fixed key order shown in `SnapshotEnvelope`: `goals`, `assets`, `transactions`, `assetAllocations`, `allocationHistories`, `monthlyPlans`, `monthlyExecutionRecords`.
+- All top-level arrays use the fixed key order shown in `SnapshotEnvelope`: `goals`, `assets`, `transactions`, `assetAllocations`, `allocationHistories`, `monthlyPlans`, `monthlyExecutionRecords`, `completedExecutions`, `executionSnapshots`, `completionEvents`.
 - Every entity row must contain explicit `id`, `recordState`, and relationship reference fields. `recordState` is `active` or `deleted`. Delete-by-omission is invalid.
 - Optional fields are encoded explicitly as `null`. Missing optional keys are not allowed in canonical snapshots.
 - UUIDs are serialized as lowercase canonical strings.
@@ -615,12 +613,12 @@ Normalization used by logical keys:
 2. Verify `packageID`, signature, and canonical package integrity.
 3. Verify that the package schema, negotiated snapshot schema version, and negotiated `canonicalEncodingVersion` match the current session contract.
 4. Check the import-receipt ledger for `packageID`. If the same package was already applied, return `acceptedAlreadyApplied`.
-5. Verify that the latest CloudKit reconciliation checkpoint is still valid; if unresolved fetch/send work exists, return `blockedPendingCloudSync`.
+5. Current baseline: verify that the bridge is operating on the active CloudKit-backed runtime and that drift validation is being computed from a fresh authoritative re-export. If the stricter reconciliation barrier is later shipped, this step upgrades to an explicit foreground checkpoint with unresolved fetch/send blocking and may return `blockedPendingCloudSync`.
 6. Compare `baseDatasetFingerprint` with a fresh fingerprint of the current authoritative dataset.
 7. If the authoritative dataset has changed since export, reject the import.
 8. Build an import plan using the appendix matching and dedupe rules, rejecting ambiguous matches and orphan references.
-9. Build `ImportReviewSummary` from the validated import plan and present it to the operator.
-10. Only after explicit operator confirmation and a final CloudKit reconciliation checkpoint may the app apply the imported snapshot as a single controlled operation and persist the import receipt.
+9. Build `ImportReviewSummary` from the validated import plan and present it to the operator using the current shipped `entityDeltas` + `concreteDiffs` baseline, unless a richer typed review contract is shipped later.
+10. Only after explicit operator confirmation may the app apply the imported snapshot as a single controlled operation and persist the import receipt. If the stricter reconciliation barrier is later shipped, rerun that barrier immediately before final apply.
 
 ### Drift Handling
 - Drift means the authoritative CloudKit-backed dataset changed after the snapshot was exported and before the edited snapshot returned.
@@ -633,7 +631,7 @@ Normalization used by logical keys:
 - Partial apply is not allowed.
 - If apply fails after validation, the runtime rolls back the attempted import transaction and preserves the current authoritative dataset.
 - Replaying the same signed package after a successful apply must be a no-op.
-- Cancelling `Import Review` must be a no-op against the authoritative dataset.
+- Rejecting the package, resetting the decision to pending, or dismissing the review from the parent bridge flow must each be a no-op against the authoritative dataset.
 
 ## Failure Handling
 Possible failures:
@@ -648,7 +646,7 @@ Possible failures:
 - ambiguous entity match
 - orphan relationship reference
 - authoritative dataset drift
-- CloudKit reconciliation blocked or stale
+- CloudKit runtime blocked, stale, or otherwise not safe for bridge export/apply
 - operator cancelled import review
 - CloudKit save failure after import validation
 
@@ -660,7 +658,7 @@ Required operator behavior:
 - Permission-denied flows expose the manual pairing path instead of dead-ending pairing.
 - Apply-time failures roll back the transaction and keep the authoritative dataset unchanged.
 - Incompatible bridge versions fail before snapshot editing begins and surface `Update Required`.
-- CloudKit reconciliation failures block export/apply and surface a visible recovery action.
+- Bridge safety failures around CloudKit runtime health or future reconciliation barriers block export/apply and surface a visible recovery action.
 
 ### Fallback Scope
 This proposal does not include AirDrop snapshot or generic manual file import.
@@ -706,8 +704,10 @@ Until those additional fallback paths are specified, only the dedicated signed b
 - trusted-device revocation
 - full snapshot export/import via signed file artifacts
 - cryptographic signature verification
-- CloudKit reconciliation checkpoint before export/apply
-- iPhone import review before apply, including concrete goal, transaction, allocation, and monthly-plan diffs
+- current implemented export/apply safety baseline: CloudKit-primary runtime + fresh re-export drift validation
+- target hardening: explicit foreground CloudKit reconciliation checkpoint before export/apply
+- iPhone import review before apply using the current shipped generic `entityDeltas` + `concreteDiffs` operator contract
+- optional later UX hardening: blocking full-screen review and richer typed goal/transaction/allocation/monthly-plan diff groupings
 - manual `Sync Now`
 - import validation status
 - all-or-nothing import apply into the CloudKit-backed runtime
@@ -730,13 +730,13 @@ Until those additional fallback paths are specified, only the dedicated signed b
 | Load signed package artifact on iPhone | package signature is verified, import review opens, and concrete diffs are visible before apply |
 | Replay previously accepted package | result is `acceptedAlreadyApplied`, no authoritative write occurs, operator sees no duplicate import |
 | Schema mismatch package | package is rejected before review/apply, operator sees schema mismatch outcome |
-| Export attempted while CloudKit reconciliation is stale or unresolved | export is blocked, operator sees reconciliation status and recovery action |
+| Export attempted while the CloudKit-backed runtime is locally blocked, stale, or later fails a stricter reconciliation barrier | export is blocked, operator sees the blocking status and recovery action |
 | Drift between export and import | package is rejected with drift outcome, operator is instructed to export a fresh snapshot |
 | Ambiguous logical match or orphan reference | package is rejected with explicit validation outcome, authoritative dataset remains unchanged |
-| Operator cancels `Import Review` | authoritative dataset remains unchanged and the operator returns to idle state |
-| Import Review for money-impacting changes | operator sees concrete before/after goal, transaction, and monthly-plan diffs rather than counts alone |
-| Import Review for allocation changes | operator sees concrete before/after allocation amounts and percentage/share changes before apply |
-| Apply attempted after review while CloudKit reconciliation is stale or unresolved | apply is blocked before mutation, operator sees reconciliation status and recovery action |
+| Operator rejects the package, resets the decision to pending, or dismisses review from the parent bridge flow | authoritative dataset remains unchanged and the review can be revisited until the loaded package is cleared or replaced |
+| Import Review for money-impacting changes | operator sees concrete diff rows, warnings, and changed-entity counts rather than counts alone |
+| Import Review for allocation changes | operator sees the shipped generic allocation diff rows emitted by the runtime, even if they are still UUID-heavy and less human-friendly than future typed review hardening |
+| Apply attempted after review while the CloudKit-backed runtime is locally blocked, stale, or later fails a stricter reconciliation barrier | apply is blocked before mutation, operator sees the blocking status and recovery action |
 | Apply failure after explicit confirmation | runtime rolls back the import transaction, authoritative dataset remains unchanged, failure state is visible in status |
 | QR pairing with camera permission granted | pairing succeeds and trust confirmation is shown in the Phase 2B transport hardening flow |
 | QR pairing with camera permission denied/restricted/unavailable | `Scan QR` fails gracefully, manual bootstrap remains available, pairing can still complete |
@@ -756,12 +756,13 @@ Document-level gates:
 - The proposal defines iPhone and macOS product surfaces for pairing, trust review, import review, revocation, status, and manual sync.
 - The proposal defines an isolated transient snapshot workspace on macOS and forbids bridge edits from mutating the live persistent store before iPhone acceptance.
 - The proposal defines the bridge as manual and foreground-only.
+- The proposal explicitly separates the currently shipped bridge baseline from stronger target-state hardening around review presentation, review DTO richness, and CloudKit reconciliation barriers.
 - The proposal defines secure storage of trust records through Keychain-backed storage.
 - The proposal defines handshake-time protocol/version negotiation and update-required behavior before editing begins.
 - The proposal assigns one unambiguous meaning to each manifest version field and distinguishes compatibility-gating fields from operator/debug metadata.
-- The proposal defines CloudKit reconciliation checkpoints before export and before final apply.
+- The proposal defines a current implemented safety baseline of `CloudKit-primary + drift revalidation` and allows stricter explicit reconciliation checkpoints as target-state hardening before export and before final apply.
 - The proposal defines drift handling as reject-and-re-export, not merge.
-- The proposal defines concrete `ImportReviewSummary` diff payloads for goals, transactions, allocations, and monthly plans, with summaries used only as supplemental scan aids.
+- The proposal defines a shipped `ImportReviewSummary` baseline around `entityDeltas` and `concreteDiffs`, and treats richer typed goal/transaction/allocation/monthly-plan diff payloads as future UX hardening.
 - The proposal defines a normative canonical snapshot schema, deterministic fingerprint rules, replay idempotency, and per-entity dedupe/matching rules.
 - The proposal guarantees that the same semantic dataset hashes to the same fingerprint and that import never creates duplicate logical entities.
 - The proposal keeps AirDrop/manual file import out of scope until signed-package and validation requirements are specified.
@@ -780,4 +781,4 @@ The bridge proposed here is intentionally narrow:
 - The iPhone is the bridge session host and import validator.
 - The macOS surface edits exported snapshots, not an independent replica history.
 - The bridge ships on top of an already-finished CloudKit migration and removed local-runtime backward compatibility.
-- Safety is achieved by trusted pairing, signed packages, Keychain-backed trust storage, CloudKit reconciliation checkpoints, early compatibility negotiation, and reject-on-drift import validation.
+- Safety is achieved by trusted pairing, signed packages, Keychain-backed trust storage, the current `CloudKit-primary + drift revalidation` safety baseline, early compatibility negotiation, and reject-on-drift import validation, with stricter explicit reconciliation checkpoints reserved as target-state hardening.

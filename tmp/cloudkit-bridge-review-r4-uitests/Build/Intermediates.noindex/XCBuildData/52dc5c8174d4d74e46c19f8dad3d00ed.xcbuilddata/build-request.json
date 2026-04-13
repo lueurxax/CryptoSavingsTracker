@@ -1,0 +1,72 @@
+{
+  "buildCommand" : {
+    "command" : "build",
+    "skipDependencies" : false,
+    "style" : "buildAndRun"
+  },
+  "configuredTargets" : [
+    {
+      "guid" : "7bd23b285e037947420d2ec570658dbd434f5d79e8adce5114b0e3e6a1c7aec8"
+    }
+  ],
+  "containerPath" : "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker.xcodeproj",
+  "continueBuildingAfterErrors" : false,
+  "dependencyScope" : "workspace",
+  "enableIndexBuildArena" : false,
+  "hideShellScriptEnvironment" : false,
+  "parameters" : {
+    "action" : "build",
+    "activeArchitecture" : "arm64",
+    "activeRunDestination" : {
+      "disableOnlyActiveArch" : false,
+      "platform" : "iphonesimulator",
+      "sdk" : "iphonesimulator26.2",
+      "sdkVariant" : "iphonesimulator",
+      "supportedArchitectures" : [
+        "arm64",
+        "x86_64"
+      ],
+      "targetArchitecture" : "arm64"
+    },
+    "arenaInfo" : {
+      "buildIntermediatesPath" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-uitests/Build/Intermediates.noindex",
+      "buildProductsPath" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-uitests/Build/Products",
+      "derivedDataPath" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-uitests",
+      "indexDataStoreFolderPath" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-uitests/Index.noindex/DataStore",
+      "indexEnableDataStore" : true,
+      "indexPCHPath" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-uitests/Index.noindex/PrecompiledHeaders",
+      "pchPath" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-uitests/Build/Intermediates.noindex/PrecompiledHeaders"
+    },
+    "configurationName" : "Debug",
+    "overrides" : {
+      "commandLine" : {
+        "table" : {
+
+        }
+      },
+      "synthesized" : {
+        "table" : {
+          "ASSETCATALOG_FILTER_FOR_DEVICE_MODEL" : "iPhone15,4",
+          "ASSETCATALOG_FILTER_FOR_DEVICE_OS_VERSION" : "18.0",
+          "ASSETCATALOG_FILTER_FOR_THINNING_DEVICE_CONFIGURATION" : "iPhone15,4",
+          "BUILD_ACTIVE_RESOURCES_ONLY" : "YES",
+          "CLANG_COVERAGE_MAPPING" : "YES",
+          "CLANG_PROFILE_DATA_DIRECTORY" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-uitests/Build/ProfileData",
+          "ENABLE_PREVIEWS" : "NO",
+          "ENABLE_XOJIT_PREVIEWS" : "YES",
+          "ONLY_ACTIVE_ARCH" : "YES",
+          "TARGET_DEVICE_IDENTIFIER" : "B344C46C-FC72-47F0-B150-A7F3478F09B2",
+          "TARGET_DEVICE_MODEL" : "iPhone15,4",
+          "TARGET_DEVICE_OS_VERSION" : "18.0",
+          "TARGET_DEVICE_PLATFORM_NAME" : "iphonesimulator"
+        }
+      }
+    }
+  },
+  "schemeCommand" : "test",
+  "showNonLoggedProgress" : true,
+  "useDryRun" : false,
+  "useImplicitDependencies" : true,
+  "useLegacyBuildLocations" : false,
+  "useParallelTargets" : true
+}

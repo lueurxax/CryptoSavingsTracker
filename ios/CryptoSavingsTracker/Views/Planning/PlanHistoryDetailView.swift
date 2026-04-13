@@ -26,31 +26,52 @@ struct PlanHistoryDetailView: View {
 
     @State private var entries: [HistoryEventEntry] = []
     @State private var showUndoAlert = false
-    @State private var isLoading = false
+    @State private var viewState: ViewState = .idle
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                headerSection
-                if canUndoLatest {
-                    undoBanner
+        AsyncContentView(state: viewState) {
+            if entries.isEmpty {
+                EmptyStateView(
+                    icon: "clock.badge.questionmark",
+                    title: PlanHistoryPresentation.detailEmptyStateTitle(monthLabel: monthLabel),
+                    description: PlanHistoryPresentation.detailEmptyStateDescription(monthLabel: monthLabel),
+                    primaryAction: EmptyStateAction(
+                        title: "Refresh",
+                        icon: "arrow.clockwise",
+                        accessibilityIdentifier: "planning.history.detail.empty.refresh.\(monthLabel)"
+                    ) {
+                        Task {
+                            await loadData()
+                        }
+                    }
+                )
+            } else {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        headerSection
+                        if canUndoLatest {
+                            undoBanner
+                        }
+                        summarySection
+                        timelineSection
+                    }
+                    .padding()
                 }
-                summarySection
-                timelineSection
+                .refreshable {
+                    await loadData()
+                }
             }
-            .padding()
+        } loading: {
+            ProgressView("Loading history details...")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } error: { error in
+            ErrorStateView(error: error) {
+                await loadData()
+            }
         }
         .navigationTitle(formatMonthLabel(monthLabel))
         .task {
             await loadData()
-        }
-        .refreshable {
-            await loadData()
-        }
-        .overlay {
-            if isLoading {
-                ProgressView()
-            }
         }
         .alert("Undo Completion?", isPresented: $showUndoAlert) {
             Button("Cancel", role: .cancel) {}
@@ -77,6 +98,18 @@ struct PlanHistoryDetailView: View {
         return latestOpenEntry.record.canUndo
     }
 
+    private var latestRequiredTotal: Double {
+        latestEntry?.snapshot?.goalSnapshots.reduce(0, { $0 + $1.plannedAmount }) ?? 0
+    }
+
+    private var latestActualTotal: Double {
+        latestEntry?.snapshot?.contributedTotalsByGoalId.values.reduce(0, +) ?? 0
+    }
+
+    private var historyCurrency: String {
+        latestEntry?.snapshot?.goalSnapshots.first?.currency ?? "USD"
+    }
+
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -95,6 +128,8 @@ struct PlanHistoryDetailView: View {
         .padding()
         .background(windowBackground)
         .cornerRadius(12)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("planning.history.detail.header.\(monthLabel)")
     }
 
     private var undoBanner: some View {
@@ -109,6 +144,9 @@ struct PlanHistoryDetailView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(AccessibleColors.warning)
+            .accessibilityLabel("Undo latest completion")
+            .accessibilityHint("Reopens this month for tracking if the undo window is still active.")
+            .accessibilityIdentifier("planning.history.detail.undo")
         }
         .padding()
         .background(AccessibleColors.warningBackground)
@@ -119,16 +157,25 @@ struct PlanHistoryDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Summary")
                 .font(.headline)
-            let required = latestEntry?.snapshot?.goalSnapshots.reduce(0, { $0 + $1.plannedAmount }) ?? 0
-            let actual = latestEntry?.snapshot?.contributedTotalsByGoalId.values.reduce(0, +) ?? 0
-            Text("Planned: \(formatCurrency(required))")
-            Text("Actual: \(formatCurrency(actual))")
+            Text("Planned: \(formatCurrency(latestRequiredTotal))")
+            Text("Actual: \(formatCurrency(latestActualTotal))")
             Text("Events: \(entries.count)")
                 .foregroundStyle(.secondary)
         }
         .padding()
         .background(windowBackground)
         .cornerRadius(12)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Summary")
+        .accessibilityValue(
+            PlanHistoryPresentation.detailSummaryAccessibilityValue(
+                actualTotal: latestActualTotal,
+                requiredTotal: latestRequiredTotal,
+                eventsCount: entries.count,
+                currency: historyCurrency
+            )
+        )
+        .accessibilityIdentifier("planning.history.detail.summary.\(monthLabel)")
     }
 
     private var timelineSection: some View {
@@ -136,6 +183,10 @@ struct PlanHistoryDetailView: View {
             Text("Completion Events")
                 .font(.headline)
             ForEach(entries) { entry in
+                let required = entry.snapshot?.goalSnapshots.reduce(0, { $0 + $1.plannedAmount }) ?? 0
+                let actual = entry.snapshot?.contributedTotalsByGoalId.values.reduce(0, +) ?? 0
+                let status = statusText(for: entry)
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text(entry.event.completedAt, format: .dateTime.month().day().year().hour().minute())
                         .font(.subheadline)
@@ -143,11 +194,9 @@ struct PlanHistoryDetailView: View {
                     Text("Sequence: \(entry.event.sequence)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(statusText(for: entry))
+                    Text(status)
                         .font(.caption)
                         .foregroundStyle(statusColor(for: entry))
-                    let required = entry.snapshot?.goalSnapshots.reduce(0, { $0 + $1.plannedAmount }) ?? 0
-                    let actual = entry.snapshot?.contributedTotalsByGoalId.values.reduce(0, +) ?? 0
                     Text("Planned \(formatCurrency(required)) · Actual \(formatCurrency(actual))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -155,6 +204,18 @@ struct PlanHistoryDetailView: View {
                 .padding()
                 .background(windowBackground)
                 .cornerRadius(10)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    PlanHistoryPresentation.timelineAccessibilityLabel(
+                        completedAt: entry.event.completedAt,
+                        sequence: entry.event.sequence,
+                        status: status,
+                        actualTotal: actual,
+                        requiredTotal: required,
+                        currency: historyCurrency
+                    )
+                )
+                .accessibilityIdentifier("planning.history.detail.event.\(entry.event.eventId.uuidString)")
             }
         }
         .padding()
@@ -163,8 +224,7 @@ struct PlanHistoryDetailView: View {
     }
 
     private func loadData() async {
-        isLoading = true
-        defer { isLoading = false }
+        viewState = .loading
 
         do {
             let service = DIContainer.shared.executionTrackingService(modelContext: modelContext)
@@ -181,8 +241,14 @@ struct PlanHistoryDetailView: View {
                     }
                     return $0.event.sequence > $1.event.sequence
                 }
+            viewState = .loaded
         } catch {
-            print("Error loading month history: \(error)")
+            entries = []
+            viewState = .error(PlanHistoryPresentation.detailLoadError(monthLabel: monthLabel))
+            AppLog.error(
+                "Failed to load history for \(monthLabel): \(error.localizedDescription)",
+                category: .monthlyPlanning
+            )
         }
     }
 
@@ -193,39 +259,27 @@ struct PlanHistoryDetailView: View {
             try service.undoCompletion(latestOpenEntry.record)
             await loadData()
         } catch {
-            print("Error undoing completion: \(error)")
+            AppLog.error(
+                "Failed to undo completion for \(monthLabel): \(error.localizedDescription)",
+                category: .monthlyPlanning
+            )
         }
     }
 
     private func formatMonthLabel(_ label: String) -> String {
-        let formatter = DateFormatter()
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        formatter.dateFormat = "yyyy-MM"
-        if let date = formatter.date(from: label) {
-            formatter.dateFormat = "MMMM yyyy"
-            return formatter.string(from: date)
-        }
-        return label
+        PlanHistoryPresentation.monthTitle(from: label)
     }
 
     private func formatCurrency(_ value: Double) -> String {
-        let number = NumberFormatter()
-        number.numberStyle = .currency
-        number.currencyCode = "USD"
-        number.maximumFractionDigits = 2
-        return number.string(from: NSNumber(value: value)) ?? String(format: "$%.2f", value)
+        CurrencyFormatter.format(amount: value, currency: historyCurrency, maximumFractionDigits: 2)
     }
 
     private func statusText(for entry: HistoryEventEntry) -> String {
-        if let undoneAt = entry.event.undoneAt {
-            return "Undone at \(undoneAt.formatted(date: .abbreviated, time: .shortened))"
-        }
-
-        if let latestOpenEntry, latestOpenEntry.id == entry.id {
-            return latestOpenEntry.record.canUndo ? "Undo available" : "Undo expired"
-        }
-
-        return "Completed"
+        PlanHistoryPresentation.eventStatusText(
+            undoneAt: entry.event.undoneAt,
+            isLatestOpen: latestOpenEntry?.id == entry.id,
+            canUndo: latestOpenEntry?.record.canUndo ?? false
+        )
     }
 
     private func statusColor(for entry: HistoryEventEntry) -> Color {
@@ -233,7 +287,7 @@ struct PlanHistoryDetailView: View {
             return AccessibleColors.warning
         }
         if let latestOpenEntry, latestOpenEntry.id == entry.id, latestOpenEntry.record.canUndo {
-            return .blue
+            return AccessibleColors.primaryInteractive
         }
         return AccessibleColors.success
     }

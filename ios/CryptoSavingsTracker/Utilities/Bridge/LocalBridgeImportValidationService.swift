@@ -36,22 +36,15 @@ final class LocalBridgeImportValidationService {
         from snapshotEnvelope: SnapshotEnvelope,
         trustedDevice: TrustedBridgeDevice?
     ) throws -> SignedImportPackage {
+        let baseDatasetFingerprint = snapshotEnvelope.manifest.baseDatasetFingerprint
         let editedSnapshot = try snapshotEnvelope.withComputedFingerprint()
         let signingKeyID = trustedDevice?.signingKeyID ?? trustedDevice?.id.uuidString ?? "unpaired-placeholder"
         let signingIdentity = try signingService.identity(for: signingKeyID)
-        let packageBody = [
-            editedSnapshot.manifest.snapshotID.uuidString,
-            editedSnapshot.manifest.baseDatasetFingerprint,
-            editedSnapshot.manifest.baseDatasetFingerprint,
-            signingIdentity.signingKeyID,
-            signingIdentity.fingerprint
-        ].joined(separator: "|")
-
         let unsignedPackage = SignedImportPackage(
-            packageID: BudgetSnapshotIdentity.sha256(packageBody),
+            packageID: "",
             snapshotID: editedSnapshot.manifest.snapshotID,
             canonicalEncodingVersion: editedSnapshot.manifest.canonicalEncodingVersion,
-            baseDatasetFingerprint: editedSnapshot.manifest.baseDatasetFingerprint,
+            baseDatasetFingerprint: baseDatasetFingerprint,
             editedDatasetFingerprint: editedSnapshot.manifest.baseDatasetFingerprint,
             snapshotEnvelope: editedSnapshot,
             signingKeyID: signingIdentity.signingKeyID,
@@ -60,13 +53,10 @@ final class LocalBridgeImportValidationService {
             signedAt: Date(),
             signature: ""
         )
-        let signature = try signingService.sign(
-            unsignedPackage.signingPayloadData(),
-            keyID: signingIdentity.signingKeyID
-        )
-
-        return SignedImportPackage(
-            packageID: unsignedPackage.packageID,
+        let packageBody = try unsignedPackage.canonicalPackageBodyData()
+        let packageID = BudgetSnapshotIdentity.sha256(String(decoding: packageBody, as: UTF8.self))
+        let bodyPackage = SignedImportPackage(
+            packageID: packageID,
             snapshotID: unsignedPackage.snapshotID,
             canonicalEncodingVersion: unsignedPackage.canonicalEncodingVersion,
             baseDatasetFingerprint: unsignedPackage.baseDatasetFingerprint,
@@ -76,6 +66,24 @@ final class LocalBridgeImportValidationService {
             signingAlgorithm: unsignedPackage.signingAlgorithm,
             signerPublicKeyRepresentation: unsignedPackage.signerPublicKeyRepresentation,
             signedAt: unsignedPackage.signedAt,
+            signature: ""
+        )
+        let signature = try signingService.sign(
+            bodyPackage.signingPayloadData(),
+            keyID: signingIdentity.signingKeyID
+        )
+
+        return SignedImportPackage(
+            packageID: packageID,
+            snapshotID: bodyPackage.snapshotID,
+            canonicalEncodingVersion: bodyPackage.canonicalEncodingVersion,
+            baseDatasetFingerprint: bodyPackage.baseDatasetFingerprint,
+            editedDatasetFingerprint: bodyPackage.editedDatasetFingerprint,
+            snapshotEnvelope: bodyPackage.snapshotEnvelope,
+            signingKeyID: bodyPackage.signingKeyID,
+            signingAlgorithm: bodyPackage.signingAlgorithm,
+            signerPublicKeyRepresentation: bodyPackage.signerPublicKeyRepresentation,
+            signedAt: bodyPackage.signedAt,
             signature: signature
         )
     }
@@ -115,9 +123,19 @@ final class LocalBridgeImportValidationService {
             blockingIssues.append("Signed package snapshot identity does not match the embedded snapshot manifest.")
         }
 
+        let computedPackageID = try package.computedPackageID()
+        if package.packageID != computedPackageID {
+            blockingIssues.append("Signed package package ID does not match the canonical package body.")
+        }
+
         let computedEditedFingerprint = try package.snapshotEnvelope.computedDatasetFingerprint()
         if package.editedDatasetFingerprint != computedEditedFingerprint {
             blockingIssues.append("Signed package edited dataset fingerprint does not match the embedded snapshot payload.")
+        }
+
+        let expectedPackageID = BudgetSnapshotIdentity.sha256(String(decoding: try package.canonicalPackageBodyData(), as: UTF8.self))
+        if package.packageID != expectedPackageID {
+            blockingIssues.append("Signed package identifier does not match the canonical package body.")
         }
 
         if package.snapshotEnvelope.manifest.baseDatasetFingerprint != computedEditedFingerprint {
@@ -181,7 +199,7 @@ final class LocalBridgeImportValidationService {
             : .failed
 
         let sourceDeviceName = trustedDevice?.displayName ?? "Trusted Mac"
-        let sourceFingerprint = shortFingerprint(package.signerFingerprint)
+        let sourceFingerprint = shortFingerprint(trustedDevice?.fingerprint ?? package.signerFingerprint)
         let packageBytes = try Int64(package.canonicalEncodingData().count)
         let reviewSummary = BridgeImportReviewSummaryDTO(
             package: BridgeSignedImportPackageSummaryDTO(
@@ -232,17 +250,6 @@ final class LocalBridgeImportValidationService {
         warnings: inout [String],
         blockingIssues: inout [String]
     ) -> (BridgeImportSignatureStatus, BridgeImportTrustStatus) {
-        do {
-            try signingService.verify(
-                signature: package.signature,
-                payload: try package.signingPayloadData(),
-                publicKeyRepresentation: package.signerPublicKeyRepresentation
-            )
-        } catch {
-            blockingIssues.append("Bridge package signature verification failed: \(error.localizedDescription)")
-            return (.invalid, .signerUntrusted)
-        }
-
         guard let trustedDevice else {
             blockingIssues.append("Bridge package signer is not an active trusted device on this install.")
             return (.signerUntrusted, .signerUntrusted)
@@ -259,16 +266,24 @@ final class LocalBridgeImportValidationService {
             return (.signerUntrusted, .signerUntrusted)
         }
 
-        if let pinnedPublicKey = trustedDevice.publicKeyRepresentation {
-            guard package.signerPublicKeyRepresentation == pinnedPublicKey else {
-                blockingIssues.append("Bridge package public key does not match the trusted device material pinned on this install.")
-                return (.signerUntrusted, .signerUntrusted)
-            }
-        } else {
-            warnings.append("Trusted device does not yet pin a bridge signing public key; signature trust falls back to the trusted device ID in this build.")
+        guard let pinnedPublicKey = trustedDevice.publicKeyRepresentation, pinnedPublicKey.isEmpty == false else {
+            blockingIssues.append("Trusted device is missing pinned bridge signing material on this install.")
+            return (.signerUntrusted, .signerUntrusted)
         }
 
-        if trustedDevice.fingerprint.caseInsensitiveCompare(package.signerFingerprint) != .orderedSame {
+        do {
+            try signingService.verify(
+                signature: package.signature,
+                payload: try package.signingPayloadData(),
+                publicKeyRepresentation: pinnedPublicKey
+            )
+        } catch {
+            blockingIssues.append("Bridge package signature verification failed: \(error.localizedDescription)")
+            return (.invalid, .signerUntrusted)
+        }
+
+        if !package.signerFingerprint.isEmpty &&
+            trustedDevice.fingerprint.caseInsensitiveCompare(package.signerFingerprint) != .orderedSame {
             warnings.append("Trusted device fingerprint metadata does not match the package signing key fingerprint; review the pairing record before enabling apply.")
         }
 

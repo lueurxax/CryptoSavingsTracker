@@ -104,6 +104,8 @@ class OnboardingManager: ObservableObject {
     }
 }
 
+extension OnboardingManager: OnboardingFlowStateControlling {}
+
 // MARK: - Onboarding Steps
 enum OnboardingStep: String, CaseIterable, Codable {
     case welcome = "welcome"

@@ -1,0 +1,177 @@
+{
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/BudgetCalculatorService.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/BudgetCalculatorService.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/BudgetCalculatorService.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/BudgetCalculatorService.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/BudgetCalculatorService.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/BudgetCalculatorService.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/CSVExportService.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CSVExportService.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CSVExportService.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CSVExportService.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CSVExportService.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CSVExportService.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/ChainService.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ChainService.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ChainService.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ChainService.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ChainService.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ChainService.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/CloudKitCutoverCoordinator.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CloudKitCutoverCoordinator.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CloudKitCutoverCoordinator.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CloudKitCutoverCoordinator.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CloudKitCutoverCoordinator.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CloudKitCutoverCoordinator.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/CloudKitHealthMonitor.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CloudKitHealthMonitor.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CloudKitHealthMonitor.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CloudKitHealthMonitor.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CloudKitHealthMonitor.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CloudKitHealthMonitor.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/CoinGeckoService.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CoinGeckoService.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CoinGeckoService.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CoinGeckoService.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CoinGeckoService.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/CoinGeckoService.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/DeduplicationService.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/DeduplicationService.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/DeduplicationService.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/DeduplicationService.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/DeduplicationService.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/DeduplicationService.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/ExchangeRateService.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExchangeRateService.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExchangeRateService.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExchangeRateService.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExchangeRateService.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExchangeRateService.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/ExecutionContributionCalculator.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionContributionCalculator.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionContributionCalculator.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionContributionCalculator.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionContributionCalculator.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionContributionCalculator.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/ExecutionProgressCache.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionProgressCache.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionProgressCache.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionProgressCache.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionProgressCache.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionProgressCache.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/ExecutionProgressCalculator.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionProgressCalculator.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionProgressCalculator.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionProgressCalculator.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionProgressCalculator.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionProgressCalculator.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/ExecutionTrackingService.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionTrackingService.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionTrackingService.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionTrackingService.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionTrackingService.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/ExecutionTrackingService.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/FlexAdjustmentService.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/FlexAdjustmentService.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/FlexAdjustmentService.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/FlexAdjustmentService.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/FlexAdjustmentService.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/FlexAdjustmentService.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/GoalCalculationService.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalCalculationService.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalCalculationService.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalCalculationService.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalCalculationService.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalCalculationService.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/GoalDashboardSceneAssembler.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardSceneAssembler.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardSceneAssembler.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardSceneAssembler.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardSceneAssembler.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalDashboardSceneAssembler.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/GoalLifecycleService.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalLifecycleService.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalLifecycleService.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalLifecycleService.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalLifecycleService.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalLifecycleService.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/GoalProgressCalculator.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalProgressCalculator.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalProgressCalculator.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalProgressCalculator.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalProgressCalculator.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/GoalProgressCalculator.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/MonthlyCycleActionGate.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleActionGate.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleActionGate.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleActionGate.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleActionGate.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleActionGate.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/MonthlyCycleStateResolver.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleStateResolver.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleStateResolver.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleStateResolver.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleStateResolver.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyCycleStateResolver.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/MonthlyPlanService.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanService.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanService.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanService.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanService.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanService.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/MonthlyPlanningService.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningService.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningService.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningService.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningService.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/MonthlyPlanningService.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/OnChainTransactionImportService.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/OnChainTransactionImportService.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/OnChainTransactionImportService.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/OnChainTransactionImportService.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/OnChainTransactionImportService.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/OnChainTransactionImportService.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/PersistenceMutationServices.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/PersistenceMutationServices.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/PersistenceMutationServices.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/PersistenceMutationServices.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/PersistenceMutationServices.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/PersistenceMutationServices.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/TatumClient.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/TatumClient.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/TatumClient.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/TatumClient.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/TatumClient.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/TatumClient.swiftdeps"
+  },
+  "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Services/TatumModels.swift" : {
+    "const-values" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/TatumModels.swiftconstvalues",
+    "dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/TatumModels.d",
+    "diagnostics" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/TatumModels.dia",
+    "object" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/TatumModels.o",
+    "swift-dependencies" : "/Users/user/Documents/CryptoSavingsTracker/tmp/cloudkit-bridge-review-r4-build/Build/Intermediates.noindex/CryptoSavingsTracker.build/Debug-iphonesimulator/CryptoSavingsTracker.build/Objects-normal/arm64/TatumModels.swiftdeps"
+  }
+}

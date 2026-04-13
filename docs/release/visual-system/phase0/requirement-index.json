@@ -1,0 +1,72 @@
+{
+  "version": "phase0-v1",
+  "generatedAt": "2026-04-12",
+  "scopeBoundaryDate": "2026-04-04",
+  "entries": [
+    {
+      "requirement_id": "W2-01",
+      "source_section": "Wave 2 goals shell and detail",
+      "wave_or_phase": "Wave 2",
+      "severity": "P1",
+      "status": "implemented",
+      "evidence_path": [
+        "ios/CryptoSavingsTracker/Views/ContentView.swift",
+        "ios/CryptoSavingsTracker/Views/Components/EmptyGoalsView.swift",
+        "ios/CryptoSavingsTracker/Views/GoalDetailView.swift",
+        "ios/CryptoSavingsTrackerTests/GoalDashboardNavigationContractTests.swift"
+      ],
+      "implementation_notes": "Aligned empty and error states and kept the active goals shell in ContentView; updated state copy and transitions in goal detail flows; captured regression checks in GoalDashboardNavigationContractTests.",
+      "owner_surface": "Goals list/detail surfaces",
+      "forbidden_change_check": "No new goals navigation architecture; no macOS split-view redesign."
+    },
+    {
+      "requirement_id": "W2-02",
+      "source_section": "Goal edit/add-asset/add-transaction paths",
+      "wave_or_phase": "Wave 2",
+      "severity": "P1",
+      "status": "implemented",
+      "evidence_path": [
+        "ios/CryptoSavingsTracker/Views/AddAssetView.swift",
+        "ios/CryptoSavingsTracker/Views/AddTransactionView.swift",
+        "ios/CryptoSavingsTracker/Views/Shared/UnifiedGoalRowView.swift",
+        "ios/CryptoSavingsTracker/Views/Components/ErrorBannerView.swift"
+      ],
+      "implementation_notes": "Updated recovery handling and row readability for user-facing amount lines; preserved action hierarchy and existing row rhythm.",
+      "owner_surface": "Goals detail + asset/transaction presentation",
+      "forbidden_change_check": "No broad rewrite of shared planning components beyond touched states."
+    },
+    {
+      "requirement_id": "W3-01",
+      "source_section": "Onboarding completion contract",
+      "wave_or_phase": "Wave 3",
+      "severity": "P0",
+      "status": "implemented",
+      "evidence_path": [
+        "ios/CryptoSavingsTracker/Views/Onboarding/OnboardingFlowView.swift",
+        "ios/CryptoSavingsTracker/Utilities/OnboardingGoalCreationState.swift",
+        "ios/CryptoSavingsTracker/Utilities/OnboardingManager.swift",
+        "ios/CryptoSavingsTrackerUITests/OnboardingUITests.swift",
+        "ios/CryptoSavingsTrackerTests/OnboardingGoalCreationStateTests.swift"
+      ],
+      "implementation_notes": "Removed completion-side effects from recoverable failure path; goal creation success/failure and retry are handled via state object that preserves template/profile step context.",
+      "owner_surface": "Onboarding flow",
+      "forbidden_change_check": "No new onboarding persistence model; no skip-path removal."
+    },
+    {
+      "requirement_id": "W4-01",
+      "source_section": "Settings shell ordering and Family Access entrypoint",
+      "wave_or_phase": "Wave 4",
+      "severity": "P1",
+      "status": "implemented",
+      "evidence_path": [
+        "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift",
+        "ios/CryptoSavingsTracker/Views/Settings/LocalBridgeSyncView.swift",
+        "ios/CryptoSavingsTracker/Views/FamilySharing/FamilyAccessView.swift",
+        "ios/CryptoSavingsTrackerTests/FamilySharing/FamilySharingCopyContractTests.swift"
+      ],
+      "implementation_notes": "Kept Settings as the user-facing shell and kept Family Access before Local Bridge Sync; clarified sync copy and enabled explicit invite/retry semantics via family sharing model copy contracts.",
+      "owner_surface": "Settings + Family Access shells",
+      "forbidden_change_check": "No Local Bridge Sync runtime semantic change."
+    }
+  ]
+}

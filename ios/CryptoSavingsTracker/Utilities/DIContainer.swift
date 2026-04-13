@@ -65,7 +65,7 @@ class DIContainer: ObservableObject {
                 _coinGeckoService = service
                 return service
             } catch {
-                AppLog.error("Failed to create CoinGeckoService: \(error)", category: .validation)
+                AppLog.error("Failed to create CoinGeckoService: \(error.localizedDescription)", category: .validation)
                 // Return a mock service as fallback
                 return createMockCoinGeckoService()
             }
@@ -84,7 +84,7 @@ class DIContainer: ObservableObject {
                 _tatumService = service
                 return service
             } catch {
-                AppLog.error("Failed to create TatumService: \(error)", category: .validation)
+                AppLog.error("Failed to create TatumService: \(error.localizedDescription)", category: .validation)
                 // Return a mock service as fallback
                 return createMockTatumService()
             }
@@ -103,7 +103,7 @@ class DIContainer: ObservableObject {
                 _exchangeRateService = service
                 return service
             } catch {
-                AppLog.error("Failed to create ExchangeRateService: \(error)", category: .validation)
+                AppLog.error("Failed to create ExchangeRateService: \(error.localizedDescription)", category: .validation)
                 // Return a basic service with cached data only
                 return createFallbackExchangeRateService()
             }
@@ -185,7 +185,7 @@ class DIContainer: ObservableObject {
                 _monthlyPlanningService = service
                 return service
             } catch {
-                AppLog.error("Failed to create MonthlyPlanningService: \(error)", category: .validation)
+                AppLog.error("Failed to create MonthlyPlanningService: \(error.localizedDescription)", category: .validation)
                 // Return a fallback service
                 return createFallbackMonthlyPlanningService()
             }
@@ -568,7 +568,7 @@ class DIContainer: ObservableObject {
             do {
                 try await validatable.validate()
             } catch {
-                AppLog.error("\(name) validation failed: \(error)", category: .validation)
+                AppLog.error("\(name) validation failed: \(error.localizedDescription)", category: .validation)
             }
         }
     }

@@ -144,7 +144,7 @@ struct GoalDetailView: View {
                         Text(url.host ?? linkString)
                             .font(.callout)
                             .foregroundColor(.accessiblePrimary)
-                            .lineLimit(1)
+                            .lineLimit(nil)
                         Image(systemName: "arrow.up.right.square")
                             .font(.caption2)
                             .foregroundColor(.accessiblePrimary)

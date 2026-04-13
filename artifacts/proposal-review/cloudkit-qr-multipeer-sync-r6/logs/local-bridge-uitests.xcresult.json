@@ -1,0 +1,4005 @@
+{
+  "_type" : {
+    "_name" : "ActionsInvocationRecord"
+  },
+  "actions" : {
+    "_type" : {
+      "_name" : "Array"
+    },
+    "_values" : [
+      {
+        "_type" : {
+          "_name" : "ActionRecord"
+        },
+        "actionResult" : {
+          "_type" : {
+            "_name" : "ActionResult"
+          },
+          "coverage" : {
+            "_type" : {
+              "_name" : "CodeCoverageInfo"
+            },
+            "archiveRef" : {
+              "_type" : {
+                "_name" : "Reference"
+              },
+              "id" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "0~D3-9wJthLgu23hlgHDfZtZnXJNohb7Pid6OY1CslkpJhKA0Cb2AOhDmLbr7hCpJfpKZessSULXQhe1UfhSF-fg=="
+              }
+            },
+            "hasCoverageData" : {
+              "_type" : {
+                "_name" : "Bool"
+              },
+              "_value" : "true"
+            },
+            "reportRef" : {
+              "_type" : {
+                "_name" : "Reference"
+              },
+              "id" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "0~ZPVzF0vFoMTQjnwnQfP6tS2-t7vxTTzRQA77VKoPlqWBmdyeboIoDABKoNkCRmVtjSpJ1qTOOefwZTVGbtP0rg=="
+              }
+            }
+          },
+          "diagnosticsRef" : {
+            "_type" : {
+              "_name" : "Reference"
+            },
+            "id" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "0~HIXGpTrbS1QVm-JRefHFgdUxux6HplYE3YKcHAWqsNukOXwCcdrwrn9GliF0PUmSuWgkwWdttJec0QKz0voyqA=="
+            }
+          },
+          "issues" : {
+            "_type" : {
+              "_name" : "ResultIssueSummaries"
+            },
+            "testFailureSummaries" : {
+              "_type" : {
+                "_name" : "Array"
+              },
+              "_values" : [
+                {
+                  "_type" : {
+                    "_name" : "TestFailureIssueSummary",
+                    "_supertype" : {
+                      "_name" : "IssueSummary"
+                    }
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTrackerUITests\/LocalBridgeSyncUITests.swift#EndingLineNumber=109&StartingLineNumber=109"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Uncategorized"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "XCTAssertTrue failed"
+                  },
+                  "testCaseName" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "LocalBridgeSyncUITests.testPairingRequiredScenarioShowsPairMacAndEmptyTrustedDevices()"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "TestFailureIssueSummary",
+                    "_supertype" : {
+                      "_name" : "IssueSummary"
+                    }
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTrackerUITests\/LocalBridgeSyncUITests.swift#EndingLineNumber=128&StartingLineNumber=128"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Uncategorized"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "XCTAssertTrue failed"
+                  },
+                  "testCaseName" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "LocalBridgeSyncUITests.testReviewScenarioShowsDistinctOperatorActionsAndDismissPath()"
+                  }
+                }
+              ]
+            }
+          },
+          "logRef" : {
+            "_type" : {
+              "_name" : "Reference"
+            },
+            "id" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "0~5FmnREksHDeKtHhR1V4xCJ-IjC7EyEVN_zZ3L1Lu9I8CPAVGTckStmKMX1eDIQrPM8EQlQKZWe3IOTjjIYJ1PA=="
+            },
+            "targetType" : {
+              "_type" : {
+                "_name" : "TypeDefinition"
+              },
+              "name" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "ActivityLogSection"
+              }
+            }
+          },
+          "metrics" : {
+            "_type" : {
+              "_name" : "ResultMetrics"
+            },
+            "testsCount" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "3"
+            },
+            "testsFailedCount" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "2"
+            }
+          },
+          "resultName" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "action"
+          },
+          "status" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "failed"
+          },
+          "testsRef" : {
+            "_type" : {
+              "_name" : "Reference"
+            },
+            "id" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "0~9iuht0SvMODN2d5MpgcVxzFBQOHCQUy-DL5hseWLI51jt-QuLIhLagP_wGPNBBSDFr-5cHmXS187t8xOif213w=="
+            },
+            "targetType" : {
+              "_type" : {
+                "_name" : "TypeDefinition"
+              },
+              "name" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "ActionTestPlanRunSummaries"
+              }
+            }
+          }
+        },
+        "buildResult" : {
+          "_type" : {
+            "_name" : "ActionResult"
+          },
+          "coverage" : {
+            "_type" : {
+              "_name" : "CodeCoverageInfo"
+            }
+          },
+          "issues" : {
+            "_type" : {
+              "_name" : "ResultIssueSummaries"
+            },
+            "warningSummaries" : {
+              "_type" : {
+                "_name" : "Array"
+              },
+              "_values" : [
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/ViewModels\/DashboardViewModel.swift#EndingColumnNumber=18&EndingLineNumber=69&StartingColumnNumber=18&StartingLineNumber=69&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "No-usage"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Value 'goal' was defined but never used; consider replacing with boolean test"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareForegroundRateRefreshDriver.swift#EndingColumnNumber=34&EndingLineNumber=22&StartingColumnNumber=34&StartingLineNumber=22&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareForegroundRateRefreshDriver.swift#EndingColumnNumber=42&EndingLineNumber=23&StartingColumnNumber=42&StartingLineNumber=23&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareInviteeRefreshScheduler.swift#EndingColumnNumber=45&EndingLineNumber=37&StartingColumnNumber=45&StartingLineNumber=37&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init(clock:)' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareInviteeRefreshScheduler.swift#EndingColumnNumber=34&EndingLineNumber=38&StartingColumnNumber=34&StartingLineNumber=38&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareInviteeRefreshScheduler.swift#EndingColumnNumber=42&EndingLineNumber=39&StartingColumnNumber=42&StartingLineNumber=39&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=34&EndingLineNumber=45&StartingColumnNumber=34&StartingLineNumber=45&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=42&EndingLineNumber=46&StartingColumnNumber=42&StartingLineNumber=46&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=45&EndingLineNumber=47&StartingColumnNumber=45&StartingLineNumber=47&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init(clock:)' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=50&EndingLineNumber=48&StartingColumnNumber=50&StartingLineNumber=48&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=54&EndingLineNumber=49&StartingColumnNumber=54&StartingLineNumber=49&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init(defaults:)' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=45&EndingLineNumber=50&StartingColumnNumber=45&StartingLineNumber=50&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=45&EndingLineNumber=27&StartingColumnNumber=45&StartingLineNumber=27&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=58&EndingLineNumber=28&StartingColumnNumber=58&StartingLineNumber=28&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=58&EndingLineNumber=29&StartingColumnNumber=58&StartingLineNumber=29&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareInviteeRefreshScheduler.swift#EndingColumnNumber=16&EndingLineNumber=185&StartingColumnNumber=16&StartingLineNumber=185&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "SendableClosureCaptures"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Reference to captured var 'self' in concurrently-executing code; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=42&EndingLineNumber=71&StartingColumnNumber=42&StartingLineNumber=71&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Swift Compiler Warning"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated property 'affectedGoalIDs' can not be referenced on a nonisolated actor instance"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=74&StartingColumnNumber=24&StartingLineNumber=74&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'markDirty(namespaceKey:reason:)' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=47&EndingLineNumber=80&StartingColumnNumber=47&StartingLineNumber=80&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Swift Compiler Warning"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated static property 'rateDriftDebounce' can not be referenced on a nonisolated actor instance"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=47&EndingLineNumber=82&StartingColumnNumber=47&StartingLineNumber=82&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Swift Compiler Warning"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated static property 'mutationDebounce' can not be referenced on a nonisolated actor instance"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=86&StartingColumnNumber=24&StartingLineNumber=86&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'cancel()' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=35&EndingLineNumber=87&StartingColumnNumber=35&StartingLineNumber=87&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'scheduleDebounce(delay:action:)' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=38&EndingLineNumber=94&StartingColumnNumber=38&StartingLineNumber=94&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'dirtyNamespaces()' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=35&EndingLineNumber=98&StartingColumnNumber=35&StartingLineNumber=98&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'scheduleDebounce(delay:action:)' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=86&EndingLineNumber=98&StartingColumnNumber=86&StartingLineNumber=98&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Swift Compiler Warning"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated static property 'mutationDebounce' can not be referenced on a nonisolated actor instance"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=107&StartingColumnNumber=24&StartingLineNumber=107&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'cancel()' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=113&StartingColumnNumber=24&StartingLineNumber=113&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'clearDirty(namespaceKey:)' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=42&EndingLineNumber=159&StartingColumnNumber=42&StartingLineNumber=159&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Swift Compiler Warning"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated property 'affectedGoalIDs' cannot be accessed from outside of the actor; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=160&StartingColumnNumber=24&StartingLineNumber=160&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Swift Compiler Warning"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated instance method 'markDirty(namespaceKey:reason:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=161&StartingColumnNumber=24&StartingLineNumber=161&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Swift Compiler Warning"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated instance method 'cancel()' cannot be called from outside of the actor; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=185&StartingColumnNumber=24&StartingLineNumber=185&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'clearDirty(namespaceKey:)' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=34&EndingLineNumber=197&StartingColumnNumber=34&StartingLineNumber=197&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'backoffDelay(forFailureCount:)' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=211&StartingColumnNumber=24&StartingLineNumber=211&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'cancel()' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=35&EndingLineNumber=212&StartingColumnNumber=35&StartingLineNumber=212&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'scheduleDebounce(delay:action:)' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=22&EndingLineNumber=285&StartingColumnNumber=22&StartingLineNumber=285&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Swift Compiler Warning"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated initializer 'init(policy:clock:scheduler:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionMutationObserver.swift#EndingColumnNumber=18&EndingLineNumber=29&StartingColumnNumber=18&StartingLineNumber=29&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'handleNotification' in a synchronous nonisolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=49&EndingLineNumber=52&StartingColumnNumber=49&StartingLineNumber=52&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Swift Compiler Warning"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated property 'ratesDidRefresh' cannot be accessed from outside of the actor; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=27&EndingLineNumber=79&StartingColumnNumber=27&StartingLineNumber=79&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "IsolatedConformances"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in actor-isolated context; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=29&EndingLineNumber=80&StartingColumnNumber=29&StartingLineNumber=80&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "IsolatedConformances"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in actor-isolated context; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=36&EndingLineNumber=87&StartingColumnNumber=36&StartingLineNumber=87&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'calculateProgress(for:rates:)' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=26&EndingLineNumber=91&StartingColumnNumber=26&StartingLineNumber=91&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated initializer 'init(from:to:)' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=47&EndingLineNumber=92&StartingColumnNumber=47&StartingLineNumber=92&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "IsolatedConformances"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in actor-isolated context; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=42&EndingLineNumber=92&StartingColumnNumber=42&StartingLineNumber=92&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "IsolatedConformances"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in actor-isolated context; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=33&EndingLineNumber=94&StartingColumnNumber=33&StartingLineNumber=94&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ActorIsolatedCall"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Call to main actor-isolated instance method 'isMaterial(newAmount:lastPublishedAmount:targetAmount:goalCurrency:usdToGoalCurrencyRate:)' in a synchronous actor-isolated context"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareTestabilitySeams.swift#EndingColumnNumber=91&EndingLineNumber=110&StartingColumnNumber=91&StartingLineNumber=110&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "IsolatedConformances"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in nonisolated context; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareTestabilitySeams.swift#EndingColumnNumber=94&EndingLineNumber=110&StartingColumnNumber=94&StartingLineNumber=110&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "IsolatedConformances"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in nonisolated context; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareTestabilitySeams.swift#EndingColumnNumber=106&EndingLineNumber=111&StartingColumnNumber=106&StartingLineNumber=111&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "IsolatedConformances"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in nonisolated context; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareTestabilitySeams.swift#EndingColumnNumber=109&EndingLineNumber=111&StartingColumnNumber=109&StartingLineNumber=111&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "IsolatedConformances"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in nonisolated context; this is an error in the Swift 6 language mode"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareTestabilitySeams.swift#EndingColumnNumber=28&EndingLineNumber=113&StartingColumnNumber=28&StartingLineNumber=113&Timestamp=795900273.509576"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "IsolatedConformances"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in nonisolated context; this is an error in the Swift 6 language mode"
+                  }
+                }
+              ]
+            }
+          },
+          "logRef" : {
+            "_type" : {
+              "_name" : "Reference"
+            },
+            "id" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "0~5ikLDIYoPtlUHTiFbGVy644tIgERE7Do3JKQPEFMzFI-bZG8keFzIosKOrC3_e845mwS9vOTLCE1H-td76MfYA=="
+            },
+            "targetType" : {
+              "_type" : {
+                "_name" : "TypeDefinition"
+              },
+              "name" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "ActivityLogSection"
+              }
+            }
+          },
+          "metrics" : {
+            "_type" : {
+              "_name" : "ResultMetrics"
+            },
+            "warningCount" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "49"
+            }
+          },
+          "resultName" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "build"
+          },
+          "status" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "succeeded"
+          }
+        },
+        "endedTime" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:27:21.416+0200"
+        },
+        "runDestination" : {
+          "_type" : {
+            "_name" : "ActionRunDestinationRecord"
+          },
+          "displayName" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "iPhone 15"
+          },
+          "localComputerRecord" : {
+            "_type" : {
+              "_name" : "ActionDeviceRecord"
+            },
+            "busSpeedInMHz" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "0"
+            },
+            "cpuCount" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "1"
+            },
+            "cpuKind" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "Apple M1 Pro"
+            },
+            "cpuSpeedInMHz" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "0"
+            },
+            "identifier" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "00006000-0014108A2E02401E"
+            },
+            "isConcreteDevice" : {
+              "_type" : {
+                "_name" : "Bool"
+              },
+              "_value" : "true"
+            },
+            "logicalCPUCoresPerPackage" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "10"
+            },
+            "modelCode" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "MacBookPro18,3"
+            },
+            "modelName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "MacBook Pro"
+            },
+            "modelUTI" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "com.apple.macbookpro-14-2021"
+            },
+            "name" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "My Mac"
+            },
+            "nativeArchitecture" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "arm64e"
+            },
+            "operatingSystemVersion" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "26.3.1"
+            },
+            "operatingSystemVersionWithBuildNumber" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "26.3.1 (25D2128)"
+            },
+            "physicalCPUCoresPerPackage" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "10"
+            },
+            "platformRecord" : {
+              "_type" : {
+                "_name" : "ActionPlatformRecord"
+              },
+              "identifier" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.platform.macosx"
+              },
+              "userDescription" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "macOS"
+              }
+            },
+            "ramSizeInMegabytes" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "16384"
+            }
+          },
+          "targetArchitecture" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "arm64"
+          },
+          "targetDeviceRecord" : {
+            "_type" : {
+              "_name" : "ActionDeviceRecord"
+            },
+            "busSpeedInMHz" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "0"
+            },
+            "cpuCount" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "0"
+            },
+            "cpuSpeedInMHz" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "0"
+            },
+            "identifier" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "B344C46C-FC72-47F0-B150-A7F3478F09B2"
+            },
+            "isConcreteDevice" : {
+              "_type" : {
+                "_name" : "Bool"
+              },
+              "_value" : "true"
+            },
+            "logicalCPUCoresPerPackage" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "0"
+            },
+            "modelCode" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "iPhone15,4"
+            },
+            "modelName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "iPhone 15"
+            },
+            "modelUTI" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "com.apple.iphone-15-1"
+            },
+            "name" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "iPhone 15"
+            },
+            "nativeArchitecture" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "arm64"
+            },
+            "operatingSystemVersion" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "18.0"
+            },
+            "operatingSystemVersionWithBuildNumber" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "18.0 (22A3351)"
+            },
+            "physicalCPUCoresPerPackage" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "0"
+            },
+            "platformRecord" : {
+              "_type" : {
+                "_name" : "ActionPlatformRecord"
+              },
+              "identifier" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.platform.iphonesimulator"
+              },
+              "userDescription" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "iOS Simulator"
+              }
+            },
+            "ramSizeInMegabytes" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "0"
+            }
+          },
+          "targetSDKRecord" : {
+            "_type" : {
+              "_name" : "ActionSDKRecord"
+            },
+            "identifier" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "iphonesimulator26.2"
+            },
+            "name" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "Simulator - iOS 26.2"
+            },
+            "operatingSystemVersion" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "26.2"
+            }
+          }
+        },
+        "schemeCommandName" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Test"
+        },
+        "schemeTaskName" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "BuildAndAction"
+        },
+        "startedTime" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:24:31.995+0200"
+        },
+        "testPlanName" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "CryptoSavingsTrackerUITests"
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Testing project CryptoSavingsTracker with scheme CryptoSavingsTrackerUITests"
+        }
+      }
+    ]
+  },
+  "issues" : {
+    "_type" : {
+      "_name" : "ResultIssueSummaries"
+    },
+    "warningSummaries" : {
+      "_type" : {
+        "_name" : "Array"
+      },
+      "_values" : [
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/ViewModels\/DashboardViewModel.swift#EndingColumnNumber=18&EndingLineNumber=69&StartingColumnNumber=18&StartingLineNumber=69&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "No-usage"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Value 'goal' was defined but never used; consider replacing with boolean test"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareForegroundRateRefreshDriver.swift#EndingColumnNumber=34&EndingLineNumber=22&StartingColumnNumber=34&StartingLineNumber=22&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareForegroundRateRefreshDriver.swift#EndingColumnNumber=42&EndingLineNumber=23&StartingColumnNumber=42&StartingLineNumber=23&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareInviteeRefreshScheduler.swift#EndingColumnNumber=45&EndingLineNumber=37&StartingColumnNumber=45&StartingLineNumber=37&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init(clock:)' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareInviteeRefreshScheduler.swift#EndingColumnNumber=34&EndingLineNumber=38&StartingColumnNumber=34&StartingLineNumber=38&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareInviteeRefreshScheduler.swift#EndingColumnNumber=42&EndingLineNumber=39&StartingColumnNumber=42&StartingLineNumber=39&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=34&EndingLineNumber=45&StartingColumnNumber=34&StartingLineNumber=45&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=42&EndingLineNumber=46&StartingColumnNumber=42&StartingLineNumber=46&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=45&EndingLineNumber=47&StartingColumnNumber=45&StartingLineNumber=47&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init(clock:)' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=50&EndingLineNumber=48&StartingColumnNumber=50&StartingLineNumber=48&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=54&EndingLineNumber=49&StartingColumnNumber=54&StartingLineNumber=49&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init(defaults:)' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=45&EndingLineNumber=50&StartingColumnNumber=45&StartingLineNumber=50&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=45&EndingLineNumber=27&StartingColumnNumber=45&StartingLineNumber=27&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=58&EndingLineNumber=28&StartingColumnNumber=58&StartingLineNumber=28&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=58&EndingLineNumber=29&StartingColumnNumber=58&StartingLineNumber=29&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareInviteeRefreshScheduler.swift#EndingColumnNumber=16&EndingLineNumber=185&StartingColumnNumber=16&StartingLineNumber=185&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "SendableClosureCaptures"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Reference to captured var 'self' in concurrently-executing code; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=42&EndingLineNumber=71&StartingColumnNumber=42&StartingLineNumber=71&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Swift Compiler Warning"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated property 'affectedGoalIDs' can not be referenced on a nonisolated actor instance"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=74&StartingColumnNumber=24&StartingLineNumber=74&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'markDirty(namespaceKey:reason:)' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=47&EndingLineNumber=80&StartingColumnNumber=47&StartingLineNumber=80&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Swift Compiler Warning"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated static property 'rateDriftDebounce' can not be referenced on a nonisolated actor instance"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=47&EndingLineNumber=82&StartingColumnNumber=47&StartingLineNumber=82&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Swift Compiler Warning"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated static property 'mutationDebounce' can not be referenced on a nonisolated actor instance"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=86&StartingColumnNumber=24&StartingLineNumber=86&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'cancel()' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=35&EndingLineNumber=87&StartingColumnNumber=35&StartingLineNumber=87&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'scheduleDebounce(delay:action:)' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=38&EndingLineNumber=94&StartingColumnNumber=38&StartingLineNumber=94&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'dirtyNamespaces()' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=35&EndingLineNumber=98&StartingColumnNumber=35&StartingLineNumber=98&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'scheduleDebounce(delay:action:)' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=86&EndingLineNumber=98&StartingColumnNumber=86&StartingLineNumber=98&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Swift Compiler Warning"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated static property 'mutationDebounce' can not be referenced on a nonisolated actor instance"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=107&StartingColumnNumber=24&StartingLineNumber=107&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'cancel()' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=113&StartingColumnNumber=24&StartingLineNumber=113&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'clearDirty(namespaceKey:)' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=42&EndingLineNumber=159&StartingColumnNumber=42&StartingLineNumber=159&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Swift Compiler Warning"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated property 'affectedGoalIDs' cannot be accessed from outside of the actor; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=160&StartingColumnNumber=24&StartingLineNumber=160&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Swift Compiler Warning"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated instance method 'markDirty(namespaceKey:reason:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=161&StartingColumnNumber=24&StartingLineNumber=161&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Swift Compiler Warning"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated instance method 'cancel()' cannot be called from outside of the actor; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=185&StartingColumnNumber=24&StartingLineNumber=185&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'clearDirty(namespaceKey:)' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=34&EndingLineNumber=197&StartingColumnNumber=34&StartingLineNumber=197&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'backoffDelay(forFailureCount:)' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=24&EndingLineNumber=211&StartingColumnNumber=24&StartingLineNumber=211&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'cancel()' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=35&EndingLineNumber=212&StartingColumnNumber=35&StartingLineNumber=212&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'scheduleDebounce(delay:action:)' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionAutoRepublishCoordinator.swift#EndingColumnNumber=22&EndingLineNumber=285&StartingColumnNumber=22&StartingLineNumber=285&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Swift Compiler Warning"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated initializer 'init(policy:clock:scheduler:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareProjectionMutationObserver.swift#EndingColumnNumber=18&EndingLineNumber=29&StartingColumnNumber=18&StartingLineNumber=29&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'handleNotification' in a synchronous nonisolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=49&EndingLineNumber=52&StartingColumnNumber=49&StartingLineNumber=52&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Swift Compiler Warning"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated property 'ratesDidRefresh' cannot be accessed from outside of the actor; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=27&EndingLineNumber=79&StartingColumnNumber=27&StartingLineNumber=79&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "IsolatedConformances"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in actor-isolated context; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=29&EndingLineNumber=80&StartingColumnNumber=29&StartingLineNumber=80&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "IsolatedConformances"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in actor-isolated context; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=36&EndingLineNumber=87&StartingColumnNumber=36&StartingLineNumber=87&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'calculateProgress(for:rates:)' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=26&EndingLineNumber=91&StartingColumnNumber=26&StartingLineNumber=91&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated initializer 'init(from:to:)' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=47&EndingLineNumber=92&StartingColumnNumber=47&StartingLineNumber=92&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "IsolatedConformances"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in actor-isolated context; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=42&EndingLineNumber=92&StartingColumnNumber=42&StartingLineNumber=92&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "IsolatedConformances"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in actor-isolated context; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareRateDriftEvaluator.swift#EndingColumnNumber=33&EndingLineNumber=94&StartingColumnNumber=33&StartingLineNumber=94&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "ActorIsolatedCall"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Call to main actor-isolated instance method 'isMaterial(newAmount:lastPublishedAmount:targetAmount:goalCurrency:usdToGoalCurrencyRate:)' in a synchronous actor-isolated context"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareTestabilitySeams.swift#EndingColumnNumber=91&EndingLineNumber=110&StartingColumnNumber=91&StartingLineNumber=110&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "IsolatedConformances"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in nonisolated context; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareTestabilitySeams.swift#EndingColumnNumber=94&EndingLineNumber=110&StartingColumnNumber=94&StartingLineNumber=110&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "IsolatedConformances"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in nonisolated context; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareTestabilitySeams.swift#EndingColumnNumber=106&EndingLineNumber=111&StartingColumnNumber=106&StartingLineNumber=111&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "IsolatedConformances"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in nonisolated context; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareTestabilitySeams.swift#EndingColumnNumber=109&EndingLineNumber=111&StartingColumnNumber=109&StartingLineNumber=111&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "IsolatedConformances"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in nonisolated context; this is an error in the Swift 6 language mode"
+          }
+        },
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "DVTTextDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTracker\/Services\/FamilySharing\/FamilyShareTestabilitySeams.swift#EndingColumnNumber=28&EndingLineNumber=113&StartingColumnNumber=28&StartingLineNumber=113&Timestamp=795900273.509576"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "IsolatedConformances"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Main actor-isolated conformance of 'CurrencyPair' to 'Hashable' cannot be used in nonisolated context; this is an error in the Swift 6 language mode"
+          }
+        }
+      ]
+    }
+  },
+  "metadataRef" : {
+    "_type" : {
+      "_name" : "Reference"
+    },
+    "id" : {
+      "_type" : {
+        "_name" : "String"
+      },
+      "_value" : "0~RtbfHxjouPQz_a-YXdbJU1ibcCRPK6ejTo2DXAGvpVMh5HASvjS79WXeeMUz8NUifHG3SyxSegYTLseUB3MQpQ=="
+    },
+    "targetType" : {
+      "_type" : {
+        "_name" : "TypeDefinition"
+      },
+      "name" : {
+        "_type" : {
+          "_name" : "String"
+        },
+        "_value" : "ActionsInvocationMetadata"
+      }
+    }
+  },
+  "metrics" : {
+    "_type" : {
+      "_name" : "ResultMetrics"
+    },
+    "testsCount" : {
+      "_type" : {
+        "_name" : "Int"
+      },
+      "_value" : "3"
+    },
+    "testsFailedCount" : {
+      "_type" : {
+        "_name" : "Int"
+      },
+      "_value" : "2"
+    },
+    "totalCoveragePercentage" : {
+      "_type" : {
+        "_name" : "Double"
+      },
+      "_value" : "0.06686373041678983"
+    },
+    "warningCount" : {
+      "_type" : {
+        "_name" : "Int"
+      },
+      "_value" : "49"
+    }
+  }
+}

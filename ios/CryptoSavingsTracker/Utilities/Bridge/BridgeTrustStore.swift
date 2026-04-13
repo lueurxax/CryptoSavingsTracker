@@ -5,6 +5,7 @@ protocol BridgeTrustStoring: AnyObject {
     func loadTrustedDevices() -> [TrustedBridgeDevice]
     func upsert(_ device: TrustedBridgeDevice) throws
     func revoke(deviceID: UUID) throws
+    func remove(deviceID: UUID) throws
     func removeAll() throws
 }
 
@@ -33,6 +34,11 @@ final class BridgeTrustStore: BridgeTrustStoring {
         var devices = loadTrustedDevices()
         guard let index = devices.firstIndex(where: { $0.id == deviceID }) else { return }
         devices[index].trustState = .revoked
+        try write(devices)
+    }
+
+    func remove(deviceID: UUID) throws {
+        let devices = loadTrustedDevices().filter { $0.id != deviceID }
         try write(devices)
     }
 

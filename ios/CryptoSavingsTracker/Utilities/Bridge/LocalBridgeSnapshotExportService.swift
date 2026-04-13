@@ -46,10 +46,11 @@ final class LocalBridgeSnapshotExportService {
     func exportSnapshot(from context: ModelContext) throws -> SnapshotEnvelope {
         var validationIssues: [String] = []
 
-        let goals = try context.fetch(FetchDescriptor<Goal>())
+        let goals: [BridgeGoalSnapshot] = try context.fetch(FetchDescriptor<Goal>())
             .map {
                 BridgeGoalSnapshot(
                     id: $0.id,
+                    recordState: .active,
                     name: $0.name,
                     currency: $0.currency,
                     targetAmount: $0.targetAmount,
@@ -61,23 +62,38 @@ final class LocalBridgeSnapshotExportService {
                     link: $0.link
                 )
             }
-            .sorted { $0.id.uuidString < $1.id.uuidString }
+            .sorted {
+                return $0.id.uuidString < $1.id.uuidString
+            }
 
-        let assets = try context.fetch(FetchDescriptor<Asset>())
+        let assets: [BridgeAssetSnapshot] = try context.fetch(FetchDescriptor<Asset>())
             .map {
                 BridgeAssetSnapshot(
                     id: $0.id,
+                    recordState: .active,
                     currency: $0.currency,
                     address: $0.address,
                     chainId: $0.chainId
                 )
             }
-            .sorted { $0.id.uuidString < $1.id.uuidString }
+            .sorted {
+                if $0.currency.uppercased() != $1.currency.uppercased() {
+                    return $0.currency.uppercased() < $1.currency.uppercased()
+                }
+                if ($0.chainId ?? "").lowercased() != ($1.chainId ?? "").lowercased() {
+                    return ($0.chainId ?? "").lowercased() < ($1.chainId ?? "").lowercased()
+                }
+                if ($0.address ?? "").lowercased() != ($1.address ?? "").lowercased() {
+                    return ($0.address ?? "").lowercased() < ($1.address ?? "").lowercased()
+                }
+                return $0.id.uuidString < $1.id.uuidString
+            }
 
-        let transactions = try context.fetch(FetchDescriptor<Transaction>())
+        let transactions: [BridgeTransactionSnapshot] = try context.fetch(FetchDescriptor<Transaction>())
             .map {
                 BridgeTransactionSnapshot(
                     id: $0.id,
+                    recordState: .active,
                     assetId: $0.asset?.id,
                     amount: $0.amount,
                     date: $0.date,
@@ -87,12 +103,22 @@ final class LocalBridgeSnapshotExportService {
                     comment: $0.comment
                 )
             }
-            .sorted { $0.id.uuidString < $1.id.uuidString }
+            .sorted {
+                let lhsAsset = $0.assetId?.uuidString ?? ""
+                let rhsAsset = $1.assetId?.uuidString ?? ""
+                if lhsAsset != rhsAsset { return lhsAsset < rhsAsset }
+                if $0.date != $1.date { return $0.date < $1.date }
+                if $0.amount != $1.amount { return $0.amount < $1.amount }
+                if $0.sourceRawValue != $1.sourceRawValue { return $0.sourceRawValue < $1.sourceRawValue }
+                if ($0.externalId ?? "") != ($1.externalId ?? "") { return ($0.externalId ?? "") < ($1.externalId ?? "") }
+                return $0.id.uuidString < $1.id.uuidString
+            }
 
-        let assetAllocations = try context.fetch(FetchDescriptor<AssetAllocation>())
+        let assetAllocations: [BridgeAssetAllocationSnapshot] = try context.fetch(FetchDescriptor<AssetAllocation>())
             .map {
                 BridgeAssetAllocationSnapshot(
                     id: $0.id,
+                    recordState: .active,
                     assetId: $0.asset?.id,
                     goalId: $0.goal?.id,
                     amount: $0.amount,
@@ -100,12 +126,21 @@ final class LocalBridgeSnapshotExportService {
                     lastModifiedDate: $0.lastModifiedDate
                 )
             }
-            .sorted { $0.id.uuidString < $1.id.uuidString }
+            .sorted {
+                let lhsGoal = $0.goalId?.uuidString ?? ""
+                let rhsGoal = $1.goalId?.uuidString ?? ""
+                if lhsGoal != rhsGoal { return lhsGoal < rhsGoal }
+                let lhsAsset = $0.assetId?.uuidString ?? ""
+                let rhsAsset = $1.assetId?.uuidString ?? ""
+                if lhsAsset != rhsAsset { return lhsAsset < rhsAsset }
+                return $0.id.uuidString < $1.id.uuidString
+            }
 
-        let allocationHistories = try context.fetch(FetchDescriptor<AllocationHistory>())
+        let allocationHistories: [BridgeAllocationHistorySnapshot] = try context.fetch(FetchDescriptor<AllocationHistory>())
             .map {
                 BridgeAllocationHistorySnapshot(
                     id: $0.id,
+                    recordState: .active,
                     assetId: $0.assetId,
                     goalId: $0.goalId,
                     amount: $0.amount,
@@ -114,12 +149,23 @@ final class LocalBridgeSnapshotExportService {
                     monthLabel: $0.monthLabel
                 )
             }
-            .sorted { $0.id.uuidString < $1.id.uuidString }
+            .sorted {
+                if $0.timestamp != $1.timestamp { return $0.timestamp < $1.timestamp }
+                let lhsAsset = $0.assetId?.uuidString ?? ""
+                let rhsAsset = $1.assetId?.uuidString ?? ""
+                if lhsAsset != rhsAsset { return lhsAsset < rhsAsset }
+                let lhsGoal = $0.goalId?.uuidString ?? ""
+                let rhsGoal = $1.goalId?.uuidString ?? ""
+                if lhsGoal != rhsGoal { return lhsGoal < rhsGoal }
+                if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
+                return $0.id.uuidString < $1.id.uuidString
+            }
 
-        let monthlyPlans = try context.fetch(FetchDescriptor<MonthlyPlan>())
+        let monthlyPlans: [BridgeMonthlyPlanSnapshot] = try context.fetch(FetchDescriptor<MonthlyPlan>())
             .map {
                 BridgeMonthlyPlanSnapshot(
                     id: $0.id,
+                    recordState: .active,
                     goalId: $0.goalId,
                     monthLabel: $0.monthLabel,
                     requiredMonthly: $0.requiredMonthly,
@@ -137,12 +183,19 @@ final class LocalBridgeSnapshotExportService {
                     lastModifiedDate: $0.lastModifiedDate
                 )
             }
-            .sorted { $0.id.uuidString < $1.id.uuidString }
+            .sorted {
+                if $0.monthLabel != $1.monthLabel { return $0.monthLabel < $1.monthLabel }
+                let lhsGoal = $0.goalId.uuidString
+                let rhsGoal = $1.goalId.uuidString
+                if lhsGoal != rhsGoal { return lhsGoal < rhsGoal }
+                return $0.id.uuidString < $1.id.uuidString
+            }
 
-        let monthlyExecutionRecords = try context.fetch(FetchDescriptor<MonthlyExecutionRecord>())
+        let monthlyExecutionRecords: [BridgeMonthlyExecutionRecordSnapshot] = try context.fetch(FetchDescriptor<MonthlyExecutionRecord>())
             .map { record in
                 BridgeMonthlyExecutionRecordSnapshot(
                     id: record.id,
+                    recordState: .active,
                     monthLabel: record.monthLabel,
                     statusRawValue: record.statusRawValue,
                     createdAt: record.createdAt,
@@ -156,9 +209,12 @@ final class LocalBridgeSnapshotExportService {
                     completionEventIds: (record.completionEvents ?? []).map(\.eventId).sorted { $0.uuidString < $1.uuidString }
                 )
             }
-            .sorted { $0.id.uuidString < $1.id.uuidString }
+            .sorted {
+                if $0.monthLabel != $1.monthLabel { return $0.monthLabel < $1.monthLabel }
+                return $0.id.uuidString < $1.id.uuidString
+            }
 
-        let completedExecutions = try context.fetch(FetchDescriptor<CompletedExecution>())
+        let completedExecutions: [BridgeCompletedExecutionSnapshot] = try context.fetch(FetchDescriptor<CompletedExecution>())
             .compactMap { completion -> BridgeCompletedExecutionSnapshot? in
                 guard let executionRecordID = completion.executionRecord?.id else {
                     validationIssues.append("CompletedExecution \(completion.id.uuidString) is missing executionRecord.")
@@ -166,6 +222,7 @@ final class LocalBridgeSnapshotExportService {
                 }
                 return BridgeCompletedExecutionSnapshot(
                     id: completion.id,
+                    recordState: .active,
                     executionRecordId: executionRecordID,
                     monthLabel: completion.monthLabel,
                     completedAt: completion.completedAt,
@@ -183,7 +240,7 @@ final class LocalBridgeSnapshotExportService {
                 return lhs.id.uuidString < rhs.id.uuidString
             }
 
-        let executionSnapshots = try context.fetch(FetchDescriptor<ExecutionSnapshot>())
+        let executionSnapshots: [BridgeExecutionSnapshotPayload] = try context.fetch(FetchDescriptor<ExecutionSnapshot>())
             .compactMap { snapshot -> BridgeExecutionSnapshotPayload? in
                 guard let executionRecordID = snapshot.executionRecord?.id else {
                     validationIssues.append("ExecutionSnapshot \(snapshot.id.uuidString) is missing executionRecord.")
@@ -191,6 +248,7 @@ final class LocalBridgeSnapshotExportService {
                 }
                 return BridgeExecutionSnapshotPayload(
                     id: snapshot.id,
+                    recordState: .active,
                     executionRecordId: executionRecordID,
                     capturedAt: snapshot.capturedAt,
                     totalPlanned: snapshot.totalPlanned,
@@ -202,7 +260,7 @@ final class LocalBridgeSnapshotExportService {
                 return lhs.id.uuidString < rhs.id.uuidString
             }
 
-        let completionEvents = try context.fetch(FetchDescriptor<CompletionEvent>())
+        let completionEvents: [BridgeCompletionEventSnapshot] = try context.fetch(FetchDescriptor<CompletionEvent>())
             .compactMap { event -> BridgeCompletionEventSnapshot? in
                 guard let completionSnapshotID = event.completionSnapshot?.id else {
                     validationIssues.append("CompletionEvent \(event.eventId.uuidString) is missing completionSnapshot.")
@@ -210,6 +268,7 @@ final class LocalBridgeSnapshotExportService {
                 }
                 return BridgeCompletionEventSnapshot(
                     eventId: event.eventId,
+                    recordState: .active,
                     executionRecordId: event.executionRecordId,
                     completionSnapshotId: completionSnapshotID,
                     monthLabel: event.monthLabel,

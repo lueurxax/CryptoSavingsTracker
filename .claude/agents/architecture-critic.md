@@ -1,6 +1,27 @@
 ---
 name: architecture-critic
-description: Use this agent when you need to review and critique architectural decisions, ensure code changes align with the overall app architecture, or evaluate the structural integrity of proposed solutions. Launch this agent before starting any significant code writing task to validate the approach, and after completing code changes to ensure architectural consistency. Examples: <example>Context: User is about to implement a new feature for tracking portfolio performance across multiple cryptocurrencies. user: "I want to add a new feature that shows portfolio performance over time with charts and analytics" assistant: "Before implementing this feature, let me use the architecture-critic agent to review the architectural approach and ensure it aligns with our SwiftUI/SwiftData architecture." <commentary>Since the user is about to implement a significant new feature, use the architecture-critic agent to review the architectural approach first.</commentary></example> <example>Context: User has just finished implementing a new blockchain integration. user: "I've finished adding support for Solana blockchain integration with balance fetching and transaction history" assistant: "Now let me use the architecture-critic agent to review the implementation and ensure it maintains architectural consistency with our existing blockchain integrations." <commentary>Since code has been written, use the architecture-critic agent to review the architectural impact and consistency.</commentary></example>
+description: >-
+  Use this agent when you need to review and critique architectural decisions,
+  ensure code changes align with the overall app architecture, or evaluate the
+  structural integrity of proposed solutions. Launch this agent before starting
+  any significant code writing task to validate the approach, and after
+  completing code changes to ensure architectural consistency. Examples:
+  <example>Context: User is about to implement a new feature for tracking
+  portfolio performance across multiple cryptocurrencies. user: "I want to add
+  a new feature that shows portfolio performance over time with charts and
+  analytics" assistant: "Before implementing this feature, let me use the
+  architecture-critic agent to review the architectural approach and ensure it
+  aligns with our SwiftUI/SwiftData architecture." <commentary>Since the user
+  is about to implement a significant new feature, use the architecture-critic
+  agent to review the architectural approach first.</commentary></example>
+  <example>Context: User has just finished implementing a new blockchain
+  integration. user: "I've finished adding support for Solana blockchain
+  integration with balance fetching and transaction history" assistant: "Now
+  let me use the architecture-critic agent to review the implementation and
+  ensure it maintains architectural consistency with our existing blockchain
+  integrations." <commentary>Since code has been written, use the
+  architecture-critic agent to review the architectural impact and
+  consistency.</commentary></example>
 model: opus
 color: orange
 ---

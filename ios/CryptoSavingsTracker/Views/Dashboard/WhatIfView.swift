@@ -41,6 +41,10 @@ struct WhatIfView: View {
                     .background((onTrack ? AccessibleColors.success : AccessibleColors.warning).opacity(0.1))
                     .foregroundColor(onTrack ? AccessibleColors.success : AccessibleColors.warning)
                     .cornerRadius(8)
+                    .accessibilityLabel("Scenario status")
+                    .accessibilityValue(DashboardAccessibilityCopy.whatIfStatusValue(onTrack: onTrack))
+                    .accessibilityHint(DashboardAccessibilityCopy.whatIfStatusHint(onTrack: onTrack))
+                    .accessibilityIdentifier("dashboard.what_if.status")
             }
             
             VStack(spacing: 10) {
@@ -48,6 +52,8 @@ struct WhatIfView: View {
                     Label("Enable Overlay", systemImage: "wand.and.stars")
                 }
                 .toggleStyle(.switch)
+                .accessibilityHint(DashboardAccessibilityCopy.overlayToggleHint(isEnabled: settings.enabled))
+                .accessibilityIdentifier("dashboard.what_if.overlay_toggle")
                 
                 HStack {
                     Image(systemName: "dollarsign.circle")
@@ -59,8 +65,21 @@ struct WhatIfView: View {
                     Text(String(format: "%.0f %@", settings.monthly, goal.currency))
                         .font(.subheadline)
                         .fontWeight(.medium)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Monthly contribution amount")
+                        .accessibilityValue(
+                            DashboardAccessibilityCopy.contributionValue(
+                                amount: settings.monthly,
+                                currency: goal.currency,
+                                kind: "Monthly contribution"
+                            )
+                        )
                 }
                 Slider(value: $settings.monthly, in: 0...1000, step: 25)
+                    .accessibilityLabel("Monthly contribution adjustment")
+                    .accessibilityHint("Adjusts the recurring monthly contribution used in the projection.")
+                    .accessibilityIdentifier("dashboard.what_if.monthly_slider")
+                    .accessibilityValue(CurrencyFormatter.accessibilityFormat(amount: settings.monthly, currency: goal.currency))
             }
             
             VStack(spacing: 10) {
@@ -74,8 +93,21 @@ struct WhatIfView: View {
                     Text(String(format: "%.0f %@", settings.oneTime, goal.currency))
                         .font(.subheadline)
                         .fontWeight(.medium)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("One-time investment amount")
+                        .accessibilityValue(
+                            DashboardAccessibilityCopy.contributionValue(
+                                amount: settings.oneTime,
+                                currency: goal.currency,
+                                kind: "One-time investment"
+                            )
+                        )
                 }
                 Slider(value: $settings.oneTime, in: 0...5000, step: 50)
+                    .accessibilityLabel("One-time investment adjustment")
+                    .accessibilityHint("Adjusts the one-time contribution used in the projection.")
+                    .accessibilityIdentifier("dashboard.what_if.one_time_slider")
+                    .accessibilityValue(CurrencyFormatter.accessibilityFormat(amount: settings.oneTime, currency: goal.currency))
             }
             
             Divider().padding(.vertical, 4)
@@ -98,8 +130,22 @@ struct WhatIfView: View {
                         .font(.headline)
                         .fontWeight(.bold)
                         .foregroundColor(daysRemaining < 30 ? AccessibleColors.warning : .primary)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Days remaining")
+                        .accessibilityValue(DashboardAccessibilityCopy.remainingDaysValue(daysRemaining))
                 }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Projected outcome")
+            .accessibilityValue(
+                DashboardAccessibilityCopy.projectedOutcomeValue(
+                    projectedTotal: projectedTotal,
+                    currency: goal.currency,
+                    daysRemaining: daysRemaining,
+                    onTrack: onTrack
+                )
+            )
+            .accessibilityIdentifier("dashboard.what_if.projected_outcome")
         }
         .padding()
         .background(
@@ -107,7 +153,7 @@ struct WhatIfView: View {
                 .fill(.regularMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                        .stroke(VisualComponentTokens.dashboardCardStroke, lineWidth: 1)
                 )
         )
         .cornerRadius(16)

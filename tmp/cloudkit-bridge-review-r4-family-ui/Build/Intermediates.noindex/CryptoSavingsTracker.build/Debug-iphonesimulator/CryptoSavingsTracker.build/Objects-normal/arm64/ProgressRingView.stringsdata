@@ -1,0 +1,80 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Charts/ProgressRingView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Progress Ring",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 227
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%% complete. Current: %@ %@ of %@ %@ target",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 228
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal achieved!",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 229
+        }
+      },
+      {
+        "comment": "",
+        "key": "Progress toward savings goal",
+        "location": {
+          "startingColumn": 65,
+          "startingLine": 229
+        }
+      },
+      {
+        "comment": "",
+        "key": "of %@",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 164
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 145
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 155
+        }
+      },
+      {
+        "comment": "",
+        "key": "ACHIEVED!",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 175
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 261
+        }
+      }
+    ]
+  },
+  "version": 1
+}

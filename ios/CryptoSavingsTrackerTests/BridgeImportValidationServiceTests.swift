@@ -177,6 +177,76 @@ struct BridgeImportValidationServiceTests {
         #expect(counts["Asset"] == snapshot.assets.count)
     }
 
+    @Test("Canonical package body omits package metadata keys")
+    func canonicalPackageBodyOmitsPackageMetadata() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        _ = try TestDataFactory.createFullCutoverTestData(in: context)
+
+        let signingService = TestBridgePackageSigningService()
+        let exporter = LocalBridgeSnapshotExportService()
+        let snapshot = try exporter.exportSnapshot(from: context)
+        let trusted = try makeTrustedDevice(displayName: "MacBook Pro", signingService: signingService)
+        let service = LocalBridgeImportValidationService(
+            snapshotExportService: exporter,
+            capabilityManifest: .current(),
+            signingService: signingService
+        )
+        let package = try service.makePlaceholderPackage(from: snapshot, trustedDevice: trusted)
+
+        let body = String(decoding: try package.canonicalPackageBodyData(), as: UTF8.self)
+        #expect(body.contains("\"packageID\"") == false)
+        #expect(body.contains("\"signature\"") == false)
+        #expect(body.contains("\"signingAlgorithm\"") == false)
+        #expect(body.contains("\"signerPublicKeyRepresentation\"") == false)
+        let signingPayload = String(decoding: try package.signingPayloadData(), as: UTF8.self)
+        #expect(signingPayload.contains("\"packageID\""))
+        #expect(signingPayload.contains("\"signature\":null"))
+        #expect(signingPayload.contains("\"signingAlgorithm\"") == false)
+        #expect(signingPayload.contains("\"signerPublicKeyRepresentation\"") == false)
+    }
+
+    @Test("Canonical snapshot uses lexicographic nested key order and explicit null optionals")
+    func canonicalSnapshotUsesLexicographicNestedKeysAndNullOptionals() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        _ = try TestDataFactory.createFullCutoverTestData(in: context)
+
+        let exporter = LocalBridgeSnapshotExportService()
+        let snapshot = try exporter.exportSnapshot(from: context)
+        let canonical = String(
+            decoding: try snapshot.canonicalEncodingData(forFingerprinting: false),
+            as: UTF8.self
+        )
+
+        let goalStart = try (#require(canonical.range(of: "\"goals\":[{"))).upperBound
+        let goalTail = String(canonical[goalStart...])
+        let goalEndOffset = try (#require(goalTail.firstIndex(of: "}"))).utf16Offset(in: goalTail)
+        let goalObject = String(goalTail.prefix(goalEndOffset))
+        let goalNSString = goalObject as NSString
+
+        let currencyRange = goalNSString.range(of: "\"currency\":")
+        let deadlineRange = goalNSString.range(of: "\"deadline\":")
+        let emojiRange = goalNSString.range(of: "\"emoji\":null")
+        let descriptionRange = goalNSString.range(of: "\"goalDescription\":null")
+        let idRange = goalNSString.range(of: "\"id\":")
+        let recordStateRange = goalNSString.range(of: "\"recordState\":")
+        let startDateRange = goalNSString.range(of: "\"startDate\":")
+
+        #expect(currencyRange.location != NSNotFound)
+        #expect(deadlineRange.location != NSNotFound)
+        #expect(emojiRange.location != NSNotFound)
+        #expect(descriptionRange.location != NSNotFound)
+        #expect(idRange.location != NSNotFound)
+        #expect(recordStateRange.location != NSNotFound)
+        #expect(startDateRange.location != NSNotFound)
+        #expect(currencyRange.location < deadlineRange.location)
+        #expect(deadlineRange.location < emojiRange.location)
+        #expect(emojiRange.location < descriptionRange.location)
+        #expect(descriptionRange.location < idRange.location)
+        #expect(recordStateRange.location < startDateRange.location)
+    }
+
     @Test("Validation emits concrete entity delta counts for edited packages")
     func concreteEntityDeltasReflectChangedEntities() throws {
         let container = try TestContainer.create()
@@ -195,13 +265,7 @@ struct BridgeImportValidationServiceTests {
         let editedSnapshot = try makeEditedSnapshot(from: baseSnapshot)
         let package = try reSign(
             SignedImportPackage(
-                packageID: BudgetSnapshotIdentity.sha256([
-                    editedSnapshot.manifest.snapshotID.uuidString,
-                    baseSnapshot.manifest.baseDatasetFingerprint,
-                    editedSnapshot.manifest.baseDatasetFingerprint,
-                    trusted.signingKeyID ?? "",
-                    trusted.fingerprint
-                ].joined(separator: "|")),
+                packageID: "",
                 snapshotID: editedSnapshot.manifest.snapshotID,
                 canonicalEncodingVersion: editedSnapshot.manifest.canonicalEncodingVersion,
                 baseDatasetFingerprint: baseSnapshot.manifest.baseDatasetFingerprint,
@@ -296,9 +360,10 @@ private func reSign(
     _ package: SignedImportPackage,
     signingService: TestBridgePackageSigningService
 ) throws -> SignedImportPackage {
-    let signature = try signingService.sign(try package.signingPayloadData(), keyID: package.signingKeyID)
-    return SignedImportPackage(
-        packageID: package.packageID,
+    let packageBody = try package.canonicalPackageBodyData()
+    let packageID = BudgetSnapshotIdentity.sha256(String(decoding: packageBody, as: UTF8.self))
+    let canonicalPackage = SignedImportPackage(
+        packageID: packageID,
         snapshotID: package.snapshotID,
         canonicalEncodingVersion: package.canonicalEncodingVersion,
         baseDatasetFingerprint: package.baseDatasetFingerprint,
@@ -308,6 +373,20 @@ private func reSign(
         signingAlgorithm: package.signingAlgorithm,
         signerPublicKeyRepresentation: package.signerPublicKeyRepresentation,
         signedAt: package.signedAt,
+        signature: ""
+    )
+    let signature = try signingService.sign(try canonicalPackage.signingPayloadData(), keyID: package.signingKeyID)
+    return SignedImportPackage(
+        packageID: packageID,
+        snapshotID: canonicalPackage.snapshotID,
+        canonicalEncodingVersion: canonicalPackage.canonicalEncodingVersion,
+        baseDatasetFingerprint: canonicalPackage.baseDatasetFingerprint,
+        editedDatasetFingerprint: canonicalPackage.editedDatasetFingerprint,
+        snapshotEnvelope: canonicalPackage.snapshotEnvelope,
+        signingKeyID: canonicalPackage.signingKeyID,
+        signingAlgorithm: canonicalPackage.signingAlgorithm,
+        signerPublicKeyRepresentation: canonicalPackage.signerPublicKeyRepresentation,
+        signedAt: canonicalPackage.signedAt,
         signature: signature
     )
 }
@@ -317,12 +396,14 @@ private func makeEditedSnapshot(from baseSnapshot: SnapshotEnvelope) throws -> S
     let newAssetID = UUID()
     let newAsset = BridgeAssetSnapshot(
         id: newAssetID,
+        recordState: .active,
         currency: "ETH",
         address: "0xbridge000000000000000000000000000000000001",
         chainId: "eth"
     )
     let newTransaction = BridgeTransactionSnapshot(
         id: UUID(),
+        recordState: .active,
         assetId: newAssetID,
         amount: 1.25,
         date: Date(timeIntervalSince1970: 1_700_000_000),

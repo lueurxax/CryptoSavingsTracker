@@ -155,7 +155,7 @@ final class PerformanceOptimizer: ObservableObject {
             do {
                 return try await operation()
             } catch {
-                AppLog.error("Background task failed: \(error)", category: .performance)
+                AppLog.error("Background task failed: \(error.localizedDescription)", category: .performance)
                 return nil
             }
         }
@@ -164,7 +164,7 @@ final class PerformanceOptimizer: ObservableObject {
             do {
                 return try await operation()
             } catch {
-                AppLog.error("Background task failed: \(error)", category: .performance)
+                AppLog.error("Background task failed: \(error.localizedDescription)", category: .performance)
                 return nil
             }
         }
@@ -340,7 +340,7 @@ final class PerformanceOptimizer: ObservableObject {
                     self?.backgroundContext = actor
                 }
             } catch {
-                AppLog.error("Failed to setup background context: \(error)", category: .performance)
+                AppLog.error("Failed to setup background context: \(error.localizedDescription)", category: .performance)
             }
         }
         */
@@ -562,7 +562,7 @@ actor DiskCache {
             }
         } catch {
             await MainActor.run {
-                AppLog.error("Failed to store cache entry: \(error)", category: .cache)
+                AppLog.error("Failed to store cache entry: \(error.localizedDescription)", category: .cache)
             }
         }
     }

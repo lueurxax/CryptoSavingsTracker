@@ -25,14 +25,14 @@ enum MonthlyCycleCopyCatalog {
     }
 
     static func undoStartExpired(month: String) -> String {
-        "Undo period ended for \(month)."
+        "Back to Planning is no longer available for \(month) because the undo window ended."
     }
 
     static func undoCompletionExpired(month: String) -> String {
-        "Undo period ended for \(month)."
+        "Undo Finish is no longer available for \(month) because the undo window ended."
     }
 
     static func recordConflict() -> String {
-        "Monthly state is out of sync. Please refresh."
+        "Monthly state is out of sync. Refresh Monthly Planning and try again."
     }
 }

@@ -19,32 +19,51 @@ private struct HistoryMonthGroup: Identifiable {
     let requiredTotal: Double
     let actualTotal: Double
     let undoAvailable: Bool
+    let currency: String
 }
 
 struct PlanHistoryListView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var groups: [HistoryMonthGroup] = []
-    @State private var isLoading = false
+    @State private var viewState: ViewState = .idle
 
     var body: some View {
-        List {
+        AsyncContentView(state: viewState) {
             if groups.isEmpty {
-                ContentUnavailableView(
-                    "No History Yet",
-                    systemImage: "clock.arrow.circlepath",
-                    description: Text("Completed months will appear here")
+                EmptyStateView(
+                    icon: "clock.arrow.circlepath",
+                    title: PlanHistoryPresentation.listEmptyStateTitle,
+                    description: PlanHistoryPresentation.listEmptyStateDescription,
+                    primaryAction: EmptyStateAction(
+                        title: "Refresh",
+                        icon: "arrow.clockwise",
+                        accessibilityIdentifier: "planning.history.empty.refresh"
+                    ) {
+                        Task {
+                            await loadHistory()
+                        }
+                    }
                 )
             } else {
-                ForEach(groups) { group in
-                    NavigationLink {
-                        PlanHistoryDetailView(
-                            monthLabel: group.monthLabel,
-                            modelContext: modelContext
-                        )
-                    } label: {
-                        HistoryMonthRow(group: group)
+                List {
+                    ForEach(groups) { group in
+                        NavigationLink {
+                            PlanHistoryDetailView(
+                                monthLabel: group.monthLabel,
+                                modelContext: modelContext
+                            )
+                        } label: {
+                            HistoryMonthRow(group: group)
+                        }
                     }
                 }
+            }
+        } loading: {
+            ProgressView("Loading history...")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } error: { error in
+            ErrorStateView(error: error) {
+                await loadHistory()
             }
         }
         .navigationTitle("History")
@@ -54,16 +73,10 @@ struct PlanHistoryListView: View {
         .refreshable {
             await loadHistory()
         }
-        .overlay {
-            if isLoading {
-                ProgressView()
-            }
-        }
     }
 
     private func loadHistory() async {
-        isLoading = true
-        defer { isLoading = false }
+        viewState = .loading
 
         do {
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
@@ -92,12 +105,19 @@ struct PlanHistoryListView: View {
                     latestCompletedAt: latest.event.completedAt,
                     requiredTotal: required,
                     actualTotal: actual,
-                    undoAvailable: undoAvailable
+                    undoAvailable: undoAvailable,
+                    currency: latest.snapshot?.goalSnapshots.first?.currency ?? "USD"
                 )
             }
             .sorted(by: { $0.monthLabel > $1.monthLabel })
+            viewState = .loaded
         } catch {
-            print("Error loading history: \(error)")
+            groups = []
+            viewState = .error(PlanHistoryPresentation.listLoadError)
+            AppLog.error(
+                "Failed to load plan history: \(error.localizedDescription)",
+                category: .monthlyPlanning
+            )
         }
     }
 }
@@ -122,29 +142,31 @@ private struct HistoryMonthRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Text("Planned: \(formatCurrency(group.actualTotal)) of \(formatCurrency(group.requiredTotal))")
+            Text(PlanHistoryPresentation.monthSummary(
+                actualTotal: group.actualTotal,
+                requiredTotal: group.requiredTotal,
+                currency: group.currency
+            ))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            PlanHistoryPresentation.monthRowAccessibilityLabel(
+                monthLabel: group.monthLabel,
+                latestCompletedAt: group.latestCompletedAt,
+                actualTotal: group.actualTotal,
+                requiredTotal: group.requiredTotal,
+                undoAvailable: group.undoAvailable,
+                currency: group.currency
+            )
+        )
+        .accessibilityHint(PlanHistoryPresentation.monthRowAccessibilityHint(undoAvailable: group.undoAvailable))
+        .accessibilityIdentifier("planning.history.month.\(group.monthLabel)")
     }
 
     private func formatMonthLabel(_ label: String) -> String {
-        let formatter = DateFormatter()
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        formatter.dateFormat = "yyyy-MM"
-        if let date = formatter.date(from: label) {
-            formatter.dateFormat = "MMMM yyyy"
-            return formatter.string(from: date)
-        }
-        return label
-    }
-
-    private func formatCurrency(_ value: Double) -> String {
-        let number = NumberFormatter()
-        number.numberStyle = .currency
-        number.currencyCode = "USD"
-        number.maximumFractionDigits = 2
-        return number.string(from: NSNumber(value: value)) ?? String(format: "$%.2f", value)
+        PlanHistoryPresentation.monthTitle(from: label)
     }
 }

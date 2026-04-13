@@ -1,0 +1,32 @@
+{
+  "reportVersion": "v1",
+  "wave": "wave2-goals-detail",
+  "evaluatedAt": "2026-04-12",
+  "sample": {
+    "participants": 0,
+    "scenarioTasks": 0
+  },
+  "confidence": {
+    "levelPercent": 0
+  },
+  "metrics": {
+    "statusComprehensionTime": {
+      "p50Seconds": 0,
+      "improvementVsBaselinePercent": 0
+    },
+    "shortfallActionAccuracy": {
+      "percent": 0,
+      "wilsonInterval95": {
+        "low": 0,
+        "high": 0
+      }
+    },
+    "warningMisinterpretationRate": {
+      "percent": 0,
+      "wilsonInterval95": {
+        "low": 0,
+        "high": 0
+      }
+    }
+  }
+}

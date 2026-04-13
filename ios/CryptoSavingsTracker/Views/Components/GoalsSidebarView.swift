@@ -20,22 +20,25 @@ struct GoalsSidebarView: View {
             // Portfolio Overview Section
             Section {
                 Button(action: {
-                    print("DEBUG: Portfolio Overview button clicked!")
                     selectedGoal = nil
                 }) {
                     HStack {
                         Image(systemName: "chart.pie.fill")
-                            .foregroundColor(.blue)
-                        Text("📊 Portfolio Overview")
-                            .foregroundColor(.primary)
+                            .foregroundStyle(AccessibleColors.primaryInteractive)
+                        Text("Portfolio Overview")
+                            .foregroundStyle(AccessibleColors.primaryText)
                             .fontWeight(.semibold)
                         Spacer()
                     }
                     .padding(.vertical, 12)
-                    .background(Color.blue.opacity(0.1))
+                    .padding(.horizontal, 8)
+                    .background(AccessibleColors.primaryInteractiveBackground)
                     .cornerRadius(8)
                 }
-                .buttonStyle(PlainButtonStyle())
+                .buttonStyle(.plain)
+                .accessibilityLabel("Portfolio overview")
+                .accessibilityHint("Shows a summary of all goals and assets.")
+                .accessibilityIdentifier("goals.sidebar.portfolio_overview")
             }
             
             // Individual Goals Section  

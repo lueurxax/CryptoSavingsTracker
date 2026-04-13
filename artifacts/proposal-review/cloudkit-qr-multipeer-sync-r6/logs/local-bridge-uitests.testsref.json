@@ -1,0 +1,507 @@
+{
+  "_type" : {
+    "_name" : "ActionTestPlanRunSummaries"
+  },
+  "summaries" : {
+    "_type" : {
+      "_name" : "Array"
+    },
+    "_values" : [
+      {
+        "_type" : {
+          "_name" : "ActionTestPlanRunSummary",
+          "_supertype" : {
+            "_name" : "ActionAbstractTestSummary"
+          }
+        },
+        "name" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Test Scheme Action"
+        },
+        "testableSummaries" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestableSummary",
+                "_supertype" : {
+                  "_name" : "ActionAbstractTestSummary"
+                }
+              },
+              "diagnosticsDirectoryName" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : ""
+              },
+              "identifierURL" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "test:\/\/com.apple.xcode\/CryptoSavingsTracker\/CryptoSavingsTrackerUITests"
+              },
+              "name" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "CryptoSavingsTrackerUITests"
+              },
+              "projectRelativePath" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "CryptoSavingsTracker.xcodeproj"
+              },
+              "targetName" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "CryptoSavingsTrackerUITests"
+              },
+              "testKind" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "UI"
+              },
+              "testLanguage" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : ""
+              },
+              "testRegion" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : ""
+              },
+              "tests" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestSummaryGroup",
+                      "_supertype" : {
+                        "_name" : "ActionTestSummaryIdentifiableObject",
+                        "_supertype" : {
+                          "_name" : "ActionAbstractTestSummary"
+                        }
+                      }
+                    },
+                    "duration" : {
+                      "_type" : {
+                        "_name" : "Double"
+                      },
+                      "_value" : "108.71588611602783"
+                    },
+                    "identifier" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Selected tests"
+                    },
+                    "identifierURL" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "test:\/\/com.apple.xcode\/CryptoSavingsTracker\/CryptoSavingsTrackerUITests\/Selected%20tests"
+                    },
+                    "name" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Selected tests"
+                    },
+                    "subtests" : {
+                      "_type" : {
+                        "_name" : "Array"
+                      },
+                      "_values" : [
+                        {
+                          "_type" : {
+                            "_name" : "ActionTestSummaryGroup",
+                            "_supertype" : {
+                              "_name" : "ActionTestSummaryIdentifiableObject",
+                              "_supertype" : {
+                                "_name" : "ActionAbstractTestSummary"
+                              }
+                            }
+                          },
+                          "duration" : {
+                            "_type" : {
+                              "_name" : "Double"
+                            },
+                            "_value" : "108.71588611602783"
+                          },
+                          "identifier" : {
+                            "_type" : {
+                              "_name" : "String"
+                            },
+                            "_value" : "CryptoSavingsTrackerUITests.xctest"
+                          },
+                          "identifierURL" : {
+                            "_type" : {
+                              "_name" : "String"
+                            },
+                            "_value" : "test:\/\/com.apple.xcode\/CryptoSavingsTracker\/CryptoSavingsTrackerUITests\/CryptoSavingsTrackerUITests.xctest"
+                          },
+                          "name" : {
+                            "_type" : {
+                              "_name" : "String"
+                            },
+                            "_value" : "CryptoSavingsTrackerUITests.xctest"
+                          },
+                          "subtests" : {
+                            "_type" : {
+                              "_name" : "Array"
+                            },
+                            "_values" : [
+                              {
+                                "_type" : {
+                                  "_name" : "ActionTestSummaryGroup",
+                                  "_supertype" : {
+                                    "_name" : "ActionTestSummaryIdentifiableObject",
+                                    "_supertype" : {
+                                      "_name" : "ActionAbstractTestSummary"
+                                    }
+                                  }
+                                },
+                                "duration" : {
+                                  "_type" : {
+                                    "_name" : "Double"
+                                  },
+                                  "_value" : "108.71588611602783"
+                                },
+                                "identifier" : {
+                                  "_type" : {
+                                    "_name" : "String"
+                                  },
+                                  "_value" : "LocalBridgeSyncUITests"
+                                },
+                                "identifierURL" : {
+                                  "_type" : {
+                                    "_name" : "String"
+                                  },
+                                  "_value" : "test:\/\/com.apple.xcode\/CryptoSavingsTracker\/CryptoSavingsTrackerUITests\/LocalBridgeSyncUITests"
+                                },
+                                "name" : {
+                                  "_type" : {
+                                    "_name" : "String"
+                                  },
+                                  "_value" : "LocalBridgeSyncUITests"
+                                },
+                                "subtests" : {
+                                  "_type" : {
+                                    "_name" : "Array"
+                                  },
+                                  "_values" : [
+                                    {
+                                      "_type" : {
+                                        "_name" : "ActionTestMetadata",
+                                        "_supertype" : {
+                                          "_name" : "ActionTestSummaryIdentifiableObject",
+                                          "_supertype" : {
+                                            "_name" : "ActionAbstractTestSummary"
+                                          }
+                                        }
+                                      },
+                                      "activitySummariesCount" : {
+                                        "_type" : {
+                                          "_name" : "Int"
+                                        },
+                                        "_value" : "29"
+                                      },
+                                      "duration" : {
+                                        "_type" : {
+                                          "_name" : "Double"
+                                        },
+                                        "_value" : "34.956536054611206"
+                                      },
+                                      "identifier" : {
+                                        "_type" : {
+                                          "_name" : "String"
+                                        },
+                                        "_value" : "LocalBridgeSyncUITests\/testBlockedReviewScenarioShowsUpdateRequiredAndDisablesApply()"
+                                      },
+                                      "identifierURL" : {
+                                        "_type" : {
+                                          "_name" : "String"
+                                        },
+                                        "_value" : "test:\/\/com.apple.xcode\/CryptoSavingsTracker\/CryptoSavingsTrackerUITests\/LocalBridgeSyncUITests\/testBlockedReviewScenarioShowsUpdateRequiredAndDisablesApply"
+                                      },
+                                      "name" : {
+                                        "_type" : {
+                                          "_name" : "String"
+                                        },
+                                        "_value" : "testBlockedReviewScenarioShowsUpdateRequiredAndDisablesApply()"
+                                      },
+                                      "summaryRef" : {
+                                        "_type" : {
+                                          "_name" : "Reference"
+                                        },
+                                        "id" : {
+                                          "_type" : {
+                                            "_name" : "String"
+                                          },
+                                          "_value" : "0~JuZwxQfw68Nq8hAAikH8ARAMkfMqFQwb8sRrtlSngqnhCMuuO6cCGjLL9bKocPNFlNTvRu7ReabU6UmrRJIb5Q=="
+                                        },
+                                        "targetType" : {
+                                          "_type" : {
+                                            "_name" : "TypeDefinition"
+                                          },
+                                          "name" : {
+                                            "_type" : {
+                                              "_name" : "String"
+                                            },
+                                            "_value" : "ActionTestSummary"
+                                          },
+                                          "supertype" : {
+                                            "_type" : {
+                                              "_name" : "TypeDefinition"
+                                            },
+                                            "name" : {
+                                              "_type" : {
+                                                "_name" : "String"
+                                              },
+                                              "_value" : "ActionTestSummaryIdentifiableObject"
+                                            },
+                                            "supertype" : {
+                                              "_type" : {
+                                                "_name" : "TypeDefinition"
+                                              },
+                                              "name" : {
+                                                "_type" : {
+                                                  "_name" : "String"
+                                                },
+                                                "_value" : "ActionAbstractTestSummary"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      },
+                                      "testStatus" : {
+                                        "_type" : {
+                                          "_name" : "String"
+                                        },
+                                        "_value" : "Success"
+                                      }
+                                    },
+                                    {
+                                      "_type" : {
+                                        "_name" : "ActionTestMetadata",
+                                        "_supertype" : {
+                                          "_name" : "ActionTestSummaryIdentifiableObject",
+                                          "_supertype" : {
+                                            "_name" : "ActionAbstractTestSummary"
+                                          }
+                                        }
+                                      },
+                                      "activitySummariesCount" : {
+                                        "_type" : {
+                                          "_name" : "Int"
+                                        },
+                                        "_value" : "19"
+                                      },
+                                      "duration" : {
+                                        "_type" : {
+                                          "_name" : "Double"
+                                        },
+                                        "_value" : "22.623193979263306"
+                                      },
+                                      "failureSummariesCount" : {
+                                        "_type" : {
+                                          "_name" : "Int"
+                                        },
+                                        "_value" : "1"
+                                      },
+                                      "identifier" : {
+                                        "_type" : {
+                                          "_name" : "String"
+                                        },
+                                        "_value" : "LocalBridgeSyncUITests\/testPairingRequiredScenarioShowsPairMacAndEmptyTrustedDevices()"
+                                      },
+                                      "identifierURL" : {
+                                        "_type" : {
+                                          "_name" : "String"
+                                        },
+                                        "_value" : "test:\/\/com.apple.xcode\/CryptoSavingsTracker\/CryptoSavingsTrackerUITests\/LocalBridgeSyncUITests\/testPairingRequiredScenarioShowsPairMacAndEmptyTrustedDevices"
+                                      },
+                                      "name" : {
+                                        "_type" : {
+                                          "_name" : "String"
+                                        },
+                                        "_value" : "testPairingRequiredScenarioShowsPairMacAndEmptyTrustedDevices()"
+                                      },
+                                      "summaryRef" : {
+                                        "_type" : {
+                                          "_name" : "Reference"
+                                        },
+                                        "id" : {
+                                          "_type" : {
+                                            "_name" : "String"
+                                          },
+                                          "_value" : "0~PxkZ7j8Un61iJ8Q_BdhVXagmH-CwqYcxTDAT9TcffpK3gIw80FIwrswKjSDEB8xPn0Og9KMyr0H9JUkGoa3mAA=="
+                                        },
+                                        "targetType" : {
+                                          "_type" : {
+                                            "_name" : "TypeDefinition"
+                                          },
+                                          "name" : {
+                                            "_type" : {
+                                              "_name" : "String"
+                                            },
+                                            "_value" : "ActionTestSummary"
+                                          },
+                                          "supertype" : {
+                                            "_type" : {
+                                              "_name" : "TypeDefinition"
+                                            },
+                                            "name" : {
+                                              "_type" : {
+                                                "_name" : "String"
+                                              },
+                                              "_value" : "ActionTestSummaryIdentifiableObject"
+                                            },
+                                            "supertype" : {
+                                              "_type" : {
+                                                "_name" : "TypeDefinition"
+                                              },
+                                              "name" : {
+                                                "_type" : {
+                                                  "_name" : "String"
+                                                },
+                                                "_value" : "ActionAbstractTestSummary"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      },
+                                      "testStatus" : {
+                                        "_type" : {
+                                          "_name" : "String"
+                                        },
+                                        "_value" : "Failure"
+                                      }
+                                    },
+                                    {
+                                      "_type" : {
+                                        "_name" : "ActionTestMetadata",
+                                        "_supertype" : {
+                                          "_name" : "ActionTestSummaryIdentifiableObject",
+                                          "_supertype" : {
+                                            "_name" : "ActionAbstractTestSummary"
+                                          }
+                                        }
+                                      },
+                                      "activitySummariesCount" : {
+                                        "_type" : {
+                                          "_name" : "Int"
+                                        },
+                                        "_value" : "46"
+                                      },
+                                      "duration" : {
+                                        "_type" : {
+                                          "_name" : "Double"
+                                        },
+                                        "_value" : "51.13615608215332"
+                                      },
+                                      "failureSummariesCount" : {
+                                        "_type" : {
+                                          "_name" : "Int"
+                                        },
+                                        "_value" : "1"
+                                      },
+                                      "identifier" : {
+                                        "_type" : {
+                                          "_name" : "String"
+                                        },
+                                        "_value" : "LocalBridgeSyncUITests\/testReviewScenarioShowsDistinctOperatorActionsAndDismissPath()"
+                                      },
+                                      "identifierURL" : {
+                                        "_type" : {
+                                          "_name" : "String"
+                                        },
+                                        "_value" : "test:\/\/com.apple.xcode\/CryptoSavingsTracker\/CryptoSavingsTrackerUITests\/LocalBridgeSyncUITests\/testReviewScenarioShowsDistinctOperatorActionsAndDismissPath"
+                                      },
+                                      "name" : {
+                                        "_type" : {
+                                          "_name" : "String"
+                                        },
+                                        "_value" : "testReviewScenarioShowsDistinctOperatorActionsAndDismissPath()"
+                                      },
+                                      "summaryRef" : {
+                                        "_type" : {
+                                          "_name" : "Reference"
+                                        },
+                                        "id" : {
+                                          "_type" : {
+                                            "_name" : "String"
+                                          },
+                                          "_value" : "0~DCNujlL0AXfih8mtn3b7t8j-sYxfYftH-q6VgnaymUbYidnj5oR3AnyiufyaionL-QqzwK1bQBsH6b2BCzwzXA=="
+                                        },
+                                        "targetType" : {
+                                          "_type" : {
+                                            "_name" : "TypeDefinition"
+                                          },
+                                          "name" : {
+                                            "_type" : {
+                                              "_name" : "String"
+                                            },
+                                            "_value" : "ActionTestSummary"
+                                          },
+                                          "supertype" : {
+                                            "_type" : {
+                                              "_name" : "TypeDefinition"
+                                            },
+                                            "name" : {
+                                              "_type" : {
+                                                "_name" : "String"
+                                              },
+                                              "_value" : "ActionTestSummaryIdentifiableObject"
+                                            },
+                                            "supertype" : {
+                                              "_type" : {
+                                                "_name" : "TypeDefinition"
+                                              },
+                                              "name" : {
+                                                "_type" : {
+                                                  "_name" : "String"
+                                                },
+                                                "_value" : "ActionAbstractTestSummary"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      },
+                                      "testStatus" : {
+                                        "_type" : {
+                                          "_name" : "String"
+                                        },
+                                        "_value" : "Failure"
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

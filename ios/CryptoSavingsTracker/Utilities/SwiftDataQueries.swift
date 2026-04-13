@@ -239,7 +239,10 @@ final class QueryPerformanceMonitor {
             let elapsed = Date().timeIntervalSince(startTime)
             
             queue.async {
-                AppLog.error("Query '\(name)' failed after \(String(format: "%.3f", elapsed))s: \(error)", category: .performance)
+                AppLog.error(
+                    "Query '\(name)' failed after \(String(format: "%.3f", elapsed))s: \(error.localizedDescription)",
+                    category: .performance
+                )
             }
             
             throw error

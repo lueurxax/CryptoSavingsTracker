@@ -151,7 +151,7 @@ class GoalEditViewModel: ObservableObject {
             AppLog.info("✅ Goal '\(goal.name)' saved successfully", category: .goalEdit)
 
         } catch {
-            AppLog.error("Failed to save goal: \(error)", category: .goalEdit)
+            AppLog.error("Failed to save goal: \(error.localizedDescription)", category: .goalEdit)
             throw error
         }
     }
@@ -214,7 +214,7 @@ class GoalEditViewModel: ObservableObject {
             AppLog.info("Goal '\(goal.name)' archived successfully", category: .goalEdit)
             
         } catch {
-            AppLog.error("Failed to archive goal: \(error)", category: .goalEdit)
+            AppLog.error("Failed to archive goal: \(error.localizedDescription)", category: .goalEdit)
             throw GoalEditError.archiveFailed(error.localizedDescription)
         }
     }
@@ -239,7 +239,7 @@ class GoalEditViewModel: ObservableObject {
             AppLog.info("Goal '\(goal.name)' restored successfully", category: .goalEdit)
             
         } catch {
-            AppLog.error("Failed to restore goal: \(error)", category: .goalEdit)
+            AppLog.error("Failed to restore goal: \(error.localizedDescription)", category: .goalEdit)
             throw GoalEditError.restoreFailed(error.localizedDescription)
         }
     }
@@ -269,7 +269,7 @@ class GoalEditViewModel: ObservableObject {
                 AppLog.info("✅ Recalculated monthly plan for '\(goal.name)' after deadline/target change", category: .goalEdit)
             }
         } catch {
-            AppLog.error("Failed to recalculate monthly plan: \(error)", category: .goalEdit)
+            AppLog.error("Failed to recalculate monthly plan: \(error.localizedDescription)", category: .goalEdit)
             // Non-fatal - goal was saved, plan will be recalculated on next view
         }
     }

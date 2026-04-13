@@ -677,7 +677,11 @@ struct CustomAmountSheet: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(isValidAmount && (parsedAmount ?? 0) > 0 ? AccessibleColors.primaryInteractive : Color.gray)
+                            .background(
+                                isValidAmount && (parsedAmount ?? 0) > 0
+                                    ? AccessibleColors.primaryInteractive
+                                    : AccessibleColors.disabled
+                            )
                             .foregroundColor(.white)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }

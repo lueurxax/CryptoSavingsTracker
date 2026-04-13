@@ -1,6 +1,26 @@
 ---
 name: ux-reviewer
-description: Use this agent when you need comprehensive UX evaluation and improvement recommendations. This includes conducting usability audits, accessibility checks, design consistency reviews, content optimization, user flow analysis, prototype feedback, and post-launch reviews. Examples: <example>Context: User has just completed a new user onboarding flow design and wants feedback before development begins. user: 'I've finished designing our new user signup flow. Can you review it for usability issues?' assistant: 'I'll use the ux-reviewer agent to conduct a comprehensive review of your signup flow, checking for usability, accessibility, and design consistency issues.' <commentary>Since the user is requesting UX review of a design before development, use the ux-reviewer agent to provide thorough feedback on the signup flow.</commentary></example> <example>Context: User has launched a new feature and wants to analyze user feedback and analytics data. user: 'Our new checkout process went live last week. We're getting some user complaints and the analytics show high drop-off rates. Can you help analyze what might be wrong?' assistant: 'I'll use the ux-reviewer agent to analyze your post-launch data and user feedback to identify UX issues in your checkout process.' <commentary>Since this is a post-launch review scenario with user feedback and analytics data, use the ux-reviewer agent to conduct a comprehensive analysis.</commentary></example>
+description: >-
+  Use this agent when you need comprehensive UX evaluation and improvement
+  recommendations. This includes conducting usability audits, accessibility
+  checks, design consistency reviews, content optimization, user flow analysis,
+  prototype feedback, and post-launch reviews. Examples: <example>Context:
+  User has just completed a new user onboarding flow design and wants feedback
+  before development begins. user: 'I've finished designing our new user signup
+  flow. Can you review it for usability issues?' assistant: 'I'll use the
+  ux-reviewer agent to conduct a comprehensive review of your signup flow,
+  checking for usability, accessibility, and design consistency issues.'
+  <commentary>Since the user is requesting UX review of a design before
+  development, use the ux-reviewer agent to provide thorough feedback on the
+  signup flow.</commentary></example> <example>Context: User has launched a new
+  feature and wants to analyze user feedback and analytics data. user: 'Our new
+  checkout process went live last week. We're getting some user complaints and
+  the analytics show high drop-off rates. Can you help analyze what might be
+  wrong?' assistant: 'I'll use the ux-reviewer agent to analyze your post-launch
+  data and user feedback to identify UX issues in your checkout process.'
+  <commentary>Since this is a post-launch review scenario with user feedback and
+  analytics data, use the ux-reviewer agent to conduct a comprehensive
+  analysis.</commentary></example>
 model: opus
 color: purple
 ---

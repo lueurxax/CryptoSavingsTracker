@@ -11,11 +11,17 @@ import SwiftData
 /// Main planning view with platform-specific layouts
 struct PlanningView: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
+    let onAddGoal: (() -> Void)?
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.modelContext) private var modelContext
     @Query private var allPlans: [MonthlyPlan]
     @Query(sort: \Goal.name) private var allGoals: [Goal]
     @State private var loggedUnresolvedGoalIDs: Set<UUID> = []
+
+    init(viewModel: MonthlyPlanningViewModel, onAddGoal: (() -> Void)? = nil) {
+        self.viewModel = viewModel
+        self.onAddGoal = onAddGoal
+    }
 
     // Get stale draft plans (past months that are still in draft state)
     private var staleDrafts: [MonthlyPlan] {
@@ -41,16 +47,22 @@ struct PlanningView: View {
                 iOSCompactPlanningView(
                     viewModel: viewModel,
                     staleDrafts: staleDrafts,
-                    goalNamesByID: staleDraftGoalNames
+                    goalNamesByID: staleDraftGoalNames,
+                    onAddGoal: onAddGoal
                 )
             } else {
-                iOSRegularPlanningView(viewModel: viewModel, staleDrafts: staleDrafts)
+                iOSRegularPlanningView(
+                    viewModel: viewModel,
+                    staleDrafts: staleDrafts,
+                    onAddGoal: onAddGoal
+                )
             }
             #else
             macOSPlanningView(
                 viewModel: viewModel,
                 staleDrafts: staleDrafts,
-                goalNamesByID: staleDraftGoalNames
+                goalNamesByID: staleDraftGoalNames,
+                onAddGoal: onAddGoal
             )
             #endif
         }
@@ -92,6 +104,7 @@ struct iOSCompactPlanningView: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
     let staleDrafts: [MonthlyPlan]
     let goalNamesByID: [UUID: String]
+    let onAddGoal: (() -> Void)?
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -483,17 +496,6 @@ struct iOSCompactPlanningView: View {
         .accessibilityLabel("\(count) goals \(label.lowercased())")
     }
 
-    // Legacy headers kept for compatibility but unused
-    @ViewBuilder
-    private var contextHeader: some View {
-        EmptyView()
-    }
-
-    @ViewBuilder
-    private var summaryHeader: some View {
-        EmptyView()
-    }
-    
     @ViewBuilder
     private var goalsListView: some View {
         ScrollView {
@@ -521,21 +523,15 @@ struct iOSCompactPlanningView: View {
 
                 // Empty state
                 if viewModel.monthlyRequirements.isEmpty && !viewModel.isLoading {
-                    VStack(spacing: 12) {
-                        Image(systemName: "target")
-                            .font(.system(size: 40))
-                            .foregroundColor(.secondary)
-
-                        Text("No Active Goals")
-                            .font(.headline)
-
-                        Text("Create savings goals to see monthly requirements")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
+                    PlanningRequirementsEmptyState(
+                        onAddGoal: onAddGoal,
+                        onRefresh: {
+                            await viewModel.refreshCalculations()
+                        }
+                    )
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 320)
+                        .padding(.vertical, 24)
                 }
             }
             .padding(.horizontal)
@@ -809,7 +805,8 @@ struct iOSCompactPlanningView: View {
                 HStack {
                     Text(goal.goalName)
                         .font(.caption)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     
                     Spacer()
                     
@@ -910,6 +907,7 @@ struct iOSCompactPlanningView: View {
 struct iOSRegularPlanningView: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
     let staleDrafts: [MonthlyPlan]
+    let onAddGoal: (() -> Void)?
     @Environment(\.modelContext) private var modelContext
     @State private var showingBudgetSheet = false
     
@@ -978,22 +976,33 @@ struct iOSRegularPlanningView: View {
                         onEdit: { showingBudgetSheet = true }
                     )
 
-                    ForEach(viewModel.monthlyRequirements) { requirement in
-                        GoalRequirementRow(
-                            requirement: requirement,
-                            flexState: viewModel.getFlexState(for: requirement.goalId),
-                            adjustedAmount: viewModel.getEffectiveAmount(for: requirement.goalId),
-                            showBudgetIndicator: viewModel.hasBudget && viewModel.hasCustomAmount(for: requirement.goalId),
-                            onToggleProtection: {
-                                viewModel.toggleProtection(for: requirement.goalId)
-                            },
-                            onToggleSkip: {
-                                viewModel.toggleSkip(for: requirement.goalId)
-                            },
-                            onSetCustomAmount: { amount in
-                                viewModel.setCustomAmount(for: requirement.goalId, amount: amount)
+                    if viewModel.monthlyRequirements.isEmpty && !viewModel.isLoading {
+                        PlanningRequirementsEmptyState(
+                            onAddGoal: onAddGoal,
+                            onRefresh: {
+                                await viewModel.refreshCalculations()
                             }
                         )
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 360)
+                    } else {
+                        ForEach(viewModel.monthlyRequirements) { requirement in
+                            GoalRequirementRow(
+                                requirement: requirement,
+                                flexState: viewModel.getFlexState(for: requirement.goalId),
+                                adjustedAmount: viewModel.getEffectiveAmount(for: requirement.goalId),
+                                showBudgetIndicator: viewModel.hasBudget && viewModel.hasCustomAmount(for: requirement.goalId),
+                                onToggleProtection: {
+                                    viewModel.toggleProtection(for: requirement.goalId)
+                                },
+                                onToggleSkip: {
+                                    viewModel.toggleSkip(for: requirement.goalId)
+                                },
+                                onSetCustomAmount: { amount in
+                                    viewModel.setCustomAmount(for: requirement.goalId, amount: amount)
+                                }
+                            )
+                        }
                     }
                 }
                 .padding()
@@ -1016,6 +1025,7 @@ struct macOSPlanningView: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
     let staleDrafts: [MonthlyPlan]
     let goalNamesByID: [UUID: String]
+    let onAddGoal: (() -> Void)?
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
@@ -1131,28 +1141,45 @@ struct macOSPlanningView: View {
     
     @ViewBuilder
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "calendar.badge.plus")
-                .font(.system(size: 64))
-                .foregroundColor(.secondary)
-
-            Text("No Monthly Requirements")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Button("Refresh") {
-                Task {
-                    await viewModel.refreshCalculations()
-                }
+        PlanningRequirementsEmptyState(
+            onAddGoal: onAddGoal,
+            onRefresh: {
+                await viewModel.refreshCalculations()
             }
-            .buttonStyle(.borderedProminent)
-            
-            Text("Create savings goals to see your monthly payment requirements")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct PlanningRequirementsEmptyState: View {
+    let onAddGoal: (() -> Void)?
+    let onRefresh: @Sendable () async -> Void
+
+    var body: some View {
+        EmptyStateView(
+            icon: "target",
+            title: "No Active Goals",
+            description: "Create savings goals to see monthly requirements for this month.",
+            primaryAction: EmptyStateAction(
+                title: "Add Goal",
+                icon: "plus",
+                color: AccessibleColors.primaryInteractive,
+                accessibilityIdentifier: "planning.empty.addGoal"
+            ) {
+                onAddGoal?()
+            },
+            secondaryAction: EmptyStateAction(
+                title: "Refresh",
+                icon: "arrow.clockwise",
+                color: AccessibleColors.primaryInteractive,
+                accessibilityIdentifier: "planning.empty.refresh"
+            ) {
+                Task {
+                    await onRefresh()
+                }
+            },
+            illustration: .goal
+        )
     }
 }
 

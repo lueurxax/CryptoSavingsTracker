@@ -1,0 +1,392 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/AddAssetView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Asset Tracking Help",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 644
+        }
+      },
+      {
+        "comment": "",
+        "key": "Read-Only Shared Goal",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 141
+        }
+      },
+      {
+        "comment": "",
+        "key": "New Asset",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 564
+        }
+      },
+      {
+        "comment": "",
+        "key": "This asset will be tracked against your goal of %.2f %@.",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 558
+        }
+      },
+      {
+        "comment": "",
+        "key": "Dismiss",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 383
+        }
+      },
+      {
+        "comment": "",
+        "key": "Asset Details",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 399
+        }
+      },
+      {
+        "comment": "",
+        "key": "Show help about asset tracking types",
+        "location": {
+          "startingColumn": 45,
+          "startingLine": 408
+        }
+      },
+      {
+        "comment": "",
+        "key": "Fiat assets are tracked manually and do not use blockchain addresses.",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 426
+        }
+      },
+      {
+        "comment": "",
+        "key": "Please select a currency",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 468
+        }
+      },
+      {
+        "comment": "",
+        "key": "Fiat assets are tracked manually and do not use blockchain addresses",
+        "location": {
+          "startingColumn": 53,
+          "startingLine": 429
+        }
+      },
+      {
+        "comment": "",
+        "key": "Currency (Test)",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 459
+        }
+      },
+      {
+        "comment": "",
+        "key": "Validation error: Please select a currency",
+        "location": {
+          "startingColumn": 53,
+          "startingLine": 471
+        }
+      },
+      {
+        "comment": "",
+        "key": "Asset Type:",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 411
+        }
+      },
+      {
+        "comment": "",
+        "key": "Asset type selection",
+        "location": {
+          "startingColumn": 53,
+          "startingLine": 412
+        }
+      },
+      {
+        "comment": "",
+        "key": "Asset Type",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 414
+        }
+      },
+      {
+        "comment": "",
+        "key": "Currency:",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 433
+        }
+      },
+      {
+        "comment": "",
+        "key": "*",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 435
+        }
+      },
+      {
+        "comment": "",
+        "key": "Currency selection",
+        "location": {
+          "startingColumn": 53,
+          "startingLine": 434
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select currency required",
+        "location": {
+          "startingColumn": 68,
+          "startingLine": 452
+        }
+      },
+      {
+        "comment": "",
+        "key": "Selected currency %@",
+        "location": {
+          "startingColumn": 97,
+          "startingLine": 452
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tap to choose a fiat currency",
+        "location": {
+          "startingColumn": 69,
+          "startingLine": 453
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tap to choose a cryptocurrency",
+        "location": {
+          "startingColumn": 103,
+          "startingLine": 453
+        }
+      },
+      {
+        "comment": "",
+        "key": "On-Chain Tracking",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 478
+        }
+      },
+      {
+        "comment": "",
+        "key": "(Optional)",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 479
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add a blockchain address to automatically track balance and transactions.",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 484
+        }
+      },
+      {
+        "comment": "",
+        "key": "Format: %@",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 486
+        }
+      },
+      {
+        "comment": "",
+        "key": "Please select a blockchain network",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 548
+        }
+      },
+      {
+        "comment": "",
+        "key": "Validation error: Please select a blockchain network",
+        "location": {
+          "startingColumn": 61,
+          "startingLine": 551
+        }
+      },
+      {
+        "comment": "",
+        "key": "Address:",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 492
+        }
+      },
+      {
+        "comment": "",
+        "key": "Blockchain address",
+        "location": {
+          "startingColumn": 57,
+          "startingLine": 493
+        }
+      },
+      {
+        "comment": "",
+        "key": "Blockchain address input",
+        "location": {
+          "startingColumn": 57,
+          "startingLine": 501
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enter your blockchain address for automatic tracking, or leave empty for manual tracking only",
+        "location": {
+          "startingColumn": 56,
+          "startingLine": 502
+        }
+      },
+      {
+        "comment": "",
+        "key": "Chain:",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 514
+        }
+      },
+      {
+        "comment": "",
+        "key": "Blockchain network",
+        "location": {
+          "startingColumn": 61,
+          "startingLine": 515
+        }
+      },
+      {
+        "comment": "",
+        "key": "Chain",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 518
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select blockchain network required",
+        "location": {
+          "startingColumn": 74,
+          "startingLine": 542
+        }
+      },
+      {
+        "comment": "",
+        "key": "Selected blockchain network",
+        "location": {
+          "startingColumn": 113,
+          "startingLine": 542
+        }
+      },
+      {
+        "comment": "",
+        "key": "Choose which blockchain network this address belongs to",
+        "location": {
+          "startingColumn": 56,
+          "startingLine": 543
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select Chain",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 529
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ (%@)",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 531
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ (%@)",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 534
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ (%@)",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 537
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 568
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save asset",
+        "location": {
+          "startingColumn": 60,
+          "startingLine": 586
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save disabled: %@",
+        "location": {
+          "startingColumn": 75,
+          "startingLine": 586
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 581
+        }
+      },
+      {
+        "comment": "",
+        "key": "Got it",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 645
+        }
+      },
+      {
+        "comment": "",
+        "key": "Manual tracking: Add transactions yourself for assets you hold offline, in wallets, or in fiat accounts.\n\nOn-chain tracking: Automatically monitor blockchain addresses for balance and transaction updates (crypto assets only).\n\nYou can use both methods for the same crypto asset.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 647
+        }
+      }
+    ]
+  },
+  "version": 1
+}

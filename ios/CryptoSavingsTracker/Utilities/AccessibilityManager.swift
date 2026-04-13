@@ -412,18 +412,192 @@ extension View {
 extension AccessibilityManager {
     /// Test accessibility compliance of the current screen
     func auditCurrentScreen() -> AccessibilityAuditReport {
-        let issues: [AccessibilityIssue] = []
-        
-        // This would perform actual accessibility auditing
-        // For now, return a sample report
-        
+        #if os(iOS)
+        let windows = activeAuditWindows
+        guard !windows.isEmpty else {
+            return unavailableAuditReport(reason: "No active windows were found for the current screen.")
+        }
+
+        let elements = windows.flatMap { collectAuditElements(from: $0) }
+        guard !elements.isEmpty else {
+            return unavailableAuditReport(reason: "No accessibility elements were discovered on the current screen.")
+        }
+
+        return audit(elements: elements)
+        #else
+        return unavailableAuditReport(reason: "Current screen accessibility auditing is only implemented for UIKit screens.")
+        #endif
+    }
+
+    func audit(elements: [AccessibilityAuditElement]) -> AccessibilityAuditReport {
+        let issues = elements.flatMap(buildIssues) + buildDuplicateIdentifierIssues(for: elements)
         return AccessibilityAuditReport(
             timestamp: Date(),
             issues: issues,
             overallScore: calculateAccessibilityScore(issues: issues)
         )
     }
-    
+
+    #if os(iOS)
+    private var activeAuditWindows: [UIWindow] {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive }
+            .flatMap(\.windows)
+            .filter { !$0.isHidden }
+    }
+
+    private func collectAuditElements(from root: UIView) -> [AccessibilityAuditElement] {
+        collectAuditElements(from: root, path: String(describing: type(of: root)))
+    }
+
+    private func collectAuditElements(from view: UIView, path: String) -> [AccessibilityAuditElement] {
+        let current = AccessibilityAuditElement(
+            kind: auditKind(for: view),
+            label: view.accessibilityLabel,
+            identifier: view.accessibilityIdentifier,
+            isAccessibilityElement: view.isAccessibilityElement,
+            isHidden: view.isHidden || view.alpha < 0.01,
+            frame: view.convert(view.bounds, to: nil),
+            debugName: view.accessibilityIdentifier ?? path
+        )
+
+        let children = view.subviews.enumerated().flatMap { index, subview in
+            collectAuditElements(
+                from: subview,
+                path: "\(path).\(type(of: subview))[\(index)]"
+            )
+        }
+
+        return [current] + children
+    }
+
+    private func auditKind(for view: UIView) -> AccessibilityAuditElement.Kind {
+        switch view {
+        case is UIButton, is UIControl:
+            return .button
+        case is UISwitch:
+            return .toggle
+        case is UITextField, is UITextView:
+            return .textField
+        case is UISlider:
+            return .slider
+        case is UIStepper:
+            return .stepper
+        case is UILabel:
+            return .text
+        case is UIImageView:
+            return view.isAccessibilityElement ? .image : .decorative
+        default:
+            return .container
+        }
+    }
+    #endif
+
+    private func buildIssues(for element: AccessibilityAuditElement) -> [AccessibilityIssue] {
+        guard !element.isHidden else { return [] }
+        guard element.kind != .decorative else { return [] }
+        guard element.kind.isInteractive else { return [] }
+
+        if !element.isAccessibilityElement {
+            return [
+                AccessibilityIssue(
+                    title: "Interactive element is not exposed to accessibility",
+                    description: "\(element.debugName) is interactive but not exposed as an accessibility element.",
+                    severity: .warning,
+                    wcagGuideline: "WCAG 4.1.2 Name, Role, Value",
+                    suggestedFix: "Mark the control as an accessibility element or replace it with an accessible UIKit/SwiftUI control."
+                )
+            ]
+        }
+
+        var issues: [AccessibilityIssue] = []
+
+        if element.trimmedLabel == nil {
+            issues.append(
+                AccessibilityIssue(
+                    title: "Interactive element is missing an accessibility label",
+                    description: "\(element.debugName) can receive focus but does not expose a spoken label.",
+                    severity: .critical,
+                    wcagGuideline: "WCAG 4.1.2 Name, Role, Value",
+                    suggestedFix: "Provide a concise accessibilityLabel that describes the control's purpose."
+                )
+            )
+        }
+
+        if element.trimmedIdentifier == nil {
+            issues.append(
+                AccessibilityIssue(
+                    title: "Interactive element is missing an accessibility identifier",
+                    description: "\(element.debugName) does not expose an identifier for automated accessibility regression checks.",
+                    severity: .warning,
+                    wcagGuideline: "Automation support",
+                    suggestedFix: "Assign a stable accessibilityIdentifier so the control can be located in UI tests and audits."
+                )
+            )
+        }
+
+        if element.frame.width < 44 || element.frame.height < 44 {
+            issues.append(
+                AccessibilityIssue(
+                    title: "Interactive element is smaller than the minimum touch target",
+                    description: "\(element.debugName) renders at \(Int(element.frame.width))x\(Int(element.frame.height)) points, below the recommended 44x44 point minimum.",
+                    severity: .warning,
+                    wcagGuideline: "WCAG 2.5.5 Target Size",
+                    suggestedFix: "Increase padding or frame size so the hit target reaches at least 44x44 points."
+                )
+            )
+        }
+
+        return issues
+    }
+
+    private func buildDuplicateIdentifierIssues(for elements: [AccessibilityAuditElement]) -> [AccessibilityIssue] {
+        let duplicates = Dictionary(
+            grouping: elements.filter {
+                !$0.isHidden
+                    && $0.kind.isInteractive
+                    && $0.isAccessibilityElement
+                    && $0.trimmedIdentifier != nil
+            },
+            by: { $0.trimmedIdentifier! }
+        )
+        .filter { $0.value.count > 1 }
+
+        return duplicates.keys.sorted().map { identifier in
+            let names = duplicates[identifier, default: []]
+                .map(\.debugName)
+                .sorted()
+                .joined(separator: ", ")
+
+            return AccessibilityIssue(
+                title: "Interactive elements share a duplicate accessibility identifier",
+                description: "The identifier '\(identifier)' is reused by: \(names).",
+                severity: .warning,
+                wcagGuideline: "Automation support",
+                suggestedFix: "Assign unique accessibilityIdentifier values to interactive elements so audits and UI tests can target them reliably."
+            )
+        }
+    }
+
+    private func unavailableAuditReport(reason: String) -> AccessibilityAuditReport {
+        let issues = [
+            AccessibilityIssue(
+                title: "Unable to audit current screen",
+                description: reason,
+                severity: .warning,
+                wcagGuideline: "Testing infrastructure",
+                suggestedFix: "Present the target screen and re-run the audit."
+            )
+        ]
+
+        return AccessibilityAuditReport(
+            timestamp: Date(),
+            issues: issues,
+            overallScore: calculateAccessibilityScore(issues: issues)
+        )
+    }
+
     private func calculateAccessibilityScore(issues: [AccessibilityIssue]) -> Double {
         let totalPossiblePoints = 100.0
         let deductions = issues.reduce(0.0) { total, issue in
@@ -431,6 +605,45 @@ extension AccessibilityManager {
         }
         
         return max(0, totalPossiblePoints - deductions)
+    }
+}
+
+struct AccessibilityAuditElement {
+    enum Kind {
+        case button
+        case toggle
+        case textField
+        case slider
+        case stepper
+        case image
+        case text
+        case container
+        case decorative
+
+        var isInteractive: Bool {
+            switch self {
+            case .button, .toggle, .textField, .slider, .stepper:
+                return true
+            case .image, .text, .container, .decorative:
+                return false
+            }
+        }
+    }
+
+    let kind: Kind
+    let label: String?
+    let identifier: String?
+    let isAccessibilityElement: Bool
+    let isHidden: Bool
+    let frame: CGRect
+    let debugName: String
+
+    fileprivate var trimmedLabel: String? {
+        label?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+    }
+
+    fileprivate var trimmedIdentifier: String? {
+        identifier?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
     }
 }
 
@@ -472,6 +685,12 @@ struct AccessibilityIssue {
             case .info: return 5.0
             }
         }
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }
 #endif

@@ -144,7 +144,10 @@ class DashboardViewModel: ObservableObject, ErrorAwareViewModel {
                         totalBalance += assetBalance * rate
                     } catch {
                         // Use asset balance as is if conversion fails
-                        AppLog.error("Currency conversion failed for \(asset.currency) to \(goal.currency): \(error)", category: .exchangeRate)
+                        AppLog.error(
+                            "Currency conversion failed for \(asset.currency) to \(goal.currency): \(error.localizedDescription)",
+                            category: .exchangeRate
+                        )
                         totalBalance += assetBalance
                     }
                 } else {
@@ -424,7 +427,10 @@ class DashboardViewModel: ObservableObject, ErrorAwareViewModel {
             )
             return assetBalance * rate
         } catch {
-            AppLog.error("Failed to get exchange rate for \(asset.currency) to \(goalCurrency): \(error). Skipping asset to avoid incorrect totals.", category: .exchangeRate)
+            AppLog.error(
+                "Failed to get exchange rate for \(asset.currency) to \(goalCurrency): \(error.localizedDescription). Skipping asset to avoid incorrect totals.",
+                category: .exchangeRate
+            )
             return 0
         }
     }

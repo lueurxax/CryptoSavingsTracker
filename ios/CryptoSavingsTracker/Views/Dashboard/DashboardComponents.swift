@@ -140,7 +140,7 @@ struct ThreeColumnDashboardLayout: View {
             // Left Column: Key Metrics + Hero Progress
             VStack(spacing: 16) {
                 HeroProgressView(goal: goal)
-                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 3)
+                    .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 3)
                 
                 EnhancedStatsGrid(viewModel: viewModel, goal: goal)
             }
@@ -155,23 +155,23 @@ struct ThreeColumnDashboardLayout: View {
                     dashboardProgress: dashboardProgress,
                     whatIf: whatIf
                 )
-                .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 3)
+                .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 3)
                 
                 WhatIfView(goal: goal, settings: whatIf)
-                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 3)
+                    .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 3)
             }
             .frame(maxWidth: .infinity)
             
             // Right Column: Quick Actions, Insights & Activity
             VStack(spacing: 16) {
                 QuickActionsView(goal: goal)
-                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 3)
+                    .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 3)
                 
                 InsightsView(viewModel: viewModel, goal: goal)
-                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 3)
+                    .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 3)
                 
                 RecentActivityView(goal: goal, viewModel: viewModel)
-                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 3)
+                    .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 3)
             }
             .frame(maxWidth: 340)
         }
@@ -247,7 +247,7 @@ struct ForecastWidgetView: View {
                     currency: goal.currency,
                     animateOnAppear: false,
                     overlaySeries: whatIf.enabled ? generateWhatIfOverlay() : nil,
-                    overlayColor: .purple
+                    overlayColor: AccessibleColors.primaryInteractive
                 )
                 .frame(height: 300)
             } else {
@@ -260,7 +260,7 @@ struct ForecastWidgetView: View {
                 .fill(.regularMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                        .stroke(VisualComponentTokens.dashboardCardStroke, lineWidth: 1)
                 )
         )
         .cornerRadius(16)
@@ -326,6 +326,8 @@ struct ForecastWidgetHeader: View {
                 ForecastStatusIndicator(forecast: lastForecast, goal: goal)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Goal Forecast: \(viewModel.forecastData.last.map { $0.realistic >= goal.targetAmount ? "On Track" : "Behind" } ?? "Not available")")
     }
 }
 
@@ -352,7 +354,7 @@ struct ForecastStatusIndicator: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background((willReachGoal ? AccessibleColors.success : AccessibleColors.warning).opacity(0.1))
+        .background(willReachGoal ? AccessibleColors.successBackground : AccessibleColors.warningBackground)
         .cornerRadius(8)
     }
 }
@@ -381,6 +383,8 @@ struct ForecastPlaceholderView: View {
         .frame(maxWidth: .infinity)
         .background(.regularMaterial)
         .cornerRadius(12)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No forecast available. Add more transactions to generate forecast predictions.")
     }
 }
 
@@ -412,23 +416,32 @@ struct QuickActionsView: View {
                         .background(AccessibleColors.primaryInteractive)
                         .cornerRadius(10)
                 }
+                .accessibilityHint(DashboardAccessibilityCopy.quickActionHint(action: .addAsset, hasAssets: !goalAssets.isEmpty))
+                .accessibilityIdentifier("dashboard.quick_action.add_asset")
                 
                 Button(action: {
-                    if goalAssets.count <= 1 {
+                    if goalAssets.isEmpty {
+                        selectedAsset = nil
+                        showingAddTransaction = true
+                    } else if goalAssets.count == 1 {
                         selectedAsset = goalAssets.first
                         showingAddTransaction = selectedAsset != nil
                     } else {
                         showingAssetPicker = true
                     }
                 }) {
-                    label(icon: "arrow.down.circle.fill", title: "Add Transaction")
+                    label(
+                        icon: goalAssets.isEmpty ? "wand.and.stars" : "arrow.down.circle.fill",
+                        title: goalAssets.isEmpty ? "Set Up Transactions" : "Add Transaction"
+                    )
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 40)
-                        .background(goalAssets.isEmpty ? Color.gray.opacity(0.4) : AccessibleColors.success)
+                        .background(goalAssets.isEmpty ? AccessibleColors.primaryInteractive : AccessibleColors.success)
                         .cornerRadius(10)
                 }
-                .disabled(goalAssets.isEmpty)
+                .accessibilityHint(DashboardAccessibilityCopy.quickActionHint(action: .addTransaction, hasAssets: !goalAssets.isEmpty))
+                .accessibilityIdentifier("dashboard.quick_action.add_transaction")
                 
                 Button(action: { showingEditGoal = true }) {
                     label(icon: "pencil.circle.fill", title: "Edit Goal")
@@ -438,6 +451,8 @@ struct QuickActionsView: View {
                         .background(AccessibleColors.warning)
                         .cornerRadius(10)
                 }
+                .accessibilityHint(DashboardAccessibilityCopy.quickActionHint(action: .editGoal, hasAssets: !goalAssets.isEmpty))
+                .accessibilityIdentifier("dashboard.quick_action.edit_goal")
             }
         }
         .padding()
@@ -446,19 +461,32 @@ struct QuickActionsView: View {
                 .fill(.regularMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                        .stroke(VisualComponentTokens.dashboardCardStroke, lineWidth: 1)
                 )
         )
         .cornerRadius(16)
         // NAV-MOD: MOD-01
         .sheet(isPresented: $showingAddAsset) { AddAssetView(goal: goal) }
         .sheet(isPresented: $showingAddTransaction) {
-            Group {
-                if let asset = selectedAsset {
-                    AddTransactionView(asset: asset)
-                } else {
-                    EmptyView()
-                }
+            if let asset = selectedAsset {
+                AddTransactionView(asset: asset)
+            } else {
+                DashboardTransactionRecoverySheet(
+                    goalName: goal.name,
+                    hasAssets: !goalAssets.isEmpty,
+                    primaryActionTitle: goalAssets.isEmpty ? "Add Asset" : "Choose Asset",
+                    onPrimaryAction: {
+                        showingAddTransaction = false
+                        if goalAssets.isEmpty {
+                            showingAddAsset = true
+                        } else {
+                            showingAssetPicker = true
+                        }
+                    },
+                    onDismiss: {
+                        showingAddTransaction = false
+                    }
+                )
             }
         }
         // NAV-MOD: MOD-01
@@ -474,17 +502,32 @@ struct QuickActionsView: View {
                             Image(systemName: "bitcoinsign.circle")
                             Text(asset.currency)
                             Spacer()
-                            if let addr = asset.address { Text(addr).font(.caption2).foregroundColor(.secondary) }
+                            if let addr = asset.address {
+                                Text(addr)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(DashboardAccessibilityCopy.assetSelectionLabel(currency: asset.currency, address: asset.address))
+                    .accessibilityHint(DashboardAccessibilityCopy.assetSelectionHint(currency: asset.currency))
+                    .accessibilityIdentifier("dashboard.asset_picker.asset")
                 }
                 .navigationTitle("Select Asset")
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { showingAssetPicker = false }
+                            .accessibilityLabel("Close asset picker")
+                            .accessibilityHint(DashboardAccessibilityCopy.assetPickerDismissHint)
+                            .accessibilityIdentifier("dashboard.asset_picker.dismiss")
                     }
                 }
+                .accessibilityIdentifier("dashboard.asset_picker.list")
             }
+            .accessibilityIdentifier("dashboard.asset_picker.sheet")
         }
         // NAV-MOD: MOD-01
         .sheet(isPresented: $showingEditGoal) { EditGoalView(goal: goal, modelContext: modelContext) }
@@ -544,6 +587,15 @@ struct RecentActivityView: View {
                         }
                     }
                     .padding(.vertical, 4)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(
+                        DashboardAccessibilityCopy.recentActivityLabel(
+                            currency: tx.asset?.currency ?? "Unknown",
+                            note: tx.comment,
+                            amountText: String(format: "%@%.2f", tx.amount >= 0 ? "+" : "", tx.amount),
+                            dateText: tx.date.formatted(.dateTime.month(.abbreviated).day())
+                        )
+                    )
                     Divider()
                 }
                 Button(action: { showingAssetPicker = true }) {
@@ -554,6 +606,7 @@ struct RecentActivityView: View {
                     .font(.caption)
                     .foregroundColor(.accessiblePrimary)
                 }
+                .accessibilityHint("Double tap to review transaction history for each linked asset.")
             }
         }
         .padding()
@@ -562,7 +615,7 @@ struct RecentActivityView: View {
                 .fill(.regularMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                        .stroke(VisualComponentTokens.dashboardCardStroke, lineWidth: 1)
                 )
         )
         .cornerRadius(16)
@@ -575,9 +628,17 @@ struct RecentActivityView: View {
                             Image(systemName: "bitcoinsign.circle")
                             Text(asset.currency)
                             Spacer()
-                            if let addr = asset.address { Text(addr).font(.caption2).foregroundColor(.secondary) }
+                            if let addr = asset.address {
+                                Text(addr)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     }
+                    .accessibilityLabel(DashboardAccessibilityCopy.assetSelectionLabel(currency: asset.currency, address: asset.address))
+                    .accessibilityHint("Double tap to review transaction history for this asset.")
                 }
                 .navigationTitle("Assets")
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { showingAssetPicker = false } } }

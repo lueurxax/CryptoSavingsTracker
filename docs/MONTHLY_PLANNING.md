@@ -790,6 +790,8 @@ class MonthlyPlanningSettings: ObservableObject {
 | MonthlyPlanningView | `ios/CryptoSavingsTracker/Views/Planning/MonthlyPlanningView.swift` |
 | MonthlyExecutionView | `ios/CryptoSavingsTracker/Views/Planning/MonthlyExecutionView.swift` |
 | MonthlyPlanningContainer | `ios/CryptoSavingsTracker/Views/Planning/MonthlyPlanningContainer.swift` |
+| PlanHistoryDetailView | `ios/CryptoSavingsTracker/Views/Planning/PlanHistoryDetailView.swift` |
+| PlanHistoryListView | `ios/CryptoSavingsTracker/Views/Planning/PlanHistoryListView.swift` |
 
 ---
 

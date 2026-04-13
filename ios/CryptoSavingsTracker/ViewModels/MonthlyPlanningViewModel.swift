@@ -339,7 +339,10 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 self.error = error
                 self.isLoading = false
             }
-            AppLog.error("Failed to load monthly requirements: \(error)", category: .monthlyPlanning)
+            AppLog.error(
+                "Failed to load monthly requirements: \(error.localizedDescription)",
+                category: .monthlyPlanning
+            )
         }
     }
     
@@ -556,7 +559,10 @@ final class MonthlyPlanningViewModel: ObservableObject {
             await MainActor.run {
                 self.error = error
             }
-            AppLog.error("Failed to apply flex adjustment: \(error)", category: .monthlyPlanning)
+            AppLog.error(
+                "Failed to apply flex adjustment: \(error.localizedDescription)",
+                category: .monthlyPlanning
+            )
         }
     }
     
@@ -620,7 +626,10 @@ final class MonthlyPlanningViewModel: ObservableObject {
 
             AppLog.info("Set custom amount \(amount ?? 0) for goal \(goalId)", category: .monthlyPlanning)
         } catch {
-            AppLog.error("Failed to set custom amount: \(error)", category: .monthlyPlanning)
+            AppLog.error(
+                "Failed to set custom amount: \(error.localizedDescription)",
+                category: .monthlyPlanning
+            )
         }
     }
 
@@ -907,7 +916,10 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 }
             }
         } catch {
-            AppLog.warning("Failed to load flex states: \(error)", category: .monthlyPlanning)
+            AppLog.warning(
+                "Failed to load flex states: \(error.localizedDescription)",
+                category: .monthlyPlanning
+            )
         }
     }
 
@@ -923,7 +935,10 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 try await planService.updatePlan(plan, withGoal: goal)
             }
         } catch {
-            AppLog.error("Failed to persist updated plans: \(error)", category: .monthlyPlanning)
+            AppLog.error(
+                "Failed to persist updated plans: \(error.localizedDescription)",
+                category: .monthlyPlanning
+            )
         }
     }
     
@@ -1014,7 +1029,10 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 try await planService.updatePlan(plan, withGoal: goal)
             }
         } catch {
-            AppLog.error("Failed to refresh draft plans: \(error)", category: .monthlyPlanning)
+            AppLog.error(
+                "Failed to refresh draft plans: \(error.localizedDescription)",
+                category: .monthlyPlanning
+            )
         }
     }
 
@@ -1034,7 +1052,10 @@ final class MonthlyPlanningViewModel: ObservableObject {
                     if let urlError = error as? URLError, urlError.code == .cancelled {
                         continue
                     }
-                    AppLog.warning("Failed to convert \(plan.currency) to \(displayCurrency): \(error)", category: .monthlyPlanning)
+                    AppLog.warning(
+                        "Failed to convert \(plan.currency) to \(displayCurrency): \(error.localizedDescription)",
+                        category: .monthlyPlanning
+                    )
                 }
             }
         }

@@ -1,0 +1,144 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/AddGoalView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Discard Changes?",
+        "location": {
+          "startingColumn": 13,
+          "startingLine": 565
+        }
+      },
+      {
+        "comment": "",
+        "key": "New Goal",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 497
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal Details",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 390
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reminders",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 482
+        }
+      },
+      {
+        "comment": "",
+        "key": "Currency (Test)",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 432
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal Name",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 392
+        }
+      },
+      {
+        "comment": "",
+        "key": "Currency:",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 404
+        }
+      },
+      {
+        "comment": "",
+        "key": "Target Amount",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 441
+        }
+      },
+      {
+        "comment": "",
+        "key": "Deadline",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 464
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start Date",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 473
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 501
+        }
+      },
+      {
+        "comment": "",
+        "key": "Discard Changes",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 569
+        }
+      },
+      {
+        "comment": "",
+        "key": "Keep Editing",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 576
+        }
+      },
+      {
+        "comment": "",
+        "key": "Unsaved goal inputs will be lost.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 578
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal Templates",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 718
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 725
+        }
+      },
+      {
+        "comment": "",
+        "key": "$%@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 794
+        }
+      }
+    ]
+  },
+  "version": 1
+}

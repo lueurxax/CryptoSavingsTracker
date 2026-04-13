@@ -30,7 +30,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Data") {
+                Section {
                     Button {
                         do {
                             let urls = try CSVExportService.exportCSVFiles(using: modelContext)
@@ -41,13 +41,21 @@ struct SettingsView: View {
                         }
                     } label: {
                         Text("Export Data (CSV)")
-                            .accessibilityIdentifier("exportCSVButton")
                     }
                     .accessibilityIdentifier("exportCSVButton")
-                    
-                    Button("Import Data") {
-                        // Import functionality
+                    .accessibilityHint("Double tap to generate CSV snapshots for your current data.")
+
+                    NavigationLink {
+                        LocalBridgeSyncView(persistenceSnapshot: persistenceController.snapshot)
+                    } label: {
+                        Text(SettingsUXCopy.importDataTitle)
                     }
+                    .accessibilityIdentifier("importDataButton")
+                    .accessibilityHint(SettingsUXCopy.importDataHint)
+                } header: {
+                    Text("Data")
+                } footer: {
+                    Text(SettingsUXCopy.dataSectionFooter)
                 }
 
                 Section {
@@ -90,6 +98,7 @@ struct SettingsView: View {
                             }
                         }
                         .accessibilityIdentifier("settings.cloudkit.familyAccess")
+                        .accessibilityHint(SettingsUXCopy.navigationHint(destination: "Family Access"))
                     }
 
                     NavigationLink {
@@ -114,6 +123,7 @@ struct SettingsView: View {
                         }
                     }
                     .accessibilityIdentifier("settings.cloudkit.localBridgeSync")
+                    .accessibilityHint(SettingsUXCopy.navigationHint(destination: "Local Bridge Sync"))
                 } header: {
                     Text("Sync")
                 } footer: {
@@ -163,6 +173,7 @@ struct SettingsView: View {
                     Button("Configure Monthly Planning") {
                         showingMonthlyPlanningSettings = true
                     }
+                    .accessibilityHint(SettingsUXCopy.navigationHint(destination: "Monthly Planning settings"))
                 }
 
             }
@@ -186,7 +197,7 @@ struct SettingsView: View {
         #endif
         // NAV-MOD: MOD-01
         .sheet(isPresented: $showingMonthlyPlanningSettings) {
-            MonthlyPlanningSettingsView(goals: [])
+            MonthlyPlanningSettingsView(goals: activeGoals)
         }
         // NAV-MOD: MOD-01
         .sheet(item: $exportResult) { result in
@@ -275,6 +286,9 @@ private struct SettingsSectionRow: View {
         .clipShape(RoundedRectangle(cornerRadius: VisualComponentTokens.settingsRowCornerRadius))
         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
         .listRowBackground(Color.clear)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(value)
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 }
@@ -291,7 +305,20 @@ private struct LegacySettingsValueRow: View {
             Text(value)
                 .foregroundColor(.secondary)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(value)
         .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+enum SettingsUXCopy {
+    static let importDataTitle = "Import Data"
+    static let importDataHint = "Double tap to open Local Bridge Sync and review import packages before applying them."
+    static let dataSectionFooter = "Exports create CSV snapshots. Imports are reviewed through Local Bridge Sync before changes are applied."
+
+    static func navigationHint(destination: String) -> String {
+        "Double tap to open \(destination)."
     }
 }
 

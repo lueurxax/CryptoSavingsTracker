@@ -77,6 +77,17 @@ final class LocalBridgeArtifactStore {
         return (try importArtifact(for: package, at: fileURL), package)
     }
 
+    func persist(
+        importPackage package: SignedImportPackage,
+        sourceDeviceName: String?
+    ) throws -> LocalBridgeImportPackageArtifact {
+        try ensureDirectoryExists(importsDirectoryURL)
+
+        let fileURL = importsDirectoryURL.appendingPathComponent(importPackageFileName(for: package) + ".json")
+        try package.canonicalEncodingData().write(to: fileURL, options: .atomic)
+        return try importArtifact(for: package, at: fileURL, sourceDeviceName: sourceDeviceName)
+    }
+
     func latestSnapshotArtifact() -> LocalBridgeSnapshotArtifact? {
         latestArtifact(in: exportsDirectoryURL) { url in
             let data = try Data(contentsOf: url)
@@ -91,6 +102,45 @@ final class LocalBridgeArtifactStore {
             let package = try decodePackage(from: data)
             return (try importArtifact(for: package, at: url), package)
         }
+    }
+
+    func purgeImportPackages(for device: TrustedBridgeDevice) -> Int {
+        guard fileManager.fileExists(atPath: importsDirectoryURL.path) else {
+            return 0
+        }
+
+        let urls = (try? fileManager.contentsOfDirectory(
+            at: importsDirectoryURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )) ?? []
+
+        var removed = 0
+        for url in urls {
+            guard let data = try? Data(contentsOf: url),
+                  let package = try? decodePackage(from: data) else {
+                continue
+            }
+
+            let matchesSigningKey = device.signingKeyID == package.signingKeyID
+            let matchesFingerprint = device.fingerprint.caseInsensitiveCompare(package.signerFingerprint) == .orderedSame
+            guard matchesSigningKey || matchesFingerprint else {
+                continue
+            }
+
+            do {
+                try fileManager.removeItem(at: url)
+                removed += 1
+            } catch {
+                continue
+            }
+        }
+
+        return removed
+    }
+
+    func clearImportPackage(at fileURL: URL) {
+        try? fileManager.removeItem(at: fileURL)
     }
 
     private var baseDirectoryURL: URL {
@@ -133,7 +183,7 @@ final class LocalBridgeArtifactStore {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
         do {
-            return try decoder.decode(SnapshotEnvelope.self, from: data)
+            return try decoder.decode(SnapshotEnvelope.self, from: bridgeNormalizedCanonicalDecodingData(data))
         } catch {
             throw LocalBridgeArtifactStoreError.invalidSnapshotArtifact
         }
@@ -143,7 +193,7 @@ final class LocalBridgeArtifactStore {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
         do {
-            return try decoder.decode(SignedImportPackage.self, from: data)
+            return try decoder.decode(SignedImportPackage.self, from: bridgeNormalizedCanonicalDecodingData(data))
         } catch {
             throw LocalBridgeArtifactStoreError.invalidImportPackageArtifact
         }
@@ -159,14 +209,18 @@ final class LocalBridgeArtifactStore {
         )
     }
 
-    private func importArtifact(for package: SignedImportPackage, at fileURL: URL) throws -> LocalBridgeImportPackageArtifact {
+    private func importArtifact(
+        for package: SignedImportPackage,
+        at fileURL: URL,
+        sourceDeviceName: String? = nil
+    ) throws -> LocalBridgeImportPackageArtifact {
         LocalBridgeImportPackageArtifact(
             packageID: package.packageID,
             snapshotID: package.snapshotID,
             signedAt: package.signedAt,
             fileURL: fileURL,
             fileSizeBytes: try fileSize(for: fileURL),
-            sourceDeviceName: nil
+            sourceDeviceName: sourceDeviceName
         )
     }
 

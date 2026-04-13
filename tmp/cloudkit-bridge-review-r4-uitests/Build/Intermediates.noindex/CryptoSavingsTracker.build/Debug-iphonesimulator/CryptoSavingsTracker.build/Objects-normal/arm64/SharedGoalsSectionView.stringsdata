@@ -1,0 +1,24 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/FamilySharing/SharedGoalsSectionView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "This shared goal set is no longer available.",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 46
+        }
+      },
+      {
+        "comment": "",
+        "key": "No shared goals in this group.",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 47
+        }
+      }
+    ]
+  },
+  "version": 1
+}

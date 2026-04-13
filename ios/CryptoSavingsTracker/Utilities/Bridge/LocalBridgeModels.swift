@@ -1,5 +1,27 @@
 import Foundation
 
+enum BridgeBootstrapTokenError: LocalizedError {
+    case invalidEncoding
+    case invalidPayload
+    case invalidPairingCode
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidEncoding:
+            return "The pairing token could not be decoded."
+        case .invalidPayload:
+            return "The pairing token payload is invalid."
+        case .invalidPairingCode:
+            return "The pairing code is invalid."
+        }
+    }
+}
+
+enum BridgeRecordState: String, Codable, Equatable, Sendable {
+    case active
+    case deleted
+}
+
 enum LocalBridgeAvailabilityState: String, Codable, Equatable, Sendable {
     case unavailable
     case pairingRequired
@@ -154,6 +176,34 @@ enum BridgePairingMethod: String, Codable, Equatable, Sendable {
     }
 }
 
+struct LocalBridgeIdentifierMetadata: Equatable, Sendable {
+    let label: String
+    let value: String
+    let hint: String
+}
+
+enum LocalBridgeIdentifierPresentation {
+    static func metadata(title: String, value: String) -> LocalBridgeIdentifierMetadata {
+        let spokenTitle = title.prefix(1).lowercased() + title.dropFirst()
+        return LocalBridgeIdentifierMetadata(
+            label: title,
+            value: value,
+            hint: "Shows the full \(spokenTitle) across multiple lines."
+        )
+    }
+}
+
+enum BridgeObservabilityRedactor {
+    static func redactedBootstrapToken(_ token: String) -> String {
+        guard token.count > 20 else {
+            return String(repeating: "•", count: max(8, token.count))
+        }
+        let prefix = token.prefix(8)
+        let suffix = token.suffix(8)
+        return "\(prefix)…\(suffix)"
+    }
+}
+
 struct BridgeCapabilityManifest: Codable, Equatable, Sendable {
     let bridgeProtocolVersion: Int
     let minimumSupportedCanonicalEncodingVersion: String
@@ -183,9 +233,82 @@ struct BridgeBootstrapToken: Codable, Equatable, Sendable {
     let expiresAt: Date
     let oneTimeSecretReference: String
     let ephemeralPublicKey: String
+    let signingKeyID: String
+    let publicKeyRepresentation: String
+    let signingAlgorithm: String
+    let fingerprint: String
 
     var isExpired: Bool {
         expiresAt <= Date()
+    }
+
+    func encodedPairingCode() throws -> String {
+        let base64 = try encodedManualEntryToken()
+        let base64URL = base64
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+
+        var groups: [String] = []
+        var index = base64URL.startIndex
+        while index < base64URL.endIndex {
+            let end = base64URL.index(index, offsetBy: 4, limitedBy: base64URL.endIndex) ?? base64URL.endIndex
+            groups.append(String(base64URL[index..<end]))
+            index = end
+        }
+        return groups.joined(separator: ".")
+    }
+
+    func encodedManualEntryToken() throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        encoder.dateEncodingStrategy = .millisecondsSince1970
+        return try encoder.encode(self).base64EncodedString()
+    }
+
+    static func decodePairingCode(_ code: String) throws -> Self {
+        let normalized = code
+            .replacingOccurrences(of: ".", with: "")
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "\n", with: "")
+
+        guard normalized.isEmpty == false else {
+            throw BridgeBootstrapTokenError.invalidPairingCode
+        }
+
+        let base64 = normalized
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let paddingCount = (4 - (base64.count % 4)) % 4
+        let padded = base64 + String(repeating: "=", count: paddingCount)
+
+        guard let data = Data(base64Encoded: padded) else {
+            throw BridgeBootstrapTokenError.invalidPairingCode
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .millisecondsSince1970
+
+        do {
+            return try decoder.decode(Self.self, from: data)
+        } catch {
+            throw BridgeBootstrapTokenError.invalidPairingCode
+        }
+    }
+
+    static func decodeManualEntryToken(_ token: String) throws -> Self {
+        guard let data = Data(base64Encoded: token) else {
+            throw BridgeBootstrapTokenError.invalidEncoding
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .millisecondsSince1970
+
+        do {
+            return try decoder.decode(Self.self, from: data)
+        } catch {
+            throw BridgeBootstrapTokenError.invalidPayload
+        }
     }
 }
 
@@ -193,6 +316,20 @@ enum BridgeTrustState: String, Codable, Equatable, Sendable {
     case active
     case revoked
     case expired
+}
+
+enum BridgeValidationOutcome: String, Codable, Equatable, Sendable {
+    case passed
+    case warnings
+    case failed
+
+    var displayTitle: String {
+        switch self {
+        case .passed: return "Passed"
+        case .warnings: return "Warnings"
+        case .failed: return "Failed"
+        }
+    }
 }
 
 struct TrustedBridgeDevice: Identifiable, Codable, Equatable, Sendable {
@@ -204,6 +341,8 @@ struct TrustedBridgeDevice: Identifiable, Codable, Equatable, Sendable {
     var signingAlgorithm: String? = nil
     var addedAt: Date
     var lastSuccessfulSyncAt: Date?
+    var lastValidationOutcome: BridgeValidationOutcome? = nil
+    var lastValidationAt: Date? = nil
     var trustState: BridgeTrustState
 
     var shortFingerprint: String {
@@ -218,6 +357,7 @@ struct BridgeEntityCount: Codable, Equatable, Sendable {
 
 struct BridgeGoalSnapshot: Codable, Equatable, Sendable {
     let id: UUID
+    let recordState: BridgeRecordState
     let name: String
     let currency: String
     let targetAmount: Double
@@ -227,17 +367,59 @@ struct BridgeGoalSnapshot: Codable, Equatable, Sendable {
     let emoji: String?
     let goalDescription: String?
     let link: String?
+
+    init(
+        id: UUID,
+        recordState: BridgeRecordState = .active,
+        name: String,
+        currency: String,
+        targetAmount: Double,
+        deadline: Date,
+        startDate: Date,
+        lifecycleStatusRawValue: String,
+        emoji: String?,
+        goalDescription: String?,
+        link: String?
+    ) {
+        self.id = id
+        self.recordState = recordState
+        self.name = name
+        self.currency = currency
+        self.targetAmount = targetAmount
+        self.deadline = deadline
+        self.startDate = startDate
+        self.lifecycleStatusRawValue = lifecycleStatusRawValue
+        self.emoji = emoji
+        self.goalDescription = goalDescription
+        self.link = link
+    }
 }
 
 struct BridgeAssetSnapshot: Codable, Equatable, Sendable {
     let id: UUID
+    let recordState: BridgeRecordState
     let currency: String
     let address: String?
     let chainId: String?
+
+    init(
+        id: UUID,
+        recordState: BridgeRecordState = .active,
+        currency: String,
+        address: String?,
+        chainId: String?
+    ) {
+        self.id = id
+        self.recordState = recordState
+        self.currency = currency
+        self.address = address
+        self.chainId = chainId
+    }
 }
 
 struct BridgeTransactionSnapshot: Codable, Equatable, Sendable {
     let id: UUID
+    let recordState: BridgeRecordState
     let assetId: UUID?
     let amount: Double
     let date: Date
@@ -245,29 +427,92 @@ struct BridgeTransactionSnapshot: Codable, Equatable, Sendable {
     let externalId: String?
     let counterparty: String?
     let comment: String?
+
+    init(
+        id: UUID,
+        recordState: BridgeRecordState = .active,
+        assetId: UUID?,
+        amount: Double,
+        date: Date,
+        sourceRawValue: String,
+        externalId: String?,
+        counterparty: String?,
+        comment: String?
+    ) {
+        self.id = id
+        self.recordState = recordState
+        self.assetId = assetId
+        self.amount = amount
+        self.date = date
+        self.sourceRawValue = sourceRawValue
+        self.externalId = externalId
+        self.counterparty = counterparty
+        self.comment = comment
+    }
 }
 
 struct BridgeAssetAllocationSnapshot: Codable, Equatable, Sendable {
     let id: UUID
+    let recordState: BridgeRecordState
     let assetId: UUID?
     let goalId: UUID?
     let amount: Double
     let createdDate: Date
     let lastModifiedDate: Date
+
+    init(
+        id: UUID,
+        recordState: BridgeRecordState = .active,
+        assetId: UUID?,
+        goalId: UUID?,
+        amount: Double,
+        createdDate: Date,
+        lastModifiedDate: Date
+    ) {
+        self.id = id
+        self.recordState = recordState
+        self.assetId = assetId
+        self.goalId = goalId
+        self.amount = amount
+        self.createdDate = createdDate
+        self.lastModifiedDate = lastModifiedDate
+    }
 }
 
 struct BridgeAllocationHistorySnapshot: Codable, Equatable, Sendable {
     let id: UUID
+    let recordState: BridgeRecordState
     let assetId: UUID?
     let goalId: UUID?
     let amount: Double
     let timestamp: Date
     let createdAt: Date
     let monthLabel: String
+
+    init(
+        id: UUID,
+        recordState: BridgeRecordState = .active,
+        assetId: UUID?,
+        goalId: UUID?,
+        amount: Double,
+        timestamp: Date,
+        createdAt: Date,
+        monthLabel: String
+    ) {
+        self.id = id
+        self.recordState = recordState
+        self.assetId = assetId
+        self.goalId = goalId
+        self.amount = amount
+        self.timestamp = timestamp
+        self.createdAt = createdAt
+        self.monthLabel = monthLabel
+    }
 }
 
 struct BridgeMonthlyPlanSnapshot: Codable, Equatable, Sendable {
     let id: UUID
+    let recordState: BridgeRecordState
     let goalId: UUID
     let monthLabel: String
     let requiredMonthly: Double
@@ -283,10 +528,49 @@ struct BridgeMonthlyPlanSnapshot: Codable, Equatable, Sendable {
     let isSkipped: Bool
     let createdDate: Date
     let lastModifiedDate: Date
+
+    init(
+        id: UUID,
+        recordState: BridgeRecordState = .active,
+        goalId: UUID,
+        monthLabel: String,
+        requiredMonthly: Double,
+        remainingAmount: Double,
+        monthsRemaining: Int,
+        currency: String,
+        statusRawValue: String,
+        stateRawValue: String,
+        executionRecordId: UUID?,
+        flexStateRawValue: String,
+        customAmount: Double?,
+        isProtected: Bool,
+        isSkipped: Bool,
+        createdDate: Date,
+        lastModifiedDate: Date
+    ) {
+        self.id = id
+        self.recordState = recordState
+        self.goalId = goalId
+        self.monthLabel = monthLabel
+        self.requiredMonthly = requiredMonthly
+        self.remainingAmount = remainingAmount
+        self.monthsRemaining = monthsRemaining
+        self.currency = currency
+        self.statusRawValue = statusRawValue
+        self.stateRawValue = stateRawValue
+        self.executionRecordId = executionRecordId
+        self.flexStateRawValue = flexStateRawValue
+        self.customAmount = customAmount
+        self.isProtected = isProtected
+        self.isSkipped = isSkipped
+        self.createdDate = createdDate
+        self.lastModifiedDate = lastModifiedDate
+    }
 }
 
 struct BridgeMonthlyExecutionRecordSnapshot: Codable, Equatable, Sendable {
     let id: UUID
+    let recordState: BridgeRecordState
     let monthLabel: String
     let statusRawValue: String
     let createdAt: Date
@@ -298,28 +582,97 @@ struct BridgeMonthlyExecutionRecordSnapshot: Codable, Equatable, Sendable {
     let completedExecutionId: UUID?
     let planIds: [UUID]
     let completionEventIds: [UUID]
+
+    init(
+        id: UUID,
+        recordState: BridgeRecordState = .active,
+        monthLabel: String,
+        statusRawValue: String,
+        createdAt: Date,
+        startedAt: Date?,
+        completedAt: Date?,
+        canUndoUntil: Date?,
+        goalIds: [UUID],
+        snapshotId: UUID?,
+        completedExecutionId: UUID?,
+        planIds: [UUID],
+        completionEventIds: [UUID]
+    ) {
+        self.id = id
+        self.recordState = recordState
+        self.monthLabel = monthLabel
+        self.statusRawValue = statusRawValue
+        self.createdAt = createdAt
+        self.startedAt = startedAt
+        self.completedAt = completedAt
+        self.canUndoUntil = canUndoUntil
+        self.goalIds = goalIds
+        self.snapshotId = snapshotId
+        self.completedExecutionId = completedExecutionId
+        self.planIds = planIds
+        self.completionEventIds = completionEventIds
+    }
 }
 
 struct BridgeCompletedExecutionSnapshot: Codable, Equatable, Sendable {
     let id: UUID
+    let recordState: BridgeRecordState
     let executionRecordId: UUID
     let monthLabel: String
     let completedAt: Date
     let exchangeRatesSnapshot: [String: Double]
     let goalSnapshots: [ExecutionGoalSnapshot]
     let contributionSnapshots: [CompletedExecutionContributionSnapshot]
+
+    init(
+        id: UUID,
+        recordState: BridgeRecordState = .active,
+        executionRecordId: UUID,
+        monthLabel: String,
+        completedAt: Date,
+        exchangeRatesSnapshot: [String: Double],
+        goalSnapshots: [ExecutionGoalSnapshot],
+        contributionSnapshots: [CompletedExecutionContributionSnapshot]
+    ) {
+        self.id = id
+        self.recordState = recordState
+        self.executionRecordId = executionRecordId
+        self.monthLabel = monthLabel
+        self.completedAt = completedAt
+        self.exchangeRatesSnapshot = exchangeRatesSnapshot
+        self.goalSnapshots = goalSnapshots
+        self.contributionSnapshots = contributionSnapshots
+    }
 }
 
 struct BridgeExecutionSnapshotPayload: Codable, Equatable, Sendable {
     let id: UUID
+    let recordState: BridgeRecordState
     let executionRecordId: UUID
     let capturedAt: Date
     let totalPlanned: Double
     let goalSnapshots: [ExecutionGoalSnapshot]
+
+    init(
+        id: UUID,
+        recordState: BridgeRecordState = .active,
+        executionRecordId: UUID,
+        capturedAt: Date,
+        totalPlanned: Double,
+        goalSnapshots: [ExecutionGoalSnapshot]
+    ) {
+        self.id = id
+        self.recordState = recordState
+        self.executionRecordId = executionRecordId
+        self.capturedAt = capturedAt
+        self.totalPlanned = totalPlanned
+        self.goalSnapshots = goalSnapshots
+    }
 }
 
 struct BridgeCompletionEventSnapshot: Codable, Equatable, Sendable {
     let eventId: UUID
+    let recordState: BridgeRecordState
     let executionRecordId: UUID
     let completionSnapshotId: UUID
     let monthLabel: String
@@ -329,6 +682,32 @@ struct BridgeCompletionEventSnapshot: Codable, Equatable, Sendable {
     let undoneAt: Date?
     let undoReason: String?
     let createdAt: Date
+
+    init(
+        eventId: UUID,
+        recordState: BridgeRecordState = .active,
+        executionRecordId: UUID,
+        completionSnapshotId: UUID,
+        monthLabel: String,
+        sequence: Int,
+        sourceDiscriminator: String,
+        completedAt: Date,
+        undoneAt: Date?,
+        undoReason: String?,
+        createdAt: Date
+    ) {
+        self.eventId = eventId
+        self.recordState = recordState
+        self.executionRecordId = executionRecordId
+        self.completionSnapshotId = completionSnapshotId
+        self.monthLabel = monthLabel
+        self.sequence = sequence
+        self.sourceDiscriminator = sourceDiscriminator
+        self.completedAt = completedAt
+        self.undoneAt = undoneAt
+        self.undoReason = undoReason
+        self.createdAt = createdAt
+    }
 }
 
 struct SnapshotManifest: Codable, Equatable, Sendable {
@@ -340,6 +719,9 @@ struct SnapshotManifest: Codable, Equatable, Sendable {
     let entityCounts: [BridgeEntityCount]
     let baseDatasetFingerprint: String
 }
+
+private let bridgeFingerprintNeutralSnapshotID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+private let bridgeFingerprintNeutralExportedAt = Date(timeIntervalSince1970: 0)
 
 struct SnapshotEnvelope: Codable, Equatable, Sendable {
     let manifest: SnapshotManifest
@@ -411,11 +793,7 @@ struct SnapshotEnvelope: Codable, Equatable, Sendable {
     }
 
     func canonicalEncodingData(forFingerprinting: Bool = false) throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        encoder.dateEncodingStrategy = .millisecondsSince1970
-        let payload = forFingerprinting ? envelopeForFingerprinting() : self
-        return try encoder.encode(payload)
+        bridgeAppendixCanonicalData(forFingerprinting: forFingerprinting)
     }
 
     func computedDatasetFingerprint() throws -> String {
@@ -440,19 +818,151 @@ struct SnapshotEnvelope: Codable, Equatable, Sendable {
         )
     }
 
-    private func envelopeForFingerprinting() -> SnapshotEnvelope {
+    func normalizedForCanonicalEncoding() -> SnapshotEnvelope {
         SnapshotEnvelope(
-            manifest: manifest.withBaseDatasetFingerprint(""),
-            goals: goals,
-            assets: assets,
-            transactions: transactions,
-            assetAllocations: assetAllocations,
-            allocationHistories: allocationHistories,
-            monthlyPlans: monthlyPlans,
-            monthlyExecutionRecords: monthlyExecutionRecords,
-            completedExecutions: completedExecutions,
-            executionSnapshots: executionSnapshots,
-            completionEvents: completionEvents
+            manifest: manifest,
+            goals: goals.sorted { $0.id.uuidString < $1.id.uuidString },
+            assets: assets.sorted {
+                if $0.currency.uppercased() != $1.currency.uppercased() {
+                    return $0.currency.uppercased() < $1.currency.uppercased()
+                }
+                if ($0.chainId ?? "").lowercased() != ($1.chainId ?? "").lowercased() {
+                    return ($0.chainId ?? "").lowercased() < ($1.chainId ?? "").lowercased()
+                }
+                if ($0.address ?? "").lowercased() != ($1.address ?? "").lowercased() {
+                    return ($0.address ?? "").lowercased() < ($1.address ?? "").lowercased()
+                }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            transactions: transactions.sorted {
+                let lhsAsset = $0.assetId?.uuidString ?? ""
+                let rhsAsset = $1.assetId?.uuidString ?? ""
+                if lhsAsset != rhsAsset { return lhsAsset < rhsAsset }
+                if $0.date != $1.date { return $0.date < $1.date }
+                if $0.amount != $1.amount { return $0.amount < $1.amount }
+                if $0.sourceRawValue != $1.sourceRawValue { return $0.sourceRawValue < $1.sourceRawValue }
+                if ($0.externalId ?? "") != ($1.externalId ?? "") { return ($0.externalId ?? "") < ($1.externalId ?? "") }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            assetAllocations: assetAllocations.sorted {
+                let lhsGoal = $0.goalId?.uuidString ?? ""
+                let rhsGoal = $1.goalId?.uuidString ?? ""
+                if lhsGoal != rhsGoal { return lhsGoal < rhsGoal }
+                let lhsAsset = $0.assetId?.uuidString ?? ""
+                let rhsAsset = $1.assetId?.uuidString ?? ""
+                if lhsAsset != rhsAsset { return lhsAsset < rhsAsset }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            allocationHistories: allocationHistories.sorted {
+                if $0.timestamp != $1.timestamp { return $0.timestamp < $1.timestamp }
+                let lhsAsset = $0.assetId?.uuidString ?? ""
+                let rhsAsset = $1.assetId?.uuidString ?? ""
+                if lhsAsset != rhsAsset { return lhsAsset < rhsAsset }
+                let lhsGoal = $0.goalId?.uuidString ?? ""
+                let rhsGoal = $1.goalId?.uuidString ?? ""
+                if lhsGoal != rhsGoal { return lhsGoal < rhsGoal }
+                if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            monthlyPlans: monthlyPlans.sorted {
+                if $0.monthLabel != $1.monthLabel { return $0.monthLabel < $1.monthLabel }
+                let lhsGoal = $0.goalId.uuidString
+                let rhsGoal = $1.goalId.uuidString
+                if lhsGoal != rhsGoal { return lhsGoal < rhsGoal }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            monthlyExecutionRecords: monthlyExecutionRecords.sorted {
+                if $0.monthLabel != $1.monthLabel { return $0.monthLabel < $1.monthLabel }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            completedExecutions: completedExecutions.sorted {
+                if $0.monthLabel != $1.monthLabel { return $0.monthLabel < $1.monthLabel }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            executionSnapshots: executionSnapshots.sorted {
+                if $0.capturedAt != $1.capturedAt { return $0.capturedAt < $1.capturedAt }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            completionEvents: completionEvents.sorted {
+                if $0.monthLabel != $1.monthLabel { return $0.monthLabel < $1.monthLabel }
+                if $0.sequence != $1.sequence { return $0.sequence < $1.sequence }
+                return $0.eventId.uuidString < $1.eventId.uuidString
+            }
+        )
+    }
+
+    func normalizedForFingerprinting() -> SnapshotEnvelope {
+        SnapshotEnvelope(
+            manifest: manifest
+                .normalizedForDatasetFingerprinting()
+                .withBaseDatasetFingerprint(""),
+            goals: goals.sorted { $0.id.uuidString < $1.id.uuidString },
+            assets: assets.sorted {
+                if $0.currency.uppercased() != $1.currency.uppercased() {
+                    return $0.currency.uppercased() < $1.currency.uppercased()
+                }
+                if ($0.chainId ?? "").lowercased() != ($1.chainId ?? "").lowercased() {
+                    return ($0.chainId ?? "").lowercased() < ($1.chainId ?? "").lowercased()
+                }
+                if ($0.address ?? "").lowercased() != ($1.address ?? "").lowercased() {
+                    return ($0.address ?? "").lowercased() < ($1.address ?? "").lowercased()
+                }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            transactions: transactions.sorted {
+                let lhsAsset = $0.assetId?.uuidString ?? ""
+                let rhsAsset = $1.assetId?.uuidString ?? ""
+                if lhsAsset != rhsAsset { return lhsAsset < rhsAsset }
+                if $0.date != $1.date { return $0.date < $1.date }
+                if $0.amount != $1.amount { return $0.amount < $1.amount }
+                if $0.sourceRawValue != $1.sourceRawValue { return $0.sourceRawValue < $1.sourceRawValue }
+                if ($0.externalId ?? "") != ($1.externalId ?? "") { return ($0.externalId ?? "") < ($1.externalId ?? "") }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            assetAllocations: assetAllocations.sorted {
+                let lhsGoal = $0.goalId?.uuidString ?? ""
+                let rhsGoal = $1.goalId?.uuidString ?? ""
+                if lhsGoal != rhsGoal { return lhsGoal < rhsGoal }
+                let lhsAsset = $0.assetId?.uuidString ?? ""
+                let rhsAsset = $1.assetId?.uuidString ?? ""
+                if lhsAsset != rhsAsset { return lhsAsset < rhsAsset }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            allocationHistories: allocationHistories.sorted {
+                if $0.timestamp != $1.timestamp { return $0.timestamp < $1.timestamp }
+                let lhsAsset = $0.assetId?.uuidString ?? ""
+                let rhsAsset = $1.assetId?.uuidString ?? ""
+                if lhsAsset != rhsAsset { return lhsAsset < rhsAsset }
+                let lhsGoal = $0.goalId?.uuidString ?? ""
+                let rhsGoal = $1.goalId?.uuidString ?? ""
+                if lhsGoal != rhsGoal { return lhsGoal < rhsGoal }
+                if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            monthlyPlans: monthlyPlans.sorted {
+                if $0.monthLabel != $1.monthLabel { return $0.monthLabel < $1.monthLabel }
+                let lhsGoal = $0.goalId.uuidString
+                let rhsGoal = $1.goalId.uuidString
+                if lhsGoal != rhsGoal { return lhsGoal < rhsGoal }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            monthlyExecutionRecords: monthlyExecutionRecords.sorted {
+                if $0.monthLabel != $1.monthLabel { return $0.monthLabel < $1.monthLabel }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            completedExecutions: completedExecutions.sorted {
+                if $0.monthLabel != $1.monthLabel { return $0.monthLabel < $1.monthLabel }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            executionSnapshots: executionSnapshots.sorted {
+                if $0.capturedAt != $1.capturedAt { return $0.capturedAt < $1.capturedAt }
+                return $0.id.uuidString < $1.id.uuidString
+            },
+            completionEvents: completionEvents.sorted {
+                if $0.monthLabel != $1.monthLabel { return $0.monthLabel < $1.monthLabel }
+                if $0.sequence != $1.sequence { return $0.sequence < $1.sequence }
+                return $0.eventId.uuidString < $1.eventId.uuidString
+            }
         )
     }
 }
@@ -512,30 +1022,19 @@ struct SignedImportPackage: Codable, Equatable, Sendable {
     }
 
     func canonicalEncodingData() throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        encoder.dateEncodingStrategy = .millisecondsSince1970
-        return try encoder.encode(self)
+        bridgeAppendixCanonicalData(includePackageID: true, signatureValue: .string(signature))
     }
 
     func signingPayloadData() throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        encoder.dateEncodingStrategy = .millisecondsSince1970
-        let unsigned = SignedImportPackage(
-            packageID: packageID,
-            snapshotID: snapshotID,
-            canonicalEncodingVersion: canonicalEncodingVersion,
-            baseDatasetFingerprint: baseDatasetFingerprint,
-            editedDatasetFingerprint: editedDatasetFingerprint,
-            snapshotEnvelope: snapshotEnvelope,
-            signingKeyID: signingKeyID,
-            signingAlgorithm: signingAlgorithm,
-            signerPublicKeyRepresentation: signerPublicKeyRepresentation,
-            signedAt: signedAt,
-            signature: ""
-        )
-        return try encoder.encode(unsigned)
+        bridgeAppendixCanonicalData(includePackageID: true, signatureValue: .null)
+    }
+
+    func canonicalPackageBodyData() throws -> Data {
+        bridgeAppendixCanonicalData(includePackageID: false, signatureValue: nil)
+    }
+
+    func computedPackageID() throws -> String {
+        BudgetSnapshotIdentity.sha256(String(decoding: try canonicalPackageBodyData(), as: UTF8.self))
     }
 
     var signerFingerprint: String {
@@ -543,6 +1042,16 @@ struct SignedImportPackage: Codable, Equatable, Sendable {
             return ""
         }
         return LocalBridgeIdentityStore.fingerprint(publicKeyData: publicKeyData)
+    }
+}
+
+struct LocalBridgeTransientWorkspaceArtifact: Equatable, Sendable {
+    let workspaceID: UUID
+    let createdAt: Date
+    let fileURL: URL
+
+    var displayName: String {
+        fileURL.lastPathComponent
     }
 }
 
@@ -638,6 +1147,19 @@ struct LocalBridgeSyncStatusSnapshot: Equatable, Sendable {
             )
         }
 
+        if pendingAction == .updateRequired || sessionState.compatibilityState == .updateRequired {
+            return Self(
+                availabilityState: .updateRequired,
+                pendingAction: .updateRequired,
+                lastSyncOutcome: lastSyncOutcome,
+                trustedDevices: trustedDevices,
+                importReviewStatus: importReviewStatus,
+                capabilityManifest: capabilityManifest,
+                sessionState: sessionState,
+                detail: "Bridge compatibility must be updated on one or both devices before the next session."
+            )
+        }
+
         if pendingAction == .reviewImport || importReviewStatus.requiresOperatorReview {
             return Self(
                 availabilityState: .reviewRequired,
@@ -651,6 +1173,19 @@ struct LocalBridgeSyncStatusSnapshot: Equatable, Sendable {
             )
         }
 
+        if pendingAction == .trustRevoked {
+            return Self(
+                availabilityState: .pairingRequired,
+                pendingAction: .trustRevoked,
+                lastSyncOutcome: lastSyncOutcome,
+                trustedDevices: trustedDevices,
+                importReviewStatus: importReviewStatus,
+                capabilityManifest: capabilityManifest,
+                sessionState: sessionState,
+                detail: "Trust was revoked for the last bridge peer. Re-pair before any later snapshot exchange."
+            )
+        }
+
         if trustedDevices.isEmpty {
             return Self(
                 availabilityState: .pairingRequired,
@@ -661,19 +1196,6 @@ struct LocalBridgeSyncStatusSnapshot: Equatable, Sendable {
                 capabilityManifest: capabilityManifest,
                 sessionState: sessionState,
                 detail: "Pair a trusted Mac before you can exchange bridge snapshots."
-            )
-        }
-
-        if pendingAction == .updateRequired || sessionState.compatibilityState == .updateRequired {
-            return Self(
-                availabilityState: .updateRequired,
-                pendingAction: .updateRequired,
-                lastSyncOutcome: lastSyncOutcome,
-                trustedDevices: trustedDevices,
-                importReviewStatus: importReviewStatus,
-                capabilityManifest: capabilityManifest,
-                sessionState: sessionState,
-                detail: "Bridge compatibility must be updated on one or both devices before the next session."
             )
         }
 
@@ -700,6 +1222,18 @@ extension SnapshotManifest {
             appModelSchemaVersion: appModelSchemaVersion,
             entityCounts: entityCounts,
             baseDatasetFingerprint: fingerprint
+        )
+    }
+
+    func normalizedForDatasetFingerprinting() -> SnapshotManifest {
+        SnapshotManifest(
+            snapshotID: bridgeFingerprintNeutralSnapshotID,
+            canonicalEncodingVersion: canonicalEncodingVersion,
+            snapshotSchemaVersion: snapshotSchemaVersion,
+            exportedAt: bridgeFingerprintNeutralExportedAt,
+            appModelSchemaVersion: appModelSchemaVersion,
+            entityCounts: entityCounts,
+            baseDatasetFingerprint: baseDatasetFingerprint
         )
     }
 }

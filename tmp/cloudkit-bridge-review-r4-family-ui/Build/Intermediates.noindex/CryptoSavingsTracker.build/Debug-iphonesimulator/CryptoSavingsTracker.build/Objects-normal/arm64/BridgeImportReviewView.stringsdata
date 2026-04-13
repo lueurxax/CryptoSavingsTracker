@@ -1,0 +1,264 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Settings/BridgeImportReviewView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Import Review",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 198
+        }
+      },
+      {
+        "comment": "",
+        "key": "Review Summary",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 11
+        }
+      },
+      {
+        "comment": "",
+        "key": "Signed Package",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 130
+        }
+      },
+      {
+        "comment": "",
+        "key": "Signed Package",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 24
+        }
+      },
+      {
+        "comment": "",
+        "key": "Validation & Drift",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 85
+        }
+      },
+      {
+        "comment": "",
+        "key": "Entity Deltas",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 116
+        }
+      },
+      {
+        "comment": "",
+        "key": "Operator Actions",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 137
+        }
+      },
+      {
+        "comment": "",
+        "key": "Concrete Diffs",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 165
+        }
+      },
+      {
+        "comment": "",
+        "key": "Phase 2A Scope",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 192
+        }
+      },
+      {
+        "comment": "",
+        "key": "Operator Decision",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 16
+        }
+      },
+      {
+        "comment": "",
+        "key": "Package ID",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 25
+        }
+      },
+      {
+        "comment": "",
+        "key": "Source Device",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 33
+        }
+      },
+      {
+        "comment": "",
+        "key": "Source Fingerprint",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 38
+        }
+      },
+      {
+        "comment": "",
+        "key": "Canonical Encoding",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 46
+        }
+      },
+      {
+        "comment": "",
+        "key": "Produced At",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 51
+        }
+      },
+      {
+        "comment": "",
+        "key": "Expires At",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 56
+        }
+      },
+      {
+        "comment": "",
+        "key": "Payload Size",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 61
+        }
+      },
+      {
+        "comment": "",
+        "key": "Digest Prefix",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 66
+        }
+      },
+      {
+        "comment": "",
+        "key": "Signature",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 72
+        }
+      },
+      {
+        "comment": "",
+        "key": "Trust",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 78
+        }
+      },
+      {
+        "comment": "",
+        "key": "Validation",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 86
+        }
+      },
+      {
+        "comment": "",
+        "key": "Drift",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 92
+        }
+      },
+      {
+        "comment": "",
+        "key": "• %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 100
+        }
+      },
+      {
+        "comment": "",
+        "key": "• %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 108
+        }
+      },
+      {
+        "comment": "",
+        "key": "Incoming: %lld • Existing: %lld • Changed: %lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 121
+        }
+      },
+      {
+        "comment": "",
+        "key": "No signed package is currently loaded for review.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 131
+        }
+      },
+      {
+        "comment": "",
+        "key": "Approve & Apply to CloudKit",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 138
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reject",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 144
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset to Pending",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 150
+        }
+      },
+      {
+        "comment": "",
+        "key": "Before: %@",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 177
+        }
+      },
+      {
+        "comment": "",
+        "key": "After: %@",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 182
+        }
+      },
+      {
+        "comment": "",
+        "key": "This operator surface validates a signed package artifact loaded from local file transport and applies it into the CloudKit-backed runtime only after explicit approval.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 193
+        }
+      }
+    ]
+  },
+  "version": 1
+}

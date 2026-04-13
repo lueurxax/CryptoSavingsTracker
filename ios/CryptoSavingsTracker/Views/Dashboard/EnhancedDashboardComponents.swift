@@ -62,7 +62,7 @@ struct EnhancedStatCard: View {
                 // Icon with colored background
                 ZStack {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(color.opacity(0.15))
+                        .fill(AccessibleColors.surfaceBase)
                         .frame(width: 36, height: 36)
                     
                     Image(systemName: icon)
@@ -81,8 +81,9 @@ struct EnhancedStatCard: View {
                 Text(value)
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundColor(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.75)
+                    .fixedSize(horizontal: false, vertical: true)
                 
                 Text(title)
                     .font(.caption)
@@ -106,7 +107,7 @@ struct EnhancedStatCard: View {
             RoundedRectangle(cornerRadius: 14)
                 .fill(
                     LinearGradient(
-                        colors: [Color.gray.opacity(0.04), Color.gray.opacity(0.06)],
+                        colors: [AccessibleColors.surfaceSubtle, AccessibleColors.surfaceBase],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -114,9 +115,20 @@ struct EnhancedStatCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .stroke(color.opacity(0.15), lineWidth: 1)
+                .stroke(VisualComponentTokens.dashboardCardStroke, lineWidth: 1)
         )
-        .shadow(color: color.opacity(0.08), radius: 6, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 2)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            DashboardAccessibilityCopy.metricSummary(
+                title: title,
+                value: value,
+                subtitle: tooltip == nil ? "Dashboard insight" : "Dashboard insight with help",
+                trend: trend?.text,
+                urgency: false
+            )
+        )
+        .accessibilityHint(DashboardAccessibilityCopy.metricHint(isUrgent: false))
     }
 }
 
@@ -137,7 +149,7 @@ struct InsightsView: View {
         let actionText: String?
         let action: (() -> Void)?
         
-        enum InsightType {
+        enum InsightType: String, CaseIterable {
             case success
             case warning
             case info
@@ -193,6 +205,7 @@ struct InsightsView: View {
         .padding()
         .background(.regularMaterial)
         .cornerRadius(12)
+        .accessibilityIdentifier("dashboard.insights")
     }
     
     private func generateInsights() -> [Insight] {
@@ -335,6 +348,7 @@ private struct InsightCard: View {
                             .fontWeight(.medium)
                             .foregroundColor(insight.type.color)
                     }
+                    .accessibilityHint("Activates this insight's suggested action.")
                 }
             }
             
@@ -344,8 +358,21 @@ private struct InsightCard: View {
         .padding(.horizontal, 12)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(insight.type.color.opacity(0.1))
+                .fill(backgroundColor(for: insight.type))
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(insight.type.rawValue) insight: \(insight.message)")
+    }
+
+    private func backgroundColor(for type: InsightsView.Insight.InsightType) -> Color {
+        switch type {
+        case .success:
+            return AccessibleColors.successBackground
+        case .warning, .tip:
+            return AccessibleColors.warningBackground
+        case .info:
+            return AccessibleColors.surfaceBase
+        }
     }
 }
 

@@ -94,7 +94,7 @@ enum FamilyShareSurfaceState: String, CaseIterable, Identifiable, Codable, Senda
     var supportingCopy: String {
         switch self {
         case .invitePendingAcceptance:
-            return "Waiting for the participant to accept the CloudKit invitation."
+            return "Waiting for your family invitation to be accepted."
         case .emptySharedDataset:
             return "The share is active, but there are no visible goals yet."
         case .active:
@@ -102,7 +102,7 @@ enum FamilyShareSurfaceState: String, CaseIterable, Identifiable, Codable, Senda
         case .stale:
             return "The shared cache may not reflect the latest owner changes."
         case .temporarilyUnavailable:
-            return "CloudKit or the local cache cannot be trusted right now."
+            return "Shared goals aren't available right now."
         case .revoked:
             return "The owner removed access to the shared dataset."
         case .removedOrNoLongerShared:
@@ -254,7 +254,7 @@ enum FamilyShareOwnerIdentityResolver {
         case .stale:
             return "Shared goals may be out of date. Retry to refresh this goal set."
         case .temporarilyUnavailable:
-            return "Shared goals are temporarily unavailable. Try again in a moment."
+            return "Shared goals aren't available right now."
         case .revoked:
             return "Access to this shared goal set was revoked. Ask the owner to share it again."
         case .removedOrNoLongerShared:
@@ -274,13 +274,13 @@ enum FamilyShareOwnerIdentityResolver {
         case .active:
             return nil
         case .invitePendingAcceptance:
-            return "Waiting for the participant to accept the CloudKit invitation."
+            return "Waiting for your family invitation to be accepted."
         case .emptySharedDataset:
             return "The share is active, but there are no visible goals yet."
         case .stale:
             return "The shared cache may not reflect the latest owner changes."
         case .temporarilyUnavailable:
-            return "CloudKit or the local cache cannot be trusted right now."
+            return "Shared goals aren't available right now."
         case .revoked:
             return "The owner removed access to the shared dataset."
         case .removedOrNoLongerShared:

@@ -1,0 +1,72 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/FamilySharing/FamilyShareFreshnessCardView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Freshness",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 22
+        }
+      },
+      {
+        "comment": "",
+        "key": "Why is this stale?",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 53
+        }
+      },
+      {
+        "comment": "",
+        "key": "Rates as of — (same as shared update)",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 101
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@, %@",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 120
+        }
+      },
+      {
+        "comment": "",
+        "key": "Collapse exact timestamp",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 121
+        }
+      },
+      {
+        "comment": "",
+        "key": "Expand exact timestamp",
+        "location": {
+          "startingColumn": 96,
+          "startingLine": 121
+        }
+      },
+      {
+        "comment": "",
+        "key": "Expanded",
+        "location": {
+          "startingColumn": 68,
+          "startingLine": 122
+        }
+      },
+      {
+        "comment": "",
+        "key": "Collapsed",
+        "location": {
+          "startingColumn": 81,
+          "startingLine": 122
+        }
+      }
+    ]
+  },
+  "version": 1
+}

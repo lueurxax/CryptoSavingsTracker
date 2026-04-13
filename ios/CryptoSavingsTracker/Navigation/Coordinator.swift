@@ -319,9 +319,9 @@ struct NavigationCoordinatorModifier: ViewModifier {
         case .dashboard:
             DashboardView()
         case .goalsList:
-            GoalsListView()
+            ContentView()
         case .goalDetail(let goal):
-            GoalDetailView(goal: goal)
+            DetailContainerView(goal: goal, selectedView: .constant(.details))
         case .assetDetail(let asset):
             AssetDetailView(asset: asset)
         case .transactionHistory(let asset):

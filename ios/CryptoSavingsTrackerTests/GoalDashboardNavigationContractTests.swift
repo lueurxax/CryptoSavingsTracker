@@ -41,6 +41,34 @@ struct GoalDashboardNavigationContractTests {
         #expect(dashboardAdapter.contains("GoalDashboardScreen(goal: goal)"))
     }
 
+    @Test("iOS goals list route resolves to active shell and not legacy view constructor")
+    func goalsListRouteUsesActiveContentShell() throws {
+        let root = repositoryRoot()
+        let coordinator = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Navigation/Coordinator.swift"
+        )
+
+        #expect(coordinator.contains("case .goalsList:"))
+        #expect(coordinator.contains("ContentView()"))
+        #expect(!coordinator.contains("GoalsListView()"))
+    }
+
+    @Test("iOS goal detail route stays on active DetailContainer shell")
+    func goalDetailRouteUsesDetailContainerShell() throws {
+        let root = repositoryRoot()
+        let coordinator = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Navigation/Coordinator.swift"
+        )
+
+        #expect(coordinator.contains("case .goalDetail(let goal):"))
+        #expect(
+            coordinator.contains("DetailContainerView(goal: goal, selectedView: .constant(.details))")
+        )
+        #expect(!coordinator.contains("GoalDetailView("))
+    }
+
     private func repositoryRoot() -> URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-03-04 |
+| Last Updated | 2026-03-22 |
 | Platform | Shared |
 | Audience | All |
 
@@ -50,7 +50,8 @@
 | [GOAL_DASHBOARD.md](GOAL_DASHBOARD.md) | Goal dashboard architecture: scene model, next-action resolver, module contract | Developers |
 | [NAVIGATION_PRESENTATION_CONSISTENCY.md](NAVIGATION_PRESENTATION_CONSISTENCY.md) | Navigation architecture, modal policy (MOD-01...MOD-05), CI enforcement | Developers |
 | [VISUAL_SYSTEM_UNIFICATION.md](VISUAL_SYSTEM_UNIFICATION.md) | Visual token contract, surface/elevation policy, CI gates, release certification | Developers |
-| [FAMILY_SHARING.md](FAMILY_SHARING.md) | Read-only family sharing: CloudKit architecture, invitee surface, permission model, projection publish, reputation redesign | Developers |
+| [FAMILY_SHARING.md](FAMILY_SHARING.md) | Read-only family sharing: CloudKit architecture, invitee surface, permission model, projection publish, and operational model | Developers |
+| [FAMILY_SHARING_FRESHNESS_SYNC.md](FAMILY_SHARING_FRESHNESS_SYNC.md) | Shipped freshness-sync runtime contract: auto-republish, invitee refresh, canonical freshness copy, data fields, tests, and release gates | Developers, QA, Release Managers |
 | [USER_GUIDES.md](USER_GUIDES.md) | Testing guide, migration guide, troubleshooting | Developers, QA |
 
 ### Shared Reference Documentation

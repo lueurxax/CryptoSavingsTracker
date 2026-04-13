@@ -535,6 +535,17 @@ final class OnboardingMutationService: OnboardingMutationServiceProtocol {
     }
 
     func createGoalFromTemplate(_ template: GoalTemplate, userProfile: UserProfile) async throws {
+        if await MainActor.run(body: { UITestFlags.consumeSimulatedGoalSaveFailureIfNeeded() }) {
+            throw PersistenceMutationError.saveFailed(
+                "Unable to create onboarding goal",
+                underlying: NSError(
+                    domain: "UITestFlags",
+                    code: 599,
+                    userInfo: [NSLocalizedDescriptionKey: "Simulated onboarding save failure"]
+                )
+            )
+        }
+
         let goalData = template.createGoal()
         let goal = Goal(
             name: goalData.name,

@@ -190,7 +190,9 @@ private struct MonthlyPlanningContainerContent: View {
     }
 
     private var planningViewWithStartButton: some View {
-        PlanningView(viewModel: planningViewModel)
+        PlanningView(viewModel: planningViewModel, onAddGoal: {
+            showingAddGoal = true
+        })
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onPreferenceChange(DockPhasePreferenceKey.self) { newPhase in
                 dockPhase = newPhase
@@ -367,9 +369,9 @@ private struct MonthlyPlanningContainerContent: View {
     private func iconColor(for state: UiCycleState) -> Color {
         switch state {
         case .planning:
-            return .secondary
+            return AccessibleColors.secondaryText
         case .executing:
-            return .blue
+            return AccessibleColors.primaryInteractive
         case .closed:
             return AccessibleColors.success
         case .conflict:
@@ -380,9 +382,9 @@ private struct MonthlyPlanningContainerContent: View {
     private func backgroundColor(for state: UiCycleState) -> Color {
         switch state {
         case .planning:
-            return Color.gray.opacity(0.05)
+            return AccessibleColors.surfaceSubtle
         case .executing:
-            return Color.blue.opacity(0.1)
+            return AccessibleColors.primaryInteractiveBackground
         case .closed:
             return AccessibleColors.success.opacity(0.08)
         case .conflict:
@@ -454,7 +456,10 @@ private struct MonthlyPlanningContainerContent: View {
                 executionCoordinator.isExecuting = false
             }
         } catch {
-            print("Error loading execution record: \(error)")
+            AppLog.error(
+                "Failed to load execution record: \(error.localizedDescription)",
+                category: .monthlyPlanning
+            )
             isExecuting = false
             executionCoordinator.isExecuting = false
         }
@@ -529,7 +534,10 @@ private struct MonthlyPlanningContainerContent: View {
             AppLog.info("startTracking: Successfully started tracking for \(monthLabel)", category: .executionTracking)
 
         } catch {
-            AppLog.error("Failed to start tracking: \(error)", category: .executionTracking)
+            AppLog.error(
+                "Failed to start tracking: \(error.localizedDescription)",
+                category: .executionTracking
+            )
             showActionError(error.localizedDescription)
         }
     }
@@ -566,7 +574,10 @@ private struct MonthlyPlanningContainerContent: View {
             await loadExecutionRecord()
             await planningViewModel.loadMonthlyRequirements()
         } catch {
-            AppLog.error("Failed to return to planning: \(error)", category: .executionTracking)
+            AppLog.error(
+                "Failed to return to planning: \(error.localizedDescription)",
+                category: .executionTracking
+            )
             if let executionError = error as? ExecutionTrackingService.ExecutionError,
                case .undoPeriodExpired = executionError {
                 showActionError(MonthlyCycleCopyCatalog.undoStartExpired(month: formatMonthLabel(record.monthLabel)))
@@ -634,7 +645,10 @@ private struct MonthlyPlanningContainerContent: View {
             await loadExecutionRecord()
             await planningViewModel.loadMonthlyRequirements()
         } catch {
-            AppLog.error("Failed to undo completion: \(error)", category: .executionTracking)
+            AppLog.error(
+                "Failed to undo completion: \(error.localizedDescription)",
+                category: .executionTracking
+            )
             if let executionError = error as? ExecutionTrackingService.ExecutionError,
                case .undoPeriodExpired = executionError {
                 showActionError(MonthlyCycleCopyCatalog.undoCompletionExpired(month: formatMonthLabel(record.monthLabel)))

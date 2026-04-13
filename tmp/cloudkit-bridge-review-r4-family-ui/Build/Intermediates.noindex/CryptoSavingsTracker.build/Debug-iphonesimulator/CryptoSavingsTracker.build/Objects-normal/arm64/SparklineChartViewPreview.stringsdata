@@ -1,0 +1,48 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Charts/SparklineChartViewPreview.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Balance History",
+        "location": {
+          "startingColumn": 1,
+          "startingLine": 13
+        }
+      },
+      {
+        "comment": "",
+        "key": "+$234.56 (12.3%)",
+        "location": {
+          "startingColumn": 1,
+          "startingLine": 13
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal 1",
+        "location": {
+          "startingColumn": 1,
+          "startingLine": 13
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal 2",
+        "location": {
+          "startingColumn": 1,
+          "startingLine": 13
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal 3",
+        "location": {
+          "startingColumn": 1,
+          "startingLine": 13
+        }
+      }
+    ]
+  },
+  "version": 1
+}

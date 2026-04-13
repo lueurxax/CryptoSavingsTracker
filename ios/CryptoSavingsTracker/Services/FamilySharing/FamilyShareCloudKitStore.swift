@@ -19,13 +19,13 @@ enum FamilyShareCloudKitError: LocalizedError {
         case .rolloutDisabled:
             return "Family sharing is currently disabled."
         case .rootRecordMissing:
-            return "The shared projection root record could not be found."
+            return "This shared goal set is temporarily unavailable. Open Family Access to refresh."
         case .sharedProjectionMissing:
-            return "Shared goals are not available yet."
+            return "No shared goals are available yet. Ask an owner to share again if needed."
         case .accountUnavailable:
-            return "iCloud account is unavailable for family sharing."
+            return "Family sync is temporarily unavailable. Check your account settings and retry."
         case .malformedProjection:
-            return "The shared projection is malformed and cannot be rendered safely."
+            return "Unable to show shared goals right now. Pull to refresh and try again."
         }
     }
 }

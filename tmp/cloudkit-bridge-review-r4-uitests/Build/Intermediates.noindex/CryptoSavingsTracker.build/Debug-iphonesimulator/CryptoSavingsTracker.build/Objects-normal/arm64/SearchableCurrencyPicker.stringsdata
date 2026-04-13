@@ -1,0 +1,104 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/SearchableCurrencyPicker.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Couldn't load currencies",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 183
+        }
+      },
+      {
+        "comment": "",
+        "key": "Check your connection and try again.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 186
+        }
+      },
+      {
+        "comment": "",
+        "key": "Retry",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 190
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 201
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 211
+        }
+      },
+      {
+        "comment": "",
+        "key": "Search fiat currencies...",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 225
+        }
+      },
+      {
+        "comment": "",
+        "key": "Search cryptocurrencies...",
+        "location": {
+          "startingColumn": 79,
+          "startingLine": 225
+        }
+      },
+      {
+        "comment": "",
+        "key": "Clear",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 232
+        }
+      },
+      {
+        "comment": "",
+        "key": "Current Selection",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 349
+        }
+      },
+      {
+        "comment": "",
+        "key": "Available Fiat Currencies",
+        "location": {
+          "startingColumn": 47,
+          "startingLine": 368
+        }
+      },
+      {
+        "comment": "",
+        "key": "Available Cryptocurrencies",
+        "location": {
+          "startingColumn": 77,
+          "startingLine": 368
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loading currencies...",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 373
+        }
+      }
+    ]
+  },
+  "version": 1
+}

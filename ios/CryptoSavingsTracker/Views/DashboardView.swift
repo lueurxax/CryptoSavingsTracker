@@ -208,7 +208,7 @@ struct TrendSparklineView: View {
             
             if viewModel.balanceHistory.isEmpty {
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.gray.opacity(0.1))
+                    .fill(Color.accessibleSurfaceSubtle)
                     .frame(height: 40)
                     .overlay(
                         Text("No data yet")
@@ -282,7 +282,7 @@ struct DashboardEmptyState: View {
                     .multilineTextAlignment(.center)
             }
             
-            NavigationLink(destination: GoalsListView()) {
+            NavigationLink(destination: ContentView()) {
                 HStack(spacing: 8) {
                     Image(systemName: "plus.circle.fill")
                     Text("Create First Goal")
@@ -295,6 +295,8 @@ struct DashboardEmptyState: View {
                 .cornerRadius(12)
             }
             .buttonStyle(PlainButtonStyle())
+            .accessibilityLabel("Create First Goal")
+            .accessibilityHint("Navigates to the goal creation screen.")
         }
         .padding(.vertical, 40)
         .frame(maxWidth: .infinity)
@@ -457,8 +459,10 @@ struct DashboardWidgetView: View {
                             }) {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundColor(AccessibleColors.error)
-                                    .background(Color.white, in: Circle())
+                                    .background(Color.accessibleSurface, in: Circle())
                             }
+                            .accessibilityLabel("Remove widget")
+                            .accessibilityHint("Removes this widget from the dashboard.")
                         }
                         Spacer()
                     }
@@ -491,7 +495,7 @@ struct ChartPlaceholderView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.gray.opacity(0.05))
+        .background(Color.accessibleSurfaceSubtle)
         .cornerRadius(12)
     }
 }
@@ -706,7 +710,7 @@ struct StatCard: View {
             HStack {
                 ZStack {
                     Circle()
-                        .fill(color.opacity(0.1))
+                        .fill(AccessibleColors.surfaceBase)
                         .frame(width: 32, height: 32)
                     Image(systemName: icon)
                         .foregroundColor(color)
@@ -729,6 +733,8 @@ struct StatCard: View {
         .padding()
         .background(.regularMaterial)
         .cornerRadius(12)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title): \(value)")
     }
 }
 
@@ -744,7 +750,7 @@ struct DashboardCustomizationView: View {
                     ForEach(DashboardWidgetType.allCases, id: \.self) { type in
                         HStack {
                             Image(systemName: type.icon)
-                                .foregroundColor(.blue)
+                                .foregroundColor(AccessibleColors.primaryInteractive)
                             Text(type.rawValue)
                             Spacer()
                             Button("Add") {
@@ -756,6 +762,7 @@ struct DashboardCustomizationView: View {
                                 widgets.append(newWidget)
                             }
                             .font(.caption)
+                            .accessibilityHint("Adds this widget to the dashboard.")
                         }
                     }
                 }
@@ -777,6 +784,7 @@ struct DashboardCustomizationView: View {
                                 }
                                 .pickerStyle(.segmented)
                                 .frame(maxWidth: 220)
+                                .accessibilityHint("Changes the size of this widget.")
                             }
                             Text("Span: \(widget.size.columns) columns, \(widget.size.rows) rows")
                                 .font(.caption2)

@@ -72,12 +72,25 @@ struct GoalDashboardScreen: View {
                 AddAssetView(goal: goal)
             }
             .sheet(isPresented: $showingAddTransaction) {
-                Group {
-                    if let selectedAsset {
-                        AddTransactionView(asset: selectedAsset)
-                    } else {
-                        EmptyView()
-                    }
+                if let selectedAsset {
+                    AddTransactionView(asset: selectedAsset)
+                } else {
+                    DashboardTransactionRecoverySheet(
+                        goalName: goal.name,
+                        hasAssets: !goalAssets.isEmpty,
+                        primaryActionTitle: goalAssets.isEmpty ? "Add Asset" : "Choose Asset",
+                        onPrimaryAction: {
+                            showingAddTransaction = false
+                            if goalAssets.isEmpty {
+                                showingAddAsset = true
+                            } else {
+                                showingAssetPicker = true
+                            }
+                        },
+                        onDismiss: {
+                            showingAddTransaction = false
+                        }
+                    )
                 }
             }
             .sheet(isPresented: $showingAssetPicker) {
@@ -144,18 +157,28 @@ struct GoalDashboardScreen: View {
                             Text(address)
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
-                                .lineLimit(1)
+                                .lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(DashboardAccessibilityCopy.assetSelectionLabel(currency: asset.currency, address: asset.address))
+                .accessibilityHint(DashboardAccessibilityCopy.assetSelectionHint(currency: asset.currency))
+                .accessibilityIdentifier("dashboard.asset_picker.asset")
             }
             .navigationTitle("Select Asset")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { showingAssetPicker = false }
+                        .accessibilityLabel("Close asset picker")
+                        .accessibilityHint(DashboardAccessibilityCopy.assetPickerDismissHint)
+                        .accessibilityIdentifier("dashboard.asset_picker.dismiss")
                 }
             }
+            .accessibilityIdentifier("dashboard.asset_picker.list")
         }
+        .accessibilityIdentifier("dashboard.asset_picker.sheet")
     }
 
     private func reloadScene() {

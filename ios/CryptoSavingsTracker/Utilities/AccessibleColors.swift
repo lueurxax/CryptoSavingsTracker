@@ -31,6 +31,9 @@ struct AccessibleColors {
     ]
     
     // MARK: - Text Colors
+    /// Primary text color aligned with the system label color for light/dark mode readability.
+    static let primaryText = Color.primary
+
     /// Secondary text color with improved contrast (4.5:1 minimum)
     static let secondaryText = Color(red: 0.40, green: 0.40, blue: 0.40)
     

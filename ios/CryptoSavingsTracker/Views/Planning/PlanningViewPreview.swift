@@ -18,7 +18,8 @@ private struct PlanningPreviewHost: View {
             iOSCompactPlanningView(
                 viewModel: viewModel,
                 staleDrafts: [],
-                goalNamesByID: [:]
+                goalNamesByID: [:],
+                onAddGoal: nil
             )
         }
         .modelContainer(container)
@@ -117,7 +118,8 @@ func makePlanningPresentationPreviewViewModel(container: ModelContainer) -> Mont
         macOSPlanningView(
             viewModel: MonthlyPlanningViewModel(modelContext: modelContext),
             staleDrafts: [],
-            goalNamesByID: [:]
+            goalNamesByID: [:],
+            onAddGoal: nil
         )
     }
     .modelContainer(CryptoSavingsTrackerApp.previewModelContainer)

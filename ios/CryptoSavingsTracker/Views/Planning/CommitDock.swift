@@ -188,8 +188,9 @@ struct CommitDock: View {
 
                 Text("Ready to start \(monthFull)?")
                     .font(.headline)
-                    .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Spacer()
             }

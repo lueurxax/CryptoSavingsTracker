@@ -22,7 +22,7 @@ private enum BudgetHealthTone {
     var color: Color {
         switch self {
         case .neutral:
-            return .secondary
+            return AccessibleColors.secondaryText
         case .success:
             return AccessibleColors.success
         case .info:
@@ -102,9 +102,9 @@ extension BudgetHealthState {
         case .healthy:
             return "All deadlines achievable"
         case .notApplied:
-            return "Budget saved, not applied to this month yet"
+            return "Budget not applied"
         case .needsRecalculation:
-            return "Goals changed, review this plan"
+            return "Needs review"
         case .atRisk(_, let goalsAtRisk):
             return goalsAtRisk == 1 ? "1 goal at risk" : "\(goalsAtRisk) goals at risk"
         case .severeRisk(_, let goalsAtRisk):
@@ -237,9 +237,9 @@ extension BudgetHealthState {
         case .healthy:
             return conversionContext
         case .notApplied:
-            return "Finish this budget setup to activate this month's allocations."
+            return "Budget saved, not applied this month."
         case .needsRecalculation:
-            return "Review this plan and recalculate allocations with your latest goals."
+            return "Your goals or month changed. Recalculate allocations."
         case .atRisk(let shortfall, _), .severeRisk(let shortfall, _):
             let shortText = CurrencyFormatter.format(amount: shortfall, currency: currency, maximumFractionDigits: 2)
             if let conversionContext {
@@ -267,7 +267,7 @@ extension BudgetHealthState {
         case .healthy:
             return "On track"
         case .notApplied:
-            return "Budget saved, not applied to this month yet"
+            return "Budget not applied"
         case .needsRecalculation:
             return "Needs review"
         case .atRisk(let shortfall, _), .severeRisk(let shortfall, _):
@@ -375,6 +375,14 @@ struct BudgetHealthCard: View {
         !dynamicTypeSize.isAccessibilitySize
     }
 
+    private var statusLineLimit: Int? {
+        dynamicTypeSize.isAccessibilitySize ? nil : 2
+    }
+
+    private var secondaryLineLimit: Int? {
+        dynamicTypeSize.isAccessibilitySize ? nil : 2
+    }
+
     private var primaryActionIdentifier: String {
         switch state {
         case .noBudget:
@@ -425,7 +433,8 @@ struct BudgetHealthCard: View {
                     Text(state.statusText)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(statusLineLimit)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .accessibilityIdentifier("budgetSummaryStatusRow")
 
@@ -453,7 +462,8 @@ struct BudgetHealthCard: View {
                     Text(focusGoalText)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(secondaryLineLimit)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if shouldShowSecondaryText, let minimumText {
@@ -549,20 +559,23 @@ struct BudgetHealthCollapsedStrip: View {
                         Text(compactStatusText)
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .lineLimit(1)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
 
                         if let collapsedRiskCountText = state.collapsedRiskCountText {
                             Text(collapsedRiskCountText)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
 
                     Text(compactStatusText)
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .lineLimit(1)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .accessibilityElement(children: .combine)

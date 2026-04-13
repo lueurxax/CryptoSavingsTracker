@@ -128,7 +128,8 @@ struct CryptoSavingsTrackerApp: App {
         let shouldSeedBudgetShortfall = UITestFlags.shouldSeedBudgetShortfall
         let shouldSeedStaleDrafts = UITestFlags.shouldSeedStaleDrafts
         let familyShareScenario = UITestFlags.familyShareScenario
-        guard shouldSeedGoalsOnly || shouldSeedManyGoals || shouldSeed || shouldSeedPresentationFlow || shouldReshare || shouldSeedBudgetShortfall || shouldSeedStaleDrafts || familyShareScenario != nil else { return }
+        let localBridgeScenario = UITestFlags.localBridgeScenario
+        guard shouldSeedGoalsOnly || shouldSeedManyGoals || shouldSeed || shouldSeedPresentationFlow || shouldReshare || shouldSeedBudgetShortfall || shouldSeedStaleDrafts || familyShareScenario != nil || localBridgeScenario != nil else { return }
         didRunUITestSeed = true
 
         OnboardingManager.shared.completeOnboarding()
@@ -174,6 +175,10 @@ struct CryptoSavingsTrackerApp: App {
         if let familyShareScenario {
             await DIContainer.shared.familyShareAcceptanceCoordinator.seedUITestScenario(familyShareScenario)
         }
+
+        if let localBridgeScenario {
+            LocalBridgeSyncController.shared.seedUITestScenario(localBridgeScenario)
+        }
     }
 
     @MainActor
@@ -217,7 +222,7 @@ struct CryptoSavingsTrackerApp: App {
             try context.save()
             AppLog.info("UITest goals seed complete (\(count) goals)", category: .ui)
         } catch {
-            AppLog.error("UITest goals seed failed: \(error)", category: .ui)
+            AppLog.error("UITest goals seed failed: \(error.localizedDescription)", category: .ui)
         }
     }
 
@@ -274,7 +279,7 @@ struct CryptoSavingsTrackerApp: App {
             try context.save()
             AppLog.info("UITest stale draft seed complete", category: .ui)
         } catch {
-            AppLog.error("UITest stale draft seed failed: \(error)", category: .ui)
+            AppLog.error("UITest stale draft seed failed: \(error.localizedDescription)", category: .ui)
         }
     }
 
@@ -349,7 +354,7 @@ struct CryptoSavingsTrackerApp: App {
             try context.save()
             AppLog.info("UITest seed complete", category: .executionTracking)
         } catch {
-            AppLog.error("UITest seed failed: \(error)", category: .executionTracking)
+            AppLog.error("UITest seed failed: \(error.localizedDescription)", category: .executionTracking)
         }
     }
 
@@ -394,7 +399,7 @@ struct CryptoSavingsTrackerApp: App {
             try context.save()
             AppLog.info("UITest reshare applied", category: .executionTracking)
         } catch {
-            AppLog.error("UITest reshare failed: \(error)", category: .executionTracking)
+            AppLog.error("UITest reshare failed: \(error.localizedDescription)", category: .executionTracking)
         }
     }
 
@@ -435,9 +440,10 @@ struct CryptoSavingsTrackerApp: App {
             UserDefaults.standard.set("ui-test-household", forKey: "familyShare.shareID")
             UserDefaults.standard.set("UI Test Owner", forKey: "familyShare.ownerName")
             await DIContainer.shared.familyShareAcceptanceCoordinator.resetAllNamespaces()
+            LocalBridgeSyncController.shared.resetForUITesting()
             AppLog.info("UITEST_RESET_DATA cleared all entities", category: .ui)
         } catch {
-            AppLog.error("UITEST_RESET_DATA failed: \(error)", category: .ui)
+            AppLog.error("UITEST_RESET_DATA failed: \(error.localizedDescription)", category: .ui)
         }
     }
 

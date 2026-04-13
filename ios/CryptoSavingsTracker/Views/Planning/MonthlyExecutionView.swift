@@ -221,7 +221,7 @@ struct MonthlyExecutionView: View {
                         .fontWeight(.semibold)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.blue.opacity(0.1))
+                        .background(AccessibleColors.primaryInteractiveBackground)
                         .cornerRadius(6)
                 }
                 .buttonStyle(.plain)
@@ -312,7 +312,7 @@ struct MonthlyExecutionView: View {
     private var undoBanner: some View {
         HStack {
             Image(systemName: "arrow.uturn.backward.circle.fill")
-                .foregroundStyle(.blue)
+                .foregroundStyle(AccessibleColors.primaryInteractive)
 
             VStack(alignment: .leading) {
                 Text("Action started")
@@ -338,7 +338,7 @@ struct MonthlyExecutionView: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.blue.opacity(colorScheme == .dark ? 0.18 : 0.10))
+                .fill(AccessibleColors.primaryInteractive.opacity(colorScheme == .dark ? 0.18 : 0.10))
         )
         .cornerRadius(12)
     }

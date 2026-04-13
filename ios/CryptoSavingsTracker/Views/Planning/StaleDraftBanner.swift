@@ -47,116 +47,143 @@ struct StaleDraftBanner: View {
         return Array(stalePlans[startIndex..<endIndex])
     }
 
+    private var visibleDraftRange: ClosedRange<Int>? {
+        guard !currentPagePlans.isEmpty else { return nil }
+        let start = currentPage * itemsPerPage + 1
+        let end = start + currentPagePlans.count - 1
+        return start...end
+    }
+
     var body: some View {
-        Group {
-            if !stalePlans.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
-                    // Header button
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showingDetails.toggle()
+        if !stalePlans.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showingDetails.toggle()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(AccessibleColors.warning)
+                            .font(.title3)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(StaleDraftPresentation.bannerTitle(stalePlanCount: stalePlans.count))
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+
+                            Text(StaleDraftPresentation.bannerSubtitle(stalePlanCount: stalePlans.count))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                    } label: {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(AccessibleColors.warning)
-                                .font(.title3)
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("\(stalePlans.count) stale draft plan\(stalePlans.count == 1 ? "" : "s") from past months")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
+                        Spacer()
 
-                                Text("Review each draft and decide how to handle it")
+                        Image(systemName: showingDetails ? "chevron.up" : "chevron.down")
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
+                    }
+                    .padding()
+                    .background(.regularMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(baselineStroke, lineWidth: 1)
+                    )
+                    .overlay(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(AccessibleColors.warning)
+                            .frame(width: 3)
+                    }
+                }
+                .buttonStyle(.plain)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    StaleDraftPresentation.bannerSummary(
+                        stalePlanCount: stalePlans.count,
+                        visibleRange: showingDetails ? visibleDraftRange : nil
+                    )
+                )
+                .accessibilityValue(showingDetails ? "Expanded" : "Collapsed")
+                .accessibilityHint(
+                    showingDetails
+                        ? "Double tap to hide stale drafts and their actions."
+                        : "Double tap to review stale drafts and choose an action."
+                )
+                .accessibilityIdentifier("staleDraftBannerToggle")
+
+                if showingDetails {
+                    VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("What do these actions mean?")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.primary)
+
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(AccessibleColors.success)
+                                    .font(.caption)
+                                    .frame(width: 16)
+
+                                Text("**Mark completed**: Keep this draft as fulfilled for that month")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
 
-                            Spacer()
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "forward.fill")
+                                    .foregroundStyle(AccessibleColors.warning)
+                                    .font(.caption)
+                                    .frame(width: 16)
 
-                            Image(systemName: showingDetails ? "chevron.up" : "chevron.down")
-                                .foregroundStyle(.secondary)
-                                .font(.caption)
+                                Text("**Mark skipped**: Keep the month in history but mark it as intentionally skipped")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "trash")
+                                    .foregroundStyle(AccessibleColors.error)
+                                    .font(.caption)
+                                    .frame(width: 16)
+
+                                Text("**Delete**: Remove the draft entirely with no historical record for that month")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                        .padding()
+                        .padding(12)
                         .background(.regularMaterial)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(baselineStroke, lineWidth: 1)
                         )
-                        .overlay(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(AccessibleColors.warning)
-                                .frame(width: 3)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .accessibilityIdentifier("staleDraftBannerToggle")
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
 
-                    if showingDetails {
-                        VStack(alignment: .leading, spacing: 12) {
-                            // Info box explaining consequences
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("What do these actions mean?")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(.primary)
-
-                                HStack(alignment: .top, spacing: 8) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(AccessibleColors.success)
-                                        .font(.caption)
-                                        .frame(width: 16)
-
-                                    Text("**Mark completed**: Keep this draft as fulfilled for that month")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                HStack(alignment: .top, spacing: 8) {
-                                    Image(systemName: "forward.fill")
-                                        .foregroundStyle(AccessibleColors.warning)
-                                        .font(.caption)
-                                        .frame(width: 16)
-
-                                    Text("**Mark skipped**: Keep the month in history but mark it as intentionally skipped")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                HStack(alignment: .top, spacing: 8) {
-                                    Image(systemName: "trash")
-                                        .foregroundStyle(AccessibleColors.error)
-                                        .font(.caption)
-                                        .frame(width: 16)
-
-                                    Text("**Delete**: Remove the draft entirely with no historical record for that month")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .padding(12)
-                            .background(.regularMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(baselineStroke, lineWidth: 1)
+                        ForEach(currentPagePlans, id: \.id) { plan in
+                            StalePlanRow(
+                                plan: plan,
+                                goalName: goalNamesByID[plan.goalId] ?? "Unknown goal",
+                                onMarkCompleted: { onMarkCompleted(plan) },
+                                onMarkSkipped: { onMarkSkipped(plan) },
+                                onDelete: { onDelete(plan) }
                             )
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
 
-                            // Paginated plan list
-                            ForEach(currentPagePlans, id: \.id) { plan in
-                                StalePlanRow(
-                                    plan: plan,
-                                    goalName: goalNamesByID[plan.goalId] ?? "Unknown goal",
-                                    onMarkCompleted: { onMarkCompleted(plan) },
-                                    onMarkSkipped: { onMarkSkipped(plan) },
-                                    onDelete: { onDelete(plan) }
+                        if totalPages > 1, let visibleDraftRange {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(
+                                    StaleDraftPresentation.paginationStatus(
+                                        currentPage: currentPage,
+                                        totalPages: totalPages,
+                                        visibleRange: visibleDraftRange
+                                    )
                                 )
-                            }
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .accessibilityHidden(true)
 
-                            // Pagination controls
-                            if totalPages > 1 {
                                 HStack {
                                     Button {
                                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -170,16 +197,23 @@ struct StaleDraftBanner: View {
                                     }
                                     .disabled(currentPage == 0)
                                     .buttonStyle(.plain)
+                                    .accessibilityLabel("Previous stale drafts page")
+                                    .accessibilityIdentifier("staleDraftPaginationPrevious")
 
                                     Spacer()
 
                                     HStack(spacing: 4) {
                                         ForEach(0..<totalPages, id: \.self) { page in
                                             Circle()
-                                                .fill(page == currentPage ? Color.accentColor : Color.secondary.opacity(0.3))
+                                                .fill(
+                                                    page == currentPage
+                                                        ? AccessibleColors.primaryInteractive
+                                                        : AccessibleColors.secondaryText.opacity(0.3)
+                                                )
                                                 .frame(width: 6, height: 6)
                                         }
                                     }
+                                    .accessibilityHidden(true)
 
                                     Spacer()
 
@@ -195,16 +229,27 @@ struct StaleDraftBanner: View {
                                     }
                                     .disabled(currentPage >= totalPages - 1)
                                     .buttonStyle(.plain)
+                                    .accessibilityLabel("Next stale drafts page")
+                                    .accessibilityIdentifier("staleDraftPaginationNext")
                                 }
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
+                                .accessibilityElement(children: .contain)
+                                .accessibilityLabel(StaleDraftPresentation.paginationAccessibilityLabel)
+                                .accessibilityValue(
+                                    StaleDraftPresentation.paginationStatus(
+                                        currentPage: currentPage,
+                                        totalPages: totalPages,
+                                        visibleRange: visibleDraftRange
+                                    )
+                                )
+                                .accessibilityHint(StaleDraftPresentation.paginationAccessibilityHint)
+                                .accessibilityIdentifier("staleDraftPagination")
                             }
+                            .padding(.horizontal)
+                            .padding(.vertical, 8)
                         }
-                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
-            } else {
-                EmptyView()
             }
         }
     }
@@ -233,7 +278,15 @@ struct StalePlanRow: View {
     }
 
     private var monthTitle: String {
-        formatMonthLabel(plan.monthLabel)
+        StaleDraftPresentation.monthTitle(from: plan.monthLabel)
+    }
+
+    private var rowAccessibilityLabel: String {
+        StaleDraftPresentation.rowAccessibilityLabel(
+            goalName: goalName,
+            monthLabel: plan.monthLabel,
+            plannedAmount: plan.formattedEffectiveAmount()
+        )
     }
 
     var body: some View {
@@ -248,7 +301,8 @@ struct StalePlanRow: View {
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundStyle(.primary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 8) {
                     Text(monthTitle)
@@ -264,6 +318,8 @@ struct StalePlanRow: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(rowAccessibilityLabel)
 
             Spacer()
 
@@ -277,6 +333,14 @@ struct StalePlanRow: View {
             .background(AccessibleColors.primaryInteractive.opacity(0.08))
             .clipShape(Capsule())
             .accessibilityIdentifier("staleDraftResolve_\(plan.id.uuidString)")
+            .accessibilityLabel("Review actions")
+            .accessibilityValue(rowAccessibilityLabel)
+            .accessibilityHint(
+                StaleDraftPresentation.rowAccessibilityHint(
+                    goalName: goalName,
+                    monthLabel: plan.monthLabel
+                )
+            )
             .onHover { isHovering in
                 withAnimation(.easeInOut(duration: 0.15)) {
                     hovering = isHovering
@@ -292,7 +356,7 @@ struct StalePlanRow: View {
         )
         .accessibilityIdentifier("staleDraftRow_\(plan.id.uuidString)")
         .confirmationDialog(
-            "Resolve \(goalName) draft for \(monthTitle)",
+            StaleDraftPresentation.resolveDialogTitle(goalName: goalName, monthLabel: plan.monthLabel),
             isPresented: $showingResolveActions,
             titleVisibility: .visible
         ) {
@@ -310,10 +374,15 @@ struct StalePlanRow: View {
 
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("Choose how to handle the saved draft for \(goalName) in \(monthTitle).")
+            Text(
+                StaleDraftPresentation.resolveDialogMessage(
+                    goalName: goalName,
+                    monthLabel: plan.monthLabel
+                )
+            )
         }
         .alert(
-            "Delete \(goalName) draft for \(monthTitle)?",
+            StaleDraftPresentation.deleteAlertTitle(goalName: goalName, monthLabel: plan.monthLabel),
             isPresented: $showingDeleteConfirmation
         ) {
             Button("Delete Draft", role: .destructive) {
@@ -321,28 +390,8 @@ struct StalePlanRow: View {
             }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("This removes the draft for \(monthTitle) with no historical record kept.")
+            Text(StaleDraftPresentation.deleteAlertMessage(monthLabel: plan.monthLabel))
         }
-    }
-
-    private func formatMonthLabel(_ monthLabel: String) -> String {
-        // Convert "2025-01" to "January 2025"
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        guard let date = formatter.date(from: monthLabel) else {
-            return monthLabel
-        }
-
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: date)
-    }
-
-    private func formatAmount(_ amount: Double, currency: String) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = currency
-        formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: amount)) ?? "\(currency) \(Int(amount))"
     }
 }
 

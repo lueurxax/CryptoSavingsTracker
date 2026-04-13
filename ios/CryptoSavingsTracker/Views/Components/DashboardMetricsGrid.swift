@@ -177,8 +177,9 @@ struct MetricCard: View {
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.75)
+                    .fixedSize(horizontal: false, vertical: true)
                 
                 if isTarget {
                     Image(systemName: "target")
@@ -210,5 +211,16 @@ struct MetricCard: View {
                 )
         )
         .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            DashboardAccessibilityCopy.metricSummary(
+                title: title,
+                value: value,
+                subtitle: subtitle,
+                trend: trend == .neutral ? nil : trend == .up ? "Improving" : "Declining",
+                urgency: urgency
+            )
+        )
+        .accessibilityHint(DashboardAccessibilityCopy.metricHint(isUrgent: urgency))
     }
 }

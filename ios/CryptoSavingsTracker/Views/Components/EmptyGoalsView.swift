@@ -39,7 +39,7 @@ struct EmptyGoalsView: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
-                .background(.blue)
+                .background(AccessibleColors.primaryInteractive)
                 .cornerRadius(8)
             }
         }

@@ -1,0 +1,136 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/CryptoSavingsTrackerApp.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Visual State Capture",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 531
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ • %@",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 534
+        }
+      },
+      {
+        "comment": "",
+        "key": "CAPTURE:%@:%@",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 537
+        }
+      },
+      {
+        "comment": "",
+        "key": "Monthly Planning",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 554
+        }
+      },
+      {
+        "comment": "",
+        "key": "Required: 1,250 USD",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 556
+        }
+      },
+      {
+        "comment": "",
+        "key": "Emergency Fund",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 559
+        }
+      },
+      {
+        "comment": "",
+        "key": "Projected Progress",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 572
+        }
+      },
+      {
+        "comment": "",
+        "key": "Budget Notifications",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 583
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enabled",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 586
+        }
+      },
+      {
+        "comment": "",
+        "key": "No items available",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 612
+        }
+      },
+      {
+        "comment": "",
+        "key": "Data may be stale",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 616
+        }
+      },
+      {
+        "comment": "",
+        "key": "Action required",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 621
+        }
+      },
+      {
+        "comment": "",
+        "key": "Recovered successfully",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 626
+        }
+      },
+      {
+        "comment": "",
+        "key": "State: %@",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 631
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loading latest values",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 608
+        }
+      },
+      {
+        "comment": "",
+        "key": "PRODUCTION_CAPTURE:%@:%@",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 706
+        }
+      }
+    ]
+  },
+  "version": 1
+}

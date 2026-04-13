@@ -64,8 +64,14 @@ struct FamilyAccessView: View {
         .sheet(isPresented: $isShowingParticipants) {
             FamilyShareParticipantsView(
                 participants: model.participants,
-                onRevokeParticipant: { _ in },
-                onRetryParticipant: { _ in },
+                onRevokeParticipant: { _ in
+                    isShowingParticipants = false
+                    onShowParticipants()
+                },
+                onRetryParticipant: { _ in
+                    isShowingParticipants = false
+                    onShowParticipants()
+                },
                 onDismiss: {
                     isShowingParticipants = false
                 }
@@ -151,10 +157,13 @@ struct FamilyAccessView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(participant.displayName)
                                         .font(.subheadline.weight(.semibold))
+                                        .lineLimit(2)
+                                        .fixedSize(horizontal: false, vertical: true)
                                     Text(participant.emailOrAlias ?? participant.state.displayTitle)
                                         .font(.footnote)
                                         .foregroundStyle(.secondary)
-                                        .lineLimit(1)
+                                        .lineLimit(2)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
 
                                 Spacer(minLength: 0)

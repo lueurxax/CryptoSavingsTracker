@@ -81,19 +81,19 @@ struct ErrorBannerView: View {
 
     private var iconColor: Color {
         switch error.category {
-        case .network: return .orange
-        case .apiKey: return .red
-        case .dataCorruption: return .red
-        case .unknown: return .orange
+        case .network: return AccessibleColors.warning
+        case .apiKey: return AccessibleColors.error
+        case .dataCorruption: return AccessibleColors.error
+        case .unknown: return AccessibleColors.warning
         }
     }
 
     private var backgroundColor: Color {
         switch error.category {
-        case .network: return .orange.opacity(0.1)
-        case .apiKey: return .red.opacity(0.1)
-        case .dataCorruption: return .red.opacity(0.1)
-        case .unknown: return .orange.opacity(0.1)
+        case .network: return AccessibleColors.warningBackground
+        case .apiKey: return AccessibleColors.errorBackground
+        case .dataCorruption: return AccessibleColors.errorBackground
+        case .unknown: return AccessibleColors.warningBackground
         }
     }
 }

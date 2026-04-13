@@ -41,6 +41,12 @@ enum LocalBridgeIdentityStoreError: LocalizedError {
 final class LocalBridgeIdentityStore: BridgePackageSigning {
     private let service = "com.cryptosavingstracker.bridge.identity"
     private let algorithm = "P256.Signing.ECDSA.SHA256"
+    private let localSigningKeyIDStorageKey = "LocalBridge.PrimarySigningKeyID"
+    private let userDefaults: UserDefaults
+
+    init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+    }
 
     func createTrustedDevice(displayName: String) throws -> TrustedBridgeDevice {
         let keyID = UUID().uuidString
@@ -53,6 +59,56 @@ final class LocalBridgeIdentityStore: BridgePackageSigning {
             signingKeyID: identity.signingKeyID,
             publicKeyRepresentation: identity.publicKeyRepresentation,
             signingAlgorithm: identity.algorithm,
+            addedAt: .now,
+            lastSuccessfulSyncAt: nil,
+            trustState: .active
+        )
+    }
+
+    func localBridgeIdentity(displayName: String) throws -> TrustedBridgeDevice {
+        let keyID = localBridgeSigningKeyID()
+        let identity = try identity(for: keyID)
+
+        return TrustedBridgeDevice(
+            id: UUID(),
+            displayName: displayName,
+            fingerprint: identity.fingerprint,
+            signingKeyID: identity.signingKeyID,
+            publicKeyRepresentation: identity.publicKeyRepresentation,
+            signingAlgorithm: identity.algorithm,
+            addedAt: .now,
+            lastSuccessfulSyncAt: nil,
+            trustState: .active
+        )
+    }
+
+    func makeBootstrapToken(displayName: String) throws -> BridgeBootstrapToken {
+        let device = try localBridgeIdentity(displayName: displayName)
+        return BridgeBootstrapToken(
+            pairingID: UUID(),
+            deviceName: device.displayName,
+            expiresAt: Date().addingTimeInterval(10 * 60),
+            oneTimeSecretReference: UUID().uuidString,
+            ephemeralPublicKey: UUID().uuidString.replacingOccurrences(of: "-", with: ""),
+            signingKeyID: device.signingKeyID ?? localBridgeSigningKeyID(),
+            publicKeyRepresentation: device.publicKeyRepresentation ?? "",
+            signingAlgorithm: device.signingAlgorithm ?? algorithm,
+            fingerprint: device.fingerprint
+        )
+    }
+
+    func trustedDevice(from bootstrapToken: BridgeBootstrapToken) throws -> TrustedBridgeDevice {
+        guard !bootstrapToken.publicKeyRepresentation.isEmpty else {
+            throw BridgeBootstrapTokenError.invalidPayload
+        }
+
+        return TrustedBridgeDevice(
+            id: UUID(),
+            displayName: bootstrapToken.deviceName,
+            fingerprint: bootstrapToken.fingerprint,
+            signingKeyID: bootstrapToken.signingKeyID,
+            publicKeyRepresentation: bootstrapToken.publicKeyRepresentation,
+            signingAlgorithm: bootstrapToken.signingAlgorithm,
             addedAt: .now,
             lastSuccessfulSyncAt: nil,
             trustState: .active
@@ -124,6 +180,16 @@ final class LocalBridgeIdentityStore: BridgePackageSigning {
         let privateKey = P256.Signing.PrivateKey()
         try write(privateKey.rawRepresentation, account: keyID)
         return privateKey
+    }
+
+    private func localBridgeSigningKeyID() -> String {
+        if let existing = userDefaults.string(forKey: localSigningKeyIDStorageKey), !existing.isEmpty {
+            return existing
+        }
+
+        let generated = UUID().uuidString
+        userDefaults.set(generated, forKey: localSigningKeyIDStorageKey)
+        return generated
     }
 
     private func loadPrivateKey(keyID: String) throws -> P256.Signing.PrivateKey {

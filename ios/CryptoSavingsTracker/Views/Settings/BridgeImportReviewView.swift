@@ -1,10 +1,11 @@
 import SwiftUI
 
 struct BridgeImportReviewView: View {
-    let status: BridgeImportReviewStatus
-    let onApprove: () -> Void
-    let onReject: () -> Void
-    let onResetPending: () -> Void
+    @ObservedObject var controller: LocalBridgeSyncController
+
+    private var status: BridgeImportReviewStatus {
+        controller.importReviewStatus
+    }
 
     var body: some View {
         Form {
@@ -18,15 +19,105 @@ struct BridgeImportReviewView: View {
                         .foregroundStyle(operatorDecisionColor)
                 }
                 .accessibilityIdentifier("localBridge.importReview.operatorDecision")
+                .accessibilityValue(status.operatorDecision.displayTitle)
             }
 
             if let review = status.reviewSummaryDTO {
+                Section("Validation & Drift") {
+                    LabeledContent("Validation") {
+                        Text(review.validationStatus.displayTitle)
+                            .foregroundStyle(validationColor(review.validationStatus))
+                    }
+                    .accessibilityIdentifier("localBridge.importReview.validation")
+
+                    LabeledContent("Drift") {
+                        Text(review.driftStatus.displayTitle)
+                            .foregroundStyle(driftColor(review.driftStatus))
+                    }
+                    .accessibilityIdentifier("localBridge.importReview.drift")
+
+                    if !review.warnings.isEmpty {
+                        ForEach(review.warnings, id: \.self) { warning in
+                            Text("• \(warning)")
+                                .font(.caption)
+                                .foregroundStyle(AccessibleColors.warning)
+                        }
+                    }
+
+                    if !review.blockingIssues.isEmpty {
+                        ForEach(review.blockingIssues, id: \.self) { issue in
+                            Text("• \(issue)")
+                                .font(.caption)
+                                .foregroundStyle(AccessibleColors.error)
+                        }
+                    }
+                }
+
+                Section("Concrete Diffs") {
+                    ForEach(review.concreteDiffs) { diff in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(diff.title)
+                                    .font(.subheadline.weight(.semibold))
+                                Spacer()
+                                Text(diff.changeKind.displayTitle)
+                                    .font(.caption)
+                                    .foregroundStyle(changeKindColor(diff.changeKind))
+                            }
+                            if let beforeSummary = diff.beforeSummary {
+                                Text("Before: \(beforeSummary)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let afterSummary = diff.afterSummary {
+                                Text("After: \(afterSummary)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                .accessibilityIdentifier("localBridge.importReview.concreteDiffs")
+
+                Section("Operator Actions") {
+                    Button("Approve & Apply to Sync Runtime") {
+                        controller.markImportDecision(.approved)
+                    }
+                    .disabled(!status.blockingIssues.isEmpty)
+                    .accessibilityIdentifier("localBridge.importReview.approve")
+
+                    Button("Reject") {
+                        controller.markImportDecision(.rejected)
+                    }
+                    .accessibilityIdentifier("localBridge.importReview.reject")
+
+                    Button("Reset to Pending") {
+                        controller.markImportDecision(.awaitingDecision)
+                    }
+                    .accessibilityIdentifier("localBridge.importReview.resetPending")
+
+                    if let applyBlockingReason {
+                        Text(applyBlockingReason)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("localBridge.importReview.applyHint")
+                    }
+                }
+
                 Section("Signed Package") {
                     LabeledContent("Package ID") {
+                        let metadata = LocalBridgeIdentifierPresentation.metadata(
+                            title: "Package ID",
+                            value: review.package.packageID
+                        )
                         Text(review.package.packageID)
                             .font(.caption.monospaced())
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+                            .multilineTextAlignment(.trailing)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityLabel(metadata.label)
+                            .accessibilityValue(metadata.value)
+                            .accessibilityHint(metadata.hint)
                     }
                     .accessibilityIdentifier("localBridge.importReview.packageID")
 
@@ -36,10 +127,18 @@ struct BridgeImportReviewView: View {
                     .accessibilityIdentifier("localBridge.importReview.sourceDevice")
 
                     LabeledContent("Source Fingerprint") {
+                        let metadata = LocalBridgeIdentifierPresentation.metadata(
+                            title: "Source Fingerprint",
+                            value: review.package.sourceDeviceFingerprint
+                        )
                         Text(review.package.sourceDeviceFingerprint)
                             .font(.caption.monospaced())
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+                            .multilineTextAlignment(.trailing)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityLabel(metadata.label)
+                            .accessibilityValue(metadata.value)
+                            .accessibilityHint(metadata.hint)
                     }
                     .accessibilityIdentifier("localBridge.importReview.sourceFingerprint")
 
@@ -82,36 +181,6 @@ struct BridgeImportReviewView: View {
                     .accessibilityIdentifier("localBridge.importReview.trust")
                 }
 
-                Section("Validation & Drift") {
-                    LabeledContent("Validation") {
-                        Text(review.validationStatus.displayTitle)
-                            .foregroundStyle(validationColor(review.validationStatus))
-                    }
-                    .accessibilityIdentifier("localBridge.importReview.validation")
-
-                    LabeledContent("Drift") {
-                        Text(review.driftStatus.displayTitle)
-                            .foregroundStyle(driftColor(review.driftStatus))
-                    }
-                    .accessibilityIdentifier("localBridge.importReview.drift")
-
-                    if !review.warnings.isEmpty {
-                        ForEach(review.warnings, id: \.self) { warning in
-                            Text("• \(warning)")
-                                .font(.caption)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-
-                    if !review.blockingIssues.isEmpty {
-                        ForEach(review.blockingIssues, id: \.self) { issue in
-                            Text("• \(issue)")
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                        }
-                    }
-                }
-
                 if !review.entityDeltas.isEmpty {
                     Section("Entity Deltas") {
                         ForEach(review.entityDeltas, id: \.entityName) { delta in
@@ -127,6 +196,26 @@ struct BridgeImportReviewView: View {
                     .accessibilityIdentifier("localBridge.importReview.entityDeltas")
                 }
             } else {
+                Section("Operator Actions") {
+                    Button("Approve & Apply to Sync Runtime") {
+                        controller.markImportDecision(.approved)
+                    }
+                    .disabled(true)
+                    .accessibilityIdentifier("localBridge.importReview.approve")
+
+                    Button("Reject") {
+                        controller.markImportDecision(.rejected)
+                    }
+                    .disabled(true)
+                    .accessibilityIdentifier("localBridge.importReview.reject")
+
+                    Button("Reset to Pending") {
+                        controller.markImportDecision(.awaitingDecision)
+                    }
+                    .disabled(true)
+                    .accessibilityIdentifier("localBridge.importReview.resetPending")
+                }
+
                 Section("Signed Package") {
                     Text("No signed package is currently loaded for review.")
                         .foregroundStyle(.secondary)
@@ -134,63 +223,8 @@ struct BridgeImportReviewView: View {
                 .accessibilityIdentifier("localBridge.importReview.noPackage")
             }
 
-            Section("Operator Actions") {
-                Button("Approve & Apply to CloudKit") {
-                    onApprove()
-                }
-                .disabled(status.reviewSummaryDTO == nil || !status.blockingIssues.isEmpty)
-                .accessibilityIdentifier("localBridge.importReview.approve")
-
-                Button("Reject") {
-                    onReject()
-                }
-                .disabled(status.reviewSummaryDTO == nil)
-                .accessibilityIdentifier("localBridge.importReview.reject")
-
-                Button("Reset to Pending") {
-                    onResetPending()
-                }
-                .disabled(status.reviewSummaryDTO == nil)
-                .accessibilityIdentifier("localBridge.importReview.resetPending")
-
-                if let applyBlockingReason {
-                    Text(applyBlockingReason)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("localBridge.importReview.applyHint")
-                }
-            }
-
-            if let review = status.reviewSummaryDTO, !review.concreteDiffs.isEmpty {
-                Section("Concrete Diffs") {
-                    ForEach(review.concreteDiffs) { diff in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text(diff.title)
-                                    .font(.subheadline.weight(.semibold))
-                                Spacer()
-                                Text(diff.changeKind.displayTitle)
-                                    .font(.caption)
-                                    .foregroundStyle(changeKindColor(diff.changeKind))
-                            }
-                            if let beforeSummary = diff.beforeSummary {
-                                Text("Before: \(beforeSummary)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            if let afterSummary = diff.afterSummary {
-                                Text("After: \(afterSummary)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-                .accessibilityIdentifier("localBridge.importReview.concreteDiffs")
-            }
-
             Section("Phase 2A Scope") {
-                Text("This operator surface validates a signed package artifact loaded from local file transport and applies it into the CloudKit-backed runtime only after explicit approval.")
+                Text("This operator surface validates a signed package artifact loaded from local file transport and applies it to the sync runtime only after explicit approval.")
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("localBridge.importReview.scope")
             }
@@ -201,70 +235,70 @@ struct BridgeImportReviewView: View {
     private var operatorDecisionColor: Color {
         switch status.operatorDecision {
         case .notRequired:
-            return .secondary
+            return AccessibleColors.secondaryText
         case .awaitingDecision:
-            return .orange
+            return AccessibleColors.warning
         case .approved:
-            return .green
+            return AccessibleColors.success
         case .rejected:
-            return .red
+            return AccessibleColors.error
         }
     }
 
     private func signatureColor(_ status: BridgeImportSignatureStatus) -> Color {
         switch status {
         case .notVerified:
-            return .orange
+            return AccessibleColors.warning
         case .valid:
-            return .green
+            return AccessibleColors.success
         case .invalid, .signerUntrusted:
-            return .red
+            return AccessibleColors.error
         }
     }
 
     private func validationColor(_ status: BridgeImportValidationStatus) -> Color {
         switch status {
         case .notRun:
-            return .secondary
+            return AccessibleColors.secondaryText
         case .passed:
-            return .green
+            return AccessibleColors.success
         case .warnings:
-            return .orange
+            return AccessibleColors.warning
         case .failed:
-            return .red
+            return AccessibleColors.error
         }
     }
 
     private func trustColor(_ status: BridgeImportTrustStatus) -> Color {
         switch status {
         case .activeTrusted:
-            return .green
+            return AccessibleColors.success
         case .signerUntrusted, .trustRevoked:
-            return .red
+            return AccessibleColors.error
         }
     }
 
     private func driftColor(_ status: BridgeImportDriftStatus) -> Color {
         switch status {
         case .unknown:
-            return .secondary
+            return AccessibleColors.secondaryText
         case .none:
-            return .green
+            return AccessibleColors.success
         case .additiveOnly:
-            return .orange
+            return AccessibleColors.warning
         case .conflicting, .destructive:
-            return .red
+            return AccessibleColors.error
         }
     }
 
     private func changeKindColor(_ changeKind: BridgeImportChangeKind) -> Color {
         switch changeKind {
         case .added:
-            return .green
+            return AccessibleColors.success
         case .updated:
-            return .orange
+            return AccessibleColors.warning
         case .deleted:
-            return .red
+            return AccessibleColors.error
         }
     }
 
@@ -277,7 +311,7 @@ struct BridgeImportReviewView: View {
         }
         switch review.package.signatureStatus {
         case .valid:
-            return "Apply targets the CloudKit-backed authoritative runtime and requires explicit operator approval."
+            return "Apply targets the authoritative sync runtime and requires explicit operator approval."
         case .notVerified:
             return "Apply stays disabled until the package signature is verified."
         case .invalid:

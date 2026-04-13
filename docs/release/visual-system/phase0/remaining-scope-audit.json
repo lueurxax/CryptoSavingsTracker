@@ -1,0 +1,55 @@
+{
+  "auditVersion": "phase0-v1",
+  "executedAt": "2026-04-12",
+  "waveBoundary": "2026-04-04",
+  "summary": {
+    "implemented": 4,
+    "partiallyImplemented": 0,
+    "missing": 0,
+    "notVerifiable": 1
+  },
+  "items": [
+    {
+      "requirement_id": "W2-01",
+      "status": "Implemented",
+      "severity": "P1",
+      "notes": "Active goals shell zero-state and recovery behavior now explicit in production path; legacy shell references normalized and guarded."
+    },
+    {
+      "requirement_id": "W2-02",
+      "status": "Implemented",
+      "severity": "P1",
+      "notes": "Readability and recovery flow changes in add/edit/detail surfaces were applied without navigation architecture changes."
+    },
+    {
+      "requirement_id": "W3-01",
+      "status": "Implemented",
+      "severity": "P0",
+      "notes": "Onboarding recovery now retains progress and retries; onboarding completion no longer commits on template-creation failure."
+    },
+    {
+      "requirement_id": "W4-01",
+      "status": "Implemented",
+      "severity": "P1",
+      "notes": "Family sharing + Settings copy, ordering, and state summaries now use user-facing sync/read-only language and maintain invitation/retry surfaces."
+    },
+    {
+      "requirement_id": "W4-02",
+      "status": "NotVerifiable",
+      "severity": "P1",
+      "notes": "Family-sharing release-gate evidence remains required from docs/runbooks/family-sharing-release-gate.md; runtime evidence capture is planned for the next gated verification pass."
+    }
+  ],
+  "scope_decisions": {
+    "forbidden_changes": [
+      "CloudKit truth-model redesign",
+      "Family-sharing namespace or freshness-policy rewrites",
+      "Broad UI architecture rewrites outside approved waves"
+    ],
+    "decision_freeze": {
+      "goals_shell": "ContentView.goals + DetailContainerView → GoalDetailView",
+      "onboarding_entry": "OnboardingContentView → OnboardingFlowView",
+      "settings_shell": "SettingsView as outer surface for Family Access and Local Bridge Sync"
+    }
+  }
+}

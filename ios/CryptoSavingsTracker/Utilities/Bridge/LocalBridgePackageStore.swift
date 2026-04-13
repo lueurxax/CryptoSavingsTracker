@@ -52,7 +52,7 @@ final class LocalBridgePackageStore {
     func loadPackage(from data: Data) throws -> SignedImportPackage {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
-        return try decoder.decode(SignedImportPackage.self, from: data)
+        return try decoder.decode(SignedImportPackage.self, from: bridgeNormalizedCanonicalDecodingData(data))
     }
 
     func loadLatestImportedPackage() throws -> SignedImportPackage {

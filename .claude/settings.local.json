@@ -195,15 +195,35 @@
       "Read(//Users/user/.codex/worktrees/**)",
       "Read(//Users/user/Documents/**)",
       "Bash(git worktree:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(uv run:*)",
+      "Read(//Users/user/.config/massgen/**)",
+      "Bash(pip install:*)",
+      "Bash(uv pip:*)",
+      "Bash(uv tool:*)",
+      "Bash(massgen --version)",
+      "Bash(massgen --list-backends)",
+      "Bash(massgen --quickstart --headless --quickstart-agent backend=claude_code,model=claude-opus-4-6 --quickstart-agent backend=codex,model=gpt-5.4 --quickstart-agent backend=claude_code,model=claude-sonnet-4-6)",
+      "Read(//Users/user/.codex/skills/proposal-implementation-audit/**)",
+      "Bash(massgen --show-schema)",
+      "Bash(pip show:*)",
+      "Bash(claude --version)",
+      "Bash(claude -p --output-format json \"say hello\")",
+      "Bash(/Users/user/.local/share/uv/tools/massgen/bin/python3 -c \"\nfrom claude_agent_sdk import ClaudeAgentOptions\nimport inspect\nsig = inspect.signature\\(ClaudeAgentOptions.__init__\\)\nprint\\(sig\\)\n\" 2>&1)",
+      "Bash(/Users/user/.local/share/uv/tools/massgen/bin/python3 -c \":*)",
+      "Bash(CLAUDECODE=\"\" massgen --config .massgen/config.yaml --automation --single-agent agent_a \"Say hello and nothing else\")",
+      "Bash(CLAUDECODE=\"\" massgen --config .massgen/config.yaml --automation --single-agent agent_a --quick \"Say hello and nothing else\")",
+      "Bash(CLAUDECODE=\"\" massgen --config .massgen/config.yaml --automation --single-agent agent_a --quick \"Say hello\")",
+      "Bash(git log:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "additionalDirectories": [
       "/Users/user/Library/Developer/Xcode/DerivedData/CryptoSavingsTracker-evaaynijwpcemaawvpwtepatwgti/Build"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "xcode"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

@@ -202,6 +202,18 @@ struct BudgetCalculatorSheet: View {
         return viewModel.budgetSaveDisabledReason
     }
 
+    private var budgetAmountAccessibilityValue: String {
+        if let parsedBudget {
+            return CurrencyFormatter.accessibilityFormat(
+                amount: parsedBudget.doubleValue,
+                currency: parsedBudget.currency
+            )
+        }
+
+        let trimmedText = budgetText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedText.isEmpty ? "No amount entered" : trimmedText
+    }
+
     private var isSnapshotCurrent: Bool {
         guard let parsedBudget, let snapshot = viewModel.budgetComputationResult else { return false }
         return MoneyQuantizer.compare(parsedBudget, snapshot.enteredBudgetCanonical) == .orderedSame
@@ -237,19 +249,11 @@ struct BudgetCalculatorSheet: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("budgetCurrencyButton")
+                .accessibilityLabel("Budget currency")
+                .accessibilityHint("Double tap to choose the currency used for this monthly budget plan.")
+                .accessibilityValue(currency.uppercased())
 
-                #if os(iOS)
-                TextField("Amount", text: $budgetText)
-                    .keyboardType(.decimalPad)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($isAmountFieldFocused)
-                    .accessibilityIdentifier("budgetAmountField")
-                #else
-                TextField("Amount", text: $budgetText)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($isAmountFieldFocused)
-                    .accessibilityIdentifier("budgetAmountField")
-                #endif
+                budgetAmountField
 
                 if isAmountFieldFocused {
                     Button("Done") {
@@ -258,17 +262,31 @@ struct BudgetCalculatorSheet: View {
                     }
                     .font(.subheadline.weight(.semibold))
                     .buttonStyle(.bordered)
-                    .accessibilityIdentifier("budgetKeyboardDoneButton")
+                    .accessibilityIdentifier("budgetInlineDoneButton")
+                    .accessibilityLabel("Finish editing monthly budget amount")
+                    .accessibilityHint("Double tap to dismiss the keyboard and keep this budget amount.")
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var budgetAmountField: some View {
+        TextField("Amount", text: $budgetText)
+            #if os(iOS)
+            .keyboardType(.decimalPad)
+            #endif
+            .textFieldStyle(.roundedBorder)
+            .focused($isAmountFieldFocused)
+            .accessibilityIdentifier("budgetAmountField")
+            .accessibilityLabel("Monthly budget amount")
+            .accessibilityHint("Enter the amount you can save each month for active goals.")
+            .accessibilityValue(budgetAmountAccessibilityValue)
+    }
+
     private var feasibilitySection: some View {
         let feasibility = viewModel.budgetFeasibility
         let state = viewModel.budgetComputationResult?.state
-        let reduceMotion = reduceMotion
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {

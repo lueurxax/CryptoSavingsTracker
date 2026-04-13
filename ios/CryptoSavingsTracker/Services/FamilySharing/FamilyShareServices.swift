@@ -5,9 +5,11 @@
 
 import Combine
 import Foundation
-import UIKit
 import SwiftData
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 #if canImport(CloudKit)
 import CloudKit
 #endif
@@ -48,7 +50,10 @@ protocol FamilyShareNamespaceManaging {
 
 protocol FamilyShareSceneAccepting: AnyObject {
     func acceptInvitation(_ metadata: CKShare.Metadata)
+
+#if canImport(UIKit)
     func acceptPendingInvitation(from connectionOptions: UIScene.ConnectionOptions)
+#endif
 }
 
 struct FamilySharePublicationResult: Codable, Equatable, Sendable {
@@ -821,7 +826,12 @@ final class FamilyShareOwnerIdentityStore {
         if let existing = userDefaults.string(forKey: Keys.ownerName), existing.isEmpty == false {
             return existing
         }
-        let generated = UIDevice.current.name.isEmpty ? "My Goals" : UIDevice.current.name
+        let generated: String
+#if canImport(UIKit)
+        generated = UIDevice.current.name.isEmpty ? "My Goals" : UIDevice.current.name
+#else
+        generated = ProcessInfo.processInfo.hostName.isEmpty ? "My Goals" : ProcessInfo.processInfo.hostName
+#endif
         userDefaults.set(generated, forKey: Keys.ownerName)
         return generated
     }
@@ -1258,7 +1268,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                         "reason": "family sharing cloud sync unavailable"
                     ]
                 )
-                latestErrorMessage = "Family sharing cloud sync is unavailable."
+                latestErrorMessage = "Family sync is currently unavailable."
                 return
             }
 
@@ -1306,7 +1316,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             return
         }
         guard let cloudSync else {
-            latestErrorMessage = "Family sharing cloud sync is unavailable."
+            latestErrorMessage = "Family sync is currently unavailable."
             return
         }
 
@@ -1383,7 +1393,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         case .active, .stale, .temporarilyUnavailable, .emptySharedDataset:
             inviteeRefreshScheduler.onManualRefresh(namespaceKey: namespaceID.namespaceKey)
         case .invitePendingAcceptance:
-            latestErrorMessage = "Accept the CloudKit invitation from Mail or Messages to finish setup."
+            latestErrorMessage = "Accept the Family invitation from Mail or Messages to finish setup."
         case .revoked:
             latestErrorMessage = "The owner needs to share this goal set again."
         case .removedOrNoLongerShared:
@@ -1490,12 +1500,14 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         }
     }
 
+#if canImport(UIKit)
     func acceptPendingInvitation(from connectionOptions: UIScene.ConnectionOptions) {
         guard let metadata = connectionOptions.cloudKitShareMetadata else { return }
         let snapshot = FamilyShareInvitationMetadataSnapshot(metadata: metadata)
         latestConnectionOptionsSnapshot = snapshot
         acceptInvitation(metadata)
     }
+#endif
 
     private func bootstrapAcceptedInvitation(
         _ snapshot: FamilyShareInvitationMetadataSnapshot,

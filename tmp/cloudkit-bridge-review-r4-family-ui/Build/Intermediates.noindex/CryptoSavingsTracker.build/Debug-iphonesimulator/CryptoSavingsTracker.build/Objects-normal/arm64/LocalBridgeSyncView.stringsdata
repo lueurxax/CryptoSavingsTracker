@@ -1,0 +1,496 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Settings/LocalBridgeSyncView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Local Bridge Sync",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 369
+        }
+      },
+      {
+        "comment": "",
+        "key": "Local Bridge Sync",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 373
+        }
+      },
+      {
+        "comment": "",
+        "key": "Bridge Status",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 17
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pairing",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 49
+        }
+      },
+      {
+        "comment": "",
+        "key": "Session State",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 81
+        }
+      },
+      {
+        "comment": "",
+        "key": "Trusted Devices",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 111
+        }
+      },
+      {
+        "comment": "",
+        "key": "Sync",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 156
+        }
+      },
+      {
+        "comment": "",
+        "key": "Import",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 198
+        }
+      },
+      {
+        "comment": "",
+        "key": "Capability Manifest",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 344
+        }
+      },
+      {
+        "comment": "",
+        "key": "Phase 2A Scope",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 363
+        }
+      },
+      {
+        "comment": "",
+        "key": "Runtime",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 18
+        }
+      },
+      {
+        "comment": "",
+        "key": "Availability",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 24
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pending Action",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 30
+        }
+      },
+      {
+        "comment": "",
+        "key": "Top-Level Summary",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 36
+        }
+      },
+      {
+        "comment": "",
+        "key": "Trust Mac for File Bridge",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 54
+        }
+      },
+      {
+        "comment": "",
+        "key": "Trusted Pairing",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 60
+        }
+      },
+      {
+        "comment": "",
+        "key": "Phase 2A uses a signed file bridge. Trust creation records the sending Mac locally so later imports can be verified and applied. QR and Multipeer stay in later transport hardening work.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 62
+        }
+      },
+      {
+        "comment": "",
+        "key": "Bootstrap Expires",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 67
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pairing ID",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 70
+        }
+      },
+      {
+        "comment": "",
+        "key": "Transport",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 82
+        }
+      },
+      {
+        "comment": "",
+        "key": "Compatibility",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 88
+        }
+      },
+      {
+        "comment": "",
+        "key": "CloudKit Checkpoint",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 94
+        }
+      },
+      {
+        "comment": "",
+        "key": "Workspace",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 99
+        }
+      },
+      {
+        "comment": "",
+        "key": "Live Store Mutation",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 104
+        }
+      },
+      {
+        "comment": "",
+        "key": "Allowed",
+        "location": {
+          "startingColumn": 81,
+          "startingLine": 105
+        }
+      },
+      {
+        "comment": "",
+        "key": "Blocked",
+        "location": {
+          "startingColumn": 93,
+          "startingLine": 105
+        }
+      },
+      {
+        "comment": "",
+        "key": "No trusted devices stored yet.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 113
+        }
+      },
+      {
+        "comment": "",
+        "key": "Fingerprint: %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 128
+        }
+      },
+      {
+        "comment": "",
+        "key": "Added: %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 132
+        }
+      },
+      {
+        "comment": "",
+        "key": "Last sync: %@",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 137
+        }
+      },
+      {
+        "comment": "",
+        "key": "Revoke Trust",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 146
+        }
+      },
+      {
+        "comment": "",
+        "key": "Last Sync Status",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 157
+        }
+      },
+      {
+        "comment": "",
+        "key": "Latest Export",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 164
+        }
+      },
+      {
+        "comment": "",
+        "key": "Exported At",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 171
+        }
+      },
+      {
+        "comment": "",
+        "key": "Share Latest Export",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 183
+        }
+      },
+      {
+        "comment": "",
+        "key": "Sync Now",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 192
+        }
+      },
+      {
+        "comment": "",
+        "key": "Load review metadata from the selected package before apply becomes available.",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 252
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loaded Package",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 208
+        }
+      },
+      {
+        "comment": "",
+        "key": "Signed At",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 215
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loaded Package ID",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 232
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loaded Signature",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 257
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loaded Source",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 263
+        }
+      },
+      {
+        "comment": "",
+        "key": "Dismiss Review",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 294
+        }
+      },
+      {
+        "comment": "",
+        "key": "Load Import Package",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 202
+        }
+      },
+      {
+        "comment": "",
+        "key": "Share Loaded Package",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 227
+        }
+      },
+      {
+        "comment": "",
+        "key": "Refresh Import Review",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 246
+        }
+      },
+      {
+        "comment": "",
+        "key": "Import Review",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 288
+        }
+      },
+      {
+        "comment": "",
+        "key": "Drift Status",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 309
+        }
+      },
+      {
+        "comment": "",
+        "key": "Operator Decision",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 315
+        }
+      },
+      {
+        "comment": "",
+        "key": "Import Validation Result",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 303
+        }
+      },
+      {
+        "comment": "",
+        "key": "• %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 327
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 336
+        }
+      },
+      {
+        "comment": "",
+        "key": "Bridge Protocol",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 345
+        }
+      },
+      {
+        "comment": "",
+        "key": "Canonical Encoding",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 348
+        }
+      },
+      {
+        "comment": "",
+        "key": "Snapshot Schema",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 351
+        }
+      },
+      {
+        "comment": "",
+        "key": "App Model Schema",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 354
+        }
+      },
+      {
+        "comment": "",
+        "key": "Build",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 357
+        }
+      },
+      {
+        "comment": "",
+        "key": "v%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 346
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld-%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 352
+        }
+      },
+      {
+        "comment": "",
+        "key": "This surface supports file-based bridge handoff end to end: authoritative snapshot export persists a shareable artifact, import review loads a signed package from Files, signature validation runs before review, and apply writes only into the CloudKit-backed runtime after explicit approval. QR scanning and Multipeer transport remain future hardening work.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 364
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 377
+        }
+      }
+    ]
+  },
+  "version": 1
+}

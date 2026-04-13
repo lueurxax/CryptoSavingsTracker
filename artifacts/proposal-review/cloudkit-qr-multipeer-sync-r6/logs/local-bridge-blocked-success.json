@@ -1,0 +1,4381 @@
+{
+  "_type" : {
+    "_name" : "ActionTestSummary",
+    "_supertype" : {
+      "_name" : "ActionTestSummaryIdentifiableObject",
+      "_supertype" : {
+        "_name" : "ActionAbstractTestSummary"
+      }
+    }
+  },
+  "activitySummaries" : {
+    "_type" : {
+      "_name" : "Array"
+    },
+    "_values" : [
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:12.465+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:12.346+0200"
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Start Test at 2026-03-22 21:25:12.346"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "ECC5589B-A3ED-4FF1-85D6-B5F4478C91D5"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:12.466+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:12.466+0200"
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Set Up"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "ECCA7777-D184-4C82-A0D8-B51A78CB16CA"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:16.164+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:12.470+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:16.163+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:12.470+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:14.107+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:13.293+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Setting up automation session"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "B969A7E8-D6A1-4579-9A66-08291300AE7F"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:15.156+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:14.108+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "EBE4EC15-81B9-4166-AEBE-E6F9DE184F64"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Launch xax.CryptoSavingsTracker"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "AB5893CC-04A0-4338-BF04-B543219C98F4"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Open xax.CryptoSavingsTracker"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "8C71CB2F-042F-4E23-BED1-6BE53DB95825"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:17.302+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:16.167+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:17.301+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:17.201+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:17.301+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:17.202+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"openSettingsButton\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "A32F17F1-1604-4510-81FB-07388B28A0C4"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"openSettingsButton\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "5D34C803-E0CA-48DF-85F6-457C67EE561B"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for \"openSettingsButton\" Button to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "0B36A4EC-61C6-4831-83E8-71D731A0F6D9"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:17.773+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:17.304+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:17.306+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:17.304+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "BB630A74-FA86-4DED-9E1E-38CB4C3B2FCC"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:17.321+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:17.306+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Find the \"openSettingsButton\" Button"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "677F7AD2-58F8-418D-A5FB-7703030EABAC"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:17.349+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:17.323+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Check for interrupting elements affecting \"openSettingsButton\" Button"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "1DA65C2D-67C7-41FD-A1A9-2C8DEF3AF5D1"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:17.761+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:17.350+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Synthesize event"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "F953359A-A864-4EDA-BD35-1E108D21FA34"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:17.772+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:17.761+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "A9E69E6E-975B-421E-A7D3-68B8C05A6ED7"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Tap \"openSettingsButton\" Button"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "C8C66BD8-71FB-483D-A2CE-2A425A6FB299"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:18.902+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:17.773+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:18.902+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:18.810+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:18.902+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:18.815+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"settings.cloudkit.localBridgeSync\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DFCD55D9-9B2A-4C82-9FEF-23C9319510A4"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"settings.cloudkit.localBridgeSync\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "4F3089AE-4B96-4F1A-8572-59F75DE1A56A"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for \"settings.cloudkit.localBridgeSync\" Button to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "A2D30892-FA76-4E5C-A67B-09217404B91D"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:19.770+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:18.903+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:18.905+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:18.903+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "C48AE0BA-AEBB-48BA-8EE5-D1AB53321BE5"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:18.942+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:18.905+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Find the \"settings.cloudkit.localBridgeSync\" Button"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "3508316F-7B8E-4709-9DEB-E00F3B978511"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:18.982+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:18.944+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Check for interrupting elements affecting \"settings.cloudkit.localBridgeSync\" Button"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "8AFF4193-C45C-4A94-899A-3106C05DD102"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:19.273+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:18.983+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Synthesize event"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "DF2C70CE-C5F8-4C40-B6FC-EECC09C2FD8F"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:19.770+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:19.273+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "FAE7B6D7-9693-4A00-9E97-E00030BFD582"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Tap \"settings.cloudkit.localBridgeSync\" Button"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "C88D0B0C-F605-4F09-AB2B-31EDBC36D45B"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:20.872+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:19.771+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:20.872+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:20.815+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:20.872+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:20.815+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"Local Bridge Sync\" NavigationBar`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "D316224E-4CA7-437A-8A3A-9EF184592974"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"Local Bridge Sync\" NavigationBar`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "DF5BD8EE-C9F9-4F8B-82E0-DC04D74132CF"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for \"Local Bridge Sync\" NavigationBar to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "4ABE715C-E5B2-4C6D-B7B3-EB18625FC741"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:22.015+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:20.873+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:22.015+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:21.914+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:22.015+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:21.916+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `Any (First Match)`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "62BB0EE0-0486-4E3F-96C9-E847AF123C5D"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "B359A2A9-8B9F-464D-8F39-F1E850F59F04"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for Any (First Match) to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "CB099DA2-F5D6-4FD0-8374-966993107D92"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:23.161+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:22.016+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:23.160+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:23.056+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:23.160+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:23.058+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `Any (First Match)`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "D82FA04A-AE20-40AE-A60F-133837328E6B"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "B5EE3AD3-6E7F-4616-BC2A-6CCE6181D2AA"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for Any (First Match) to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "40A2E4AE-2980-4FA9-849F-C385862D4922"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:23.234+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:23.161+0200"
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Find the Any (First Match)"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "A4AF9706-CB8C-4B41-ACAF-76F7654E4515"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:28.335+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:23.235+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:24.336+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:24.272+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:24.335+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:24.275+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"localBridge.dismissImportReview\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "5545E647-6C71-458F-9D85-CAAD20EE4437"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:24.335+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:24.335+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Capturing element debug description"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "AB177A41-84E2-4382-84AC-C6BF13EFEFF0"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"localBridge.dismissImportReview\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "099F1AEC-D094-49D5-9A6B-E3401B13D11E"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:25.333+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:25.268+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:25.332+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:25.271+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"localBridge.dismissImportReview\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "7B31537F-A457-4031-90B2-70A63D3DE176"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:25.333+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:25.332+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Capturing element debug description"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "F7D389F9-50FF-4451-8606-F6D4E0EB5739"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"localBridge.dismissImportReview\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "12A3C9E6-F903-4078-9211-28D7D631931C"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:26.313+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:26.264+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:26.312+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:26.265+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"localBridge.dismissImportReview\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "B262B295-6BDA-4C2E-850F-8B199A4C8F59"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:26.313+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:26.312+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Capturing element debug description"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "314F8726-7D14-4039-9AA0-830F94E04824"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"localBridge.dismissImportReview\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "1B6CCBE4-708D-41EA-8589-EFC13F8B7292"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:27.310+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:27.247+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:27.309+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:27.249+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"localBridge.dismissImportReview\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "D29AB142-5177-416F-995B-8634A810E511"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:27.310+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:27.309+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Capturing element debug description"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "2D61C33A-18D5-4C9E-8D67-8CDFF8032129"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"localBridge.dismissImportReview\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "489E2852-45EC-4540-9F29-6F3B112052A7"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.299+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.241+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:28.299+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:28.243+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"localBridge.dismissImportReview\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "35CF9E39-BA99-4E18-8CB8-D5554CD28A32"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:28.299+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:28.299+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Capturing element debug description"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "CFA98F73-47A5-40A5-BAF7-460518053CE8"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"localBridge.dismissImportReview\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "B271EF05-3633-47D1-B56C-AF095935D8DC"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.335+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.300+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking existence of `\"localBridge.dismissImportReview\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "6D631570-1D07-4286-BAA5-567406B08B05"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for \"localBridge.dismissImportReview\" Button to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "C2688B2A-2806-4704-A1BE-47914B1D9900"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:28.405+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:28.335+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.395+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.336+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Requesting snapshot of accessibility hierarchy for app with pid 43851"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "1E0512A8-435D-4A1E-8CB8-98BC15430582"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Collecting debug information to assist test failure triage"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "9B0A4EA4-78E6-4883-91F0-32F1C644A23D"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:31.036+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:28.406+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.409+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.406+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "52F0EFC4-A07D-4688-A215-20C438015DA3"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.432+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.409+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Find the Target Application 'xax.CryptoSavingsTracker'"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "FEE859E3-5625-4F95-BA9F-25FACD03002B"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.467+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.435+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Check for interrupting elements affecting \"CryptoSavingsTracker\" Application"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "F4A59E6C-9A2F-4A67-BF82-A93F7AE17796"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.887+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.467+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Synthesize event"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "3506F824-96A5-4750-B973-13A089CC7295"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:31.036+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:28.888+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "23A66C55-C74B-4116-98D5-78019D77000D"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Swipe up Target Application 'xax.CryptoSavingsTracker'"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "271BDB31-EC94-498F-B494-62E107623F85"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:32.144+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:31.037+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.106+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.042+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:32.105+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:32.043+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"localBridge.dismissImportReview\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "38496B19-75EA-4298-8C20-FB0C3F50A720"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:32.106+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:32.106+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Capturing element debug description"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "37D03B3F-2708-4F37-8839-8E13C2750DAB"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"localBridge.dismissImportReview\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "BC4EE64A-F1A7-426C-A37E-4596D226BFB2"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.144+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.106+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking existence of `\"localBridge.dismissImportReview\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "453B3880-609D-4B05-8F21-7D9F02233C14"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 1.0s for \"localBridge.dismissImportReview\" Button to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "E9731DD8-FE7C-4BA4-8739-5A34AEB88030"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:32.219+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:32.145+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.208+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.145+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Requesting snapshot of accessibility hierarchy for app with pid 43851"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "B03898DD-24D2-4D40-9E1F-616C3891AA1D"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Collecting debug information to assist test failure triage"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "99930EE0-BDD9-4C28-9E5F-A9C9830B4147"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:34.869+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:32.220+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.282+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.220+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "C9A139CB-31D2-467D-8D25-F19E7A4D86AF"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.313+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.282+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Find the Target Application 'xax.CryptoSavingsTracker'"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "E7F49396-4B9F-41A4-9AE1-5CDC9DB3AE0A"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.359+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.317+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Check for interrupting elements affecting \"CryptoSavingsTracker\" Application"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "54D33B03-F3D6-463E-9B83-0B4C261E80B4"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.780+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.360+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Synthesize event"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "BCD13539-F95A-4ABE-B8DE-848BF03B78E6"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:34.868+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:32.780+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "29876DB3-D550-4FFF-8106-AFF2D8CF0FAD"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Swipe up Target Application 'xax.CryptoSavingsTracker'"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "8BF3BD83-5AF8-46BD-9022-A79DB9833E09"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:35.989+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:34.869+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:35.945+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:35.875+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:35.945+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:35.876+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"localBridge.dismissImportReview\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "FF41AE84-98FA-42A6-AFAB-F78C2373CAEE"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"localBridge.dismissImportReview\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "AB63C8A3-71DE-4069-87CE-25E932F82872"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:35.989+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:35.946+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking existence of `\"localBridge.dismissImportReview\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "856E22B8-AA5F-4C59-B860-C62CC138DAE0"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 1.0s for \"localBridge.dismissImportReview\" Button to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "CF2D5DCB-C651-4A59-A17E-2B0D4E702C95"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:37.097+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:35.990+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:37.096+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:37.025+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:37.096+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:37.027+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"localBridge.importReview.open\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "283C6BFB-6C29-4FB6-AC44-DCA26A024C15"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"localBridge.importReview.open\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "3752E048-040D-4251-BCB9-995BEBB0FF66"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for \"localBridge.importReview.open\" Button to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "FA42349C-9F5E-42FB-B4A4-AF61DFC63474"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:37.886+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:37.097+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:37.100+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:37.097+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "015D5EB5-BF74-4F6D-AC3B-AF56EF320075"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:37.140+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:37.100+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Find the \"localBridge.importReview.open\" Button"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "68C78AF4-CFD3-49DC-9FDB-D2B91B4B00B8"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:37.187+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:37.142+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Check for interrupting elements affecting \"localBridge.importReview.open\" Button"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "69F41729-46EA-4AAD-8660-6E7378D03222"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:37.482+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:37.188+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Synthesize event"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "3031959C-66F7-44EB-8CA4-2F3EEC04D3FB"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:37.885+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:37.483+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "5AFBEBB7-8615-4A08-87A8-54A4787191AC"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Tap \"localBridge.importReview.open\" Button"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "95C31923-C724-444F-AC9B-8609161257F8"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:38.982+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:37.886+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:38.944+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:38.891+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:38.943+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:38.893+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"Validation\" StaticText`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DAE205C3-9FAC-4225-954C-6A555FE1EA59"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:38.944+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:38.944+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Capturing element debug description"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "8016A611-A64C-4DFB-A9D8-3B103B92F914"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"Validation\" StaticText`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "FA7BD144-E73C-482B-A970-548E0B32259F"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:38.982+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:38.944+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking existence of `\"Validation\" StaticText`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "B50BBC5A-AD6D-4DCF-B610-A65D322D473A"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 1.0s for \"Validation\" StaticText to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "AD7A7B1B-6F1C-4D79-A0CB-2CDB297D1F27"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:39.057+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:38.982+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:39.045+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:38.983+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Requesting snapshot of accessibility hierarchy for app with pid 43851"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "034E3FC2-BDD6-4DDE-AF9C-03C372619C44"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Collecting debug information to assist test failure triage"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "1A63D26C-9DDF-4026-B6BA-9F75FC2D8710"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:41.670+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:39.058+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:39.060+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:39.058+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "6126AF1E-897C-47C5-9850-4A7742FD971F"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:39.088+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:39.061+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Find the Target Application 'xax.CryptoSavingsTracker'"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "934379FC-D59A-469C-8251-451EF8DBB884"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:39.129+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:39.091+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Check for interrupting elements affecting \"CryptoSavingsTracker\" Application"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "19176B1B-F667-4796-83D7-FFB01C6818A8"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:39.550+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:39.129+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Synthesize event"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "17B3900A-22D5-4615-81C7-BDAA9F42BEB1"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:41.670+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:39.550+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "07458CF7-5F83-49BF-80CE-025A3CCB7670"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Swipe up Target Application 'xax.CryptoSavingsTracker'"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "82D6C567-93ED-4386-8C21-EB54089DE5D3"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:42.774+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:41.671+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:42.727+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:42.672+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:42.726+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:42.673+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"Validation\" StaticText`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "35A213FE-2BFC-489D-A067-0491461A2EEE"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"Validation\" StaticText`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "3C2633D6-36EF-4AC0-B0D4-C6132CCB092F"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:42.773+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:42.727+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking existence of `\"Validation\" StaticText`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "481EEAD6-E5DA-406B-B38B-59CFC7386530"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 1.0s for \"Validation\" StaticText to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "1CB5F3C6-0559-434D-879F-72740DD863F9"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:43.887+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:42.774+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:43.838+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:43.779+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:43.838+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:43.780+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"Drift\" StaticText`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "99F37A75-E60A-453A-85A7-117D6861FA16"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"Drift\" StaticText`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "4AA8600A-A046-48D0-A337-58B35A7416D7"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:43.887+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:43.838+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking existence of `\"Drift\" StaticText`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "C9BD8D52-4115-4128-B3EE-2B7002858CBC"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 1.0s for \"Drift\" StaticText to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "97DB45C2-E6AC-4355-AACB-E6E05A12655E"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:44.979+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:43.888+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:44.979+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:44.922+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:44.978+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:44.926+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"localBridge.importReview.approve\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "FEC22D37-E807-468B-959D-06A03337BFF0"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"localBridge.importReview.approve\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "40DB6926-BAB0-4F12-993C-8C50DFACF579"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for \"localBridge.importReview.approve\" Button to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "6EF152F1-C025-4192-920B-6E2A9EA2E4E1"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:45.021+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:44.979+0200"
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Find the \"localBridge.importReview.approve\" Button"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "4D86BE14-C790-4814-8740-3DA1B273FD43"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:46.208+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:45.021+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:46.207+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:46.085+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:46.207+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:46.087+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `Any (First Match)`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "FFBCBCE5-7E58-4F4E-9A5B-CD7F12047786"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "4CBD4913-AEC4-48F8-82D4-725C0509A402"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for Any (First Match) to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "95EF985D-4245-4027-82E5-B2FA00EFDFA1"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:47.302+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:46.209+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:47.274+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:46.210+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Terminate xax.CryptoSavingsTracker:43851"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "710F1510-79BF-430F-AA8B-8CB39C3AA3C7"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Tear Down"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "7B8316F9-FCB0-4CF6-AF2D-5DF6E83A147D"
+        }
+      }
+    ]
+  },
+  "duration" : {
+    "_type" : {
+      "_name" : "Double"
+    },
+    "_value" : "34.956536054611206"
+  },
+  "identifier" : {
+    "_type" : {
+      "_name" : "String"
+    },
+    "_value" : "LocalBridgeSyncUITests\/testBlockedReviewScenarioShowsUpdateRequiredAndDisablesApply()"
+  },
+  "identifierURL" : {
+    "_type" : {
+      "_name" : "String"
+    },
+    "_value" : "test:\/\/com.apple.xcode\/CryptoSavingsTracker\/CryptoSavingsTrackerUITests\/LocalBridgeSyncUITests\/testBlockedReviewScenarioShowsUpdateRequiredAndDisablesApply"
+  },
+  "name" : {
+    "_type" : {
+      "_name" : "String"
+    },
+    "_value" : "testBlockedReviewScenarioShowsUpdateRequiredAndDisablesApply()"
+  },
+  "testStatus" : {
+    "_type" : {
+      "_name" : "String"
+    },
+    "_value" : "Success"
+  }
+}

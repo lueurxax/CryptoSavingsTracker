@@ -27,6 +27,14 @@ enum UITestFlags {
         case inviteeUnavailable = "invitee_unavailable"
     }
 
+    enum LocalBridgeScenario: String {
+        case pairingRequired = "pairing_required"
+        case ready = "ready"
+        case reviewReady = "review_ready"
+        case reviewBlocked = "review_blocked"
+        case trustRevoked = "trust_revoked"
+    }
+
     static var isEnabled: Bool {
         args.contains(where: { $0.hasPrefix("UITEST") })
     }
@@ -51,6 +59,10 @@ enum UITestFlags {
         args.contains("UITEST_SEED_STALE_DRAFTS")
     }
 
+    static var shouldForceOnboarding: Bool {
+        args.contains("UITEST_FORCE_ONBOARDING")
+    }
+
     static var shouldSimulateGoalSaveFailure: Bool {
         args.contains("UITEST_SIMULATE_GOAL_SAVE_FAILURE")
     }
@@ -60,6 +72,13 @@ enum UITestFlags {
             return nil
         }
         return FamilyShareScenario(rawValue: rawValue)
+    }
+
+    static var localBridgeScenario: LocalBridgeScenario? {
+        guard let rawValue = environment["UITEST_LOCAL_BRIDGE_SCENARIO"] else {
+            return nil
+        }
+        return LocalBridgeScenario(rawValue: rawValue)
     }
 
     @MainActor

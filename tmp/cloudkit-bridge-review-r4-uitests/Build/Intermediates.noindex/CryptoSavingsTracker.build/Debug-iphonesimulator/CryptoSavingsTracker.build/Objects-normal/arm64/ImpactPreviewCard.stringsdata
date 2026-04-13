@@ -1,0 +1,88 @@
+{
+  "source": "/Users/user/Documents/CryptoSavingsTracker/ios/CryptoSavingsTracker/Views/Components/ImpactPreviewCard.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Impact preview showing changes to your goal",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 165
+        }
+      },
+      {
+        "comment": "",
+        "key": "Impact Preview",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 31
+        }
+      },
+      {
+        "comment": "",
+        "key": "Positive change",
+        "location": {
+          "startingColumn": 52,
+          "startingLine": 35
+        }
+      },
+      {
+        "comment": "",
+        "key": "Requires attention",
+        "location": {
+          "startingColumn": 72,
+          "startingLine": 35
+        }
+      },
+      {
+        "comment": "",
+        "key": "Progress",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 46
+        }
+      },
+      {
+        "comment": "",
+        "key": "Before",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 55
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 66
+        }
+      },
+      {
+        "comment": "",
+        "key": "After",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 79
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 90
+        }
+      },
+      {
+        "comment": "",
+        "key": "Significant Change",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 135
+        }
+      }
+    ]
+  },
+  "version": 1
+}

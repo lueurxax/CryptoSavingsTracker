@@ -1,0 +1,4816 @@
+{
+  "_type" : {
+    "_name" : "ActionTestSummary",
+    "_supertype" : {
+      "_name" : "ActionTestSummaryIdentifiableObject",
+      "_supertype" : {
+        "_name" : "ActionAbstractTestSummary"
+      }
+    }
+  },
+  "activitySummaries" : {
+    "_type" : {
+      "_name" : "Array"
+    },
+    "_values" : [
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "attachments" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestAttachment"
+              },
+              "filename" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "kXCTAttachmentScreenRecording_0_75CB2BF4-A00B-46C0-9785-888A421013A1.mp4"
+              },
+              "lifetime" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "deleteOnSuccess"
+              },
+              "name" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "kXCTAttachmentScreenRecording"
+              },
+              "payloadRef" : {
+                "_type" : {
+                  "_name" : "Reference"
+                },
+                "id" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "0~A3GkwXYpsQdjiMVEqW2RoWAzecvsxhOhFe5D-TicDHaU9m9HYpPIpTyA55wjf_I1aRz8ZGuGAAmeV5btvIcETw=="
+                }
+              },
+              "payloadSize" : {
+                "_type" : {
+                  "_name" : "Int"
+                },
+                "_value" : "12451797"
+              },
+              "timestamp" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:47.325+0200"
+              },
+              "uniformTypeIdentifier" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "public.mpeg-4"
+              },
+              "userInfo" : {
+                "_type" : {
+                  "_name" : "SortedKeyValueArray"
+                },
+                "storage" : {
+                  "_type" : {
+                    "_name" : "Array"
+                  },
+                  "_values" : [
+                    {
+                      "_type" : {
+                        "_name" : "SortedKeyValueArrayPair"
+                      },
+                      "key" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "initialDeviceOrientation"
+                      },
+                      "value" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "0"
+                      }
+                    },
+                    {
+                      "_type" : {
+                        "_name" : "SortedKeyValueArrayPair"
+                      },
+                      "key" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "initialInterfaceOrientation"
+                      },
+                      "value" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "1"
+                      }
+                    },
+                    {
+                      "_type" : {
+                        "_name" : "SortedKeyValueArrayPair"
+                      },
+                      "key" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "scale"
+                      },
+                      "value" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "3"
+                      }
+                    }
+                  ]
+                }
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "51039552-1540-4E14-A2BB-7BB756540D40"
+              }
+            }
+          ]
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:47.325+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:47.304+0200"
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Start Test at 2026-03-22 21:25:47.304"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "75CB2BF4-A00B-46C0-9785-888A421013A1"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:47.326+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:47.326+0200"
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Set Up"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "9482FA85-D778-40E0-8AFF-5501705EAC82"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:50.419+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:47.327+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:50.418+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:47.327+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:48.891+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:47.545+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Setting up automation session"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "33765A4C-5773-4D0E-99DF-CEFA805B4CBA"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:49.412+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:48.891+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "38BA20E5-B3BD-4EB5-AD94-B0B54C1BAAD9"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Launch xax.CryptoSavingsTracker"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "0C7783BB-20EF-461C-B22F-CC8E86B20821"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Open xax.CryptoSavingsTracker"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "CB585B2F-C174-4B9E-A39B-827AB5312B57"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:51.541+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:50.419+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:51.541+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:51.456+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:51.541+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:51.457+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"openSettingsButton\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "69DFEBCC-669A-4C23-BFE3-4515612BD14D"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"openSettingsButton\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "6A3B60E9-DFA5-4A31-B577-57FDFEB8380F"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for \"openSettingsButton\" Button to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "5AF27416-3F77-413A-A69C-CA2A7B9524DE"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:51.879+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:51.542+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:51.545+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:51.542+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "BCF7B427-79ED-4E13-8906-01C661B04779"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:51.560+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:51.545+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Find the \"openSettingsButton\" Button"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "8183845A-2DC4-491A-A46E-4C2BC4E11D35"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:51.581+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:51.562+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Check for interrupting elements affecting \"openSettingsButton\" Button"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "8B651F12-FA4D-4020-B39A-D5AE5191A3C0"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "attachments" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestAttachment"
+                    },
+                    "filename" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "SynthesizedEvent_0_67C5D1D5-7DEB-4337-8F27-067D4B9B27BE"
+                    },
+                    "lifetime" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "deleteOnSuccess"
+                    },
+                    "name" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "kXCTAttachmentLegacySynthesizedEvent"
+                    },
+                    "payloadRef" : {
+                      "_type" : {
+                        "_name" : "Reference"
+                      },
+                      "id" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "0~zXz6WaL7apQoGDywDX7OAw9YG0wIBTxetVYsNiCfj4EMlQ9jtGgsSjFUE08WnY5wgXCZw6iNdy205Row9XkcPw=="
+                      }
+                    },
+                    "payloadSize" : {
+                      "_type" : {
+                        "_name" : "Int"
+                      },
+                      "_value" : "1903"
+                    },
+                    "timestamp" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:51.874+0200"
+                    },
+                    "uniformTypeIdentifier" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.synthesized-event-record"
+                    },
+                    "userInfo" : {
+                      "_type" : {
+                        "_name" : "SortedKeyValueArray"
+                      },
+                      "storage" : {
+                        "_type" : {
+                          "_name" : "Array"
+                        },
+                        "_values" : [
+                          {
+                            "_type" : {
+                              "_name" : "SortedKeyValueArrayPair"
+                            },
+                            "key" : {
+                              "_type" : {
+                                "_name" : "String"
+                              },
+                              "_value" : "DisplayID"
+                            },
+                            "value" : {
+                              "_type" : {
+                                "_name" : "String"
+                              },
+                              "_value" : "1"
+                            }
+                          },
+                          {
+                            "_type" : {
+                              "_name" : "SortedKeyValueArrayPair"
+                            },
+                            "key" : {
+                              "_type" : {
+                                "_name" : "String"
+                              },
+                              "_value" : "Scale"
+                            },
+                            "value" : {
+                              "_type" : {
+                                "_name" : "String"
+                              },
+                              "_value" : "3"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "35116E16-4D23-4B81-8005-0BE97176D7DD"
+                    }
+                  }
+                ]
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:51.874+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:51.582+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Synthesize event"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "67C5D1D5-7DEB-4337-8F27-067D4B9B27BE"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:51.879+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:51.875+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "D0C2E3C3-2AB7-4F2D-9AA5-E56D8266EBB9"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Tap \"openSettingsButton\" Button"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "B52C8507-2865-4F8F-9B59-5363CD4317A3"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:52.995+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:51.879+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:52.995+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:52.913+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:52.994+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:52.915+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"settings.cloudkit.localBridgeSync\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "CE2DCD15-C034-4E30-8579-49DCD1158786"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"settings.cloudkit.localBridgeSync\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "A9BE042E-23EB-427F-BFE9-7D402B9526F6"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for \"settings.cloudkit.localBridgeSync\" Button to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "2D4E3702-2038-4C9A-A6BA-168B91A5D79E"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:53.843+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:52.995+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:52.997+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:52.995+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "C0E0BF42-E128-4495-B1D6-8915C4CB25CE"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:53.034+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:52.998+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Find the \"settings.cloudkit.localBridgeSync\" Button"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "5F93A35E-9CF7-497D-B5BA-39F5EB1C8C6E"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:53.069+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:53.035+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Check for interrupting elements affecting \"settings.cloudkit.localBridgeSync\" Button"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "F09E8B1C-FF14-4085-AB8E-A493F3DA870B"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "attachments" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestAttachment"
+                    },
+                    "filename" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "SynthesizedEvent_0_A5A2B0F9-3315-435C-852B-C06A88BDA860"
+                    },
+                    "lifetime" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "deleteOnSuccess"
+                    },
+                    "name" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "kXCTAttachmentLegacySynthesizedEvent"
+                    },
+                    "payloadRef" : {
+                      "_type" : {
+                        "_name" : "Reference"
+                      },
+                      "id" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "0~h0hbOtpN-MR_Kg0OykpsObcl-E14kku6HW5U-Tc-PSVKZGjwimcaf5YRrHJBpKo2pOxQBgA3qnxi8lvF0VXgIA=="
+                      }
+                    },
+                    "payloadSize" : {
+                      "_type" : {
+                        "_name" : "Int"
+                      },
+                      "_value" : "1903"
+                    },
+                    "timestamp" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:53.360+0200"
+                    },
+                    "uniformTypeIdentifier" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.synthesized-event-record"
+                    },
+                    "userInfo" : {
+                      "_type" : {
+                        "_name" : "SortedKeyValueArray"
+                      },
+                      "storage" : {
+                        "_type" : {
+                          "_name" : "Array"
+                        },
+                        "_values" : [
+                          {
+                            "_type" : {
+                              "_name" : "SortedKeyValueArrayPair"
+                            },
+                            "key" : {
+                              "_type" : {
+                                "_name" : "String"
+                              },
+                              "_value" : "DisplayID"
+                            },
+                            "value" : {
+                              "_type" : {
+                                "_name" : "String"
+                              },
+                              "_value" : "1"
+                            }
+                          },
+                          {
+                            "_type" : {
+                              "_name" : "SortedKeyValueArrayPair"
+                            },
+                            "key" : {
+                              "_type" : {
+                                "_name" : "String"
+                              },
+                              "_value" : "Scale"
+                            },
+                            "value" : {
+                              "_type" : {
+                                "_name" : "String"
+                              },
+                              "_value" : "3"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "FE4DF775-F153-4413-B077-A5CD1BE6AC4A"
+                    }
+                  }
+                ]
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:53.361+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:53.070+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Synthesize event"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "A5A2B0F9-3315-435C-852B-C06A88BDA860"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:53.843+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:53.361+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "5F3F7467-18E5-4812-93C6-D9625B11C09E"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Tap \"settings.cloudkit.localBridgeSync\" Button"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "9B9E8C0D-93A4-4744-8354-E2E3B486C147"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:54.954+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:53.844+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:54.953+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:54.877+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:54.953+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:54.882+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"Local Bridge Sync\" NavigationBar`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "AC63D626-0998-49C4-8F5E-570696F71C32"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"Local Bridge Sync\" NavigationBar`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "4D211AEF-206D-464F-A232-05CC6EBF8D1C"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for \"Local Bridge Sync\" NavigationBar to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "8C79FF26-1326-403F-9756-5F719E57B858"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:56.080+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:54.954+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:56.080+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:55.981+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:56.079+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:55.983+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `Any (First Match)`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "BE3F2C71-CC66-4989-82E2-BAD6AAAFD63E"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "B2BB3969-2451-4D76-9469-5272399D11E3"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for Any (First Match) to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "DB77ACAD-378D-4EAA-A640-AF8E54D76427"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:57.161+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:56.080+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:57.161+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:57.118+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:57.160+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:57.120+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"Pairing Required\" StaticText`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "BF29B3BF-6A73-45C8-8A3B-4EE1BB1A3539"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"Pairing Required\" StaticText`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "1DFA4075-997E-4218-9E20-7DE9B6E1EE6C"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for \"Pairing Required\" StaticText to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "980B0E54-990D-40CC-ADE0-29180755CEC4"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:58.257+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:57.161+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:58.256+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:58.191+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:58.256+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:58.193+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"localBridge.pairMac\" Button`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "A010A1A6-F6AF-4836-A597-ABD4D97E8EB8"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"localBridge.pairMac\" Button`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "C0D85CF3-C7BA-43FE-855E-A76DFC6DC044"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for \"localBridge.pairMac\" Button to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "B510EA11-4824-486C-B55F-5749343CD2A6"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:58.294+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:58.259+0200"
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Find the \"localBridge.pairMac\" Button"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "D9FAC05B-DAFD-4970-9BF4-35791D050165"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:03.503+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:25:58.294+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "attachments" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestAttachment"
+                    },
+                    "filename" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Debug description for `Any (First Match)`_0_F3BE05C2-6205-4149-BDF0-E7444A94E538.txt"
+                    },
+                    "lifetime" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "deleteOnSuccess"
+                    },
+                    "name" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Debug description for `Any (First Match)`"
+                    },
+                    "payloadRef" : {
+                      "_type" : {
+                        "_name" : "Reference"
+                      },
+                      "id" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "0~f9ksqFsfPmQKd4FgAMLapSrG1Yokf7vbztZltaLX2dOVYNsZj6ecgYvPawWdhmMjBC1Lz9FXTxJashzYaCNj4g=="
+                      }
+                    },
+                    "payloadSize" : {
+                      "_type" : {
+                        "_name" : "Int"
+                      },
+                      "_value" : "232"
+                    },
+                    "timestamp" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:59.410+0200"
+                    },
+                    "uniformTypeIdentifier" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "public.plain-text"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "C44532F5-A4B7-48E1-A2E5-89C3EE6B5011"
+                    }
+                  }
+                ]
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:59.410+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:25:59.306+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:59.409+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:59.312+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `Any (First Match)`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "088633EB-F00E-402A-A1A7-21E4AA1D8D93"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:59.409+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:25:59.409+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Capturing element debug description"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "1CD9B0EF-6F70-40AE-9D55-868D40F2EDC9"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "F3BE05C2-6205-4149-BDF0-E7444A94E538"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "attachments" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestAttachment"
+                    },
+                    "filename" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Debug description for `Any (First Match)`_0_EC9B27F0-8EAE-42DB-80A6-FDD01A791E7A.txt"
+                    },
+                    "lifetime" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "deleteOnSuccess"
+                    },
+                    "name" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Debug description for `Any (First Match)`"
+                    },
+                    "payloadRef" : {
+                      "_type" : {
+                        "_name" : "Reference"
+                      },
+                      "id" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "0~f9ksqFsfPmQKd4FgAMLapSrG1Yokf7vbztZltaLX2dOVYNsZj6ecgYvPawWdhmMjBC1Lz9FXTxJashzYaCNj4g=="
+                      }
+                    },
+                    "payloadSize" : {
+                      "_type" : {
+                        "_name" : "Int"
+                      },
+                      "_value" : "232"
+                    },
+                    "timestamp" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:00.465+0200"
+                    },
+                    "uniformTypeIdentifier" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "public.plain-text"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "E46AE280-1041-44EB-A930-41F128F04F37"
+                    }
+                  }
+                ]
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:00.465+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:00.352+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:00.465+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:00.354+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `Any (First Match)`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "608E0A85-CB1D-412A-9A00-1B9634D89507"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:00.465+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:00.465+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Capturing element debug description"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "2754C19A-E5C5-4508-9E91-C039969E64FF"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "EC9B27F0-8EAE-42DB-80A6-FDD01A791E7A"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "attachments" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestAttachment"
+                    },
+                    "filename" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Debug description for `Any (First Match)`_0_6BEB1508-0F87-4B32-9250-9225DBC9EAA0.txt"
+                    },
+                    "lifetime" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "deleteOnSuccess"
+                    },
+                    "name" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Debug description for `Any (First Match)`"
+                    },
+                    "payloadRef" : {
+                      "_type" : {
+                        "_name" : "Reference"
+                      },
+                      "id" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "0~f9ksqFsfPmQKd4FgAMLapSrG1Yokf7vbztZltaLX2dOVYNsZj6ecgYvPawWdhmMjBC1Lz9FXTxJashzYaCNj4g=="
+                      }
+                    },
+                    "payloadSize" : {
+                      "_type" : {
+                        "_name" : "Int"
+                      },
+                      "_value" : "232"
+                    },
+                    "timestamp" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:01.418+0200"
+                    },
+                    "uniformTypeIdentifier" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "public.plain-text"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "D3C481B7-E46C-4B49-935F-EA0A30310819"
+                    }
+                  }
+                ]
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:01.418+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:01.298+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:01.417+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:01.300+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `Any (First Match)`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "62B7F2D5-2D1D-4A5B-80DD-DF860B04B332"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:01.418+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:01.417+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Capturing element debug description"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "D2C3DDA6-A9AF-4D7A-86AE-ADF297CD8EC6"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "6BEB1508-0F87-4B32-9250-9225DBC9EAA0"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "attachments" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestAttachment"
+                    },
+                    "filename" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Debug description for `Any (First Match)`_0_1D6CA10D-393A-4B3E-B360-FD0E97CE81A8.txt"
+                    },
+                    "lifetime" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "deleteOnSuccess"
+                    },
+                    "name" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Debug description for `Any (First Match)`"
+                    },
+                    "payloadRef" : {
+                      "_type" : {
+                        "_name" : "Reference"
+                      },
+                      "id" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "0~f9ksqFsfPmQKd4FgAMLapSrG1Yokf7vbztZltaLX2dOVYNsZj6ecgYvPawWdhmMjBC1Lz9FXTxJashzYaCNj4g=="
+                      }
+                    },
+                    "payloadSize" : {
+                      "_type" : {
+                        "_name" : "Int"
+                      },
+                      "_value" : "232"
+                    },
+                    "timestamp" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:02.482+0200"
+                    },
+                    "uniformTypeIdentifier" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "public.plain-text"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "B7DD7B9F-75CF-48F3-B350-AE07B5CFA588"
+                    }
+                  }
+                ]
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:02.482+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:02.362+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:02.481+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:02.373+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `Any (First Match)`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "EAAA4852-D9EE-42C6-9376-EAAC71D924F0"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:02.482+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:02.481+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Capturing element debug description"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "B06E6D36-7A86-48FB-8DFA-CF6F31AC6B87"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "1D6CA10D-393A-4B3E-B360-FD0E97CE81A8"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "attachments" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestAttachment"
+                    },
+                    "filename" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Debug description for `Any (First Match)`_0_205FA7F0-1112-47E5-9735-672FC5299071.txt"
+                    },
+                    "lifetime" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "deleteOnSuccess"
+                    },
+                    "name" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Debug description for `Any (First Match)`"
+                    },
+                    "payloadRef" : {
+                      "_type" : {
+                        "_name" : "Reference"
+                      },
+                      "id" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "0~f9ksqFsfPmQKd4FgAMLapSrG1Yokf7vbztZltaLX2dOVYNsZj6ecgYvPawWdhmMjBC1Lz9FXTxJashzYaCNj4g=="
+                      }
+                    },
+                    "payloadSize" : {
+                      "_type" : {
+                        "_name" : "Int"
+                      },
+                      "_value" : "232"
+                    },
+                    "timestamp" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:03.416+0200"
+                    },
+                    "uniformTypeIdentifier" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "public.plain-text"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "52C161D7-AE04-4D5E-B241-22E623D09C00"
+                    }
+                  }
+                ]
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.416+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.298+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:03.416+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:03.299+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `Any (First Match)`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "76B645AA-DA34-416D-B78C-897FD9773A12"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:03.416+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:03.416+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Capturing element debug description"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "133F8E8B-ECF2-4BCE-82B5-75CA3EDBA923"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "205FA7F0-1112-47E5-9735-672FC5299071"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.503+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.417+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking existence of `Any (First Match)`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "4C9B1F77-30EB-4730-8978-578A4686F72E"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 5.0s for Any (First Match) to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "37C42651-0E59-4DD0-9CE4-68A7918F4CEF"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "attachments" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestAttachment"
+              },
+              "filename" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "App UI hierarchy for xax_0_6B3ACCA3-F385-41B2-B108-C8DDD519F761.CryptoSavingsTracker"
+              },
+              "lifetime" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "deleteOnSuccess"
+              },
+              "name" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "App UI hierarchy for xax.CryptoSavingsTracker"
+              },
+              "payloadRef" : {
+                "_type" : {
+                  "_name" : "Reference"
+                },
+                "id" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "0~T8TWtQDlCqCjE4k4u-BK-tcgC7iqXSBcNCRWiIPGnUHAnFkzupNsaqO20nZBjaWDAaum0NIrtoM56W3UMH8-ZA=="
+                }
+              },
+              "payloadSize" : {
+                "_type" : {
+                  "_name" : "Int"
+                },
+                "_value" : "26684"
+              },
+              "timestamp" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.562+0200"
+              },
+              "uniformTypeIdentifier" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "public.plain-text"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "443B5EE0-E38D-4752-BF84-314477216BB6"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestAttachment"
+              },
+              "filename" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Snapshot_1_6B3ACCA3-F385-41B2-B108-C8DDD519F761"
+              },
+              "inActivityIdentifier" : {
+                "_type" : {
+                  "_name" : "Int"
+                },
+                "_value" : "1"
+              },
+              "lifetime" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "deleteOnSuccess"
+              },
+              "name" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "kXCTAttachmentLegacySnapshot"
+              },
+              "payloadRef" : {
+                "_type" : {
+                  "_name" : "Reference"
+                },
+                "id" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "0~-uycKfMKxLpaz_Dk3Lxl0xgkhFOOB_Hzmtz2FwgnEpSr_xuRxXVKYwEZDIgNsumjWSCTqbUsTj86bUtD_7_rMQ=="
+                }
+              },
+              "payloadSize" : {
+                "_type" : {
+                  "_name" : "Int"
+                },
+                "_value" : "138150"
+              },
+              "timestamp" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.562+0200"
+              },
+              "uniformTypeIdentifier" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.element-snapshot"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "539CAC9C-CC06-493C-A396-FBBAC066A7A8"
+              }
+            }
+          ]
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:03.570+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:03.503+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.560+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.504+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Requesting snapshot of accessibility hierarchy for app with pid 45378"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "205D64A2-1BEA-45E0-9FE0-2965C2773323"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Collecting debug information to assist test failure triage"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "6B3ACCA3-F385-41B2-B108-C8DDD519F761"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:06.168+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:03.571+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.573+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.571+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "54F400BE-03CF-4E28-8B25-62D352A8E136"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.597+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.573+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Find the Target Application 'xax.CryptoSavingsTracker'"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "82808160-6E50-4997-8DEF-70AB3EAFADA5"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.631+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.599+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Check for interrupting elements affecting \"CryptoSavingsTracker\" Application"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "030A05E3-5946-496B-9790-592F4AACE089"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "attachments" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestAttachment"
+                    },
+                    "filename" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Snapshot_0_59182D98-2B64-4E60-98A1-DD0BF44D23BF"
+                    },
+                    "lifetime" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "deleteOnSuccess"
+                    },
+                    "name" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "kXCTAttachmentLegacySnapshot"
+                    },
+                    "payloadRef" : {
+                      "_type" : {
+                        "_name" : "Reference"
+                      },
+                      "id" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "0~9T95u46hVakQWAo145Y8FNKcpqb-DbFkFYnzpRoaNFzKQrmvGlTjSAZ5Mm0Y0e8w5AQbfy-58JdObrzJwSUhDg=="
+                      }
+                    },
+                    "payloadSize" : {
+                      "_type" : {
+                        "_name" : "Int"
+                      },
+                      "_value" : "1312"
+                    },
+                    "timestamp" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:03.632+0200"
+                    },
+                    "uniformTypeIdentifier" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.element-snapshot"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "859D2F55-538D-4FFD-89E0-EB53D706F999"
+                    }
+                  },
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestAttachment"
+                    },
+                    "filename" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "SynthesizedEvent_1_59182D98-2B64-4E60-98A1-DD0BF44D23BF"
+                    },
+                    "inActivityIdentifier" : {
+                      "_type" : {
+                        "_name" : "Int"
+                      },
+                      "_value" : "1"
+                    },
+                    "lifetime" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "deleteOnSuccess"
+                    },
+                    "name" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "kXCTAttachmentLegacySynthesizedEvent"
+                    },
+                    "payloadRef" : {
+                      "_type" : {
+                        "_name" : "Reference"
+                      },
+                      "id" : {
+                        "_type" : {
+                          "_name" : "String"
+                        },
+                        "_value" : "0~gRMLmjeKtnFyyCqGH-5aU6jC9VsyqbEhBBfe20p_5ezCaZYytTJrUU2upmAbnBeK1291OD1eqsJfE1XsOu5rBQ=="
+                      }
+                    },
+                    "payloadSize" : {
+                      "_type" : {
+                        "_name" : "Int"
+                      },
+                      "_value" : "2095"
+                    },
+                    "timestamp" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:04.050+0200"
+                    },
+                    "uniformTypeIdentifier" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.synthesized-event-record"
+                    },
+                    "userInfo" : {
+                      "_type" : {
+                        "_name" : "SortedKeyValueArray"
+                      },
+                      "storage" : {
+                        "_type" : {
+                          "_name" : "Array"
+                        },
+                        "_values" : [
+                          {
+                            "_type" : {
+                              "_name" : "SortedKeyValueArrayPair"
+                            },
+                            "key" : {
+                              "_type" : {
+                                "_name" : "String"
+                              },
+                              "_value" : "DisplayID"
+                            },
+                            "value" : {
+                              "_type" : {
+                                "_name" : "String"
+                              },
+                              "_value" : "1"
+                            }
+                          },
+                          {
+                            "_type" : {
+                              "_name" : "SortedKeyValueArrayPair"
+                            },
+                            "key" : {
+                              "_type" : {
+                                "_name" : "String"
+                              },
+                              "_value" : "Scale"
+                            },
+                            "value" : {
+                              "_type" : {
+                                "_name" : "String"
+                              },
+                              "_value" : "3"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "13A6874D-9847-40D1-9ED6-189042194F27"
+                    }
+                  }
+                ]
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:04.050+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:03.631+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Synthesize event"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "59182D98-2B64-4E60-98A1-DD0BF44D23BF"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:06.167+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:04.051+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Wait for xax.CryptoSavingsTracker to idle"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "1B96EBB8-EC77-4A29-9A62-962AC179EF39"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Swipe up Target Application 'xax.CryptoSavingsTracker'"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "46886C47-1F93-47C4-ACB6-496DFCC754B3"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:07.389+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:06.168+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:07.301+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:07.173+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:07.301+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:07.176+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `Any (First Match)`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "56071107-096C-439C-B7EB-EB29D232D29B"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "868C45F0-31D5-4AED-B058-2E1756CFBAF3"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:07.388+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:07.302+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking existence of `Any (First Match)`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "EFAA0E3D-9890-4A85-809E-018C22AF6D20"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 1.0s for Any (First Match) to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "9C6271E5-1430-46B1-8254-FC07AB5850A0"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:08.512+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:07.389+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:08.469+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:08.393+0200"
+              },
+              "subactivities" : {
+                "_type" : {
+                  "_name" : "Array"
+                },
+                "_values" : [
+                  {
+                    "_type" : {
+                      "_name" : "ActionTestActivitySummary"
+                    },
+                    "activityType" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "com.apple.dt.xctest.activity-type.internal"
+                    },
+                    "finish" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:08.469+0200"
+                    },
+                    "start" : {
+                      "_type" : {
+                        "_name" : "Date"
+                      },
+                      "_value" : "2026-03-22T21:26:08.395+0200"
+                    },
+                    "title" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Checking existence of `\"No trusted devices stored yet.\" StaticText`"
+                    },
+                    "uuid" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "63B4442A-3855-4B5D-947C-61A7F718764A"
+                    }
+                  }
+                ]
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking `Expect predicate `existsNoRetry == 1` for object \"No trusted devices stored yet.\" StaticText`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "22A4305A-704A-4788-B593-73B00A83C4E1"
+              }
+            },
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:08.512+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:08.470+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Checking existence of `\"No trusted devices stored yet.\" StaticText`"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "76E810DD-B72A-4FAA-B839-F0AFE80A0092"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Waiting 1.0s for \"No trusted devices stored yet.\" StaticText to exist"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "F26E3800-E4B1-40A8-860A-04AA3F5A8168"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:08.613+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:08.512+0200"
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Checking existence of `Any (First Match)`"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "36CED63D-448A-424A-BAE2-840EEA90AA72"
+        }
+      },
+      {
+        "_type" : {
+          "_name" : "ActionTestActivitySummary"
+        },
+        "activityType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "com.apple.dt.xctest.activity-type.internal"
+        },
+        "finish" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:09.926+0200"
+        },
+        "start" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:08.805+0200"
+        },
+        "subactivities" : {
+          "_type" : {
+            "_name" : "Array"
+          },
+          "_values" : [
+            {
+              "_type" : {
+                "_name" : "ActionTestActivitySummary"
+              },
+              "activityType" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.dt.xctest.activity-type.internal"
+              },
+              "finish" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:09.844+0200"
+              },
+              "start" : {
+                "_type" : {
+                  "_name" : "Date"
+                },
+                "_value" : "2026-03-22T21:26:08.805+0200"
+              },
+              "title" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "Terminate xax.CryptoSavingsTracker:45378"
+              },
+              "uuid" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "C748B685-0AD6-4E96-9B60-4193DC4180DD"
+              }
+            }
+          ]
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Tear Down"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "17D9BA55-7438-4797-ABD6-077BDE81FAEA"
+        }
+      }
+    ]
+  },
+  "duration" : {
+    "_type" : {
+      "_name" : "Double"
+    },
+    "_value" : "22.623193979263306"
+  },
+  "failureSummaries" : {
+    "_type" : {
+      "_name" : "Array"
+    },
+    "_values" : [
+      {
+        "_type" : {
+          "_name" : "ActionTestFailureSummary"
+        },
+        "fileName" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTrackerUITests\/LocalBridgeSyncUITests.swift"
+        },
+        "issueType" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Assertion Failure"
+        },
+        "isTopLevelFailure" : {
+          "_type" : {
+            "_name" : "Bool"
+          },
+          "_value" : "true"
+        },
+        "lineNumber" : {
+          "_type" : {
+            "_name" : "Int"
+          },
+          "_value" : "110"
+        },
+        "message" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "XCTAssertTrue failed"
+        },
+        "sourceCodeContext" : {
+          "_type" : {
+            "_name" : "SourceCodeContext"
+          },
+          "callStack" : {
+            "_type" : {
+              "_name" : "Array"
+            },
+            "_values" : [
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354603468"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354061631"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354061099"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354062615"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4463125607"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4464890563"
+                },
+                "symbolInfo" : {
+                  "_type" : {
+                    "_name" : "SourceCodeSymbolInfo"
+                  },
+                  "imageName" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "CryptoSavingsTrackerUITests"
+                  },
+                  "location" : {
+                    "_type" : {
+                      "_name" : "SourceCodeLocation"
+                    },
+                    "filePath" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTrackerUITests\/LocalBridgeSyncUITests.swift"
+                    },
+                    "lineNumber" : {
+                      "_type" : {
+                        "_name" : "Int"
+                      },
+                      "_value" : "110"
+                    }
+                  },
+                  "symbolName" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "LocalBridgeSyncUITests.testPairingRequiredScenarioShowsPairMacAndEmptyTrustedDevices()"
+                  }
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4464892695"
+                },
+                "symbolInfo" : {
+                  "_type" : {
+                    "_name" : "SourceCodeSymbolInfo"
+                  },
+                  "imageName" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "CryptoSavingsTrackerUITests"
+                  },
+                  "location" : {
+                    "_type" : {
+                      "_name" : "SourceCodeLocation"
+                    },
+                    "filePath" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "\/<compiler-generated>"
+                    },
+                    "lineNumber" : {
+                      "_type" : {
+                        "_name" : "Int"
+                      },
+                      "_value" : "0"
+                    }
+                  },
+                  "symbolName" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "@objc LocalBridgeSyncUITests.testPairingRequiredScenarioShowsPairMacAndEmptyTrustedDevices()"
+                  }
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "6447422655"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "6447410227"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354521327"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354521255"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354519315"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354460307"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354614615"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354614775"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354460071"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354518771"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354520567"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354521467"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354133183"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354134799"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354156687"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354133767"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354140431"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354156687"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354138895"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354447871"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354447615"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354137575"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354121539"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354182031"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354181467"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354178791"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354447871"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354447615"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354178659"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354180107"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354121539"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354182031"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354181467"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354178791"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354447871"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354447615"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354178659"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354180107"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354121539"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354182031"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354181467"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354178791"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354447871"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354447615"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354178659"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354180107"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354121539"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354309527"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354447871"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354447615"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354309195"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354255191"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354259999"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354260407"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354254807"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354254239"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354255499"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354247343"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354331075"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354245787"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4354253407"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4338999267"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4338998771"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "6446756075"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "6446753827"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "6446731423"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "6446729567"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "6712474383"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "6537489215"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "6537506103"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4339000127"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4342715407"
+                }
+              },
+              {
+                "_type" : {
+                  "_name" : "SourceCodeFrame"
+                },
+                "addressString" : {
+                  "_type" : {
+                    "_name" : "String"
+                  },
+                  "_value" : "4339797331"
+                }
+              }
+            ]
+          },
+          "location" : {
+            "_type" : {
+              "_name" : "SourceCodeLocation"
+            },
+            "filePath" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "\/Users\/user\/Documents\/CryptoSavingsTracker\/ios\/CryptoSavingsTrackerUITests\/LocalBridgeSyncUITests.swift"
+            },
+            "lineNumber" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "110"
+            }
+          }
+        },
+        "timestamp" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2026-03-22T21:26:08.613+0200"
+        },
+        "uuid" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "961CEFB1-3D09-4D62-BCF3-786BDAAE886C"
+        }
+      }
+    ]
+  },
+  "identifier" : {
+    "_type" : {
+      "_name" : "String"
+    },
+    "_value" : "LocalBridgeSyncUITests\/testPairingRequiredScenarioShowsPairMacAndEmptyTrustedDevices()"
+  },
+  "identifierURL" : {
+    "_type" : {
+      "_name" : "String"
+    },
+    "_value" : "test:\/\/com.apple.xcode\/CryptoSavingsTracker\/CryptoSavingsTrackerUITests\/LocalBridgeSyncUITests\/testPairingRequiredScenarioShowsPairMacAndEmptyTrustedDevices"
+  },
+  "name" : {
+    "_type" : {
+      "_name" : "String"
+    },
+    "_value" : "testPairingRequiredScenarioShowsPairMacAndEmptyTrustedDevices()"
+  },
+  "testStatus" : {
+    "_type" : {
+      "_name" : "String"
+    },
+    "_value" : "Failure"
+  }
+}

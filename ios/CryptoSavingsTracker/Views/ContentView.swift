@@ -122,6 +122,13 @@ struct GoalsList: View {
     @State private var showingAddGoal = false
     @State private var showingSettings = false
     @State private var editingGoal: Goal?
+    @State private var addAssetForGoal: Goal?
+    @State private var addTransactionAssetForGoal: Asset?
+    @State private var transactionAssetsForPicker: [Asset] = []
+    @State private var goalForTransactionPicker: Goal?
+    @State private var showTransactionAssetPicker = false
+    @State private var showNoAssetsForTransactionAlert = false
+    @State private var goalNeedingTransactionAsset: Goal?
     @State private var selectedSharedGoal: FamilyShareInviteeGoalProjection?
     @State private var monthlyPlanningViewModel: MonthlyPlanningViewModel?
     @State private var refreshTrigger = UUID()
@@ -143,12 +150,18 @@ struct GoalsList: View {
 
             if familyShareEnabled && !familyShareCoordinator.inviteeProjection.sections.isEmpty {
                 Section {
-                    EmptyView()
+                    Text(familyShareCoordinator.inviteeProjection.entrySummary)
+                        .font(.subheadline)
+                        .foregroundColor(.accessibleSecondary)
+                        .accessibilityIdentifier("sharedGoalsSectionSummary")
                 } header: {
                     Text(familyShareCoordinator.inviteeProjection.entryTitle)
                         .textCase(nil)
                 }
                 .accessibilityIdentifier("sharedGoalsSection")
+                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
 
                 ForEach(familyShareCoordinator.inviteeProjection.sections) { section in
                     Section {
@@ -199,6 +212,8 @@ struct GoalsList: View {
                                 goal: goal,
                                 onDelete: { onDelete(goal) },
                                 onEdit: { editingGoal = goal },
+                                onAddAsset: { addAssetForGoal = goal },
+                                onAddTransaction: { handleAddTransaction(for: goal) },
                                 onCancel: {
                                     Task { @MainActor in
                                         await GoalLifecycleService(modelContext: modelContext).cancelGoal(goal)
@@ -260,6 +275,52 @@ struct GoalsList: View {
                 .presentationDetents([.large])
         }
         // NAV-MOD: MOD-01
+        .sheet(item: $addAssetForGoal) { goal in
+            AddAssetView(goal: goal)
+                .presentationDetents([.large])
+        }
+        // NAV-MOD: MOD-01
+        .sheet(item: $addTransactionAssetForGoal) { asset in
+            AddTransactionView(asset: asset)
+                .presentationDetents([.large])
+        }
+        .confirmationDialog(
+            "Add transaction to which asset?",
+            isPresented: $showTransactionAssetPicker
+        ) {
+            ForEach(transactionAssetsForPicker) { asset in
+                Button(asset.currency) {
+                    addTransactionAssetForGoal = asset
+                    transactionAssetsForPicker = []
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                transactionAssetsForPicker = []
+                goalForTransactionPicker = nil
+                showTransactionAssetPicker = false
+                goalNeedingTransactionAsset = nil
+            }
+        } message: {
+            if let goal = goalForTransactionPicker {
+                Text("Choose an asset in \"\(goal.name)\"")
+            } else {
+                Text("Choose an asset for the transaction")
+            }
+        }
+        .alert("No Assets Yet", isPresented: $showNoAssetsForTransactionAlert) {
+            Button("Add Asset") {
+                if let goal = goalNeedingTransactionAsset {
+                    addAssetForGoal = goal
+                    goalNeedingTransactionAsset = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                goalNeedingTransactionAsset = nil
+            }
+        } message: {
+            Text("Add an asset to the goal before adding a transaction.")
+        }
+        // NAV-MOD: MOD-01
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
@@ -289,6 +350,24 @@ struct GoalsList: View {
     private func setupShortcuts() {
         // iOS Shortcuts integration handled in ShortcutsProvider.swift
     }
+
+    private func handleAddTransaction(for goal: Goal) {
+        let assets = goal.uniqueAllocatedAssets
+        guard assets.isEmpty == false else {
+            goalNeedingTransactionAsset = goal
+            showNoAssetsForTransactionAlert = true
+            return
+        }
+
+        if assets.count == 1 {
+            addTransactionAssetForGoal = assets.first
+            return
+        }
+
+        goalForTransactionPicker = goal
+        transactionAssetsForPicker = assets
+        showTransactionAssetPicker = true
+    }
 }
 
 // MARK: - Shared Components
@@ -297,6 +376,8 @@ struct GoalContextMenuContent: View {
     let goal: Goal
     let onDelete: () -> Void
     let onEdit: () -> Void
+    let onAddAsset: () -> Void
+    let onAddTransaction: () -> Void
     let onCancel: () -> Void
     let onFinish: () -> Void
 
@@ -315,11 +396,11 @@ struct GoalContextMenuContent: View {
             }
 
             Button("Add Asset") {
-                // Add asset action
+                onAddAsset()
             }
 
             Button("Add Transaction") {
-                // Add transaction action
+                onAddTransaction()
             }
 
             Divider()

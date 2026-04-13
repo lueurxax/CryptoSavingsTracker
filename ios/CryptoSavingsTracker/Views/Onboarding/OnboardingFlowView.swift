@@ -12,8 +12,8 @@ struct OnboardingFlowView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var onboardingManager = OnboardingManager.shared
     @State private var selectedTemplate: GoalTemplate?
-    @State private var isCreatingGoal = false
-    
+    @State private var goalCreationState = OnboardingGoalCreationState()
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -34,6 +34,18 @@ struct OnboardingFlowView: View {
                         .padding(.horizontal, 24)
                         .padding(.top, 16)
                     
+                    if let error = goalCreationState.error {
+                        ErrorBannerView(
+                            error: error,
+                            onRetry: error.isRetryable ? { () async in
+                                createGoalFromTemplate()
+                            } : nil,
+                            onDismiss: { goalCreationState.clearError() }
+                        )
+                        .padding(.top, 16)
+                        .accessibilityIdentifier("onboardingGoalCreationError")
+                    }
+                    
                     // Main content
                     ScrollView {
                         VStack(spacing: 32) {
@@ -47,6 +59,7 @@ struct OnboardingFlowView: View {
                     OnboardingNavigationView(
                         currentStep: onboardingManager.currentStep,
                         canProceed: canProceedToNextStep,
+                        isProcessing: goalCreationState.isCreatingGoal,
                         onNext: handleNextTapped,
                         onPrevious: handlePreviousTapped,
                         onSkip: handleSkipTapped
@@ -92,9 +105,18 @@ struct OnboardingFlowView: View {
                     createGoalFromTemplate()
                 }
             )
-            
+
         case .completed:
-            EmptyView()
+            VStack(spacing: 12) {
+                Text("You’re all set")
+                    .font(.title2.bold())
+                Text("Onboarding is complete. Continue to your goals and begin tracking.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
     
@@ -109,7 +131,7 @@ struct OnboardingFlowView: View {
         case .assetSelection:
             return true // Assets are pre-selected from template
         case .setupComplete:
-            return true
+            return !goalCreationState.isCreatingGoal
         case .completed:
             return false
         }
@@ -126,6 +148,7 @@ struct OnboardingFlowView: View {
     }
     
     private func handlePreviousTapped() {
+        goalCreationState.clearError()
         withAnimation(.easeInOut(duration: 0.3)) {
             onboardingManager.moveToPreviousStep()
         }
@@ -133,18 +156,19 @@ struct OnboardingFlowView: View {
     
     private func handleSkipTapped() {
         withAnimation(.easeInOut(duration: 0.3)) {
+            goalCreationState.clearError()
             onboardingManager.completeOnboarding()
         }
     }
     
     private func createGoalFromTemplate() {
         guard let template = selectedTemplate else {
-            onboardingManager.completeOnboarding()
+            goalCreationState.handleMissingTemplateSelection()
             return
         }
-        
-        isCreatingGoal = true
-        
+
+        goalCreationState.begin()
+
         Task {
             do {
                 try await DIContainer.shared.makeOnboardingMutationService(modelContext: modelContext)
@@ -152,17 +176,12 @@ struct OnboardingFlowView: View {
                 
                 // Mark achievements
                 await MainActor.run {
-                    onboardingManager.markFirstGoalCompleted()
-                    onboardingManager.completeOnboarding()
-                    isCreatingGoal = false
+                    goalCreationState.handleSuccess(using: onboardingManager)
                 }
                 
             } catch {
                 await MainActor.run {
-                    // Handle error - for now just complete onboarding
-                    print("Failed to create goal from template: \(error)")
-                    onboardingManager.completeOnboarding()
-                    isCreatingGoal = false
+                    goalCreationState.handleFailure(error)
                 }
             }
         }
@@ -213,6 +232,7 @@ struct OnboardingProgressView: View {
 struct OnboardingNavigationView: View {
     let currentStep: OnboardingStep
     let canProceed: Bool
+    let isProcessing: Bool
     let onNext: () -> Void
     let onPrevious: () -> Void
     let onSkip: () -> Void
@@ -249,10 +269,16 @@ struct OnboardingNavigationView: View {
                 // Next/Complete button
                 Button(action: onNext) {
                     HStack(spacing: 8) {
+                        if isProcessing {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                        }
+
                         Text(nextButtonText)
                             .font(.system(size: 16, weight: .semibold))
                         
-                        if !currentStep.isLastStep {
+                        if !currentStep.isLastStep && !isProcessing {
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 14, weight: .medium))
                         }
@@ -265,7 +291,7 @@ struct OnboardingNavigationView: View {
                             .fill(canProceed ? Color.accessiblePrimary : Color.accessibleSecondary)
                     )
                 }
-                .disabled(!canProceed)
+                .disabled(!canProceed || isProcessing)
                 .accessibilityLabel(nextButtonText)
             }
             
@@ -277,11 +303,16 @@ struct OnboardingNavigationView: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.accessibleSecondary)
                 .accessibilityLabel("Skip onboarding setup")
+                .disabled(isProcessing)
             }
         }
     }
     
     private var nextButtonText: String {
+        if isProcessing {
+            return "Creating Goal..."
+        }
+
         switch currentStep {
         case .setupComplete:
             return "Start Saving"

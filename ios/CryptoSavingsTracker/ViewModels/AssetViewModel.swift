@@ -134,7 +134,7 @@ class AssetViewModel: ObservableObject, ErrorAwareViewModel {
             AppLog.info("Successfully fetched on-chain balance: \(balance) \(asset.currency)", category: .balanceService)
             return balance
         } catch {
-            AppLog.error("On-chain balance fetch error: \(error)", category: .balanceService)
+            AppLog.error("On-chain balance fetch error: \(error.localizedDescription)", category: .balanceService)
             balanceError = error.localizedDescription
             return 0
         }
@@ -216,7 +216,7 @@ class AssetViewModel: ObservableObject, ErrorAwareViewModel {
                 await refreshBalances()
             }
         } catch {
-            AppLog.error("Failed to delete transaction: \(error)", category: .transactionHistory)
+            AppLog.error("Failed to delete transaction: \(error.localizedDescription)", category: .transactionHistory)
         }
     }
 }

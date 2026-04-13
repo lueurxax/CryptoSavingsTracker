@@ -3,7 +3,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | Implemented |
-| Last Updated | 2026-03-21 |
+| Last Updated | 2026-03-22 |
 | Platform | iOS 18+, iPadOS 18+ |
 | Audience | Developers |
 
@@ -12,6 +12,8 @@
 Family Sharing allows the goal owner to grant household members strict read-only access to the full goal set using CloudKit sharing. Invitees see a dedicated consumer experience with no editing or planning authority.
 
 This feature is higher priority than `Local Bridge Sync` and must remain shipped before any further bridge expansion.
+
+Detailed runtime documentation for freshness behavior, automatic republish, invitee refresh scheduling, and the shared-goals list/detail freshness UI lives in [FAMILY_SHARING_FRESHNESS_SYNC.md](FAMILY_SHARING_FRESHNESS_SYNC.md).
 
 ---
 
@@ -102,8 +104,15 @@ Invitee read-only UI
 
 | File | Contents |
 |------|----------|
-| `Services/FamilySharing/FamilyShareServices.swift` | Protocols (`FamilyShareStateProviding`, `ProjectionPublishing`, `OwnerSharingServicing`, `CacheMigrating`, `NamespaceManaging`, `SceneAccepting`), `FamilyShareNamespaceActor`, `FamilyShareNamespaceExecutionHub`, `FamilyShareAccessGuard`, `FamilyShareProjectionPublishCoordinator`, `FamilyShareAcceptanceCoordinator` (main entry point), `FamilyShareSceneDelegateBridge` |
+| `Services/FamilySharing/FamilyShareServices.swift` | Protocols (`FamilyShareStateProviding`, `ProjectionPublishing`, `OwnerSharingServicing`, `CacheMigrating`, `NamespaceManaging`, `SceneAccepting`), `FamilyShareNamespaceActor`, `FamilyShareNamespaceExecutionHub`, `FamilyShareAccessGuard`, `FamilyShareProjectionPublishCoordinator`, `FamilyShareAcceptanceCoordinator` (main entry point), freshness-pipeline wiring, `FamilyShareSceneDelegateBridge` |
 | `Services/FamilySharing/FamilyShareCloudKitStore.swift` | CloudKit sync implementation: `FamilyShareCloudSyncing` protocol, `DefaultFamilyShareCloudKitStore` (publish, accept, fetch, refresh, revoke), `FamilyShareRootRecordLocatorStore` |
+| `Services/FamilySharing/FamilyShareProjectionAutoRepublishCoordinator.swift` | Per-namespace publish ingress: debounce/coalescing, reconciliation barrier, content-hash dedup, persisted dirty state, retry backoff |
+| `Services/FamilySharing/FamilyShareInviteeRefreshScheduler.swift` | Invitee foreground/visibility/manual refresh triggers and per-namespace freshness substates |
+| `Services/FamilySharing/FamilyShareForegroundRateRefreshDriver.swift` | Owner-side foreground exchange-rate refresh cadence |
+| `Services/FamilySharing/FamilyShareRateDriftEvaluator.swift` | Materiality-aware rate drift evaluation that emits owner dirty events |
+| `Services/FamilySharing/FamilyShareProjectionMutationObserver.swift` | Shared-goal mutation observer feeding freshness dirty reasons |
+| `Services/FamilySharing/FamilyShareReconciliationBarrier.swift` | Pre-publish import fence that suppresses stale owner-device publishes |
+| `Services/FamilySharing/FamilyShareFreshnessLabel.swift` | Canonical list/detail freshness copy and VoiceOver contract |
 
 ### Utilities
 
@@ -124,9 +133,11 @@ Invitee read-only UI
 | `Views/FamilySharing/FamilyShareScopePreviewSheet.swift` | Mandatory pre-share disclosure with staged sections |
 | `Views/FamilySharing/FamilyShareParticipantsView.swift` | Participant list with state and revoke |
 | `Views/FamilySharing/FamilyCloudSharingControllerSheet.swift` | `UICloudSharingController` wrapper |
-| `Views/FamilySharing/SharedGoalsSectionView.swift` | Owner-grouped shared goals with header and state banner |
+| `Views/FamilySharing/SharedGoalsSectionView.swift` | Owner-grouped shared goals with per-namespace freshness header and state banner |
 | `Views/FamilySharing/SharedGoalRowView.swift` | Individual shared goal row with owner chip |
-| `Views/FamilySharing/SharedGoalDetailView.swift` | Read-only goal detail with metrics, freshness, state |
+| `Views/FamilySharing/SharedGoalDetailView.swift` | Read-only goal detail with metrics, dedicated freshness card, and state |
+| `Views/FamilySharing/FamilyShareFreshnessHeaderView.swift` | Shared list freshness header with recovery CTA |
+| `Views/FamilySharing/FamilyShareFreshnessCardView.swift` | Read-only detail freshness card and accessibility disclosure behavior |
 
 ---
 
@@ -161,7 +172,7 @@ Invitee read-only UI
 ### Entry Points
 
 - **Owner**: `Settings -> Family Access`
-- **Invitee**: `Goals` root with dedicated `Shared Goals` section (not in Settings)
+- **Invitee**: `Goals` root with dedicated `Shared with You` section (not in Settings)
 
 ### Multi-Owner Grouping
 
@@ -197,6 +208,8 @@ Invitee read-only UI
 
 ## Projection Publishing
 
+For the shipped freshness-specific publish/runtime contract, see [FAMILY_SHARING_FRESHNESS_SYNC.md](FAMILY_SHARING_FRESHNESS_SYNC.md).
+
 ### Publish Triggers
 
 Goal create, update, archive/restore/close, delete; monthly status change; contribution summary change; owner display-name change; share creation/revoke/participant transitions.
@@ -224,7 +237,7 @@ Flag: `family_readonly_sharing_enabled`
 
 Sources (priority order): debug override > remote config > release default.
 
-Kill switch disables new creation and new acceptance first. Existing accepted shares degrade to `stale`/`temporarilyUnavailable`, not silent disappearance.
+The same flag currently gates the freshness pipeline (`isFreshnessPipelineEnabled()`). Kill switch disables new creation and new acceptance first. Existing accepted shares degrade to `stale`/`temporarilyUnavailable`, not silent disappearance.
 
 ### Kill-Switch Thresholds
 

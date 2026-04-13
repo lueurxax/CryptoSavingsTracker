@@ -82,12 +82,15 @@ struct ChartErrorView: View {
                 
                 if let helpAnchor = error.helpAnchor {
                     Button("Learn More") {
-                        // TODO: Implement help system navigation
-                        print("Navigate to help: \(helpAnchor)")
+                        AppLog.info(
+                            "Chart help requested for anchor: \(helpAnchor)",
+                            category: .ui
+                        )
                     }
                     .font(.caption)
                     .foregroundColor(.accessiblePrimary)
                     .accessibilityLabel("Get help with this error")
+                    .accessibilityHint("Logs the related help topic until in-app help navigation is available.")
                 }
             }
         }

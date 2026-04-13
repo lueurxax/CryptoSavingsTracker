@@ -722,13 +722,6 @@ struct AddAssetView: View {
             }
             return
         }
-        
-        print("💾 AddAssetView.saveAsset() called")
-        print("   Goal: \(goal.name)")
-        print("   Currency: \(currency.uppercased())")
-        print("   Asset Type: \(assetKind.rawValue)")
-        print("   Address: \(address)")
-        print("   ChainId: \(predictedChain?.id ?? chainId ?? "none")")
 
         let finalAddress: String?
         let finalChainId: String?
@@ -759,17 +752,12 @@ struct AddAssetView: View {
                 goal: goal
             )
             
-            print("✅ Asset saved successfully with 100% allocation to goal")
-            print("   Goal allocations count after save: \((goal.allocations ?? []).count)")
-            
             await MainActor.run {
                 isLoading = false
             }
             
             dismiss()
         } catch {
-            print("❌ Asset saving failed: \(error)")
-            
             await MainActor.run {
                 errorMessage = "Unable to save your asset right now. Please check your connection and try again."
                 isLoading = false
