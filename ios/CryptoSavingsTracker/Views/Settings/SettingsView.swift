@@ -6,176 +6,42 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct SettingsView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var familyShareCoordinator: FamilyShareAcceptanceCoordinator
-    @Query(filter: #Predicate<Goal> { goal in
-        goal.lifecycleStatusRawValue == "active"
-    })
-    private var activeGoals: [Goal]
-    @ObservedObject private var monthlySettings = MonthlyPlanningSettings.shared
-    @StateObject private var persistenceController = PersistenceController.shared
-    @StateObject private var bridgeController = LocalBridgeSyncController.shared
-    @State private var showingMonthlyPlanningSettings = false
-    @State private var settingsVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .settings)
-    @State private var exportResult: CSVExportResult?
-    @State private var exportErrorMessage: String?
-    @State private var showingExportError = false
-    @State private var familyShareEnabled = DIContainer.shared.familyShareRollout.isEnabled()
-    @StateObject private var healthMonitor = DIContainer.shared.cloudKitHealthMonitor
+    @AppStorage("mvp.settings.displayCurrency") private var displayCurrency = "USD"
+    @AppStorage("mvp.settings.appearance") private var appearance = "system"
+
+    private let supportURL = URL(string: "https://support.cryptosavingstracker.app/mvp")!
 
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Button {
-                        do {
-                            let urls = try CSVExportService.exportCSVFiles(using: modelContext)
-                            exportResult = CSVExportResult(fileURLs: urls)
-                        } catch {
-                            exportErrorMessage = error.localizedDescription
-                            showingExportError = true
-                        }
-                    } label: {
-                        Text("Export Data (CSV)")
+                Section("Preferences") {
+                    Picker("Display Currency", selection: $displayCurrency) {
+                        Text("USD").tag("USD")
+                        Text("EUR").tag("EUR")
+                        Text("GBP").tag("GBP")
                     }
-                    .accessibilityIdentifier("exportCSVButton")
-                    .accessibilityHint("Double tap to generate CSV snapshots for your current data.")
 
-                    NavigationLink {
-                        LocalBridgeSyncView(persistenceSnapshot: persistenceController.snapshot)
-                    } label: {
-                        Text(SettingsUXCopy.importDataTitle)
+                    Picker("Appearance", selection: $appearance) {
+                        Text("System").tag("system")
+                        Text("Light").tag("light")
+                        Text("Dark").tag("dark")
                     }
-                    .accessibilityIdentifier("importDataButton")
-                    .accessibilityHint(SettingsUXCopy.importDataHint)
-                } header: {
-                    Text("Data")
-                } footer: {
-                    Text(SettingsUXCopy.dataSectionFooter)
                 }
 
-                Section {
-                    if familyShareEnabled {
-                        NavigationLink {
-                            FamilyAccessView(
-                                model: familyShareCoordinator.makeFamilyAccessModel(currentGoals: activeGoals),
-                                onShareWithFamily: {
-                                    Task {
-                                        await familyShareCoordinator.shareAllGoals(activeGoals)
-                                    }
-                                },
-                                onRefresh: {
-                                    Task {
-                                        await familyShareCoordinator.refreshFamilyAccessOwnerData(currentGoals: activeGoals)
-                                    }
-                                },
-                                onShowScopePreview: {},
-                                onShowParticipants: {
-                                    Task {
-                                        await familyShareCoordinator.manageParticipants()
-                                    }
-                                }
-                            )
-                        } label: {
-                            let familyAccessSummary = familyShareCoordinator.settingsRowSummary(currentGoalCount: activeGoals.count)
-                            if settingsVisualEnabled {
-                                SettingsSectionRow(
-                                    title: "Family Access",
-                                    systemImage: "person.2.badge.gearshape",
-                                    value: familyAccessSummary,
-                                    accessibilityIdentifier: "settings.cloudkit.familyAccessRow"
-                                )
-                            } else {
-                                LegacySettingsValueRow(
-                                    title: "Family Access",
-                                    value: familyAccessSummary,
-                                    accessibilityIdentifier: "settings.cloudkit.familyAccessRow"
-                                )
-                            }
-                        }
-                        .accessibilityIdentifier("settings.cloudkit.familyAccess")
-                        .accessibilityHint(SettingsUXCopy.navigationHint(destination: "Family Access"))
+                Section("About") {
+                    Link(destination: supportURL) {
+                        settingsRow(title: "Support", value: "Open")
                     }
 
-                    NavigationLink {
-                        LocalBridgeSyncView(persistenceSnapshot: persistenceController.snapshot)
-                    } label: {
-                        let bridgeSummary = bridgeController
-                            .statusSnapshot(persistenceSnapshot: persistenceController.snapshot)
-                            .topLevelSummary
-                        if settingsVisualEnabled {
-                            SettingsSectionRow(
-                                title: "Local Bridge Sync",
-                                systemImage: "arrow.triangle.2.circlepath.icloud",
-                                value: bridgeSummary,
-                                accessibilityIdentifier: "settings.cloudkit.localBridgeSyncRow"
-                            )
-                        } else {
-                            LegacySettingsValueRow(
-                                title: "Local Bridge Sync",
-                                value: bridgeSummary,
-                                accessibilityIdentifier: "settings.cloudkit.localBridgeSyncRow"
-                            )
-                        }
+                    Link(destination: supportURL) {
+                        settingsRow(title: "What changed in this update", value: "Open")
                     }
-                    .accessibilityIdentifier("settings.cloudkit.localBridgeSync")
-                    .accessibilityHint(SettingsUXCopy.navigationHint(destination: "Local Bridge Sync"))
-                } header: {
-                    Text("Sync")
-                } footer: {
-                    Text("Authoritative application data now lives only in CloudKit. Local persistence remains available only for caches and other non-authoritative helper data.")
+
+                    settingsRow(title: "Version", value: appVersion)
                 }
-
-                Section("Monthly Planning") {
-                    if settingsVisualEnabled {
-                        SettingsSectionRow(
-                            title: "Display Currency",
-                            systemImage: "dollarsign.circle",
-                            value: monthlySettings.displayCurrency,
-                            accessibilityIdentifier: "settings.section_row"
-                        )
-
-                        SettingsSectionRow(
-                            title: "Payment Day",
-                            systemImage: "calendar",
-                            value: "\(monthlySettings.paymentDay)\(monthlySettings.paymentDay.ordinalSuffix) of month",
-                            accessibilityIdentifier: "settings.section_row.payment_day"
-                        )
-
-                        SettingsSectionRow(
-                            title: "Next Payment",
-                            systemImage: "clock",
-                            value: "\(monthlySettings.daysUntilPayment) days",
-                            accessibilityIdentifier: "settings.section_row.next_payment"
-                        )
-                    } else {
-                        LegacySettingsValueRow(
-                            title: "Display Currency",
-                            value: monthlySettings.displayCurrency,
-                            accessibilityIdentifier: "settings.section_row"
-                        )
-                        LegacySettingsValueRow(
-                            title: "Payment Day",
-                            value: "\(monthlySettings.paymentDay)\(monthlySettings.paymentDay.ordinalSuffix) of month",
-                            accessibilityIdentifier: "settings.section_row.payment_day"
-                        )
-                        LegacySettingsValueRow(
-                            title: "Next Payment",
-                            value: "\(monthlySettings.daysUntilPayment) days",
-                            accessibilityIdentifier: "settings.section_row.next_payment"
-                        )
-                    }
-                    
-                    Button("Configure Monthly Planning") {
-                        showingMonthlyPlanningSettings = true
-                    }
-                    .accessibilityHint(SettingsUXCopy.navigationHint(destination: "Monthly Planning settings"))
-                }
-
             }
             .accessibilityIdentifier("settingsForm")
             .formStyle(.grouped)
@@ -192,158 +58,23 @@ struct SettingsView: View {
             #endif
         }
         #if os(macOS)
-        .platformPadding()
         .frame(width: 500, height: 400)
         #endif
-        // NAV-MOD: MOD-01
-        .sheet(isPresented: $showingMonthlyPlanningSettings) {
-            MonthlyPlanningSettingsView(goals: activeGoals)
-        }
-        // NAV-MOD: MOD-01
-        .sheet(item: $exportResult) { result in
-            CSVExportShareView(fileURLs: result.fileURLs)
-        }
-        .sheet(item: $familyShareCoordinator.pendingCloudSharingRequest) { request in
-            FamilyCloudSharingControllerSheet(
-                request: request,
-                onDidSave: {
-                    familyShareCoordinator.dismissPendingCloudSharingRequest()
-                    Task {
-                        await familyShareCoordinator.noteOwnerParticipantsDidChange()
-                    }
-                },
-                onDidFail: { message in
-                    familyShareCoordinator.latestErrorMessage = message
-                    familyShareCoordinator.dismissPendingCloudSharingRequest()
-                },
-                onDidStopSharing: {
-                    familyShareCoordinator.dismissPendingCloudSharingRequest()
-                    Task {
-                        await familyShareCoordinator.revokeOwnerShare()
-                    }
-                }
-            )
-        }
-        .alert("Export Failed", isPresented: $showingExportError) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(exportErrorMessage ?? "Unknown error")
-        }
-        .alert(
-            "Family Sharing",
-            isPresented: Binding(
-                get: { familyShareCoordinator.latestErrorMessage != nil },
-                set: { newValue in
-                    if !newValue {
-                        familyShareCoordinator.latestErrorMessage = nil
-                    }
-                }
-            )
-        ) {
-            Button("OK", role: .cancel) {
-                familyShareCoordinator.latestErrorMessage = nil
-            }
-        } message: {
-            Text(familyShareCoordinator.latestErrorMessage ?? "Unknown error")
-        }
-        .onAppear {
-            familyShareEnabled = DIContainer.shared.familyShareRollout.isEnabled()
-            settingsVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .settings)
-            persistenceController.refresh()
-            bridgeController.refresh()
-            if familyShareEnabled {
-                Task {
-                    await familyShareCoordinator.refreshAllState()
-                }
-            }
-        }
     }
-}
 
-private struct SettingsSectionRow: View {
-    let title: String
-    let systemImage: String
-    let value: String
-    let accessibilityIdentifier: String
-
-    var body: some View {
-        HStack {
-            Label(title, systemImage: systemImage)
-            Spacer()
-            Text(value)
-                .foregroundColor(.secondary)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: VisualComponentTokens.settingsRowCornerRadius)
-                .fill(VisualComponentTokens.settingsRowFill)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: VisualComponentTokens.settingsRowCornerRadius)
-                .stroke(VisualComponentTokens.financeSurfaceStroke, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: VisualComponentTokens.settingsRowCornerRadius))
-        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-        .listRowBackground(Color.clear)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title)
-        .accessibilityValue(value)
-        .accessibilityIdentifier(accessibilityIdentifier)
-    }
-}
-
-private struct LegacySettingsValueRow: View {
-    let title: String
-    let value: String
-    let accessibilityIdentifier: String
-
-    var body: some View {
+    @ViewBuilder
+    private func settingsRow(title: String, value: String) -> some View {
         HStack {
             Text(title)
             Spacer()
             Text(value)
-                .foregroundColor(.secondary)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title)
-        .accessibilityValue(value)
-        .accessibilityIdentifier(accessibilityIdentifier)
-    }
-}
-
-enum SettingsUXCopy {
-    static let importDataTitle = "Import Data"
-    static let importDataHint = "Double tap to open Local Bridge Sync and review import packages before applying them."
-    static let dataSectionFooter = "Exports create CSV snapshots. Imports are reviewed through Local Bridge Sync before changes are applied."
-
-    static func navigationHint(destination: String) -> String {
-        "Double tap to open \(destination)."
-    }
-}
-
-// MARK: - Extensions
-
-private extension Int {
-    var ordinalSuffix: String {
-        switch self % 100 {
-        case 11...13:
-            return "th"
-        default:
-            switch self % 10 {
-            case 1: return "st"
-            case 2: return "nd"  
-            case 3: return "rd"
-            default: return "th"
-            }
+                .foregroundStyle(.secondary)
         }
     }
-}
 
-// MARK: - CSV Export Result
-
-/// Wrapper for sheet(item:) presentation to ensure URLs are passed correctly
-struct CSVExportResult: Identifiable {
-    let id = UUID()
-    let fileURLs: [URL]
+    private var appVersion: String {
+        let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+        return "\(shortVersion) (\(build))"
+    }
 }

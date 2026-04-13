@@ -9,6 +9,10 @@ struct PersistenceMutationServicesTests {
         var userInfo: [AnyHashable: Any]?
     }
 
+    private final class NotificationFlagBox: @unchecked Sendable {
+        var wasPosted = false
+    }
+
     @Test("GoalMutationService inserts and saves detached goal")
     func goalMutationServicePersistsDetachedGoal() async throws {
         let container = try TestContainer.create()
@@ -22,6 +26,95 @@ struct PersistenceMutationServicesTests {
         #expect(goals.count == 1)
         #expect(goals.first?.name == "Cutover Goal")
         #expect(goal.modelContext != nil)
+    }
+
+    @Test("GoalMutationService clears reminder fields during create and save")
+    func goalMutationServiceClearsReminderFields() async throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let service = GoalMutationService(modelContext: context, accessGuard: AllowAllFamilyShareAccessGuard())
+        let goal = TestDataFactory.createSampleGoal(name: "Reminder Cleanup Goal")
+        goal.reminderFrequency = ReminderFrequency.weekly.rawValue
+        goal.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
+        goal.firstReminderDate = Date().addingTimeInterval(3600)
+
+        try await service.createGoal(goal)
+
+        #expect(goal.reminderFrequency == nil)
+        #expect(goal.reminderTime == nil)
+        #expect(goal.firstReminderDate == nil)
+
+        goal.reminderFrequency = ReminderFrequency.monthly.rawValue
+        goal.reminderTime = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: Date())
+        goal.firstReminderDate = Date().addingTimeInterval(7200)
+
+        try await service.saveGoal(goal)
+
+        #expect(goal.reminderFrequency == nil)
+        #expect(goal.reminderTime == nil)
+        #expect(goal.firstReminderDate == nil)
+    }
+
+    @Test("GoalMutationService clears reminder fields during restore")
+    func goalMutationServiceClearsReminderFieldsOnRestore() async throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let service = GoalMutationService(modelContext: context, accessGuard: AllowAllFamilyShareAccessGuard())
+        let goal = TestDataFactory.createSampleGoal(name: "Archived Goal")
+        goal.archive()
+        goal.reminderFrequency = ReminderFrequency.weekly.rawValue
+        goal.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
+        goal.firstReminderDate = Date().addingTimeInterval(3600)
+        context.insert(goal)
+        try context.save()
+
+        try await service.restoreGoal(goal)
+
+        #expect(goal.isArchived == false)
+        #expect(goal.reminderFrequency == nil)
+        #expect(goal.reminderTime == nil)
+        #expect(goal.firstReminderDate == nil)
+    }
+
+    @Test("GoalMutationService clears reminder fields during archive")
+    func goalMutationServiceClearsReminderFieldsOnArchive() async throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let service = GoalMutationService(modelContext: context, accessGuard: AllowAllFamilyShareAccessGuard())
+        let goal = TestDataFactory.createSampleGoal(name: "Archive Reminder Cleanup Goal")
+        goal.reminderFrequency = ReminderFrequency.weekly.rawValue
+        goal.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
+        goal.firstReminderDate = Date().addingTimeInterval(3600)
+        context.insert(goal)
+        try context.save()
+
+        try await service.archiveGoal(goal)
+
+        #expect(goal.isArchived == true)
+        #expect(goal.reminderFrequency == nil)
+        #expect(goal.reminderTime == nil)
+        #expect(goal.firstReminderDate == nil)
+    }
+
+    @Test("GoalMutationService clears reminder fields during resume")
+    func goalMutationServiceClearsReminderFieldsOnResume() async throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let service = GoalMutationService(modelContext: context, accessGuard: AllowAllFamilyShareAccessGuard())
+        let goal = TestDataFactory.createSampleGoal(name: "Resume Reminder Cleanup Goal")
+        goal.archive()
+        goal.reminderFrequency = ReminderFrequency.weekly.rawValue
+        goal.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
+        goal.firstReminderDate = Date().addingTimeInterval(3600)
+        context.insert(goal)
+        try context.save()
+
+        try await service.resumeGoal(goal)
+
+        #expect(goal.isArchived == false)
+        #expect(goal.reminderFrequency == nil)
+        #expect(goal.reminderTime == nil)
+        #expect(goal.firstReminderDate == nil)
     }
 
     @Test("AssetMutationService creates asset with initial allocation history")
@@ -155,6 +248,58 @@ struct PersistenceMutationServicesTests {
         }
     }
 
+    @Test("TransactionMutationService posts retained goal updates without retired planning notifications")
+    func transactionMutationServiceOmitsRetiredPlanningNotification() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let goal = TestDataFactory.createSampleGoal(name: "MVP Goal")
+        let asset = TestDataFactory.createSampleAsset(currency: "BTC", goal: goal)
+        context.insert(goal)
+        context.insert(asset)
+        try context.save()
+
+        let service = TransactionMutationService(
+            modelContext: context,
+            accessGuard: AllowAllFamilyShareAccessGuard()
+        )
+
+        let planningSignal = NotificationFlagBox()
+        let sharedGoalSignal = NotificationCaptureBox()
+
+        let planningToken = NotificationCenter.default.addObserver(
+            forName: .monthlyPlanningAssetUpdated,
+            object: nil,
+            queue: nil
+        ) { _ in
+            planningSignal.wasPosted = true
+        }
+
+        let sharedGoalToken = NotificationCenter.default.addObserver(
+            forName: .sharedGoalDataDidChange,
+            object: nil,
+            queue: nil
+        ) { notification in
+            sharedGoalSignal.userInfo = notification.userInfo
+        }
+
+        defer {
+            NotificationCenter.default.removeObserver(planningToken)
+            NotificationCenter.default.removeObserver(sharedGoalToken)
+        }
+
+        _ = try service.createTransaction(
+            for: asset,
+            amount: 125,
+            comment: "MVP contribution",
+            autoAllocateGoalId: nil
+        )
+
+        let affectedGoalIDs = sharedGoalSignal.userInfo?["affectedGoalIDs"] as? [UUID]
+        #expect(planningSignal.wasPosted == false)
+        #expect(sharedGoalSignal.userInfo?["reason"] as? String == "transactionMutation")
+        #expect(affectedGoalIDs == [goal.id])
+    }
+
     @Test("PlanningMutationService rejects updates for shared plans")
     func planningMutationServiceRejectsSharedGoalMutation() async throws {
         let container = try TestContainer.create()
@@ -242,6 +387,9 @@ struct PersistenceMutationServicesTests {
         #expect(goals.count == 1)
         #expect(capture.userInfo?["reason"] as? String == "goalMutation")
         #expect(affectedGoalIDs == [goals[0].id])
+        #expect(goals[0].reminderFrequency == nil)
+        #expect(goals[0].reminderTime == nil)
+        #expect(goals[0].firstReminderDate == nil)
     }
 }
 

@@ -280,64 +280,6 @@ struct EditGoalView: View {
                         }
                         .padding(.top, 8)
                     }
-                        
-                    // Reminders Section
-                    FormSection(
-                        title: "Reminders",
-                        icon: "bell"
-                    ) {
-                        ReminderConfigurationView(
-                            isEnabled: Binding(
-                                get: { viewModel.goal.isReminderEnabled },
-                                set: { newValue in
-                                    if newValue {
-                                        if viewModel.goal.reminderFrequency == nil {
-                                            viewModel.goal.reminderFrequency = ReminderFrequency.weekly.rawValue
-                                        }
-                                        if viewModel.goal.reminderTime == nil {
-                                            viewModel.goal.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
-                                        }
-                                    } else {
-                                        viewModel.goal.reminderFrequency = nil
-                                        viewModel.goal.reminderTime = nil
-                                        viewModel.goal.firstReminderDate = nil
-                                    }
-                                    handleFormChange()
-                                }
-                            ),
-                            frequency: Binding(
-                                get: { 
-                                    guard let rawValue = viewModel.goal.reminderFrequency,
-                                          let frequency = ReminderFrequency(rawValue: rawValue) else { 
-                                        return .weekly // Default to weekly if nil
-                                    }
-                                    return frequency
-                                },
-                                set: { newValue in
-                                    viewModel.goal.reminderFrequency = newValue.rawValue
-                                    handleFormChange()
-                                }
-                            ),
-                            reminderTime: Binding(
-                                get: { viewModel.goal.reminderTime },
-                                set: {
-                                    viewModel.goal.reminderTime = $0
-                                    handleFormChange()
-                                }
-                            ),
-                            firstReminderDate: Binding(
-                                get: { viewModel.goal.firstReminderDate },
-                                set: {
-                                    viewModel.goal.firstReminderDate = $0
-                                    handleFormChange()
-                                }
-                            ),
-                            startDate: viewModel.goal.startDate,
-                            deadline: viewModel.goal.deadline,
-                            showAdvancedOptions: true
-                        )
-                    }
-                    
                     // Archive Section (if not archived)
                     if !viewModel.goal.isArchived {
                         ArchiveSection(onArchive: { showingArchiveConfirmation = true })

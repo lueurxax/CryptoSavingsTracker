@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-/// Pre-configured goal templates with smart defaults
+/// Pre-configured goal templates for the retained onboarding flow.
 struct GoalTemplate: Identifiable, Hashable {
     let id = UUID()
     let type: GoalType
@@ -226,11 +226,6 @@ enum TemplateDifficulty: String, CaseIterable {
 
 // MARK: - Template Extensions
 extension GoalTemplate {
-    var estimatedMonthlyContribution: Double {
-        let months = max(1, defaultTimeframe / 30)
-        return defaultAmount / Double(months)
-    }
-    
     var riskLevel: String {
         switch difficulty {
         case .beginner: return "Low Risk"

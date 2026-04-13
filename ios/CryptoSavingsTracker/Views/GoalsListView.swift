@@ -24,7 +24,6 @@ struct GoalsListView: View {
     @State private var selectedGoalForLifecycleAction: Goal?
     @State private var showingLifecycleActions = false
     @State private var showingOnboarding = false
-    @State private var monthlyPlanningViewModel: MonthlyPlanningViewModel?
     
     var body: some View {
         Group {
@@ -47,11 +46,8 @@ struct GoalsListView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         
-                        // Portfolio-wide Monthly Planning Widget
                         Section {
-                            if let viewModel = monthlyPlanningViewModel {
-                                MonthlyPlanningWidget(viewModel: viewModel)
-                            }
+                            GoalsListMVPGuidanceCard()
                         }
                         .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
                         .listRowBackground(Color.clear)
@@ -130,11 +126,6 @@ struct GoalsListView: View {
                 Button("Close", role: .cancel) { }
             }
             .onAppear {
-                // Create the monthly planning view model with model context
-                if monthlyPlanningViewModel == nil {
-                    monthlyPlanningViewModel = MonthlyPlanningViewModel(modelContext: modelContext)
-                }
-                
                 // Debug log all loaded goals
                 for _ in goals {
                 }
@@ -189,5 +180,23 @@ struct GoalsListView: View {
                 }
             }
         }
+    }
+}
+
+private struct GoalsListMVPGuidanceCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Focused MVP", systemImage: "flag.2.crossed")
+                .font(.headline)
+            Text("Create goals here, then add assets and contributions from each goal to keep progress moving.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.regularMaterial)
+        )
     }
 }

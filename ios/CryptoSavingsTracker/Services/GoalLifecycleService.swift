@@ -22,7 +22,7 @@ struct GoalLifecycleService {
 
     /// Cancel a goal: allocations become unallocated/reusable, goal is excluded from current execution tracking.
     func cancelGoal(_ goal: Goal, at timestamp: Date = Date()) async {
-        await NotificationManager.shared.cancelNotifications(for: goal)
+        await retireLegacyReminderRuntime(for: goal)
         freeAllocations(for: goal)
 
         goal.markCancelled(at: timestamp)
@@ -36,7 +36,7 @@ struct GoalLifecycleService {
     /// Finish a goal: goal is preserved for history and excluded from current execution tracking.
     /// Allocations remain, so funds are treated as "spent"/not reusable.
     func finishGoal(_ goal: Goal, at timestamp: Date = Date()) async {
-        await NotificationManager.shared.cancelNotifications(for: goal)
+        await retireLegacyReminderRuntime(for: goal)
 
         goal.markFinished(at: timestamp)
         removeGoalFromActiveExecution(goalId: goal.id)
@@ -48,7 +48,7 @@ struct GoalLifecycleService {
 
     /// Delete a goal (soft delete): remove it from current tracking and free its allocations so funds are not locked.
     func deleteGoal(_ goal: Goal, at timestamp: Date = Date()) async {
-        await NotificationManager.shared.cancelNotifications(for: goal)
+        await retireLegacyReminderRuntime(for: goal)
         freeAllocations(for: goal)
 
         goal.softDelete(at: timestamp)
@@ -89,5 +89,13 @@ struct GoalLifecycleService {
             try? modelContext.save()
         }
     }
-}
 
+    private func retireLegacyReminderRuntime(for goal: Goal) async {
+        await NotificationManager.shared.cancelNotifications(for: goal)
+        clearReminderState(for: goal)
+    }
+
+    private func clearReminderState(for goal: Goal) {
+        goal.clearRetiredReminderState()
+    }
+}

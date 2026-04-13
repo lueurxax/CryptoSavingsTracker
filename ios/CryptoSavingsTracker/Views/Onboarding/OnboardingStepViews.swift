@@ -32,7 +32,7 @@ struct OnboardingWelcomeView: View {
                     .multilineTextAlignment(.center)
                     .foregroundColor(.primary)
                 
-                Text("Track your cryptocurrency savings goals with precision, insights, and smart automation across 15+ blockchain networks.")
+                Text("Create savings goals, connect crypto or fiat assets, and track real progress across supported blockchain networks.")
                     .font(.system(size: 16, weight: .medium))
                     .multilineTextAlignment(.center)
                     .foregroundColor(.accessibleSecondary)
@@ -43,20 +43,20 @@ struct OnboardingWelcomeView: View {
             VStack(spacing: 16) {
                 FeatureHighlight(
                     icon: "chart.line.uptrend.xyaxis",
-                    title: "Smart Tracking",
-                    description: "Real-time balance updates and detailed progress analytics"
+                    title: "Goal Tracking",
+                    description: "See balances, progress, and recent activity at a glance"
                 )
                 
                 FeatureHighlight(
-                    icon: "link",
-                    title: "Multi-Chain Support",
-                    description: "Bitcoin, Ethereum, Solana, and 12+ other networks"
+                    icon: "bitcoinsign.circle",
+                    title: "Assets",
+                    description: "Add crypto or fiat assets now, and attach wallet addresses later if you want live tracking"
                 )
                 
                 FeatureHighlight(
                     icon: "target",
-                    title: "Goal-Based Saving",
-                    description: "Organize savings by purpose with intelligent reminders"
+                    title: "Manual Flexibility",
+                    description: "Record contributions anytime while keeping wallet tracking optional"
                 )
             }
         }
@@ -76,7 +76,7 @@ struct OnboardingProfileView: View {
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .multilineTextAlignment(.center)
                 
-                Text("We'll customize your experience based on your crypto knowledge and goals")
+                Text("We'll tailor your first goal suggestions around your experience and savings priorities.")
                     .font(.system(size: 16, weight: .medium))
                     .multilineTextAlignment(.center)
                     .foregroundColor(.accessibleSecondary)
@@ -147,7 +147,7 @@ struct OnboardingGoalTemplateView: View {
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .multilineTextAlignment(.center)
                 
-                Text("We've selected templates based on your preferences. You can always create custom goals later.")
+                Text("Pick a simple starting point. You can always create custom goals later.")
                     .font(.system(size: 16, weight: .medium))
                     .multilineTextAlignment(.center)
                     .foregroundColor(.accessibleSecondary)
@@ -179,11 +179,11 @@ struct OnboardingAssetSelectionView: View {
         VStack(spacing: 32) {
             // Header
             VStack(spacing: 12) {
-                Text("Select cryptocurrencies")
+                Text("Review suggested assets")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .multilineTextAlignment(.center)
                 
-                Text("Based on your \"\(template.name)\" goal, here are our recommended cryptocurrencies:")
+                Text("Based on your \"\(template.name)\" goal, here are suggested assets to help you start tracking progress:")
                     .font(.system(size: 16, weight: .medium))
                     .multilineTextAlignment(.center)
                     .foregroundColor(.accessibleSecondary)
@@ -218,7 +218,7 @@ struct OnboardingAssetSelectionView: View {
                     Spacer()
                 }
                 
-                Text("We've selected a balanced mix based on your \\(userProfile.experienceLevel.displayName.lowercased()) experience level and \\(template.riskLevel.lowercased()) approach.")
+                    Text("These suggestions reflect your \(userProfile.experienceLevel.displayName.lowercased()) experience level and keep manual tracking available if you want to start without a wallet address.")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.accessibleSecondary)
                     .multilineTextAlignment(.leading)
@@ -266,13 +266,13 @@ struct OnboardingCompletionView: View {
                     .multilineTextAlignment(.center)
                 
                 if let template = template {
-                    Text("Your \"\(template.name)\" goal is ready to track. Start adding transactions to see your progress grow.")
+                    Text("Your \"\(template.name)\" goal is ready. Add an asset or record a contribution to start seeing real progress.")
                         .font(.system(size: 16, weight: .medium))
                         .multilineTextAlignment(.center)
                         .foregroundColor(.accessibleSecondary)
                         .lineSpacing(2)
                 } else {
-                    Text("Your savings journey begins now. Create goals and start tracking your cryptocurrency portfolio.")
+                    Text("Your savings journey begins now. Create a goal, add assets, and track progress as balances change.")
                         .font(.system(size: 16, weight: .medium))
                         .multilineTextAlignment(.center)
                         .foregroundColor(.accessibleSecondary)
@@ -301,9 +301,9 @@ struct OnboardingCompletionView: View {
                         Spacer()
                         
                         StatPreview(
-                            icon: "chart.bar.fill",
-                            title: "Monthly",
-                            value: "$\(Int(template.estimatedMonthlyContribution).formatted())"
+                            icon: "bitcoinsign.circle",
+                            title: "Assets",
+                            value: "\(template.recommendedAssets.count)"
                         )
                     }
                 }

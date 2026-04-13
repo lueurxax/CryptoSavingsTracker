@@ -1,829 +1,647 @@
-    //
-    //  DashboardView.swift
-    //  CryptoSavingsTracker
-    //
-    //  Created by Claude on 07/08/2025.
-    //
+//
+//  DashboardView.swift
+//  CryptoSavingsTracker
+//
+//  Created by Claude on 07/08/2025.
+//
 
-import SwiftUI
+import Foundation
 import SwiftData
+import SwiftUI
+
+@MainActor
+final class RetiredFeatureTransitionCoordinator: ObservableObject {
+    private enum StorageKey {
+        static let firstLaunchAt = "mvp.transition.firstLaunchAt"
+        static let launchCount = "mvp.transition.launchCount"
+        static let migrationBannerDismissed = "mvp.transition.migrationBannerDismissed"
+        static let supportArticleOpened = "mvp.transition.supportArticleOpened"
+    }
+
+    @Published private(set) var shouldShowMigrationBanner = false
+
+    let supportArticleURL = URL(string: "https://support.cryptosavingstracker.app/mvp")!
+
+    private let userDefaults: UserDefaults
+    private let nowProvider: () -> Date
+    private var hasRecordedLaunch = false
+
+    init(
+        userDefaults: UserDefaults = .standard,
+        nowProvider: @escaping () -> Date = Date.init
+    ) {
+        self.userDefaults = userDefaults
+        self.nowProvider = nowProvider
+        refreshBannerVisibility()
+    }
+
+    func registerLaunchIfNeeded() {
+        guard !hasRecordedLaunch else { return }
+        hasRecordedLaunch = true
+
+        if userDefaults.object(forKey: StorageKey.firstLaunchAt) == nil {
+            userDefaults.set(nowProvider(), forKey: StorageKey.firstLaunchAt)
+        }
+
+        let launchCount = userDefaults.integer(forKey: StorageKey.launchCount) + 1
+        userDefaults.set(launchCount, forKey: StorageKey.launchCount)
+        refreshBannerVisibility()
+    }
+
+    func dismissMigrationBanner() {
+        userDefaults.set(true, forKey: StorageKey.migrationBannerDismissed)
+        refreshBannerVisibility()
+    }
+
+    func recordSupportArticleOpened() {
+        userDefaults.set(true, forKey: StorageKey.supportArticleOpened)
+    }
+
+    private func refreshBannerVisibility() {
+        shouldShowMigrationBanner = !isDismissed && !hasExpiredFallbackWindow
+    }
+
+    private var isDismissed: Bool {
+        userDefaults.bool(forKey: StorageKey.migrationBannerDismissed)
+    }
+
+    private var hasExpiredFallbackWindow: Bool {
+        if userDefaults.integer(forKey: StorageKey.launchCount) >= 3 {
+            return true
+        }
+
+        guard let firstLaunchAt = userDefaults.object(forKey: StorageKey.firstLaunchAt) as? Date else {
+            return false
+        }
+
+        return nowProvider().timeIntervalSince(firstLaunchAt) >= (7 * 24 * 60 * 60)
+    }
+}
+
+private struct MVPMigrationBanner: View {
+    let onLearnMore: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("CryptoSavingsTracker is now focused on personal goal tracking.")
+                    .font(.headline)
+                Text("Planning, reminders, sharing, and export tools are no longer part of this version.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Button("Learn More", action: onLearnMore)
+                    .font(.subheadline.weight(.semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(AccessibleColors.primaryInteractive)
+            }
+
+            Spacer(minLength: 8)
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28, height: 28)
+                    .background(Color.secondary.opacity(0.08), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss migration banner")
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(AccessibleColors.warning.opacity(0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(AccessibleColors.warning.opacity(0.28), lineWidth: 1)
+        )
+        .accessibilityIdentifier("mvpMigrationBanner")
+    }
+}
+
+private struct DashboardGoalSnapshot: Equatable {
+    let currentTotal: Double
+    let progress: Double
+}
+
+private enum DashboardPrimaryAction {
+    case createGoal
+    case addAsset(Goal)
+    case recordContribution(Asset)
+
+    var title: String {
+        switch self {
+        case .createGoal:
+            return "Create Goal"
+        case .addAsset:
+            return "Add Asset"
+        case .recordContribution:
+            return "Record Contribution"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .createGoal:
+            return "flag.fill"
+        case .addAsset:
+            return "plus.circle.fill"
+        case .recordContribution:
+            return "arrow.down.circle.fill"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .createGoal:
+            return "Start with one clear target, then add assets and contributions as you go."
+        case .addAsset(let goal):
+            return "Add the first asset for \(goal.name) to begin tracking real progress."
+        case .recordContribution(let asset):
+            return "Record a contribution for \(asset.currency) to update your dashboard activity."
+        }
+    }
+}
 
 struct DashboardView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Query private var goals: [Goal]
-    @State private var selectedGoal: Goal?
-    @State private var showingTrendChart = false
-    @State private var showingActionSheet = false
-    @State private var showingCustomize = false
-    @State private var dashboardVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .dashboard)
-    @AppStorage("dashboard_widgets") private var widgetsJSON: String = ""
-    @State private var widgets: [DashboardWidget] = []
-    @StateObject private var widgetsViewModel = DIContainer.shared.makeDashboardViewModel()
-    private var isCompact: Bool {
-#if os(iOS)
-        return horizontalSizeClass == .compact
-#else
-        return horizontalSizeClass == .compact
-#endif
+    @Environment(\.openURL) private var openURL
+    @Query(sort: \Goal.deadline) private var goals: [Goal]
+    @StateObject private var transitionCoordinator = RetiredFeatureTransitionCoordinator()
+    @State private var snapshots: [UUID: DashboardGoalSnapshot] = [:]
+    @State private var isLoadingSnapshots = false
+
+    private var activeGoals: [Goal] {
+        goals
+            .filter { $0.lifecycleStatus == .active }
+            .sorted { lhs, rhs in
+                if lhs.deadline == rhs.deadline {
+                    return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+                }
+                return lhs.deadline < rhs.deadline
+            }
+    }
+
+    private var activeAssets: [Asset] {
+        var seenIDs = Set<UUID>()
+        return activeGoals
+            .flatMap(\.allocatedAssets)
+            .filter { asset in
+                seenIDs.insert(asset.id).inserted
+            }
+    }
+
+    private var recentTransactions: [Transaction] {
+        var seenIDs = Set<UUID>()
+        return activeAssets
+            .flatMap { $0.transactions ?? [] }
+            .filter { seenIDs.insert($0.id).inserted }
+            .sorted { $0.date > $1.date }
+    }
+
+    private var portfolioTotal: Double {
+        activeGoals.reduce(0) { partialResult, goal in
+            partialResult + (snapshots[goal.id]?.currentTotal ?? 0)
+        }
+    }
+
+    private var primaryAction: DashboardPrimaryAction {
+        guard let firstGoal = activeGoals.first else {
+            return .createGoal
+        }
+
+        if let goalWithoutAssets = activeGoals.first(where: { $0.allocatedAssets.isEmpty }) {
+            return .addAsset(goalWithoutAssets)
+        }
+
+        if let firstAsset = activeAssets.first, recentTransactions.isEmpty {
+            return .recordContribution(firstAsset)
+        }
+
+        if let firstAsset = activeAssets.first {
+            return .recordContribution(firstAsset)
+        }
+
+        return .addAsset(firstGoal)
+    }
+
+    private var recentTrendPoints: [BalanceHistoryPoint] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let recentWindow = (0..<7).reversed().compactMap { offset in
+            calendar.date(byAdding: .day, value: -offset, to: today)
+        }
+
+        var runningTotal = 0.0
+        let groupedTransactions = Dictionary(grouping: recentTransactions) {
+            calendar.startOfDay(for: $0.date)
+        }
+
+        return recentWindow.map { day in
+            let dayTotal = groupedTransactions[day, default: []].reduce(0.0) { $0 + $1.amount }
+            runningTotal += dayTotal
+            return BalanceHistoryPoint(date: day, balance: runningTotal, currency: activeGoals.first?.currency ?? "USD")
+        }
     }
 
     var body: some View {
-        Group {
-            if dashboardVisualEnabled {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        if isCompact {
-                            Spacer().frame(height: 16)
-                        }
-                            // Goal Switcher with improved mobile UX (only for mobile)
-                        if !goals.isEmpty && isCompact {
-                            MobileGoalSwitcher(
-                                selectedGoal: $selectedGoal,
-                                goals: goals,
-                                showingActionSheet: $showingActionSheet
-                            )
-                            .padding(.bottom, 24)
-                        }
-
-                        if let currentGoal = selectedGoal {
-                            if isCompact {
-                                    // Mobile-optimized layout
-                                VStack(spacing: 20) {
-                                        // Hero Progress Section
-                                    HeroProgressView(goal: currentGoal)
-                                    // Enhanced Stats
-                                    MobileStatsSection(goal: currentGoal)
-
-                                        // Balance Trend Chart - Always Visible
-                                    ChartSection(goal: currentGoal)
-
-                                        // Insights Widget
-                                    MobileInsightsSection(goal: currentGoal)
-
-                                    // Forecast Widget
-                                    MobileForecastSection(goal: currentGoal)
-
-                                    // Custom Widgets Grid (persisted)
-                                    if !widgets.isEmpty {
-                                        CustomWidgetsGrid(goal: currentGoal, viewModel: widgetsViewModel, widgets: widgets)
-                                    }
-                                }
-                                .padding(.top, 8)
-                                .padding(.horizontal, 16)
-                            } else {
-                                    // Desktop/iPad layout - Use the enhanced dashboard
-                                VStack(spacing: 20) {
-                                    GoalDashboardView(goal: currentGoal)
-                                    // Custom Widgets Grid (persisted)
-                                    if !widgets.isEmpty {
-                                        CustomWidgetsGrid(goal: currentGoal, viewModel: widgetsViewModel, widgets: widgets)
-                                    }
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical)
-                            }
-                        } else {
-                                // Empty state when no goals exist
-                            if isCompact {
-                                MobileEmptyState()
-                                    .padding(.top, 40)
-                            } else {
-                                DashboardEmptyState()
-                                    .padding(.horizontal, 16)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                if transitionCoordinator.shouldShowMigrationBanner {
+                    MVPMigrationBanner(
+                        onLearnMore: {
+                            transitionCoordinator.recordSupportArticleOpened()
+                            openURL(transitionCoordinator.supportArticleURL)
+                        },
+                        onDismiss: {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                transitionCoordinator.dismissMigrationBanner()
                             }
                         }
-                    }
-                    .padding(.horizontal, isCompact ? 16 : 0)
+                    )
                 }
-            } else {
-                LegacyDashboardFallbackView(goals: goals, selectedGoal: $selectedGoal)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+
+                if activeGoals.isEmpty {
+                    DashboardEmptyState()
+                } else {
+                    PortfolioSummaryCard(
+                        portfolioTotal: portfolioTotal,
+                        goalCount: activeGoals.count,
+                        isLoading: isLoadingSnapshots
+                    )
+
+                    ActiveGoalsSection(goals: activeGoals, snapshots: snapshots)
+
+                    DashboardTrendCard(dataPoints: recentTrendPoints)
+
+                    RecentActivityCard(transactions: Array(recentTransactions.prefix(4)))
+
+                    DashboardActionStrip(primaryAction: primaryAction)
+                }
             }
+            .padding(16)
         }
         .navigationTitle("Dashboard")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showingCustomize = true
-                } label: {
-                    Label("Customize", systemImage: "slider.horizontal.3")
+        .accessibilityIdentifier("mvpRootDashboard")
+        .task {
+            transitionCoordinator.registerLaunchIfNeeded()
+            await loadSnapshots()
+        }
+        .onChange(of: goals.count) { _, _ in
+            Task {
+                await loadSnapshots()
+            }
+        }
+        .refreshable {
+            await loadSnapshots()
+        }
+    }
+
+    private func loadSnapshots() async {
+        isLoadingSnapshots = true
+
+        var updatedSnapshots: [UUID: DashboardGoalSnapshot] = [:]
+        for goal in activeGoals {
+            let total = await GoalCalculationService.getCurrentTotal(for: goal)
+            let progress = goal.targetAmount > 0 ? min(total / goal.targetAmount, 1.0) : 0
+            updatedSnapshots[goal.id] = DashboardGoalSnapshot(currentTotal: total, progress: progress)
+        }
+
+        snapshots = updatedSnapshots
+        isLoadingSnapshots = false
+    }
+}
+
+private struct PortfolioSummaryCard: View {
+    let portfolioTotal: Double
+    let goalCount: Int
+    let isLoading: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Portfolio Overview")
+                .font(.headline)
+
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(isLoading ? "Updating balances..." : portfolioTotal.formatted(.currency(code: "USD")))
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+                    Text("Saved balances across your active goals")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(goalCount)")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(AccessibleColors.primaryInteractive)
+                    Text(goalCount == 1 ? "Active Goal" : "Active Goals")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
-        .onAppear {
-            dashboardVisualEnabled = VisualSystemRollout.shared.isEnabled(flow: .dashboard)
-            if selectedGoal == nil && !goals.isEmpty {
-                selectedGoal = goals.first
-            }
-            // Load persisted widgets (if any)
-            if widgets.isEmpty {
-                loadWidgets()
-            }
-        }
-#if os(iOS)
-        // NAV-MOD: MOD-04
-        .confirmationDialog("Switch Goal", isPresented: $showingActionSheet, titleVisibility: .visible) {
+        .dashboardCardStyle()
+    }
+}
+
+private struct ActiveGoalsSection: View {
+    let goals: [Goal]
+    let snapshots: [UUID: DashboardGoalSnapshot]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Active Goals")
+                .font(.headline)
+
             ForEach(goals) { goal in
-                Button(goal.name) {
-                    selectedGoal = goal
+                NavigationLink(destination: GoalDetailView(goal: goal)) {
+                    GoalOverviewRow(goal: goal, snapshot: snapshots[goal.id])
                 }
+                .buttonStyle(.plain)
             }
-            Button("Cancel", role: .cancel) {}
-        }
-#else
-            // NAV-MOD: MOD-01
-        .sheet(isPresented: $showingActionSheet) {
-            MacGoalSwitcherSheet(goals: goals, selectedGoal: $selectedGoal)
-        }
-#endif
-        // NAV-MOD: MOD-01
-        .sheet(isPresented: $showingCustomize) {
-            DashboardCustomizationView(widgets: $widgets)
-        }
-        .onChange(of: widgets) { _, _ in
-            persistWidgets()
-        }
-    }
-
-    private func loadWidgets() {
-        if let data = widgetsJSON.data(using: .utf8),
-           let decoded = try? JSONDecoder().decode([DashboardWidget].self, from: data) {
-            widgets = decoded
-        } else {
-            // Default starter layout
-            widgets = [
-                DashboardWidget(type: .summary, position: 0),
-                DashboardWidget(type: .forecast, position: 1),
-                DashboardWidget(type: .lineChart, position: 2)
-            ]
-            persistWidgets()
-        }
-    }
-
-    private func persistWidgets() {
-        if let data = try? JSONEncoder().encode(widgets) {
-            widgetsJSON = String(data: data, encoding: .utf8) ?? ""
         }
     }
 }
 
-    // MARK: - Supporting Components
-
-struct TrendSparklineView: View {
+private struct GoalOverviewRow: View {
     let goal: Goal
-    @StateObject private var viewModel = DIContainer.shared.makeDashboardViewModel()
-    
+    let snapshot: DashboardGoalSnapshot?
+
+    private var progress: Double {
+        snapshot?.progress ?? 0
+    }
+
+    private var currentTotal: Double {
+        snapshot?.currentTotal ?? 0
+    }
+
+    private var statusLabel: String {
+        if goal.allocatedAssets.isEmpty {
+            return "Needs asset"
+        }
+        if currentTotal <= 0 {
+            return "Needs first contribution"
+        }
+        if goal.daysRemaining <= 14 {
+            return "Deadline soon"
+        }
+        return "Tracking"
+    }
+
+    private var statusTint: Color {
+        if goal.allocatedAssets.isEmpty {
+            return AccessibleColors.warning
+        }
+        if currentTotal <= 0 {
+            return AccessibleColors.primaryInteractive
+        }
+        if goal.daysRemaining <= 14 {
+            return AccessibleColors.error
+        }
+        return AccessibleColors.success
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Balance Trend")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(goal.name)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(goal.deadline, format: .dateTime.month().day().year())
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Spacer()
-                
-                if let latest = viewModel.balanceHistory.last,
-                   let first = viewModel.balanceHistory.first,
-                   first.balance > 0 {
-                    let change = latest.balance - first.balance
-                    let changePercent = (change / first.balance) * 100
-                    
-                    HStack(spacing: 4) {
-                        Image(systemName: change >= 0 ? "arrow.up.right" : "arrow.down.right")
-                            .font(.caption2)
-                            .foregroundColor(change >= 0 ? AccessibleColors.success : AccessibleColors.error)
-                        
-                        Text("\(change >= 0 ? "+" : "")\(String(format: "%.1f", changePercent))%")
-                            .font(.caption2)
-                            .fontWeight(.medium)
-                            .foregroundColor(change >= 0 ? AccessibleColors.success : AccessibleColors.error)
-                    }
+
+                Text(statusLabel)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(statusTint)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(statusTint.opacity(0.12), in: Capsule())
+            }
+
+            ProgressView(value: progress)
+                .tint(statusTint)
+
+            HStack {
+                Text(currentTotal.formatted(.currency(code: goal.currency)))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text("of \(goal.targetAmount.formatted(.currency(code: goal.currency)))")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Text("\(goal.daysRemaining)d left")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .dashboardCardStyle()
+    }
+}
+
+private struct DashboardTrendCard: View {
+    let dataPoints: [BalanceHistoryPoint]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recent Activity Trend")
+                .font(.headline)
+
+            if dataPoints.count > 1 && dataPoints.contains(where: { $0.balance != 0 }) {
+                SimpleTrendChart(dataPoints: dataPoints)
+                    .frame(height: 72)
+
+                Text("Last 7 days of recorded contribution activity.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("No recent activity yet")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Record a contribution to start building a balance trend on the dashboard.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
             }
-            
-            if viewModel.balanceHistory.isEmpty {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.accessibleSurfaceSubtle)
-                    .frame(height: 40)
-                    .overlay(
-                        Text("No data yet")
-                            .font(.caption2)
-                            .foregroundColor(.accessibleSecondary)
-                    )
-            } else {
-                SimpleTrendChart(dataPoints: viewModel.balanceHistory)
-                    .frame(height: 40)
-            }
         }
-        .padding(12)
-        .background(.regularMaterial)
-        .cornerRadius(12)
-        .task {
-            await viewModel.loadData(
-                for: goal,
-                modelContext: ModelContext(goal.modelContext?.container ?? PersistenceController.shared.activeContainer)
-            )
-        }
+        .dashboardCardStyle()
     }
 }
 
 struct SimpleTrendChart: View {
     let dataPoints: [BalanceHistoryPoint]
-    
+
     var body: some View {
         GeometryReader { geometry in
-            if dataPoints.count > 1 {
-                Path { path in
-                    let maxBalance = dataPoints.map { $0.balance }.max() ?? 1
-                    let minBalance = dataPoints.map { $0.balance }.min() ?? 0
-                    let range = maxBalance - minBalance
-                    
-                    for (index, point) in dataPoints.enumerated() {
-                        let x = geometry.size.width * CGFloat(index) / CGFloat(dataPoints.count - 1)
-                        let normalizedY = range > 0 ? (point.balance - minBalance) / range : 0.5
-                        let y = geometry.size.height * (1 - normalizedY)
-                        
-                        if index == 0 {
-                            path.move(to: CGPoint(x: x, y: y))
-                        } else {
-                            path.addLine(to: CGPoint(x: x, y: y))
-                        }
+            Path { path in
+                let maxBalance = dataPoints.map(\.balance).max() ?? 1
+                let minBalance = dataPoints.map(\.balance).min() ?? 0
+                let range = max(maxBalance - minBalance, 1)
+
+                for (index, point) in dataPoints.enumerated() {
+                    let x = geometry.size.width * CGFloat(index) / CGFloat(max(dataPoints.count - 1, 1))
+                    let normalizedY = (point.balance - minBalance) / range
+                    let y = geometry.size.height * (1 - normalizedY)
+
+                    if index == 0 {
+                        path.move(to: CGPoint(x: x, y: y))
+                    } else {
+                        path.addLine(to: CGPoint(x: x, y: y))
                     }
                 }
-                .stroke(AccessibleColors.primaryInteractive, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                .animation(.easeInOut(duration: 0.5), value: dataPoints.count)
             }
+            .stroke(AccessibleColors.primaryInteractive, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
         }
     }
 }
 
-// Deprecated placeholder removed; real QuickActionsView lives in DashboardComponents.swift
+private struct RecentActivityCard: View {
+    let transactions: [Transaction]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recent Activity")
+                .font(.headline)
+
+            if transactions.isEmpty {
+                Text("No contributions recorded yet. Activity will appear here after your first transaction.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(transactions) { transaction in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(transaction.asset?.currency ?? "Asset")
+                                .font(.subheadline.weight(.semibold))
+                            Text(transaction.date, format: .dateTime.month().day())
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Text(transaction.amount.formatted(.currency(code: transaction.asset?.currency ?? "USD")))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
+
+                    if transaction.id != transactions.last?.id {
+                        Divider()
+                    }
+                }
+            }
+        }
+        .dashboardCardStyle()
+    }
+}
+
+private struct DashboardActionStrip: View {
+    let primaryAction: DashboardPrimaryAction
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Next Step")
+                .font(.headline)
+
+            Text(primaryAction.message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 12) {
+                primaryLink
+                NavigationLink(destination: AddGoalView()) {
+                    Label("Add Goal", systemImage: "plus")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .dashboardCardStyle()
+    }
+
+    @ViewBuilder
+    private var primaryLink: some View {
+        switch primaryAction {
+        case .createGoal:
+            NavigationLink(destination: AddGoalView()) {
+                actionLabel(title: primaryAction.title, systemImage: primaryAction.systemImage)
+            }
+            .buttonStyle(.borderedProminent)
+        case .addAsset(let goal):
+            NavigationLink(destination: AddAssetView(goal: goal)) {
+                actionLabel(title: primaryAction.title, systemImage: primaryAction.systemImage)
+            }
+            .buttonStyle(.borderedProminent)
+        case .recordContribution(let asset):
+            NavigationLink(destination: AddTransactionView(asset: asset)) {
+                actionLabel(title: primaryAction.title, systemImage: primaryAction.systemImage)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
+
+    private func actionLabel(title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .frame(maxWidth: .infinity)
+    }
+}
 
 struct DashboardEmptyState: View {
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "chart.bar.fill")
-                .font(.system(size: 48))
-                .foregroundColor(.accessibleSecondary)
-            
-            VStack(spacing: 6) {
-                Text("Dashboard Ready")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Text("Create your first savings goal to start tracking your crypto journey")
-                    .font(.subheadline)
-                    .foregroundColor(.accessibleSecondary)
-                    .multilineTextAlignment(.center)
-            }
-            
-            NavigationLink(destination: ContentView()) {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus.circle.fill")
-                    Text("Create First Goal")
-                }
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: 200)
-                .frame(height: 50)
-                .background(AccessibleColors.primaryInteractive)
-                .cornerRadius(12)
-            }
-            .buttonStyle(PlainButtonStyle())
-            .accessibilityLabel("Create First Goal")
-            .accessibilityHint("Navigates to the goal creation screen.")
-        }
-        .padding(.vertical, 40)
-        .frame(maxWidth: .infinity)
-        .background(.regularMaterial)
-        .cornerRadius(16)
-    }
-}
-
-struct LegacyDashboardFallbackView: View {
-    let goals: [Goal]
-    @Binding var selectedGoal: Goal?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Dashboard (Legacy Visual Style)")
-                .font(.headline)
-
-            if !goals.isEmpty {
-                Picker("Goal", selection: Binding(
-                    get: { selectedGoal?.id ?? goals.first?.id ?? UUID() },
-                    set: { id in
-                        selectedGoal = goals.first(where: { $0.id == id })
-                    }
-                )) {
-                    ForEach(goals) { goal in
-                        Text(goal.name).tag(goal.id)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-
-            if let goal = selectedGoal {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(goal.name)
-                        .font(.title3)
-                    Text("Target: \(goal.currency) \(String(format: "%,.2f", goal.targetAmount))")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Text("Legacy fallback keeps flow available when visual rollout flag is disabled.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-                .padding(12)
-                .background(.regularMaterial)
-                .cornerRadius(10)
-            } else {
-                Text("No goals available.")
-                    .foregroundColor(.secondary)
-            }
-        }
-    }
-}
-
-    // MARK: - Dashboard Widget View
-struct DashboardWidgetView: View {
-    let widget: DashboardWidget
-    let goal: Goal
-    let dashboardTotal: Double
-    let dashboardProgress: Double
-    @ObservedObject var viewModel: DashboardViewModel
-    let isEditMode: Bool
-    
-    private var gridSpan: (columns: Int, rows: Int) {
-        switch widget.size {
-        case .small: return (1, 1)
-        case .medium: return (2, 1)
-        case .large: return (2, 2)
-        case .full: return (2, 1)
-        }
-    }
-    
-    var body: some View {
-        Group {
-            switch widget.type {
-            case .progressRing:
-                ProgressRingView(
-                    progress: dashboardProgress,
-                    current: dashboardTotal,
-                    target: goal.targetAmount,
-                    currency: goal.currency,
-                    lineWidth: widget.size == .large ? 20 : 15,
-                    showLabels: widget.size != .small
-                )
-                .aspectRatio(1, contentMode: .fit)
-                
-            case .lineChart:
-                if viewModel.isLoadingBalanceHistory {
-                    ChartSkeletonView(height: 250, type: .line)
-                } else if !viewModel.balanceHistory.isEmpty {
-                    LineChartView(
-                        dataPoints: viewModel.balanceHistory,
-                        timeRange: .month,
-                        animateOnAppear: false,
-                        targetValue: goal.targetAmount
-                    )
-                } else {
-                    ChartPlaceholderView(type: .lineChart)
-                }
-                
-            case .stackedBar:
-                if viewModel.isLoadingAssetComposition {
-                    ChartSkeletonView(height: 200, type: .bar)
-                } else if !viewModel.assetComposition.isEmpty {
-                    StackedBarChartView(
-                        assetCompositions: viewModel.assetComposition,
-                        totalValue: dashboardTotal,
-                        currency: goal.currency,
-                        animateOnAppear: false
-                    )
-                } else {
-                    ChartPlaceholderView(type: .stackedBar)
-                }
-                
-            case .forecast:
-                if viewModel.isLoadingForecast || viewModel.isLoadingBalanceHistory {
-                    ChartSkeletonView(height: 300, type: .line)
-                } else if !viewModel.balanceHistory.isEmpty && !viewModel.forecastData.isEmpty {
-                    ForecastChartView(
-                        historicalData: viewModel.balanceHistory,
-                        forecastData: viewModel.forecastData,
-                        targetValue: goal.targetAmount,
-                        targetDate: goal.deadline,
-                        currency: goal.currency,
-                        animateOnAppear: false
-                    )
-                } else {
-                    ChartPlaceholderView(type: .forecast)
-                }
-                
-            case .heatmap:
-                if viewModel.isLoadingHeatmap {
-                    ChartSkeletonView(height: 150, type: .heatmap)
-                } else if !viewModel.heatmapData.isEmpty {
-                    HeatmapCalendarView(
-                        heatmapData: viewModel.heatmapData,
-                        title: "Transaction Activity",
-                        animateOnAppear: false
-                    )
-                } else {
-                    ChartPlaceholderView(type: .heatmap)
-                }
-                
-            case .summary:
-                SummaryStatsView(
-                    goal: goal,
-                    dashboardTotal: dashboardTotal,
-                    dashboardProgress: dashboardProgress,
-                    viewModel: viewModel
-                )
-            }
-        }
-        .overlay(
-            Group {
-                if isEditMode {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Button(action: {
-                                    // Remove widget
-                            }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(AccessibleColors.error)
-                                    .background(Color.accessibleSurface, in: Circle())
-                            }
-                            .accessibilityLabel("Remove widget")
-                            .accessibilityHint("Removes this widget from the dashboard.")
-                        }
-                        Spacer()
-                    }
-                    .padding(8)
-                }
-            }
-        )
-    }
-}
-
-    // MARK: - Chart Placeholder
-struct ChartPlaceholderView: View {
-    let type: DashboardWidgetType
-    
-    var body: some View {
-        Group {
-            switch type {
-            case .lineChart:
-                EmptyStateView.noChartData(chartType: "Balance History")
-            case .stackedBar:
-                EmptyStateView.noAssets(onAddAsset: {
-                        // This will be handled by the parent view
-                })
-            case .forecast:
-                EmptyStateView.noForecastData()
-            case .heatmap:
-                EmptyStateView.noActivity()
-            default:
-                EmptyStateView.noChartData(chartType: type.rawValue)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.accessibleSurfaceSubtle)
-        .cornerRadius(12)
-    }
-}
-
-    // MARK: - Summary Stats View
-struct SummaryStatsView: View {
-    let goal: Goal
-    let dashboardTotal: Double
-    let dashboardProgress: Double
-    @ObservedObject var viewModel: DashboardViewModel
-    
-    var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-                // Primary metrics - most important information
-            HStack(spacing: 20) {
-                    // Daily target - actionable metric
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 4) {
-                        Text("DAILY TARGET")
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.accessibleSecondary)
-                        MetricTooltips.dailyTarget
-                    }
-                    HStack(spacing: 4) {
-                        Text(String(format: "%.0f", viewModel.dailyTarget))
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundColor(.primary)
-                        Text(goal.currency)
-                            .font(.headline)
-                            .foregroundColor(.accessibleSecondary)
-                    }
-                }
-                
-                Spacer()
-                
-                    // Achievement status - motivational
-                VStack(alignment: .trailing, spacing: 4) {
-                    if dashboardProgress >= 1.0 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "star.fill")
-                                .foregroundColor(.accessibleAchievement)
-                            Text("ACHIEVED")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(.accessibleAchievement)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(AccessibleColors.achievementBackground)
-                        .cornerRadius(12)
-                    } else if viewModel.streak > 0 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "flame.fill")
-                                .foregroundColor(.accessibleStreak)
-                            Text("\(viewModel.streak) DAY STREAK")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(.accessibleStreak)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(AccessibleColors.streakBackground)
-                        .cornerRadius(12)
-                    } else {
-                        let remaining = goal.targetAmount - dashboardTotal
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text("TO GO")
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.accessibleSecondary)
-                            Text(String(format: "%.0f", remaining))
-                                .font(.title2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.primary)
-                        }
-                    }
-                }
-            }
-            
-            Divider()
-            
-                // Secondary metrics in a more scannable layout
-            HStack(spacing: 0) {
-                    // Portfolio overview
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("PORTFOLIO")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.accessibleSecondary)
-                    
-                    HStack(spacing: 16) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(goal.allocatedAssets.count)")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                            Text("Assets")
-                                .font(.caption2)
-                                .foregroundColor(.accessibleSecondary)
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(viewModel.transactionCount)")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                            Text("Transactions")
-                                .font(.caption2)
-                                .foregroundColor(.accessibleSecondary)
-                        }
-                    }
-                }
-                
-                Spacer()
-                
-                    // Time tracking
-                VStack(alignment: .trailing, spacing: 8) {
-                    Text("TIMELINE")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.accessibleSecondary)
-                    
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(viewModel.daysRemaining)")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                            .foregroundColor(viewModel.daysRemaining < 30 ? AccessibleColors.error : .primary)
-                        Text("Days Left")
-                            .font(.caption2)
-                            .foregroundColor(.accessibleSecondary)
-                    }
-                }
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: VisualComponentTokens.dashboardSummaryCornerRadius)
-                .fill(VisualComponentTokens.financeSurfaceFill)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: VisualComponentTokens.dashboardSummaryCornerRadius)
-                .stroke(VisualComponentTokens.financeSurfaceStroke, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: VisualComponentTokens.dashboardSummaryCornerRadius))
-        .accessibilityIdentifier("dashboard.summary_card")
-    }
-}
+            Image(systemName: "flag.fill")
+                .font(.system(size: 36))
+                .foregroundStyle(AccessibleColors.primaryInteractive)
 
-// MARK: - Custom Widgets Grid
-struct CustomWidgetsGrid: View {
-    let goal: Goal
-    @ObservedObject var viewModel: DashboardViewModel
-    let widgets: [DashboardWidget]
-    @State private var dashboardTotal: Double = 0
-    @State private var dashboardProgress: Double = 0
-
-    private var columns: [GridItem] { Array(repeating: GridItem(.flexible(minimum: 120, maximum: .infinity)), count: 4) }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Custom Widgets")
-                .font(.headline)
-                .fontWeight(.semibold)
-            
-            LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(widgets.sorted { $0.position < $1.position }) { widget in
-                    DashboardWidgetView(
-                        widget: widget,
-                        goal: goal,
-                        dashboardTotal: dashboardTotal,
-                        dashboardProgress: dashboardProgress,
-                        viewModel: viewModel,
-                        isEditMode: false
-                    )
-                    .gridCellColumns(widget.size.columns)
-                }
-            }
-        }
-        .task {
-            await viewModel.loadData(
-                for: goal,
-                modelContext: ModelContext(goal.modelContext?.container ?? PersistenceController.shared.activeContainer)
-            )
-            let calc = DIContainer.shared.goalCalculationService
-            let total = await calc.getCurrentTotal(for: goal)
-            let progress = await calc.getProgress(for: goal)
-            await MainActor.run {
-                dashboardTotal = total
-                dashboardProgress = progress
-            }
-        }
-    }
-}
-
-struct StatCard: View {
-    let title: String
-    let value: String
-    let icon: String
-    let color: Color
-    let tooltip: HelpTooltip?
-    
-    init(title: String, value: String, icon: String, color: Color, tooltip: HelpTooltip? = nil) {
-        self.title = title
-        self.value = value
-        self.icon = icon
-        self.color = color
-        self.tooltip = tooltip
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                ZStack {
-                    Circle()
-                        .fill(AccessibleColors.surfaceBase)
-                        .frame(width: 32, height: 32)
-                    Image(systemName: icon)
-                        .foregroundColor(color)
-                        .font(.callout)
-                }
-                Spacer()
-                if let tooltip = tooltip { tooltip }
-            }
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                Text(title)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Track your first savings goal")
+                    .font(.title2.weight(.bold))
+                Text("Create a goal, add an asset, and watch progress update as balances change.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text("You can add wallet addresses later for automatic crypto tracking.")
                     .font(.caption)
-                    .foregroundColor(.accessibleSecondary)
+                    .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            NavigationLink(destination: AddGoalView()) {
+                Label("Create Goal", systemImage: "plus.circle.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
         }
-        .padding()
-        .background(.regularMaterial)
-        .cornerRadius(12)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title): \(value)")
+        .dashboardCardStyle()
     }
 }
 
-    // MARK: - Dashboard Customization View
-struct DashboardCustomizationView: View {
-    @Binding var widgets: [DashboardWidget]
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("Available Widgets") {
-                    ForEach(DashboardWidgetType.allCases, id: \.self) { type in
-                        HStack {
-                            Image(systemName: type.icon)
-                                .foregroundColor(AccessibleColors.primaryInteractive)
-                            Text(type.rawValue)
-                            Spacer()
-                            Button("Add") {
-                                let newWidget = DashboardWidget(
-                                    type: type,
-                                    size: .medium,
-                                    position: widgets.count
-                                )
-                                widgets.append(newWidget)
-                            }
-                            .font(.caption)
-                            .accessibilityHint("Adds this widget to the dashboard.")
-                        }
-                    }
-                }
-                
-                Section("Current Widgets") {
-                    ForEach($widgets, id: \.id) { $widget in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: widget.type.icon)
-                                    .foregroundColor(.gray)
-                                Text(widget.type.rawValue)
-                                Spacer()
-                                // Size selector
-                                Picker("Size", selection: $widget.size) {
-                                    Text("S").tag(DashboardWidget.WidgetSize.small)
-                                    Text("M").tag(DashboardWidget.WidgetSize.medium)
-                                    Text("L").tag(DashboardWidget.WidgetSize.large)
-                                    Text("Full").tag(DashboardWidget.WidgetSize.full)
-                                }
-                                .pickerStyle(.segmented)
-                                .frame(maxWidth: 220)
-                                .accessibilityHint("Changes the size of this widget.")
-                            }
-                            Text("Span: \(widget.size.columns) columns, \(widget.size.rows) rows")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    .onDelete { indexSet in
-                        widgets.remove(atOffsets: indexSet)
-                    }
-                    .onMove { source, destination in
-                        widgets.move(fromOffsets: source, toOffset: destination)
-                            // Update positions
-                        for (index, _) in widgets.enumerated() {
-                            widgets[index].position = index
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Customize Dashboard")
-#if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-#endif
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Reset") {
-                        widgets = [
-                            DashboardWidget(type: .summary, size: .medium, position: 0),
-                            DashboardWidget(type: .forecast, size: .full, position: 1),
-                            DashboardWidget(type: .lineChart, size: .full, position: 2)
-                        ]
-                    }
-                }
-            }
-        }
+private extension View {
+    func dashboardCardStyle() -> some View {
+        self
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color.primary.opacity(0.03))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+            )
     }
 }

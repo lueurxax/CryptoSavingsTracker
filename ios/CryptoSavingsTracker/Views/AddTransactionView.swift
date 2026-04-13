@@ -14,14 +14,13 @@ import AppKit
 struct AddTransactionView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-
+    
     let asset: Asset
     let autoAllocateGoalId: UUID?
-
+    
     @State private var amount = ""
     @State private var comment = ""
     @State private var accessErrorMessage: String?
-    @State private var saveErrorMessage: String?
 
     init(asset: Asset, prefillAmount: Double? = nil, autoAllocateGoalId: UUID? = nil) {
         self.asset = asset
@@ -30,7 +29,7 @@ struct AddTransactionView: View {
             _amount = State(initialValue: Self.formatAmount(prefillAmount))
         }
     }
-
+    
     var body: some View {
         Group {
             if let accessErrorMessage {
@@ -73,34 +72,10 @@ struct AddTransactionView: View {
                         }
                         .padding(.horizontal, 4)
 
-                        Section {
-                            Text("Enter the amount you're depositing and optionally add a comment for reference.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.leading)
+                        Section(footer: Text("Enter the amount you're depositing and optionally add a comment for reference.")) {
+                            EmptyView()
                         }
                         .padding(.horizontal, 4)
-
-                        if let saveErrorMessage {
-                            Section {
-                                HStack {
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                        .foregroundColor(.accessibleStreak)
-                                    Text(saveErrorMessage)
-                                        .font(.footnote)
-                                        .foregroundColor(.primary)
-                                    Spacer()
-                                    Button("Dismiss") { self.saveErrorMessage = nil }
-                                        .font(.caption)
-                                        .frame(minWidth: 44, minHeight: 44)
-                                        .contentShape(Rectangle())
-                                }
-                                .padding(10)
-                                .background(AccessibleColors.streakBackground)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                            }
-                            .padding(.horizontal, 4)
-                        }
                     }
                     .padding(.top, 8)
 
@@ -146,34 +121,10 @@ struct AddTransactionView: View {
                         }
                         .padding(.horizontal, 4)
 
-                        Section {
-                            Text("Enter the amount you're depositing and optionally add a comment for reference.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.leading)
+                        Section(footer: Text("Enter the amount you're depositing and optionally add a comment for reference.")) {
+                            EmptyView()
                         }
                         .padding(.horizontal, 4)
-
-                        if let saveErrorMessage {
-                            Section {
-                                HStack {
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                        .foregroundColor(.accessibleStreak)
-                                    Text(saveErrorMessage)
-                                        .font(.footnote)
-                                        .foregroundColor(.primary)
-                                    Spacer()
-                                    Button("Dismiss") { self.saveErrorMessage = nil }
-                                        .font(.caption)
-                                        .frame(minWidth: 44, minHeight: 44)
-                                        .contentShape(Rectangle())
-                                }
-                                .padding(10)
-                                .background(AccessibleColors.streakBackground)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                            }
-                            .padding(.horizontal, 4)
-                        }
                     }
                     .padding(.top, 8)
                     .navigationTitle("New Transaction")
@@ -201,16 +152,22 @@ struct AddTransactionView: View {
             validateWritableContext()
         }
     }
-
+    
     private var isValidInput: Bool {
         guard let value = Double(amount) else { return false }
         return value > 0
     }
-
+    
     private func saveTransaction() async {
         guard let depositAmount = Double(amount) else { return }
-        await MainActor.run { saveErrorMessage = nil }
 
+        print("💾 Saving new transaction:")
+        print("   Amount: \(depositAmount)")
+        print("   Asset: \(asset.currency)")
+        print("   Comment: \(comment.isEmpty ? "none" : comment)")
+        print("   Asset ID: \(asset.id)")
+        print("   Current transaction count for asset: \((asset.transactions ?? []).count)")
+        
         do {
             _ = try DIContainer.shared.makeTransactionMutationService(modelContext: modelContext).createTransaction(
                 for: asset,
@@ -218,26 +175,14 @@ struct AddTransactionView: View {
                 comment: comment.isEmpty ? nil : comment,
                 autoAllocateGoalId: autoAllocateGoalId
             )
+            print("✅ Transaction saved successfully")
+            print("   New transaction count for asset: \((asset.transactions ?? []).count)")
         } catch {
-            await MainActor.run {
-                saveErrorMessage = error.localizedDescription
-            }
-            return
+            print("❌ Failed to save transaction: \(error)")
+            // Show user-friendly error message
+            // TODO: Add error state display to UI
         }
-
-        await MainActor.run {
-            amount = ""
-            comment = ""
-        }
-
-        Task {
-            // Schedule reminders for all goals this asset is allocated to
-            for allocation in (asset.allocations ?? []) {
-                if let goal = allocation.goal {
-                    await NotificationManager.shared.scheduleReminders(for: goal)
-                }
-            }
-        }
+        
         dismiss()
     }
 

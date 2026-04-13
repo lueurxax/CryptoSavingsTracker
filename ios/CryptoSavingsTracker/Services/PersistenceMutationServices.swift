@@ -25,22 +25,24 @@ final class GoalMutationService: GoalMutationServiceProtocol {
     }
 
     func createGoal(_ goal: Goal) async throws {
+        clearReminderState(for: goal)
         try await persist(goal, insertIfNeeded: true)
-        if goal.reminderFrequency != nil {
-            await notificationManager.scheduleReminders(for: goal)
-        }
+        await notificationManager.cancelNotifications(for: goal)
         postSharedGoalDataDidChange(goalIDs: [goal.id])
     }
 
     func saveGoal(_ goal: Goal) async throws {
         try accessGuard.assertOwnerWritable(goal: goal)
+        clearReminderState(for: goal)
         try await persist(goal, insertIfNeeded: true)
+        await notificationManager.cancelNotifications(for: goal)
         postSharedGoalDataDidChange(goalIDs: [goal.id])
     }
 
     func archiveGoal(_ goal: Goal) async throws {
         try accessGuard.assertOwnerWritable(goal: goal)
         await notificationManager.cancelNotifications(for: goal)
+        clearReminderState(for: goal)
         goal.archive()
         try saveContext(operation: "Unable to archive goal")
         postSharedGoalDataDidChange(goalIDs: [goal.id])
@@ -49,18 +51,23 @@ final class GoalMutationService: GoalMutationServiceProtocol {
     func restoreGoal(_ goal: Goal) async throws {
         try accessGuard.assertOwnerWritable(goal: goal)
         goal.restore()
+        clearReminderState(for: goal)
+        await notificationManager.cancelNotifications(for: goal)
         try saveContext(operation: "Unable to restore goal")
-        if goal.reminderFrequency != nil {
-            await notificationManager.scheduleReminders(for: goal)
-        }
         postSharedGoalDataDidChange(goalIDs: [goal.id])
     }
 
-    func resumeGoal(_ goal: Goal) throws {
+    func resumeGoal(_ goal: Goal) async throws {
         try accessGuard.assertOwnerWritable(goal: goal)
         goal.restoreToActive()
+        clearReminderState(for: goal)
+        await notificationManager.cancelNotifications(for: goal)
         try saveContext(operation: "Unable to resume goal")
         postSharedGoalDataDidChange(goalIDs: [goal.id])
+    }
+
+    private func clearReminderState(for goal: Goal) {
+        goal.clearRetiredReminderState()
     }
 
     private func postSharedGoalDataDidChange(goalIDs: [UUID]) {
@@ -294,14 +301,6 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
         let affectedGoalIDs = (asset.allocations ?? []).compactMap { $0.goal?.id }
 
         NotificationCenter.default.post(name: .goalProgressRefreshed, object: nil)
-        NotificationCenter.default.post(
-            name: .monthlyPlanningAssetUpdated,
-            object: asset,
-            userInfo: [
-                "assetId": asset.id,
-                "goalIds": affectedGoalIDs
-            ]
-        )
         if !affectedGoalIDs.isEmpty {
             NotificationCenter.default.post(
                 name: .sharedGoalDataDidChange,
@@ -331,16 +330,6 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
                 userInfo: [
                     "affectedGoalIDs": affectedGoalIDs,
                     "reason": "transactionMutation"
-                ]
-            )
-        }
-        if let asset {
-            NotificationCenter.default.post(
-                name: .monthlyPlanningAssetUpdated,
-                object: asset,
-                userInfo: [
-                    "assetId": asset.id,
-                    "goalIds": (asset.allocations ?? []).compactMap { $0.goal?.id }
                 ]
             )
         }
@@ -535,17 +524,6 @@ final class OnboardingMutationService: OnboardingMutationServiceProtocol {
     }
 
     func createGoalFromTemplate(_ template: GoalTemplate, userProfile: UserProfile) async throws {
-        if await MainActor.run(body: { UITestFlags.consumeSimulatedGoalSaveFailureIfNeeded() }) {
-            throw PersistenceMutationError.saveFailed(
-                "Unable to create onboarding goal",
-                underlying: NSError(
-                    domain: "UITestFlags",
-                    code: 599,
-                    userInfo: [NSLocalizedDescriptionKey: "Simulated onboarding save failure"]
-                )
-            )
-        }
-
         let goalData = template.createGoal()
         let goal = Goal(
             name: goalData.name,
@@ -554,11 +532,7 @@ final class OnboardingMutationService: OnboardingMutationServiceProtocol {
             deadline: goalData.deadline,
             startDate: Date()
         )
-
-        if userProfile.experienceLevel != .beginner {
-            goal.reminderFrequency = ReminderFrequency.weekly.rawValue
-            goal.reminderTime = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: Date())
-        }
+        goal.clearRetiredReminderState()
 
         modelContext.insert(goal)
 
@@ -574,10 +548,7 @@ final class OnboardingMutationService: OnboardingMutationServiceProtocol {
             modelContext.delete(goal)
             throw PersistenceMutationError.saveFailed("Unable to create onboarding goal", underlying: error)
         }
-
-        if goal.reminderFrequency != nil {
-            await notificationManager.scheduleReminders(for: goal)
-        }
+        await notificationManager.cancelNotifications(for: goal)
 
         NotificationCenter.default.post(
             name: .sharedGoalDataDidChange,

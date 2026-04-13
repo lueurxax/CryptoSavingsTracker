@@ -10,7 +10,17 @@ import Foundation
 
 @Model
 final class Goal {
-    init(name: String, currency: String, targetAmount: Double, deadline: Date, startDate: Date = Date(), frequency: ReminderFrequency = .weekly, emoji: String? = nil, description: String? = nil, link: String? = nil) {
+    init(
+        name: String,
+        currency: String,
+        targetAmount: Double,
+        deadline: Date,
+        startDate: Date = Date(),
+        frequency: ReminderFrequency? = nil,
+        emoji: String? = nil,
+        description: String? = nil,
+        link: String? = nil
+    ) {
         self.id = UUID()
         self.name = name
         self.currency = currency
@@ -18,8 +28,10 @@ final class Goal {
         self.deadline = deadline
         self.startDate = startDate
         self.allocations = nil
-        self.reminderFrequency = frequency.rawValue
-        self.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
+        self.reminderFrequency = frequency?.rawValue
+        self.reminderTime = frequency == nil
+            ? nil
+            : Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
         self.emoji = emoji
         self.goalDescription = description
         self.link = link

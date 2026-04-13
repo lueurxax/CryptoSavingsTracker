@@ -95,11 +95,6 @@ protocol GoalCalculationServiceProtocol {
     static func getProgress(for goal: Goal) async -> Double
     static func getSuggestedDeposit(for goal: Goal) async -> Double
     static func getDaysRemaining(for goal: Goal) -> Int
-    static func isReminderEnabled(for goal: Goal) -> Bool
-    static func getReminderFrequency(for goal: Goal) -> ReminderFrequency
-    static func getReminderDates(for goal: Goal) -> [Date]
-    static func getRemainingReminderDates(for goal: Goal) -> [Date]
-    static func getNextReminder(for goal: Goal) -> Date?
     static func getManualTotal(for goal: Goal) -> Double
     static func getManualProgress(for goal: Goal) -> Double
 }
@@ -152,7 +147,7 @@ protocol GoalMutationServiceProtocol {
     func saveGoal(_ goal: Goal) async throws
     func archiveGoal(_ goal: Goal) async throws
     func restoreGoal(_ goal: Goal) async throws
-    func resumeGoal(_ goal: Goal) throws
+    func resumeGoal(_ goal: Goal) async throws
 }
 
 @MainActor

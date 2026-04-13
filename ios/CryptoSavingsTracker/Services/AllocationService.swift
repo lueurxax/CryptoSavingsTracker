@@ -103,14 +103,6 @@ struct AllocationService {
             ]
         )
         NotificationCenter.default.post(
-            name: .monthlyPlanningAssetUpdated,
-            object: asset,
-            userInfo: [
-                "assetId": asset.id,
-                "goalIds": goalIds
-            ]
-        )
-        NotificationCenter.default.post(
             name: .sharedGoalDataDidChange,
             object: nil,
             userInfo: [
@@ -163,12 +155,11 @@ struct AllocationService {
             userInfo: ["assetId": asset.id, "goalId": goal.id]
         )
         NotificationCenter.default.post(
-            name: .monthlyPlanningAssetUpdated,
-            object: asset,
+            name: .sharedGoalDataDidChange,
+            object: nil,
             userInfo: [
-                "assetId": asset.id,
-                "goalId": goal.id,
-                "goalIds": [goal.id]
+                "affectedGoalIDs": [goal.id],
+                "reason": "assetMutation"
             ]
         )
 
@@ -199,13 +190,11 @@ struct AllocationService {
                 userInfo: ["assetId": asset.id, "goalId": goal.id, "removed": true]
             )
             NotificationCenter.default.post(
-                name: .monthlyPlanningAssetUpdated,
-                object: asset,
+                name: .sharedGoalDataDidChange,
+                object: nil,
                 userInfo: [
-                    "assetId": asset.id,
-                    "goalId": goal.id,
-                    "goalIds": [goal.id],
-                    "removed": true
+                    "affectedGoalIDs": [goal.id],
+                    "reason": "assetMutation"
                 ]
             )
 
@@ -266,7 +255,7 @@ struct AllocationService {
                 userInfo: ["goalIds": goals.map { $0.id }]
             )
         } catch {
-            AppLog.error("Failed to sync monthly plans after allocation change: \(error.localizedDescription)", category: .monthlyPlanning)
+            AppLog.error("Failed to sync monthly plans after allocation change: \(error)", category: .monthlyPlanning)
         }
     }
 

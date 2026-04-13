@@ -74,6 +74,7 @@ class GoalRepository: GoalRepositoryProtocol {
     }
     
     func save(_ goal: Goal) async throws {
+        goal.clearRetiredReminderState()
         modelContext.insert(goal)
         try modelContext.save()
     }

@@ -67,15 +67,17 @@ struct SwiftDataQueries {
         )
     }
     
-    /// Fetch goals with reminders enabled
-    static func goalsWithReminders() -> FetchDescriptor<Goal> {
+    /// Fetch legacy goals that still carry retired reminder metadata.
+    /// This is for migration cleanup only and must not drive production reminder UX.
+    static func legacyReminderCleanupCandidates() -> FetchDescriptor<Goal> {
         FetchDescriptor<Goal>(
             predicate: #Predicate { goal in
-                goal.lifecycleStatusRawValue == "active" &&
-                goal.reminderFrequency != nil
+                goal.reminderFrequency != nil ||
+                goal.reminderTime != nil ||
+                goal.firstReminderDate != nil
             },
             sortBy: [
-                SortDescriptor(\.reminderTime, order: .forward)
+                SortDescriptor(\.lastModifiedDate, order: .reverse)
             ]
         )
     }
@@ -239,10 +241,7 @@ final class QueryPerformanceMonitor {
             let elapsed = Date().timeIntervalSince(startTime)
             
             queue.async {
-                AppLog.error(
-                    "Query '\(name)' failed after \(String(format: "%.3f", elapsed))s: \(error.localizedDescription)",
-                    category: .performance
-                )
+                AppLog.error("Query '\(name)' failed after \(String(format: "%.3f", elapsed))s: \(error)", category: .performance)
             }
             
             throw error

@@ -567,14 +567,17 @@ struct AssetRowView: View {
             }
             if insertedCount > 0 {
                 NotificationCenter.default.post(name: .goalProgressRefreshed, object: nil)
-                NotificationCenter.default.post(
-                    name: .monthlyPlanningAssetUpdated,
-                    object: asset,
-                    userInfo: [
-                        "assetId": asset.id,
-                        "goalIds": (asset.allocations ?? []).compactMap { $0.goal?.id }
-                    ]
-                )
+                let affectedGoalIDs = (asset.allocations ?? []).compactMap { $0.goal?.id }
+                if !affectedGoalIDs.isEmpty {
+                    NotificationCenter.default.post(
+                        name: .sharedGoalDataDidChange,
+                        object: nil,
+                        userInfo: [
+                            "affectedGoalIDs": affectedGoalIDs,
+                            "reason": "transactionMutation"
+                        ]
+                    )
+                }
             }
 
             await MainActor.run {

@@ -23,8 +23,6 @@ class GoalEditViewModel: ObservableObject {
     
     // MARK: - Private Properties
     private let originalSnapshot: GoalSnapshot
-    private let modelContext: ModelContext
-    private let notificationManager = NotificationManager.shared
     private let goalMutationService: GoalMutationServiceProtocol
     private var cancellables = Set<AnyCancellable>()
     
@@ -53,7 +51,6 @@ class GoalEditViewModel: ObservableObject {
     init(goal: Goal, modelContext: ModelContext) {
         self.goal = goal
         self.originalSnapshot = goal.createSnapshot()
-        self.modelContext = modelContext
         self.goalMutationService = DIContainer.shared.makeGoalMutationService(modelContext: modelContext)
         
         setupChangeDetection()
@@ -112,9 +109,6 @@ class GoalEditViewModel: ObservableObject {
         isSaving = true
         defer { isSaving = false }
 
-        // Check if plan-affecting fields changed before saving
-        let planNeedsRecalculation = deadlineOrTargetChanged()
-
         do {
             // Final validation
             validate()
@@ -130,10 +124,7 @@ class GoalEditViewModel: ObservableObject {
                 throw GoalEditError.cannotSave("Simulated UI test save failure")
             }
 
-            // Handle notification updates if reminder settings changed
-            if reminderSettingsChanged() {
-                try await updateNotifications()
-            }
+            clearReminderState()
 
             // Update modification timestamp
             goal.lastModifiedDate = Date()
@@ -142,16 +133,11 @@ class GoalEditViewModel: ObservableObject {
 
             try await goalMutationService.saveGoal(goal)
 
-            // Recalculate monthly plan if deadline or target amount changed
-            if planNeedsRecalculation {
-                await recalculateMonthlyPlan()
-            }
-
             // Verify data was saved by re-reading from context
             AppLog.info("✅ Goal '\(goal.name)' saved successfully", category: .goalEdit)
 
         } catch {
-            AppLog.error("Failed to save goal: \(error.localizedDescription)", category: .goalEdit)
+            AppLog.error("Failed to save goal: \(error)", category: .goalEdit)
             throw error
         }
     }
@@ -162,8 +148,7 @@ class GoalEditViewModel: ObservableObject {
         goal.targetAmount = originalSnapshot.targetAmount
         goal.deadline = originalSnapshot.deadline
         goal.startDate = originalSnapshot.startDate
-        goal.reminderFrequency = originalSnapshot.reminderFrequency
-        goal.reminderTime = originalSnapshot.reminderTime
+        goal.clearRetiredReminderState()
         goal.emoji = originalSnapshot.emoji
         goal.goalDescription = originalSnapshot.goalDescription
         goal.link = originalSnapshot.link
@@ -203,18 +188,12 @@ class GoalEditViewModel: ObservableObject {
         defer { isSaving = false }
         
         do {
-            // Cancel all notifications for this goal
-            await notificationManager.cancelNotifications(for: goal)
-            
-            // Archive the goal
-            goal.archive()
-            
             try await goalMutationService.archiveGoal(goal)
             
             AppLog.info("Goal '\(goal.name)' archived successfully", category: .goalEdit)
             
         } catch {
-            AppLog.error("Failed to archive goal: \(error.localizedDescription)", category: .goalEdit)
+            AppLog.error("Failed to archive goal: \(error)", category: .goalEdit)
             throw GoalEditError.archiveFailed(error.localizedDescription)
         }
     }
@@ -226,72 +205,18 @@ class GoalEditViewModel: ObservableObject {
         defer { isSaving = false }
         
         do {
-            // Restore the goal
-            goal.restore()
-            
-            // Reschedule notifications if goal has reminder settings
-            if goal.reminderFrequency != nil {
-                try await scheduleNotifications()
-            }
-            
             try await goalMutationService.restoreGoal(goal)
             
             AppLog.info("Goal '\(goal.name)' restored successfully", category: .goalEdit)
             
         } catch {
-            AppLog.error("Failed to restore goal: \(error.localizedDescription)", category: .goalEdit)
+            AppLog.error("Failed to restore goal: \(error)", category: .goalEdit)
             throw GoalEditError.restoreFailed(error.localizedDescription)
         }
     }
     
-    // MARK: - Private Helper Methods
-    private func reminderSettingsChanged() -> Bool {
-        return goal.reminderFrequency != originalSnapshot.reminderFrequency ||
-               goal.reminderTime != originalSnapshot.reminderTime
-    }
-
-    private func deadlineOrTargetChanged() -> Bool {
-        return goal.deadline != originalSnapshot.deadline ||
-               goal.targetAmount != originalSnapshot.targetAmount
-    }
-
-    private func recalculateMonthlyPlan() async {
-        do {
-            let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
-
-            // Get current month label
-            let monthLabel = planService.currentMonthLabel()
-
-            // Find existing plan for this goal in current month
-            if let existingPlan = try planService.fetchPlan(for: goal.id, in: monthLabel) {
-                // Update the plan with new goal parameters
-                try await planService.updatePlan(existingPlan, withGoal: goal)
-                AppLog.info("✅ Recalculated monthly plan for '\(goal.name)' after deadline/target change", category: .goalEdit)
-            }
-        } catch {
-            AppLog.error("Failed to recalculate monthly plan: \(error.localizedDescription)", category: .goalEdit)
-            // Non-fatal - goal was saved, plan will be recalculated on next view
-        }
-    }
-    
-    private func updateNotifications() async throws {
-        // Cancel existing notifications
-        await notificationManager.cancelNotifications(for: goal)
-        
-        // Schedule new notifications if enabled
-        if goal.reminderFrequency != nil {
-            try await scheduleNotifications()
-        }
-    }
-    
-    private func scheduleNotifications() async throws {
-        guard let reminderFrequency = goal.reminderFrequency,
-              let _ = ReminderFrequency.allCases.first(where: { $0.rawValue == reminderFrequency }) else {
-            return
-        }
-        
-        // Use the existing notification scheduling logic
-        await notificationManager.scheduleReminders(for: goal)
+    private func clearReminderState() {
+        goal.clearRetiredReminderState()
     }
 }
 
@@ -301,7 +226,6 @@ enum GoalEditError: LocalizedError {
     case validationFailed([String])
     case archiveFailed(String)
     case restoreFailed(String)
-    case notificationUpdateFailed(String)
     
     var errorDescription: String? {
         switch self {
@@ -313,8 +237,6 @@ enum GoalEditError: LocalizedError {
             return "Failed to archive goal: \(reason)"
         case .restoreFailed(let reason):
             return "Failed to restore goal: \(reason)"
-        case .notificationUpdateFailed(let reason):
-            return "Failed to update notifications: \(reason)"
         }
     }
     
@@ -326,8 +248,6 @@ enum GoalEditError: LocalizedError {
             return "Correct the highlighted fields and try again"
         case .archiveFailed, .restoreFailed:
             return "Try again or contact support if the issue persists"
-        case .notificationUpdateFailed:
-            return "Goal was saved but notifications may not work correctly. Try editing and saving again."
         }
     }
 }

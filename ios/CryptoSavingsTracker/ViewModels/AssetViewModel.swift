@@ -134,7 +134,7 @@ class AssetViewModel: ObservableObject, ErrorAwareViewModel {
             AppLog.info("Successfully fetched on-chain balance: \(balance) \(asset.currency)", category: .balanceService)
             return balance
         } catch {
-            AppLog.error("On-chain balance fetch error: \(error.localizedDescription)", category: .balanceService)
+            AppLog.error("On-chain balance fetch error: \(error)", category: .balanceService)
             balanceError = error.localizedDescription
             return 0
         }
@@ -203,20 +203,23 @@ class AssetViewModel: ObservableObject, ErrorAwareViewModel {
         do {
             try modelContext?.save()
             NotificationCenter.default.post(name: .goalProgressRefreshed, object: nil)
-            NotificationCenter.default.post(
-                name: .monthlyPlanningAssetUpdated,
-                object: asset,
-                userInfo: [
-                    "assetId": asset.id,
-                    "goalIds": (asset.allocations ?? []).compactMap { $0.goal?.id }
-                ]
-            )
+            let affectedGoalIDs = (asset.allocations ?? []).compactMap { $0.goal?.id }
+            if !affectedGoalIDs.isEmpty {
+                NotificationCenter.default.post(
+                    name: .sharedGoalDataDidChange,
+                    object: nil,
+                    userInfo: [
+                        "affectedGoalIDs": affectedGoalIDs,
+                        "reason": "transactionMutation"
+                    ]
+                )
+            }
             // Update balances after deletion
             Task {
                 await refreshBalances()
             }
         } catch {
-            AppLog.error("Failed to delete transaction: \(error.localizedDescription)", category: .transactionHistory)
+            AppLog.error("Failed to delete transaction: \(error)", category: .transactionHistory)
         }
     }
 }

@@ -11,26 +11,9 @@ import Foundation
 
 /// Empty state view for when no goal is selected in detail pane
 struct EmptyDetailView: View {
-    @Environment(\.modelContext) private var modelContext
-    @State private var monthlyPlanningViewModel: MonthlyPlanningViewModel?
-    
     var body: some View {
         ScrollView {
             VStack(spacing: 32) {
-                // Monthly Planning Widget
-                if let viewModel = monthlyPlanningViewModel {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Portfolio Overview")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        
-                        MonthlyPlanningWidget(viewModel: viewModel)
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 24)
-                }
-                
                 // Empty state content
                 VStack(spacing: 24) {
                     // Icon
@@ -49,15 +32,19 @@ struct EmptyDetailView: View {
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                     }
+
+                    VStack(spacing: 8) {
+                        Text("Dashboard is now the main portfolio surface")
+                            .font(.headline)
+                        Text("Open Dashboard to review overall progress, then select a goal to manage assets and contributions.")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
                 }
                 .padding(.horizontal, 24)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear {
-            if monthlyPlanningViewModel == nil {
-                monthlyPlanningViewModel = MonthlyPlanningViewModel(modelContext: modelContext)
-            }
-        }
     }
 }

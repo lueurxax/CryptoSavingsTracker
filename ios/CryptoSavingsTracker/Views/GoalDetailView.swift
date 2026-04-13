@@ -67,15 +67,6 @@ struct GoalDetailView: View {
                 refreshButton
             }
             
-            if let nextReminder = goal.nextReminder {
-                HStack {
-                    Text("Next reminder: \(nextReminder, format: .dateTime.day().month().year())")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-            }
-            
             HStack {
                 Text("Suggested deposit: \(String(format: "%.2f", goalViewModel.suggestedDeposit)) \(goal.currency)")
                     .font(.caption)
@@ -144,7 +135,7 @@ struct GoalDetailView: View {
                         Text(url.host ?? linkString)
                             .font(.callout)
                             .foregroundColor(.accessiblePrimary)
-                            .lineLimit(nil)
+                            .lineLimit(1)
                         Image(systemName: "arrow.up.right.square")
                             .font(.caption2)
                             .foregroundColor(.accessiblePrimary)

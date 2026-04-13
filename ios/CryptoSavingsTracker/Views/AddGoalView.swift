@@ -25,10 +25,6 @@ struct AddGoalView: View {
         var targetAmount: String = ""
         var deadline: Date = Date().addingTimeInterval(86400 * 30)
         var startDate: Date = Date()
-        var frequency: ReminderFrequency = .weekly
-        var isReminderEnabled: Bool = true
-        var reminderTime: Date? = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
-        var firstReminderDate: Date? = nil
         var selectedTemplate: GoalTemplate? = nil
         var hasAttemptedSubmit: Bool = false
         var showValidationWarnings: Bool = false
@@ -40,10 +36,6 @@ struct AddGoalView: View {
     @State private var targetAmount = ""
     @State private var deadline = Date().addingTimeInterval(86400 * 30)
     @State private var startDate = Date()
-    @State private var frequency: ReminderFrequency = .weekly
-    @State private var isReminderEnabled = true
-    @State private var reminderTime: Date? = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
-    @State private var firstReminderDate: Date?
     @State private var showingCurrencyPicker = false
     
     // Template and validation state
@@ -64,10 +56,6 @@ struct AddGoalView: View {
         _targetAmount = State(initialValue: previewState.targetAmount)
         _deadline = State(initialValue: previewState.deadline)
         _startDate = State(initialValue: previewState.startDate)
-        _frequency = State(initialValue: previewState.frequency)
-        _isReminderEnabled = State(initialValue: previewState.isReminderEnabled)
-        _reminderTime = State(initialValue: previewState.reminderTime)
-        _firstReminderDate = State(initialValue: previewState.firstReminderDate)
         _selectedTemplate = State(initialValue: previewState.selectedTemplate)
         _hasAttemptedSubmit = State(initialValue: previewState.hasAttemptedSubmit)
         _showValidationWarnings = State(initialValue: previewState.showValidationWarnings)
@@ -340,22 +328,6 @@ struct AddGoalView: View {
                         }
                         .padding(.vertical, 4)
                         
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Reminders")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            ReminderConfigurationView(
-                                isEnabled: $isReminderEnabled,
-                                frequency: $frequency,
-                                reminderTime: $reminderTime,
-                                firstReminderDate: $firstReminderDate,
-                                startDate: startDate,
-                                deadline: deadline,
-                                showAdvancedOptions: false
-                            )
-                        }
-                        .padding(.vertical, 4)
                         }
                     }
                     .padding(.horizontal, 24)
@@ -478,20 +450,6 @@ struct AddGoalView: View {
                             }
                         }
                     }
-                    
-                    Section(header: Text("Reminders")) {
-                        ReminderConfigurationView(
-                            isEnabled: $isReminderEnabled,
-                            frequency: $frequency,
-                            reminderTime: $reminderTime,
-                            firstReminderDate: $firstReminderDate,
-                            startDate: startDate,
-                            deadline: deadline,
-                            showAdvancedOptions: false
-                        )
-                        .padding(.vertical, 4)
-                    }
-                    .padding(.horizontal, 4)
                 }
                 .padding(.top, 8)
                 .navigationTitle("New Goal")
@@ -552,9 +510,6 @@ struct AddGoalView: View {
                 targetAmount = String(format: "%.0f", template.defaultAmount)
                 deadline = Date().addingTimeInterval(TimeInterval(template.defaultTimeframe * 86400))
                 
-                // Keep the current reminder configuration when applying template
-                // User can modify it separately if needed
-                
                 selectedTemplate = template
                 showingTemplates = false
             }
@@ -612,18 +567,8 @@ struct AddGoalView: View {
             return
         }
         
-        let newGoal = Goal(name: name, currency: currency.uppercased(), targetAmount: amount, deadline: deadline, startDate: startDate, frequency: frequency)
-        
-        // Set reminder properties
-        if isReminderEnabled {
-            newGoal.reminderFrequency = frequency.rawValue
-            newGoal.reminderTime = reminderTime
-            newGoal.firstReminderDate = firstReminderDate
-        } else {
-            newGoal.reminderFrequency = nil
-            newGoal.reminderTime = nil
-            newGoal.firstReminderDate = nil
-        }
+        let newGoal = Goal(name: name, currency: currency.uppercased(), targetAmount: amount, deadline: deadline, startDate: startDate)
+        newGoal.clearRetiredReminderState()
         
         do {
             try await DIContainer.shared.makeGoalMutationService(modelContext: modelContext).createGoal(newGoal)

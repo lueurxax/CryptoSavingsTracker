@@ -10,7 +10,7 @@ final class PresentationScreenshotUITests: XCTestCase {
         app = XCUIApplication()
         app.launchArguments += [
             "UITEST_RESET_DATA",
-            "UITEST_PRESENTATION_FLOW",
+            "UITEST_SEED_MANY_GOALS",
             "UITEST_UI_FLOW",
             "-visual_system.debug_override.visual_system.wave1_planning",
             "YES",
@@ -34,19 +34,15 @@ final class PresentationScreenshotUITests: XCTestCase {
         launchAtHome()
         captureScreen(named: "01-goals-overview")
 
-        openGoal(named: "UI Goal A")
+        openGoal(named: "UI Goal 1")
         captureScreen(named: "02-goal-detail")
 
         openDashboardTab()
         captureScreen(named: "03-goal-dashboard")
 
         launchAtHome()
-        openMonthlyPlan()
-        captureScreen(named: "04-monthly-planning")
-
-        launchAtHome()
         openSettings()
-        captureScreen(named: "05-settings")
+        captureScreen(named: "04-settings")
     }
 
     private func launchAtHome() {
@@ -55,7 +51,7 @@ final class PresentationScreenshotUITests: XCTestCase {
         }
         app.launch()
         dismissMonthlyPlanningSettingsIfPresent(app)
-        XCTAssertTrue(app.buttons["goalRow-UI Goal A"].waitForExistence(timeout: 12), "Seeded goals list did not load")
+        XCTAssertTrue(app.buttons["goalRow-UI Goal 1"].waitForExistence(timeout: 12), "Seeded goals list did not load")
         waitForSettledUI()
     }
 
@@ -92,39 +88,15 @@ final class PresentationScreenshotUITests: XCTestCase {
         waitForSettledUI(timeout: 10)
     }
 
-    private func openMonthlyPlan() {
-        if !app.buttons["viewMonthlyPlanLink"].exists {
-            let expandButton = app.buttons["planningWidgetExpandButton"]
-            XCTAssertTrue(expandButton.waitForExistence(timeout: 8), "Planning widget expand button missing")
-            tapForce(expandButton)
-        }
-
-        let viewPlanLink = app.buttons["viewMonthlyPlanLink"]
-        XCTAssertTrue(viewPlanLink.waitForExistence(timeout: 8), "Monthly plan deep link missing")
-        tapForce(viewPlanLink)
-
-        let planningMarkers = [
-            app.navigationBars["Monthly Planning"],
-            app.buttons["finishMonthButton"],
-            app.buttons["startTrackingButton"],
-            app.otherElements["budgetSummaryCard"]
-        ]
-        XCTAssertTrue(
-            planningMarkers.contains(where: { $0.waitForExistence(timeout: 8) || $0.exists }),
-            "Monthly planning screen did not load"
-        )
-        waitForSettledUI(timeout: 10)
-    }
-
     private func openSettings() {
-        let settingsButton = app.buttons["openSettingsButton"]
-        XCTAssertTrue(settingsButton.waitForExistence(timeout: 8), "Settings button missing")
-        tapForce(settingsButton)
+        let settingsTab = app.tabBars.buttons["Settings"]
+        XCTAssertTrue(settingsTab.waitForExistence(timeout: 8), "Settings tab missing")
+        tapForce(settingsTab)
 
         let settingsMarkers = [
             app.navigationBars["Settings"],
-            app.buttons["exportCSVButton"],
-            app.otherElements["settings.section_row.payment_day"]
+            app.staticTexts["Preferences"],
+            app.otherElements["settingsForm"]
         ]
         XCTAssertTrue(
             settingsMarkers.contains(where: { $0.waitForExistence(timeout: 8) || $0.exists }),

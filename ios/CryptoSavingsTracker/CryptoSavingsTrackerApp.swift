@@ -18,11 +18,9 @@ import UIKit
 struct CryptoSavingsTrackerApp: App {
     static let previewModelContainer: ModelContainer = PersistenceStackFactory.makePreviewContainer()
 
-    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var persistenceController: PersistenceController
-    @StateObject private var familyShareAcceptanceCoordinator: FamilyShareAcceptanceCoordinator
     #if os(iOS)
-    @UIApplicationDelegateAdaptor(FamilyShareAppDelegate.self) private var familyShareAppDelegate
+    @UIApplicationDelegateAdaptor(AppDelegateRouter.self) private var appDelegateRouter
     #endif
 
     init() {
@@ -37,10 +35,6 @@ struct CryptoSavingsTrackerApp: App {
         // Phase 1.5 hard cutover: retired local-primary store files are removed on launch.
         PersistenceController.performLegacyLocalStoreCleanupIfNeeded()
         _persistenceController = StateObject(wrappedValue: PersistenceController.shared)
-        _familyShareAcceptanceCoordinator = StateObject(wrappedValue: DIContainer.shared.familyShareAcceptanceCoordinator)
-
-        // Start observing CloudKit import events for the freshness pipeline reconciliation barrier
-        FamilyShareReconciliationBarrier.startObservingImports()
 
         // Suppress haptic feedback warnings in iOS Simulator
         #if targetEnvironment(simulator) && os(iOS)
@@ -58,55 +52,14 @@ struct CryptoSavingsTrackerApp: App {
             let environment = ProcessInfo.processInfo.environment
             let isXCTestRun = environment["XCTestConfigurationFilePath"] != nil
             let isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
-                || environment["UITEST_FAMILY_SHARE_SCENARIO"] != nil
             let isPreviewRun = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
             let isTestRun = isXCTestRun || isUITestRun || isPreviewRun
 
             if !isTestRun {
-                _ = await NotificationManager.shared.requestPermission()
                 await MainActor.run {
                     DIContainer.shared.cloudKitHealthMonitor.startMonitoring()
                 }
             }
-
-            // Check for automated monthly execution transitions
-            Task { @MainActor in
-                do {
-                    let service = DIContainer.shared.executionTrackingService(
-                        modelContext: PersistenceController.shared.activeMainContext
-                    )
-                    _ = try service.backfillCompletionEventsIfNeeded()
-                } catch {
-                    AppLog.warning("CompletionEvent backfill skipped: \(error)", category: .executionTracking)
-                }
-                await CryptoSavingsTrackerApp.checkAutomation()
-            }
-        }
-    }
-
-    /// Check and execute any pending automation based on settings
-    @MainActor
-    private static func checkAutomation() async {
-        // Tests should not trigger automation or notification scheduling (causes permission prompts and flakiness).
-        let args = ProcessInfo.processInfo.arguments
-        let environment = ProcessInfo.processInfo.environment
-        let isXCTestRun = environment["XCTestConfigurationFilePath"] != nil
-        let isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
-            || environment["UITEST_FAMILY_SHARE_SCENARIO"] != nil
-        let isPreviewRun = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
-        if isXCTestRun || isUITestRun || isPreviewRun { return }
-
-        let scheduler = AutomationScheduler(modelContext: PersistenceController.shared.activeMainContext)
-
-        do {
-            // Check if automation should trigger
-            try await scheduler.checkAndExecuteAutomation()
-
-            // Schedule future automation notifications
-            try await scheduler.scheduleAutomationNotifications()
-        } catch {
-            print("Automation check failed: \(error)")
-            // Continue app startup even if automation fails
         }
     }
 
@@ -119,66 +72,21 @@ struct CryptoSavingsTrackerApp: App {
     @MainActor
     static func runUITestSeedIfNeeded(context: ModelContext) async {
         guard !didRunUITestSeed else { return }
-        let args = ProcessInfo.processInfo.arguments
         let shouldSeedGoalsOnly = UITestFlags.shouldSeedGoals
         let shouldSeedManyGoals = UITestFlags.shouldSeedManyGoals
-        let shouldSeed = UITestFlags.shouldSeedSharedAsset
-        let shouldSeedPresentationFlow = args.contains("UITEST_PRESENTATION_FLOW")
-        let shouldReshare = args.contains("UITEST_RESHARE_ASSET")
-        let shouldSeedBudgetShortfall = UITestFlags.shouldSeedBudgetShortfall
-        let shouldSeedStaleDrafts = UITestFlags.shouldSeedStaleDrafts
-        let familyShareScenario = UITestFlags.familyShareScenario
-        let localBridgeScenario = UITestFlags.localBridgeScenario
-        guard shouldSeedGoalsOnly || shouldSeedManyGoals || shouldSeed || shouldSeedPresentationFlow || shouldReshare || shouldSeedBudgetShortfall || shouldSeedStaleDrafts || familyShareScenario != nil || localBridgeScenario != nil else { return }
+        guard shouldSeedGoalsOnly || shouldSeedManyGoals else { return }
         didRunUITestSeed = true
 
         OnboardingManager.shared.completeOnboarding()
 
-        var didSeedGoals = false
-
         if shouldSeedGoalsOnly {
             await seedUITestGoals(context: context, count: 1)
-            didSeedGoals = true
         }
 
         if shouldSeedManyGoals {
             await seedUITestGoals(context: context, count: 18)
-            didSeedGoals = true
         }
 
-        if shouldSeed {
-            await seedUITestData(context: context)
-        }
-
-        if shouldSeedPresentationFlow {
-            await seedUITestData(context: context)
-        }
-
-        if shouldReshare {
-            await applyUITestReshare(context: context)
-        }
-
-        if shouldSeedBudgetShortfall {
-            if !didSeedGoals {
-                await seedUITestGoals(context: context, count: 1)
-            }
-            await seedUITestBudgetShortfall()
-        }
-
-        if shouldSeedStaleDrafts {
-            if !didSeedGoals {
-                await seedUITestGoals(context: context, count: 1)
-            }
-            await seedUITestStaleDrafts(context: context)
-        }
-
-        if let familyShareScenario {
-            await DIContainer.shared.familyShareAcceptanceCoordinator.seedUITestScenario(familyShareScenario)
-        }
-
-        if let localBridgeScenario {
-            LocalBridgeSyncController.shared.seedUITestScenario(localBridgeScenario)
-        }
     }
 
     @MainActor
@@ -222,184 +130,7 @@ struct CryptoSavingsTrackerApp: App {
             try context.save()
             AppLog.info("UITest goals seed complete (\(count) goals)", category: .ui)
         } catch {
-            AppLog.error("UITest goals seed failed: \(error.localizedDescription)", category: .ui)
-        }
-    }
-
-    @MainActor
-    private static func seedUITestBudgetShortfall() async {
-        let settings = MonthlyPlanningSettings.shared
-        settings.budgetCurrency = "USD"
-        settings.monthlyBudget = 1
-        settings.budgetAppliedMonthLabel = nil
-        settings.budgetAppliedSignature = nil
-        AppLog.info("UITest shortfall budget seeded", category: .ui)
-    }
-
-    @MainActor
-    private static func seedUITestStaleDrafts(context: ModelContext) async {
-        do {
-            let goals = try context.fetch(FetchDescriptor<Goal>())
-            let goal: Goal
-            if let existingGoal = goals.first(where: { $0.name == "UI Goal Seed" }) ?? goals.first {
-                goal = existingGoal
-            } else {
-                let newGoal = Goal(
-                    name: "UI Goal Seed",
-                    currency: "USD",
-                    targetAmount: 1800,
-                    deadline: Calendar.current.date(byAdding: .month, value: 4, to: Date())
-                        ?? Date().addingTimeInterval(86400 * 120)
-                )
-                context.insert(newGoal)
-                goal = newGoal
-            }
-
-            let previousMonth = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
-            let monthLabel = MonthlyExecutionRecord.monthLabel(from: previousMonth)
-            let existingPlans = try context.fetch(FetchDescriptor<MonthlyPlan>())
-            let alreadySeeded = existingPlans.contains { plan in
-                plan.goalId == goal.id && plan.monthLabel == monthLabel && plan.state == .draft
-            }
-
-            if !alreadySeeded {
-                let stalePlan = MonthlyPlan(
-                    goalId: goal.id,
-                    monthLabel: monthLabel,
-                    requiredMonthly: 275,
-                    remainingAmount: 1_650,
-                    monthsRemaining: 6,
-                    currency: goal.currency,
-                    status: .attention,
-                    state: .draft
-                )
-                context.insert(stalePlan)
-            }
-
-            try context.save()
-            AppLog.info("UITest stale draft seed complete", category: .ui)
-        } catch {
-            AppLog.error("UITest stale draft seed failed: \(error.localizedDescription)", category: .ui)
-        }
-    }
-
-    @MainActor
-    private static func seedUITestData(context: ModelContext) async {
-        do {
-            // Clear existing data to avoid cross-test contamination
-            for completed in try context.fetch(FetchDescriptor<CompletedExecution>()) { context.delete(completed) }
-            for plan in try context.fetch(FetchDescriptor<MonthlyPlan>()) { context.delete(plan) }
-            for record in try context.fetch(FetchDescriptor<MonthlyExecutionRecord>()) { context.delete(record) }
-            for history in try context.fetch(FetchDescriptor<AllocationHistory>()) { context.delete(history) }
-            for allocation in try context.fetch(FetchDescriptor<AssetAllocation>()) { context.delete(allocation) }
-            for tx in try context.fetch(FetchDescriptor<Transaction>()) { context.delete(tx) }
-            for goal in try context.fetch(FetchDescriptor<Goal>()) { context.delete(goal) }
-            for asset in try context.fetch(FetchDescriptor<Asset>()) { context.delete(asset) }
-            try context.save()
-
-            // Goals
-            let goalA = Goal(
-                name: "UI Goal A",
-                currency: "USD",
-                targetAmount: 4000,
-                deadline: Calendar.current.date(byAdding: .month, value: 6, to: Date())!
-            )
-            let goalB = Goal(
-                name: "UI Goal B",
-                currency: "USD",
-                targetAmount: 3000,
-                deadline: Calendar.current.date(byAdding: .month, value: 6, to: Date())!
-            )
-            context.insert(goalA)
-            context.insert(goalB)
-
-            // Shared asset with a balance
-            let sharedAsset = Asset(currency: "USD")
-            let seedTx = Transaction(amount: 200, asset: sharedAsset)
-            sharedAsset.transactions = (sharedAsset.transactions ?? []) + [seedTx]
-            context.insert(sharedAsset)
-            try context.save()
-
-            // Services
-            let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: context)
-            let executionService = DIContainer.shared.executionTrackingService(modelContext: context)
-
-            // Create plans and start execution
-            let plans = try await planService.getOrCreatePlansForCurrentMonth(goals: [goalA, goalB])
-            let monthLabel = MonthlyExecutionRecord.monthLabel(from: Date())
-            let record = try executionService.startTracking(for: monthLabel, from: plans, goals: [goalA, goalB])
-
-            // Allocate shared asset fully to Goal A, then expand targets on deposit to keep it dedicated.
-            let allocationA = AssetAllocation(asset: sharedAsset, goal: goalA, amount: sharedAsset.currentAmount)
-            context.insert(allocationA)
-            context.insert(AllocationHistory(asset: sharedAsset, goal: goalA, amount: allocationA.amountValue, timestamp: record.startedAt ?? Date()))
-
-            // Deposit to the shared asset after tracking start (counts for Goal A because it's dedicated+fully allocated).
-            let depositDate = (record.startedAt ?? Date()).addingTimeInterval(60)
-            let depositTx = Transaction(amount: 120, asset: sharedAsset, date: depositDate)
-            sharedAsset.transactions = (sharedAsset.transactions ?? []) + [depositTx]
-            context.insert(depositTx)
-            let newTargetA = allocationA.amountValue + 120
-            allocationA.updateAmount(newTargetA)
-            context.insert(AllocationHistory(asset: sharedAsset, goal: goalA, amount: newTargetA, timestamp: depositDate))
-
-            // Reallocate 40 from A to B after deposit (counts as asset reallocation).
-            let reallocDate = depositDate.addingTimeInterval(60)
-            allocationA.updateAmount(max(0, newTargetA - 40))
-            let allocationB = AssetAllocation(asset: sharedAsset, goal: goalB, amount: 40)
-            context.insert(allocationB)
-            context.insert(AllocationHistory(asset: sharedAsset, goal: goalA, amount: allocationA.amountValue, timestamp: reallocDate))
-            context.insert(AllocationHistory(asset: sharedAsset, goal: goalB, amount: allocationB.amountValue, timestamp: reallocDate))
-
-            try context.save()
-            AppLog.info("UITest seed complete", category: .executionTracking)
-        } catch {
-            AppLog.error("UITest seed failed: \(error.localizedDescription)", category: .executionTracking)
-        }
-    }
-
-    /// Apply an additional reallocation to simulate resharing an asset between goals.
-    @MainActor
-    private static func applyUITestReshare(context: ModelContext) async {
-        do {
-            // Fetch existing seeded goals
-            let goals = try context.fetch(FetchDescriptor<Goal>())
-            guard let goalA = goals.first(where: { $0.name == "UI Goal A" }),
-                  let goalB = goals.first(where: { $0.name == "UI Goal B" }) else {
-                AppLog.warning("UITest reshare skipped: goals not found", category: .executionTracking)
-                return
-            }
-
-            let executionService = DIContainer.shared.executionTrackingService(modelContext: context)
-            guard (try executionService.getCurrentMonthRecord()) != nil else {
-                AppLog.warning("UITest reshare skipped: execution record not found", category: .executionTracking)
-                return
-            }
-
-            // Reuse shared asset or create if missing
-            let asset: Asset
-            if let existing = try context.fetch(FetchDescriptor<Asset>()).first(where: { $0.currency == "USD" }) {
-                asset = existing
-            } else {
-                asset = Asset(currency: "USD")
-                context.insert(asset)
-            }
-
-            // Reallocate an extra 20 from A to B by adjusting allocation targets.
-            let allocations = asset.allocations ?? []
-            guard let allocA = allocations.first(where: { $0.goal?.id == goalA.id }) else { return }
-            let allocB = allocations.first(where: { $0.goal?.id == goalB.id }) ?? AssetAllocation(asset: asset, goal: goalB, amount: 0)
-            if allocB.goal == nil { context.insert(allocB) }
-            allocA.updateAmount(max(0, allocA.amountValue - 20))
-            allocB.updateAmount(allocB.amountValue + 20)
-            let ts = Date()
-            context.insert(AllocationHistory(asset: asset, goal: goalA, amount: allocA.amountValue, timestamp: ts))
-            context.insert(AllocationHistory(asset: asset, goal: goalB, amount: allocB.amountValue, timestamp: ts))
-
-            try context.save()
-            AppLog.info("UITest reshare applied", category: .executionTracking)
-        } catch {
-            AppLog.error("UITest reshare failed: \(error.localizedDescription)", category: .executionTracking)
+            AppLog.error("UITest goals seed failed: \(error)", category: .ui)
         }
     }
 
@@ -440,10 +171,9 @@ struct CryptoSavingsTrackerApp: App {
             UserDefaults.standard.set("ui-test-household", forKey: "familyShare.shareID")
             UserDefaults.standard.set("UI Test Owner", forKey: "familyShare.ownerName")
             await DIContainer.shared.familyShareAcceptanceCoordinator.resetAllNamespaces()
-            LocalBridgeSyncController.shared.resetForUITesting()
             AppLog.info("UITEST_RESET_DATA cleared all entities", category: .ui)
         } catch {
-            AppLog.error("UITEST_RESET_DATA failed: \(error.localizedDescription)", category: .ui)
+            AppLog.error("UITEST_RESET_DATA failed: \(error)", category: .ui)
         }
     }
 
@@ -466,44 +196,27 @@ struct CryptoSavingsTrackerApp: App {
                     VisualProductionCaptureView(flow: productionFlow, state: productionState ?? "default")
                 } else if let captureComponent, let captureState {
                     VisualStateCaptureView(component: captureComponent, state: captureState)
-                } else if args.contains("UITEST_PRESENTATION_FLOW") {
-                    ContentView()
-                } else if args.contains("UITEST_SEED_SHARED_ASSET")
-                    || args.contains("UITEST_SEED_BUDGET_SHORTFALL")
-                    || args.contains("UITEST_SEED_MANY_GOALS")
+                } else if args.contains("UITEST_SEED_MANY_GOALS")
+                    || args.contains("UITEST_SEED_GOALS")
+                    || args.contains("UITEST_UI_FLOW")
                 {
-                    MonthlyPlanningContainer()
-                } else if args.contains("UITEST_UI_FLOW") {
                     ContentView()
                 } else {
                     OnboardingContentView()
                 }
             }
-            .environmentObject(familyShareAcceptanceCoordinator)
         }
         .modelContainer(persistenceController.activeContainer)
-        .onChange(of: scenePhase) { _, newPhase in
-            familyShareAcceptanceCoordinator.handleScenePhaseChange(newPhase)
-        }
         #if os(macOS)
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1100, height: 700)
         #endif
 
         #if os(macOS)
-        // Additional window for goal comparison
-        WindowGroup("Goal Comparison", id: "goal-comparison") {
-            GoalComparisonView()
-        }
-        .environmentObject(familyShareAcceptanceCoordinator)
-        .modelContainer(persistenceController.activeContainer)
-        .defaultSize(width: 1200, height: 800)
-
         // Settings window
         WindowGroup("Settings", id: "settings") {
             SettingsView()
         }
-        .environmentObject(familyShareAcceptanceCoordinator)
         .modelContainer(persistenceController.activeContainer)
         .windowResizability(.contentSize)
         .defaultSize(width: 600, height: 400)
@@ -686,7 +399,6 @@ private struct VisualStateCaptureView: View {
 }
 
 private enum VisualProductionFlow: String {
-    case planning
     case dashboard
     case settings
 }
@@ -702,7 +414,7 @@ private struct VisualProductionCaptureView: View {
     let state: VisualProductionState
 
     init(flow: String, state: String) {
-        self.flow = VisualProductionFlow(rawValue: flow) ?? .planning
+        self.flow = VisualProductionFlow(rawValue: flow) ?? .dashboard
         self.state = VisualProductionState(rawValue: state) ?? .default
     }
 
@@ -725,8 +437,6 @@ private struct VisualProductionCaptureView: View {
     @ViewBuilder
     private var flowContent: some View {
         switch flow {
-        case .planning:
-            MonthlyPlanningContainer()
         case .dashboard:
             DashboardView()
         case .settings:
@@ -734,3 +444,7 @@ private struct VisualProductionCaptureView: View {
         }
     }
 }
+
+#if os(iOS)
+final class AppDelegateRouter: NSObject, UIApplicationDelegate {}
+#endif

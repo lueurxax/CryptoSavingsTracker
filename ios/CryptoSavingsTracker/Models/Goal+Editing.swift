@@ -53,6 +53,12 @@ extension Goal {
         lifecycleStatusChangedAt = timestamp
         lastModifiedDate = timestamp
     }
+
+    func clearRetiredReminderState() {
+        reminderFrequency = nil
+        reminderTime = nil
+        firstReminderDate = nil
+    }
     
     // Change detection
     func hasChanges(from snapshot: GoalSnapshot) -> Bool {
