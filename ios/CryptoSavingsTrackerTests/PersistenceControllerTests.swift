@@ -5,6 +5,22 @@ import Testing
 
 @MainActor
 struct PersistenceControllerTests {
+    private func makeRegistry(
+        defaults: UserDefaults,
+        modeKey: String = "test.mode",
+        updatedAtKey: String = "test.updatedAt",
+        seedMode: AppStorageMode? = nil
+    ) -> UserDefaultsStorageModeRegistry {
+        if let seedMode {
+            defaults.set(seedMode.rawValue, forKey: modeKey)
+            defaults.removeObject(forKey: updatedAtKey)
+        }
+        return UserDefaultsStorageModeRegistry(
+            userDefaults: defaults,
+            modeKey: modeKey,
+            updatedAtKey: updatedAtKey
+        )
+    }
 
     @Test("Storage mode registry persists selected mode and timestamp")
     func storageModeRegistryPersistsSelection() {
@@ -14,13 +30,9 @@ struct PersistenceControllerTests {
             defaults.removePersistentDomain(forName: suiteName)
         }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults)
 
-        #expect(registry.currentMode == .localOnly)
+        #expect(registry.currentMode == .cloudKitPrimary)
         #expect(registry.lastUpdatedAt == nil)
 
         registry.setMode(.cloudKitPrimary)
@@ -71,11 +83,7 @@ struct PersistenceControllerTests {
             defaults.removePersistentDomain(forName: suiteName)
         }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults, seedMode: .localOnly)
 
         // Use in-memory test environment (isTestRun = true)
         let factory = PersistenceStackFactory(
@@ -137,8 +145,8 @@ struct PersistenceControllerTests {
         #expect(localGoals.first?.name == "Local Goal")
     }
 
-    @Test("Persistence controller boots local-only and blocks cloud activation")
-    func persistenceControllerBlocksCloudActivation() throws {
+    @Test("Persistence controller reconciles production bootstrap to cloud mode")
+    func persistenceControllerReconcilesBootstrapToCloudMode() throws {
         let suiteName = "PersistenceControllerTests.Controller.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer {
@@ -151,11 +159,7 @@ struct PersistenceControllerTests {
             try? FileManager.default.removeItem(at: tempRoot)
         }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults)
         let factory = PersistenceStackFactory(
             environment: PersistenceRuntimeEnvironment(
                 isTestRun: false,
@@ -169,13 +173,12 @@ struct PersistenceControllerTests {
             stackFactory: factory
         )
 
-        #expect(controller.snapshot.activeMode == .localOnly)
-        #expect(controller.snapshot.selectedMode == .localOnly)
-        // In local-only mode there is exactly 1 informational blocker
-        #expect(controller.snapshot.migrationBlockers.count == 1)
+        #expect(controller.snapshot.activeMode == .cloudKitPrimary)
+        #expect(controller.snapshot.selectedMode == .cloudKitPrimary)
+        #expect(controller.snapshot.migrationBlockers.isEmpty)
 
         controller.refresh()
-        #expect(controller.snapshot.activeMode == .localOnly)
-        #expect(controller.snapshot.selectedMode == .localOnly)
+        #expect(controller.snapshot.activeMode == .cloudKitPrimary)
+        #expect(controller.snapshot.selectedMode == .cloudKitPrimary)
     }
 }

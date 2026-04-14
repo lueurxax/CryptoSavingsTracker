@@ -1,12 +1,14 @@
 import XCTest
 @testable import CryptoSavingsTracker
 
+@MainActor
 final class NotificationCenterRateRefreshSourceTests: XCTestCase {
     func testRatesDidRefreshEventCarriesRefreshedRates() async throws {
         let source = NotificationCenterRateRefreshSource()
         let pair = CurrencyPair(from: "BTC", to: "USD")
+        let pairKey = pair.canonicalKey
         let timestamp = Date(timeIntervalSince1970: 1_763_000_000)
-        let rates = [pair: Decimal(string: "86432.45")!]
+        let rates = [pairKey: Decimal(string: "86432.45")!]
 
         let expectation = expectation(description: "rate event received")
         var received: RateRefreshEvent?
@@ -23,7 +25,7 @@ final class NotificationCenterRateRefreshSourceTests: XCTestCase {
             name: .exchangeRatesDidRefresh,
             object: nil,
             userInfo: [
-                "refreshedPairs": Set([pair]),
+                "refreshedPairs": Set([pairKey]),
                 "refreshedRates": rates,
                 "rateSnapshotTimestamp": timestamp
             ]
@@ -32,8 +34,8 @@ final class NotificationCenterRateRefreshSourceTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 1)
         task.cancel()
 
-        XCTAssertEqual(received?.refreshedPairs, Set([pair]))
-        XCTAssertEqual(received?.rates[pair], rates[pair])
+        XCTAssertEqual(received?.refreshedPairs, Set([pairKey]))
+        XCTAssertEqual(received?.rates[pairKey], rates[pairKey])
         XCTAssertEqual(received?.rateSnapshotTimestamp, timestamp)
     }
 }

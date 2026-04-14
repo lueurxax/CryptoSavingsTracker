@@ -5,7 +5,7 @@ final class FamilyShareFreshnessPolicyTests: XCTestCase {
 
     // MARK: - Test Clock
 
-    class TestClock: FamilyShareClock {
+    private final class TestClock: FamilyShareClock, @unchecked Sendable {
         var currentDate: Date = Date()
         func now() -> Date { currentDate }
     }

@@ -19,6 +19,7 @@ final class FamilyShareProjectionMutationObserver {
     /// Start observing mutation notifications.
     /// - Parameter handler: Called with a dirty reason when a shared-goal mutation is detected.
     func start(handler: @escaping (FamilyShareProjectionDirtyReason) -> Void) {
+        teardown()
         guard rollout.isFreshnessPipelineEnabled() else { return }
         onDirtyEvent = handler
 
@@ -27,7 +28,9 @@ final class FamilyShareProjectionMutationObserver {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            self?.handleNotification(notification)
+            Task { @MainActor [weak self] in
+                self?.handleNotification(notification)
+            }
         }
     }
 

@@ -6,12 +6,12 @@ final class FamilyShareProjectionAutoRepublishCoordinatorTests: XCTestCase {
 
     // MARK: - Test Helpers
 
-    private class TestClock: FamilyShareClock, @unchecked Sendable {
+    private final class TestClock: FamilyShareClock, @unchecked Sendable {
         var currentDate = Date()
         func now() -> Date { currentDate }
     }
 
-    private class TestScheduler: FamilyShareScheduler, @unchecked Sendable {
+    private final class TestScheduler: FamilyShareScheduler, @unchecked Sendable {
         var lastDelay: TimeInterval?
         var lastAction: (@Sendable () async -> Void)?
         var periodicAction: (@Sendable () async -> Void)?
@@ -28,7 +28,7 @@ final class FamilyShareProjectionAutoRepublishCoordinatorTests: XCTestCase {
         }
     }
 
-    private class TestCancellable: FamilyShareCancellable, @unchecked Sendable {
+    private final class TestCancellable: FamilyShareCancellable, @unchecked Sendable {
         var cancelled = false
         func cancel() { cancelled = true }
     }

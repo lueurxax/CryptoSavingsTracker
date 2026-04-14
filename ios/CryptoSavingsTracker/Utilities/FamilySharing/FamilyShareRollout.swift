@@ -191,17 +191,20 @@ final class FamilyShareRollout: @unchecked Sendable {
     nonisolated(unsafe) private let telemetryProvider: any FamilyShareTelemetryProviding
     nonisolated(unsafe) private let userDefaults: UserDefaults
     nonisolated(unsafe) private let nowProvider: () -> Date
+    private let runtimeMode: HiddenRuntimeMode
 
     nonisolated init(
         remoteConfigProvider: FamilyShareRemoteConfigProviding,
         telemetryProvider: FamilyShareTelemetryProviding,
         userDefaults: UserDefaults = .standard,
-        nowProvider: @escaping () -> Date = { Date() }
+        nowProvider: @escaping () -> Date = { Date() },
+        runtimeMode: HiddenRuntimeMode? = nil
     ) {
         self.remoteConfigProvider = remoteConfigProvider
         self.telemetryProvider = telemetryProvider
         self.userDefaults = userDefaults
         self.nowProvider = nowProvider
+        self.runtimeMode = runtimeMode ?? HiddenRuntimeMode.current
     }
 
     nonisolated func isEnabled() -> Bool {
@@ -226,6 +229,10 @@ final class FamilyShareRollout: @unchecked Sendable {
         return isEnabled()
     }
 
+    nonisolated func isHiddenRuntimeEnabledByDefault() -> Bool {
+        runtimeMode.hiddenRuntimeEnabledByDefault
+    }
+
     nonisolated func setDebugOverride(_ value: Bool?) {
         let key = Self.flagEnabled + ".debug_override"
         if let value {
@@ -236,7 +243,8 @@ final class FamilyShareRollout: @unchecked Sendable {
     }
 
     nonisolated private func resolvedValue() -> (Bool, Source) {
-        var value = true
+        let releaseDefault = runtimeMode.hiddenRuntimeEnabledByDefault
+        var value = releaseDefault
         var source: Source = .releaseDefault
 
         if let remoteValue = remoteConfigProvider.boolValue(for: Self.flagEnabled) {

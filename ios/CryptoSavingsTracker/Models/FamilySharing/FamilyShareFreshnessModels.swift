@@ -13,7 +13,7 @@ enum FamilyShareProjectionDirtyReason: Sendable {
     case participantChange
 
     /// Union of all affected goal IDs from this reason.
-    var affectedGoalIDs: Set<UUID> {
+    nonisolated var affectedGoalIDs: Set<UUID> {
         switch self {
         case .goalMutation(let ids), .assetMutation(let ids),
              .transactionMutation(let ids), .rateDrift(let ids):
@@ -27,7 +27,7 @@ enum FamilyShareProjectionDirtyReason: Sendable {
 // MARK: - Freshness Tier
 
 /// Internal freshness state evaluated per namespace from composite effective age.
-enum FamilyShareFreshnessTier: String, Sendable, Codable, CaseIterable {
+enum FamilyShareFreshnessTier: String, Sendable, Codable, CaseIterable, Equatable {
     case active
     case recentlyStale
     case stale
@@ -39,7 +39,7 @@ enum FamilyShareFreshnessTier: String, Sendable, Codable, CaseIterable {
 // MARK: - Freshness Substate
 
 /// Transient UI state overlaying the freshness tier.
-enum FamilyShareFreshnessSubstate: String, Sendable, Codable, CaseIterable {
+enum FamilyShareFreshnessSubstate: String, Sendable, Codable, CaseIterable, Equatable {
     case idle
     case checking
     case refreshFailed
@@ -51,9 +51,21 @@ enum FamilyShareFreshnessSubstate: String, Sendable, Codable, CaseIterable {
 // MARK: - Governing Dependency
 
 /// Which timestamp governs the composite freshness tier.
-enum FamilyShareFreshnessGoverningDependency: Sendable {
+enum FamilyShareFreshnessGoverningDependency: Sendable, Equatable {
     case publishAge
     case rateAge
+
+    nonisolated static func == (
+        lhs: FamilyShareFreshnessGoverningDependency,
+        rhs: FamilyShareFreshnessGoverningDependency
+    ) -> Bool {
+        switch (lhs, rhs) {
+        case (.publishAge, .publishAge), (.rateAge, .rateAge):
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 // MARK: - Refresh Result
@@ -95,8 +107,12 @@ struct AllocationInput: Sendable {
 
 /// Immutable rate snapshot for deterministic calculation.
 struct RateSnapshot: Sendable {
-    let rates: [CurrencyPair: Decimal]
+    let rates: [String: Decimal]
     let timestamp: Date
+
+    nonisolated func rate(from: String, to: String) -> Decimal? {
+        rates[CurrencyPair.canonicalKey(from: from, to: to)]
+    }
 }
 
 /// Result of a goal progress calculation.

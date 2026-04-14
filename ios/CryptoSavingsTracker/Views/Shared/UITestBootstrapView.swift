@@ -12,15 +12,17 @@ import SwiftData
 struct UITestBootstrapView<Content: View>: View {
     @Environment(\.modelContext) private var modelContext
     private let content: () -> Content
-    private let isUITestRun: Bool
+    private let plan: AppBootstrapPlan.TestHarnessPlan
 
     @State private var isReady: Bool
 
-    init(@ViewBuilder content: @escaping () -> Content) {
+    init(
+        plan: AppBootstrapPlan.TestHarnessPlan,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.plan = plan
         self.content = content
-        let args = ProcessInfo.processInfo.arguments
-        self.isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
-        self._isReady = State(initialValue: !isUITestRun)
+        self._isReady = State(initialValue: !plan.blocksRootContent)
     }
 
     var body: some View {
@@ -32,11 +34,17 @@ struct UITestBootstrapView<Content: View>: View {
             }
         }
         .task {
-            guard isUITestRun, !isReady else { return }
-            await CryptoSavingsTrackerApp.runUITestResetIfNeeded(context: modelContext)
-            await CryptoSavingsTrackerApp.runUITestSeedIfNeeded(context: modelContext)
+            guard plan.blocksRootContent, !isReady else { return }
+
+            if plan.shouldResetData {
+                await CryptoSavingsTrackerApp.runUITestResetIfNeeded(context: modelContext)
+            }
+
+            if plan.shouldSeedGoals || plan.shouldSeedManyGoals {
+                await CryptoSavingsTrackerApp.runUITestSeedIfNeeded(context: modelContext)
+            }
+
             isReady = true
         }
     }
 }
-

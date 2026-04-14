@@ -67,8 +67,8 @@ struct Wave1UXContractTests {
         #expect(commitDock.contains(".fixedSize(horizontal: false, vertical: true)"))
     }
 
-    @Test("Settings passes active goals into monthly planning preview")
-    func settingsPassesActiveGoalsIntoMonthlyPlanningPreview() throws {
+    @Test("Settings excludes monthly planning preview in public MVP containment")
+    func settingsExcludesMonthlyPlanningPreviewInPublicMvp() throws {
         let root = repositoryRoot()
         let settingsView = try readSource(
             root,
@@ -76,18 +76,19 @@ struct Wave1UXContractTests {
         )
 
         #expect(!settingsView.contains("MonthlyPlanningSettingsView(goals: [])"))
-        #expect(settingsView.contains("MonthlyPlanningSettingsView(goals: activeGoals)"))
+        #expect(!settingsView.contains("MonthlyPlanningSettingsView(goals: activeGoals)"))
     }
 
-    @Test("Settings export action exposes a single stable accessibility identifier")
-    func settingsExportActionUsesSingleAccessibilityIdentifier() throws {
+    @Test("Settings excludes CSV export action in public MVP containment")
+    func settingsExcludesCsvExportActionInPublicMvp() throws {
         let root = repositoryRoot()
         let settingsView = try readSource(
             root,
             "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift"
         )
 
-        #expect(settingsView.components(separatedBy: ".accessibilityIdentifier(\"exportCSVButton\")").count - 1 == 1)
+        #expect(settingsView.components(separatedBy: ".accessibilityIdentifier(\"exportCSVButton\")").count - 1 == 0)
+        #expect(!settingsView.contains("CSVExport"))
     }
 
     @Test("Settings import review uses accessible semantic status colors")

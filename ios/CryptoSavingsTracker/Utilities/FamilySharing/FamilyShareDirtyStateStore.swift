@@ -8,11 +8,11 @@ import Foundation
 /// republishes after the freshness pipeline initializes.
 final class FamilyShareDirtyStateStore: @unchecked Sendable {
 
-    private static let storeKey = "com.cryptosavings.familyshare.dirtystate"
+    private nonisolated static let storeKey = "com.cryptosavings.familyshare.dirtystate"
 
-    private let defaults: UserDefaults
+    private nonisolated(unsafe) let defaults: UserDefaults
 
-    init(defaults: UserDefaults = .standard) {
+    nonisolated init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
     }
 
@@ -27,7 +27,7 @@ final class FamilyShareDirtyStateStore: @unchecked Sendable {
     // MARK: - Read
 
     /// Returns all persisted dirty namespaces.
-    func dirtyNamespaces() -> [DirtyEntry] {
+    nonisolated func dirtyNamespaces() -> [DirtyEntry] {
         guard let data = defaults.data(forKey: Self.storeKey) else { return [] }
         return (try? JSONDecoder().decode([DirtyEntry].self, from: data)) ?? []
     }
@@ -35,7 +35,7 @@ final class FamilyShareDirtyStateStore: @unchecked Sendable {
     // MARK: - Write
 
     /// Mark a namespace as dirty-pending.
-    func markDirty(namespaceKey: String, reason: FamilyShareProjectionDirtyReason) {
+    nonisolated func markDirty(namespaceKey: String, reason: FamilyShareProjectionDirtyReason) {
         var entries = dirtyNamespaces()
         // Update existing or add new
         if let index = entries.firstIndex(where: { $0.namespaceKey == namespaceKey }) {
@@ -55,25 +55,25 @@ final class FamilyShareDirtyStateStore: @unchecked Sendable {
     }
 
     /// Clear dirty flag for a specific namespace after successful publish.
-    func clearDirty(namespaceKey: String) {
+    nonisolated func clearDirty(namespaceKey: String) {
         var entries = dirtyNamespaces()
         entries.removeAll { $0.namespaceKey == namespaceKey }
         persist(entries)
     }
 
     /// Clear all dirty flags (used during rollback).
-    func clearAll() {
+    nonisolated func clearAll() {
         defaults.removeObject(forKey: Self.storeKey)
     }
 
     // MARK: - Private
 
-    private func persist(_ entries: [DirtyEntry]) {
+    private nonisolated func persist(_ entries: [DirtyEntry]) {
         guard let data = try? JSONEncoder().encode(entries) else { return }
         defaults.set(data, forKey: Self.storeKey)
     }
 
-    private func reasonType(for reason: FamilyShareProjectionDirtyReason) -> String {
+    private nonisolated func reasonType(for reason: FamilyShareProjectionDirtyReason) -> String {
         switch reason {
         case .goalMutation: return "goalMutation"
         case .assetMutation: return "assetMutation"

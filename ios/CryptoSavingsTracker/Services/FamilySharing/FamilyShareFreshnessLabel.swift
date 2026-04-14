@@ -1,18 +1,18 @@
 import Foundation
 
 final class FamilyShareClockSkewTelemetryDeduper: @unchecked Sendable {
-    static let shared = FamilyShareClockSkewTelemetryDeduper()
+    nonisolated static let shared = FamilyShareClockSkewTelemetryDeduper()
 
     private let lock = NSLock()
-    private var emittedKeys: Set<String> = []
+    private nonisolated(unsafe) var emittedKeys: Set<String> = []
 
-    func shouldEmit(key: String) -> Bool {
+    nonisolated func shouldEmit(key: String) -> Bool {
         lock.lock()
         defer { lock.unlock() }
         return emittedKeys.insert(key).inserted
     }
 
-    func reset() {
+    nonisolated func reset() {
         lock.lock()
         emittedKeys.removeAll()
         lock.unlock()
@@ -38,7 +38,7 @@ struct FamilyShareFreshnessLabel: Sendable {
 
     private let clock: FamilyShareClock
 
-    init(
+    nonisolated init(
         publishedAt: Date,
         rateSnapshotAt: Date?,
         substate: FamilyShareFreshnessSubstate = .idle,

@@ -1,6 +1,7 @@
 import XCTest
 @testable import CryptoSavingsTracker
 
+@MainActor
 final class GoalProgressCalculatorTests: XCTestCase {
 
     let calculator = GoalProgressCalculator()
@@ -36,7 +37,7 @@ final class GoalProgressCalculatorTests: XCTestCase {
             ]
         )
         let rates = RateSnapshot(
-            rates: [CurrencyPair(from: "BTC", to: "USD"): 50000],
+            rates: [CurrencyPair(from: "BTC", to: "USD").canonicalKey: 50000],
             timestamp: Date()
         )
         let result = calculator.calculateProgress(for: input, rates: rates)
@@ -111,7 +112,7 @@ final class GoalProgressCalculatorTests: XCTestCase {
         )
         // Only provide the reverse rate (USD -> ETH)
         let rates = RateSnapshot(
-            rates: [CurrencyPair(from: "USD", to: "ETH"): Decimal(string: "0.0005")!],
+            rates: [CurrencyPair(from: "USD", to: "ETH").canonicalKey: Decimal(string: "0.0005")!],
             timestamp: Date()
         )
         let result = calculator.calculateProgress(for: input, rates: rates)

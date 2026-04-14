@@ -11,11 +11,11 @@ import SwiftData
 struct TransactionHistoryView: View {
     let asset: Asset
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var coordinator: AppCoordinator
     
     @State private var searchText = ""
     @State private var sortOrder: SortOrder = .dateDescending
     @State private var filterType: FilterType = .all
+    @State private var showingAddTransaction = false
     
     enum SortOrder: String, CaseIterable {
         case dateDescending = "Newest First"
@@ -96,10 +96,13 @@ struct TransactionHistoryView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .searchable(text: $searchText, prompt: "Search transactions")
+        .sheet(isPresented: $showingAddTransaction) {
+            AddTransactionView(asset: asset)
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    coordinator.goalCoordinator.showAddTransaction(to: asset)
+                    showingAddTransaction = true
                 } label: {
                     Image(systemName: "plus")
                 }

@@ -6,6 +6,12 @@
 import SwiftUI
 import SwiftData
 
+private enum GoalDashboardAssetIntent {
+    case addContribution
+    case reviewActivity
+    case rebalanceAllocations
+}
+
 struct GoalDashboardScreen: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -18,10 +24,13 @@ struct GoalDashboardScreen: View {
 
     @State private var showingAddAsset = false
     @State private var showingAddTransaction = false
+    @State private var showingTransactionHistory = false
+    @State private var showingAllocationWorkspace = false
     @State private var showingAssetPicker = false
     @State private var showingEditGoal = false
     @State private var showingDiagnostics = false
     @State private var selectedAsset: Asset?
+    @State private var pendingAssetIntent: GoalDashboardAssetIntent = .addContribution
     @State private var actionInfoMessage: String?
     @State private var dashboardOpenedTracked = false
     @State private var lastPrimaryCTAFingerprint: String?
@@ -36,6 +45,10 @@ struct GoalDashboardScreen: View {
     }
     private var sceneTransitionAnimation: Animation {
         accessibilityReduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22)
+    }
+
+    private var shouldShowForecastModules: Bool {
+        HiddenRuntimeMode.current.showsForecastModules
     }
 
     var body: some View {
@@ -72,13 +85,13 @@ struct GoalDashboardScreen: View {
                 AddAssetView(goal: goal)
             }
             .sheet(isPresented: $showingAddTransaction) {
-                Group {
-                    if let selectedAsset {
-                        AddTransactionView(asset: selectedAsset)
-                    } else {
-                        EmptyView()
-                    }
-                }
+                assetIntentSheet(for: .addContribution)
+            }
+            .sheet(isPresented: $showingTransactionHistory) {
+                assetIntentSheet(for: .reviewActivity)
+            }
+            .sheet(isPresented: $showingAllocationWorkspace) {
+                assetIntentSheet(for: .rebalanceAllocations)
             }
             .sheet(isPresented: $showingAssetPicker) {
                 assetPickerSheet
@@ -108,7 +121,9 @@ struct GoalDashboardScreen: View {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
                     snapshotCard
                     nextActionCard
-                    forecastRiskCard
+                    if shouldShowForecastModules {
+                        forecastRiskCard
+                    }
                     contributionActivityCard
                     allocationHealthCard
                     utilitiesCard
@@ -118,7 +133,9 @@ struct GoalDashboardScreen: View {
                 VStack(spacing: 16) {
                     snapshotCard
                     nextActionCard
-                    forecastRiskCard
+                    if shouldShowForecastModules {
+                        forecastRiskCard
+                    }
                     contributionActivityCard
                     allocationHealthCard
                     utilitiesCard
@@ -134,7 +151,14 @@ struct GoalDashboardScreen: View {
                 Button {
                     selectedAsset = asset
                     showingAssetPicker = false
-                    showingAddTransaction = true
+                    switch pendingAssetIntent {
+                    case .addContribution:
+                        showingAddTransaction = true
+                    case .reviewActivity:
+                        showingTransactionHistory = true
+                    case .rebalanceAllocations:
+                        showingAllocationWorkspace = true
+                    }
                 } label: {
                     HStack {
                         Image(systemName: "bitcoinsign.circle")
@@ -144,15 +168,62 @@ struct GoalDashboardScreen: View {
                             Text(address)
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
-                                .lineLimit(1)
                         }
                     }
+                    .accessibilityLabel(
+                        DashboardAccessibilityCopy.assetSelectionLabel(
+                            currency: asset.currency,
+                            address: asset.address
+                        )
+                    )
+                    .accessibilityHint(
+                        DashboardAccessibilityCopy.assetSelectionHint(currency: asset.currency)
+                    )
                 }
             }
             .navigationTitle("Select Asset")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { showingAssetPicker = false }
+                        .accessibilityIdentifier("dashboard.asset_picker.dismiss")
+                        .accessibilityHint(DashboardAccessibilityCopy.assetPickerDismissHint)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func assetIntentSheet(for intent: GoalDashboardAssetIntent) -> some View {
+        if let selectedAsset {
+            switch intent {
+            case .addContribution:
+                AddTransactionView(asset: selectedAsset)
+            case .reviewActivity:
+                NavigationStack {
+                    TransactionHistoryView(asset: selectedAsset)
+                }
+            case .rebalanceAllocations:
+                AssetSharingView(asset: selectedAsset, currentGoalId: goal.id)
+            }
+        } else {
+            DashboardTransactionRecoverySheet(
+                goalName: goal.name,
+                hasAssets: !goalAssets.isEmpty,
+                primaryActionTitle: goalAssets.isEmpty ? "Add Asset" : "Choose Asset"
+            ) {
+                if goalAssets.isEmpty {
+                    showingAddAsset = true
+                } else {
+                    showingAssetPicker = true
+                }
+            } onDismiss: {
+                switch intent {
+                case .addContribution:
+                    showingAddTransaction = false
+                case .reviewActivity:
+                    showingTransactionHistory = false
+                case .rebalanceAllocations:
+                    showingAllocationWorkspace = false
                 }
             }
         }
@@ -586,6 +657,8 @@ struct GoalDashboardScreen: View {
             showingAddAsset = true
         case "add_first_contribution", "add_contribution", "log_contribution":
             openContributionFlow()
+        case "review_activity":
+            openActivityFlow()
         case "edit_goal":
             showingEditGoal = true
         case "retry_data_sync", "refresh_data":
@@ -597,24 +670,19 @@ struct GoalDashboardScreen: View {
                 try? await DIContainer.shared.makeGoalMutationService(modelContext: modelContext).resumeGoal(goal)
                 await viewModel.load()
             }
-        case "plan_this_month":
-            actionInfoMessage = "Open Monthly Planning to rebalance this goal for the current month."
         case "rebalance_allocations", "open_allocation_health":
-            actionInfoMessage = "Open goal details and adjust asset allocations."
-        case "view_goal_history", "view_history":
-            actionInfoMessage = "Goal history view is available in planning and transaction history screens."
+            openAllocationFlow()
         case "create_new_goal":
             actionInfoMessage = "Use the Goals tab to create a new goal."
         case "continue_last_data":
             actionInfoMessage = "Using the last successful dashboard snapshot."
-        case "open_forecast", "open_activity":
-            break
         default:
             break
         }
     }
 
     private func openContributionFlow() {
+        pendingAssetIntent = .addContribution
         if goalAssets.isEmpty {
             showingAddAsset = true
             return
@@ -622,6 +690,34 @@ struct GoalDashboardScreen: View {
         if goalAssets.count == 1 {
             selectedAsset = goalAssets.first
             showingAddTransaction = selectedAsset != nil
+            return
+        }
+        showingAssetPicker = true
+    }
+
+    private func openActivityFlow() {
+        pendingAssetIntent = .reviewActivity
+        guard !goalAssets.isEmpty else {
+            actionInfoMessage = "Add an asset first to start building goal activity."
+            return
+        }
+        if goalAssets.count == 1 {
+            selectedAsset = goalAssets.first
+            showingTransactionHistory = selectedAsset != nil
+            return
+        }
+        showingAssetPicker = true
+    }
+
+    private func openAllocationFlow() {
+        pendingAssetIntent = .rebalanceAllocations
+        guard !goalAssets.isEmpty else {
+            showingAddAsset = true
+            return
+        }
+        if goalAssets.count == 1 {
+            selectedAsset = goalAssets.first
+            showingAllocationWorkspace = selectedAsset != nil
             return
         }
         showingAssetPicker = true

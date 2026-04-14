@@ -10,12 +10,32 @@ import Foundation
 enum PlanningSource: Equatable {
     case currentMonth
     case nextMonthAfterClosed
+
+    nonisolated static func == (lhs: PlanningSource, rhs: PlanningSource) -> Bool {
+        switch (lhs, rhs) {
+        case (.currentMonth, .currentMonth), (.nextMonthAfterClosed, .nextMonthAfterClosed):
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 enum CycleConflictReason: Equatable {
     case duplicateActiveRecords
     case invalidMonthLabel
     case futureRecord
+
+    nonisolated static func == (lhs: CycleConflictReason, rhs: CycleConflictReason) -> Bool {
+        switch (lhs, rhs) {
+        case (.duplicateActiveRecords, .duplicateActiveRecords),
+             (.invalidMonthLabel, .invalidMonthLabel),
+             (.futureRecord, .futureRecord):
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 enum UiCycleState: Equatable {
@@ -23,6 +43,21 @@ enum UiCycleState: Equatable {
     case executing(month: String, canFinish: Bool, canUndoStart: Bool)
     case closed(month: String, canUndoCompletion: Bool)
     case conflict(month: String?, reason: CycleConflictReason)
+
+    nonisolated static func == (lhs: UiCycleState, rhs: UiCycleState) -> Bool {
+        switch (lhs, rhs) {
+        case let (.planning(lhsMonth, lhsSource), .planning(rhsMonth, rhsSource)):
+            return lhsMonth == rhsMonth && lhsSource == rhsSource
+        case let (.executing(lhsMonth, lhsFinish, lhsUndo), .executing(rhsMonth, rhsFinish, rhsUndo)):
+            return lhsMonth == rhsMonth && lhsFinish == rhsFinish && lhsUndo == rhsUndo
+        case let (.closed(lhsMonth, lhsUndo), .closed(rhsMonth, rhsUndo)):
+            return lhsMonth == rhsMonth && lhsUndo == rhsUndo
+        case let (.conflict(lhsMonth, lhsReason), .conflict(rhsMonth, rhsReason)):
+            return lhsMonth == rhsMonth && lhsReason == rhsReason
+        default:
+            return false
+        }
+    }
 }
 
 struct ExecutionRecordSnapshot: Equatable {

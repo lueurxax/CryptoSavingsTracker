@@ -9,6 +9,46 @@ import Foundation
 
 // Represents the state of a balance fetch operation
 enum BalanceState: Equatable {
+    enum CryptoTrackingStatus: String, CaseIterable {
+        case connecting = "Connecting"
+        case syncing = "Syncing"
+        case connected = "Connected"
+        case stale = "Stale"
+        case needsAttention = "Needs Attention"
+
+        var title: String { rawValue }
+
+        var systemImage: String {
+            switch self {
+            case .connecting:
+                return "link.badge.plus"
+            case .syncing:
+                return "arrow.triangle.2.circlepath"
+            case .connected:
+                return "checkmark.circle"
+            case .stale:
+                return "clock.badge.exclamationmark"
+            case .needsAttention:
+                return "exclamationmark.triangle"
+            }
+        }
+
+        var addAssetDescription: String {
+            switch self {
+            case .connecting:
+                return "Checking the wallet for the first time."
+            case .syncing:
+                return "Refreshing the latest balance and transactions."
+            case .connected:
+                return "Balance data is current."
+            case .stale:
+                return "Showing cached values while the latest refresh catches up."
+            case .needsAttention:
+                return "Refresh failed. The last successful balance stays visible until tracking recovers."
+            }
+        }
+    }
+
     case loading
     case loaded(balance: Double, isCached: Bool, lastUpdated: Date)
     case error(message: String, cachedBalance: Double?, lastUpdated: Date?)
@@ -63,6 +103,30 @@ enum BalanceState: Equatable {
             return true
         }
         return false
+    }
+
+    func publicCryptoTrackingStatus(
+        isRefreshing: Bool,
+        hasRetainedValue: Bool
+    ) -> CryptoTrackingStatus {
+        switch self {
+        case .loading:
+            return (isRefreshing || hasRetainedValue) ? .syncing : .connecting
+        case .loaded(_, let isCached, _):
+            return isCached ? .stale : .connected
+        case .error:
+            return .needsAttention
+        }
+    }
+
+    func publicTrackingStatusDetail(
+        isRefreshing: Bool,
+        hasRetainedValue: Bool
+    ) -> String {
+        publicCryptoTrackingStatus(
+            isRefreshing: isRefreshing,
+            hasRetainedValue: hasRetainedValue
+        ).addAssetDescription
     }
 }
 

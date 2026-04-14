@@ -182,9 +182,8 @@ final class FamilyShareInviteeRefreshScheduler: ObservableObject {
     private func scheduleAutoDismiss(for namespaceKey: String, delay: TimeInterval) {
         autoDismissHandles[namespaceKey]?.cancel()
         autoDismissHandles[namespaceKey] = scheduler.scheduleDebounce(delay: delay) { [weak self] in
-            await MainActor.run {
-                self?.setSubstate(.idle, for: namespaceKey)
-            }
+            guard let self else { return }
+            await self.dismissAutoDismissState(for: namespaceKey)
         }
     }
 
@@ -195,5 +194,10 @@ final class FamilyShareInviteeRefreshScheduler: ObservableObject {
         let elapsed = clock.now().timeIntervalSince(lastRefresh)
         let remaining = FamilyShareFreshnessPolicy.refreshCooldown - elapsed
         return remaining > 0 ? remaining : nil
+    }
+
+    @MainActor
+    private func dismissAutoDismissState(for namespaceKey: String) {
+        setSubstate(.idle, for: namespaceKey)
     }
 }

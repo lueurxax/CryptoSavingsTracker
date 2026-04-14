@@ -5,6 +5,22 @@ import Testing
 
 @MainActor
 struct CloudKitCutoverTests {
+    private func makeRegistry(
+        defaults: UserDefaults,
+        modeKey: String = "test.mode",
+        updatedAtKey: String = "test.updatedAt",
+        seedMode: AppStorageMode? = nil
+    ) -> UserDefaultsStorageModeRegistry {
+        if let seedMode {
+            defaults.set(seedMode.rawValue, forKey: modeKey)
+            defaults.removeObject(forKey: updatedAtKey)
+        }
+        return UserDefaultsStorageModeRegistry(
+            userDefaults: defaults,
+            modeKey: modeKey,
+            updatedAtKey: updatedAtKey
+        )
+    }
 
     // MARK: - CutoverState Equatable
 
@@ -173,11 +189,7 @@ struct CloudKitCutoverTests {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults, seedMode: .localOnly)
 
         // Simulate a cutover flow where the runtime switch "fails"
         // by never calling storageModeRegistry.setMode(.cloudKitPrimary).
@@ -192,11 +204,7 @@ struct CloudKitCutoverTests {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults, seedMode: .localOnly)
 
         let factory = PersistenceStackFactory(environment: .preview)
         let controller = PersistenceController(
@@ -230,11 +238,7 @@ struct CloudKitCutoverTests {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults, seedMode: .localOnly)
 
         let factory = PersistenceStackFactory(environment: .preview)
         let controller = PersistenceController(
@@ -273,11 +277,7 @@ struct CloudKitCutoverTests {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults, seedMode: .localOnly)
 
         let factory = PersistenceStackFactory(environment: .preview)
         let coordinator = CloudKitCutoverCoordinator(
@@ -296,11 +296,7 @@ struct CloudKitCutoverTests {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults, seedMode: .localOnly)
         registry.setMode(.cloudKitPrimary)
 
         let factory = PersistenceStackFactory(environment: .preview)
@@ -334,11 +330,7 @@ struct CloudKitCutoverTests {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults, seedMode: .localOnly)
 
         let factory = PersistenceStackFactory(environment: .preview)
         let controller = PersistenceController(
@@ -477,11 +469,7 @@ struct CloudKitCutoverTests {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults, seedMode: .localOnly)
 
         let factory = PersistenceStackFactory(environment: .preview)
         let controller = PersistenceController(
@@ -534,11 +522,7 @@ struct CloudKitCutoverTests {
             UserDefaults.standard.removeObject(forKey: CloudKitCutoverCoordinator.pendingCloudCleanupKey)
         }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults, seedMode: .localOnly)
 
         let factory = PersistenceStackFactory(environment: .preview)
         let controller = PersistenceController(
@@ -707,11 +691,7 @@ struct CloudKitCutoverTests {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults, seedMode: .localOnly)
 
         let factory = PersistenceStackFactory(environment: .preview)
         let controller = PersistenceController(
@@ -1319,11 +1299,7 @@ struct CloudKitCutoverTests {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults, seedMode: .localOnly)
         let factory = PersistenceStackFactory(environment: .preview)
         let controller = PersistenceController(
             storageModeRegistry: registry,
@@ -1437,11 +1413,7 @@ struct CloudKitCutoverTests {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let registry = UserDefaultsStorageModeRegistry(
-            userDefaults: defaults,
-            modeKey: "test.mode",
-            updatedAtKey: "test.updatedAt"
-        )
+        let registry = makeRegistry(defaults: defaults, seedMode: .localOnly)
         let factory = PersistenceStackFactory(environment: .preview)
         let controller = PersistenceController(
             storageModeRegistry: registry,

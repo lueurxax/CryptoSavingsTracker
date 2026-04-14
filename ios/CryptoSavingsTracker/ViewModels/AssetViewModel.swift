@@ -27,6 +27,38 @@ class AssetViewModel: ObservableObject, ErrorAwareViewModel {
     private let asset: Asset
     private let tatumService: TatumServiceProtocol
     private let modelContext: ModelContext?
+
+    private var hasOnChainConfiguration: Bool {
+        guard let address = asset.address, let chainId = asset.chainId else { return false }
+        return !address.isEmpty && !chainId.isEmpty
+    }
+
+    private var hasRetainedOnChainValue: Bool {
+        switch balanceState {
+        case .loading:
+            return lastBalanceUpdate != nil || lastSuccessfulLoad != nil || isCachedData
+        case .loaded:
+            return true
+        case .error(_, let cachedBalance, let lastUpdated):
+            return cachedBalance != nil || lastUpdated != nil
+        }
+    }
+
+    var publicCryptoTrackingStatus: BalanceState.CryptoTrackingStatus? {
+        guard hasOnChainConfiguration else { return nil }
+        return balanceState.publicCryptoTrackingStatus(
+            isRefreshing: isLoadingBalance,
+            hasRetainedValue: hasRetainedOnChainValue
+        )
+    }
+
+    var publicTrackingStatusDetail: String? {
+        guard hasOnChainConfiguration else { return nil }
+        return balanceState.publicTrackingStatusDetail(
+            isRefreshing: isLoadingBalance,
+            hasRetainedValue: hasRetainedOnChainValue
+        )
+    }
     
     init(asset: Asset, tatumService: TatumServiceProtocol, modelContext: ModelContext? = nil) {
         self.asset = asset

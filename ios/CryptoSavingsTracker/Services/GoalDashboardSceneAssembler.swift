@@ -16,19 +16,25 @@ struct GoalDashboardSceneAssembler {
         lastSuccessfulRefreshAt: Date?,
         legacyWidgetMigration: GoalDashboardLegacyWidgetMigrationResult? = nil
     ) -> GoalDashboardSceneModel {
+        let forecastModulesEnabled = HiddenRuntimeMode.current.showsForecastModules
         let migration = legacyWidgetMigration ?? GoalDashboardLegacyWidgetMigrationResult(
             utilityActionOrder: GoalDashboardContract.defaultUtilityActionOrder,
             applied: false,
             resetToDefaultPreset: false
         )
         let lifecycle = GoalDashboardLifecycleState(goalLifecycleStatus: goal.lifecycleStatus)
-        let freshness = resolveFreshness(for: dashboardViewModel, generatedAt: generatedAt)
+        let freshness = resolveFreshness(
+            for: dashboardViewModel,
+            generatedAt: generatedAt,
+            includeForecastState: forecastModulesEnabled
+        )
 
         let forecastSlice = buildForecastRiskSlice(
             goal: goal,
             dashboardViewModel: dashboardViewModel,
             freshness: freshness,
-            generatedAt: generatedAt
+            generatedAt: generatedAt,
+            isEnabled: forecastModulesEnabled
         )
         let activitySlice = buildContributionActivitySlice(
             goal: goal,
@@ -75,9 +81,9 @@ struct GoalDashboardSceneAssembler {
                 systemImage: "pencil.circle.fill"
             ),
             DashboardAction(
-                id: "view_history",
-                title: "View History",
-                copyKey: "dashboard.utilities.viewHistory",
+                id: "review_activity",
+                title: "Review Activity",
+                copyKey: "dashboard.utilities.reviewActivity",
                 systemImage: "clock.arrow.circlepath"
             )
         ]
@@ -120,8 +126,12 @@ struct GoalDashboardSceneAssembler {
         )
     }
 
-    private func resolveFreshness(for viewModel: DashboardViewModel, generatedAt: Date) -> FreshnessResult {
-        let chartErrorState = firstChartErrorState(from: viewModel)
+    private func resolveFreshness(
+        for viewModel: DashboardViewModel,
+        generatedAt: Date,
+        includeForecastState: Bool
+    ) -> FreshnessResult {
+        let chartErrorState = firstChartErrorState(from: viewModel, includeForecastState: includeForecastState)
         if let chartErrorState {
             return FreshnessResult(
                 state: .hardError,
@@ -150,13 +160,18 @@ struct GoalDashboardSceneAssembler {
         return FreshnessResult(state: .fresh, updatedAt: generatedAt, reasonCode: nil)
     }
 
-    private func firstChartErrorState(from viewModel: DashboardViewModel) -> ChartErrorState? {
-        let states: [ChartLoadingState] = [
+    private func firstChartErrorState(
+        from viewModel: DashboardViewModel,
+        includeForecastState: Bool
+    ) -> ChartErrorState? {
+        var states: [ChartLoadingState] = [
             viewModel.balanceHistoryState,
             viewModel.assetCompositionState,
-            viewModel.forecastState,
             viewModel.heatmapState
         ]
+        if includeForecastState {
+            states.insert(viewModel.forecastState, at: 2)
+        }
         for state in states {
             if case .error(let errorState) = state {
                 return errorState
@@ -210,8 +225,23 @@ struct GoalDashboardSceneAssembler {
         goal: Goal,
         dashboardViewModel: DashboardViewModel,
         freshness: FreshnessResult,
-        generatedAt: Date
+        generatedAt: Date,
+        isEnabled: Bool
     ) -> ForecastRiskSlice {
+        guard isEnabled else {
+            return ForecastRiskSlice(
+                moduleState: .empty,
+                status: nil,
+                assumptionWindowDays: nil,
+                confidence: nil,
+                updatedAt: freshness.updatedAt,
+                targetDate: goal.deadline,
+                projectedAmount: nil,
+                whyStatusCopyKey: nil,
+                errorReasonCode: nil
+            )
+        }
+
         if dashboardViewModel.isLoadingForecast {
             return ForecastRiskSlice(
                 moduleState: .loading,
@@ -541,10 +571,10 @@ struct GoalDashboardNextActionResolver {
         case .goalFinishedOrArchived:
             return (
                 DashboardCTA(
-                    id: "view_goal_history",
-                    title: "View Goal History",
+                    id: "review_activity",
+                    title: "Review Activity",
                     copyKey: "dashboard.nextAction.finished.primary",
-                    systemImage: "clock.arrow.circlepath"
+                    systemImage: "list.bullet.rectangle"
                 ),
                 DashboardCTA(
                     id: "create_new_goal",
@@ -619,8 +649,8 @@ struct GoalDashboardNextActionResolver {
                     systemImage: "arrow.down.circle.fill"
                 ),
                 DashboardCTA(
-                    id: "open_activity",
-                    title: "Open Activity",
+                    id: "review_activity",
+                    title: "Review Activity",
                     copyKey: "dashboard.nextAction.noContributions.secondary",
                     systemImage: "list.bullet.rectangle"
                 ),
@@ -649,16 +679,16 @@ struct GoalDashboardNextActionResolver {
         case .behindSchedule:
             return (
                 DashboardCTA(
-                    id: "plan_this_month",
-                    title: "Plan This Month",
-                    copyKey: "dashboard.nextAction.behind.primary",
-                    systemImage: "calendar.badge.exclamationmark"
-                ),
-                DashboardCTA(
                     id: "add_contribution",
                     title: "Add Contribution",
-                    copyKey: "dashboard.nextAction.behind.secondary",
+                    copyKey: "dashboard.nextAction.behind.primary",
                     systemImage: "arrow.down.circle"
+                ),
+                DashboardCTA(
+                    id: "edit_goal",
+                    title: "Edit Goal",
+                    copyKey: "dashboard.nextAction.behind.secondary",
+                    systemImage: "pencil.circle"
                 ),
                 "dashboard.nextAction.behind.reason",
                 false,
@@ -673,10 +703,10 @@ struct GoalDashboardNextActionResolver {
                     systemImage: "plus.circle"
                 ),
                 DashboardCTA(
-                    id: "open_forecast",
-                    title: "Open Forecast",
+                    id: "review_activity",
+                    title: "Review Activity",
                     copyKey: "dashboard.nextAction.onTrack.secondary",
-                    systemImage: "chart.line.uptrend.xyaxis"
+                    systemImage: "list.bullet.rectangle"
                 ),
                 "dashboard.nextAction.onTrack.reason",
                 false,

@@ -2,7 +2,7 @@ import XCTest
 @testable import CryptoSavingsTracker
 
 final class FamilyShareFreshnessLabelTests: XCTestCase {
-    private final class CapturingTelemetry: FamilyShareTelemetryTracking {
+    private final class CapturingTelemetry: FamilyShareTelemetryTracking, @unchecked Sendable {
         private(set) var events: [(FamilyShareTelemetryEvent, [String: String])] = []
 
         func track(_ event: FamilyShareTelemetryEvent, payload: [String: String]) {
@@ -12,7 +12,7 @@ final class FamilyShareFreshnessLabelTests: XCTestCase {
 
     // MARK: - Test Clock
 
-    class TestClock: FamilyShareClock {
+    private final class TestClock: FamilyShareClock, @unchecked Sendable {
         var currentDate: Date = Date()
         func now() -> Date { currentDate }
     }
@@ -130,6 +130,8 @@ final class FamilyShareFreshnessLabelTests: XCTestCase {
             namespaceKey: "owner|share",
             telemetry: telemetry
         )
+
+        await flushAsyncWork()
 
         XCTAssertTrue(
             telemetry.events.contains(where: { $0.0 == .clockSkewDetected && $0.1["source"] == "publish" }),

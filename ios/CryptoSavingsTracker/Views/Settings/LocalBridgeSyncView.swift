@@ -279,7 +279,11 @@ struct LocalBridgeSyncView: View {
 
                 LabeledContent("Compatibility") {
                     Text(bridgeSnapshot.sessionState.compatibilityState.displayTitle)
-                        .foregroundStyle(bridgeSnapshot.sessionState.compatibilityState == .compatible ? .green : .orange)
+                        .foregroundStyle(
+                            bridgeSnapshot.sessionState.compatibilityState == .compatible
+                                ? AccessibleColors.success
+                                : AccessibleColors.warning
+                        )
                 }
                 .accessibilityIdentifier("localBridge.session.compatibility")
                 .accessibilityValue(bridgeSnapshot.sessionState.compatibilityState.displayTitle)
@@ -296,7 +300,11 @@ struct LocalBridgeSyncView: View {
 
                 LabeledContent("Live Store Mutation") {
                     Text(bridgeSnapshot.sessionState.liveStoreMutationAllowed ? "Allowed" : "Blocked")
-                        .foregroundStyle(bridgeSnapshot.sessionState.liveStoreMutationAllowed ? .red : .green)
+                        .foregroundStyle(
+                            bridgeSnapshot.sessionState.liveStoreMutationAllowed
+                                ? AccessibleColors.error
+                                : AccessibleColors.success
+                        )
                 }
                 .accessibilityIdentifier("localBridge.session.liveMutation")
             }
@@ -315,7 +323,11 @@ struct LocalBridgeSyncView: View {
                                 Spacer()
                                 Text(device.trustState.rawValue.capitalized)
                                     .font(.caption)
-                                    .foregroundStyle(device.trustState == .active ? .green : .orange)
+                                    .foregroundStyle(
+                                        device.trustState == .active
+                                            ? AccessibleColors.success
+                                            : AccessibleColors.warning
+                                    )
                             }
 
                             Text("Fingerprint: \(device.shortFingerprint)")
@@ -335,7 +347,11 @@ struct LocalBridgeSyncView: View {
                             if let lastValidationOutcome = device.lastValidationOutcome {
                                 Text(validationOutcomeLabel(for: device, outcome: lastValidationOutcome))
                                     .font(.caption)
-                                    .foregroundStyle(lastValidationOutcome == .failed ? .red : .secondary)
+                                    .foregroundStyle(
+                                        lastValidationOutcome == .failed
+                                            ? AccessibleColors.error
+                                            : AccessibleColors.secondaryText
+                                    )
                             }
 
                             Button(role: .destructive) {
@@ -962,13 +978,13 @@ struct LocalBridgeSyncView: View {
     private var nearbyStateColor: Color {
         switch nearbyTransport.state {
         case .idle:
-            return .secondary
+            return AccessibleColors.secondaryText
         case .advertising, .browsing, .connecting, .transferring:
-            return .orange
+            return AccessibleColors.warning
         case .connected:
-            return .green
+            return AccessibleColors.success
         case .failed:
-            return .red
+            return AccessibleColors.error
         }
     }
 }

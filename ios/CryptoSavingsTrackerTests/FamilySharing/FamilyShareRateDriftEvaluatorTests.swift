@@ -61,19 +61,22 @@ final class FamilyShareRateDriftEvaluatorTests: XCTestCase {
 
         let recorder = DirtyReasonRecorder()
         await evaluator.start(goalInputs: [input], lastPublished: [goalID: 100], handler: { reason in
-            Task {
-                await recorder.append(reason)
-            }
+            Task { await recorder.append(reason) }
         })
 
         source.emit(
             RateRefreshEvent(
-                refreshedPairs: [CurrencyPair(from: "BTC", to: "USD")],
+                refreshedPairs: [CurrencyPair(from: "BTC", to: "USD").canonicalKey],
                 rateSnapshotTimestamp: Date(),
-                rates: [CurrencyPair(from: "BTC", to: "USD"): 10_000]
+                rates: [CurrencyPair(from: "BTC", to: "USD").canonicalKey: 10_000]
             )
         )
-        await flushAsyncWork()
+        for _ in 0..<50 {
+            if await recorder.first() != nil {
+                break
+            }
+            await flushAsyncWork(iterations: 2)
+        }
 
         guard case .rateDrift(let goalIDs)? = await recorder.first() else {
             return XCTFail("Expected a rate-drift dirty event")
@@ -100,14 +103,12 @@ final class FamilyShareRateDriftEvaluatorTests: XCTestCase {
 
         let recorder = DirtyReasonRecorder()
         await evaluator.start(goalInputs: [input], lastPublished: [goalID: 400], handler: { reason in
-            Task {
-                await recorder.append(reason)
-            }
+            Task { await recorder.append(reason) }
         })
 
         source.emit(
             RateRefreshEvent(
-                refreshedPairs: [CurrencyPair(from: "USD", to: "USD")],
+                refreshedPairs: [CurrencyPair(from: "USD", to: "USD").canonicalKey],
                 rateSnapshotTimestamp: Date(),
                 rates: [:]
             )

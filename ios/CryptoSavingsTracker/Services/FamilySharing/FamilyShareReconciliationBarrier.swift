@@ -22,7 +22,7 @@ struct FamilyShareReconciliationBarrier: Sendable {
     private let clock: FamilyShareClock
     private let scheduler: FamilyShareScheduler
 
-    init(
+    nonisolated init(
         policy: FamilyShareFreshnessPolicy = FamilyShareFreshnessPolicy(),
         clock: FamilyShareClock = SystemClock(),
         scheduler: FamilyShareScheduler = GCDScheduler()
@@ -42,7 +42,7 @@ struct FamilyShareReconciliationBarrier: Sendable {
     ///   from the namespace's `CKServerChangeToken`.
     /// - Returns: `.satisfied` if local state is current, `.timedOut` if import fence
     ///   could not be satisfied within the timeout window.
-    func checkBarrier(lastKnownRemoteChangeDate: Date?) async -> BarrierResult {
+    nonisolated func checkBarrier(lastKnownRemoteChangeDate: Date?) async -> BarrierResult {
         // If we have no evidence of remote changes, the barrier is trivially satisfied
         guard let remoteDate = lastKnownRemoteChangeDate else {
             return .satisfied(waitDurationMs: 0, importCompleted: false)
@@ -74,11 +74,11 @@ struct FamilyShareReconciliationBarrier: Sendable {
 
     /// Last observed import event timestamp. Updated by observing
     /// `NSPersistentCloudKitContainer.eventChangedNotification`.
-    private static var lastObservedImportDate: Date?
-    private static var importObserver: NSObjectProtocol?
+    private nonisolated(unsafe) static var lastObservedImportDate: Date?
+    private nonisolated(unsafe) static var importObserver: NSObjectProtocol?
 
     /// Start observing CloudKit import events. Call once at app launch.
-    static func startObservingImports() {
+    nonisolated static func startObservingImports() {
         importObserver = NotificationCenter.default.addObserver(
             forName: NSNotification.Name("NSPersistentCloudKitContainer.eventChangedNotification"),
             object: nil,
@@ -90,11 +90,11 @@ struct FamilyShareReconciliationBarrier: Sendable {
         }
     }
 
-    static func resetObservedImportsForTesting() {
+    nonisolated static func resetObservedImportsForTesting() {
         lastObservedImportDate = nil
     }
 
-    static func recordImportObservedForTesting(at date: Date) {
+    nonisolated static func recordImportObservedForTesting(at date: Date) {
         lastObservedImportDate = date
     }
 
@@ -104,11 +104,11 @@ struct FamilyShareReconciliationBarrier: Sendable {
     /// `NSPersistentCloudKitContainer.eventChangedNotification`.
     /// Returns `nil` if no import history is available (barrier is satisfied
     /// when no remote change date is known — conservative default).
-    private func lastLocalImportDate() -> Date? {
+    private nonisolated func lastLocalImportDate() -> Date? {
         return Self.lastObservedImportDate
     }
 
-    private func waitForTimeout() async {
+    private nonisolated func waitForTimeout() async {
         await withCheckedContinuation { continuation in
             _ = scheduler.scheduleDebounce(delay: FamilyShareFreshnessPolicy.importFenceTimeout) {
                 continuation.resume()

@@ -13,13 +13,46 @@ struct AssetDetailView: View {
     private static let isoFiatCurrencyCodes = Set(Locale.Currency.isoCurrencies.map(\.identifier).map { $0.uppercased() })
 
     let asset: Asset
-    @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var coordinator: AppCoordinator
     
     @State private var currentBalance: Double = 0
     @State private var isLoadingBalance = false
     @State private var balanceError: String?
+    @State private var showingAddTransaction = false
     @State private var showingAllocationView = false
+    @State private var showingTransactionHistory = false
+
+    private var hasOnChainTracking: Bool {
+        if let address = asset.address, let chainId = asset.chainId {
+            return !address.isEmpty && !chainId.isEmpty
+        }
+        return false
+    }
+
+    private var publicCryptoTrackingStatus: BalanceState.CryptoTrackingStatus? {
+        guard hasOnChainTracking else { return nil }
+        let balanceState: BalanceState
+        if isLoadingBalance {
+            balanceState = .loading
+        } else if let balanceError {
+            balanceState = .error(
+                message: balanceError,
+                cachedBalance: asset.cachedOnChainBalance > 0 ? asset.cachedOnChainBalance : nil,
+                lastUpdated: nil
+            )
+        } else {
+            let onChainPortion = max(currentBalance - asset.manualBalance, 0)
+            balanceState = .loaded(
+                balance: onChainPortion,
+                isCached: false,
+                lastUpdated: Date()
+            )
+        }
+
+        return balanceState.publicCryptoTrackingStatus(
+            isRefreshing: isLoadingBalance,
+            hasRetainedValue: asset.cachedOnChainBalance > 0 || currentBalance > asset.manualBalance
+        )
+    }
     
     var body: some View {
         ScrollView {
@@ -45,6 +78,12 @@ struct AssetDetailView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
         #endif
+        .navigationDestination(isPresented: $showingTransactionHistory) {
+            TransactionHistoryView(asset: asset)
+        }
+        .sheet(isPresented: $showingAddTransaction) {
+            AddTransactionView(asset: asset)
+        }
         .task {
             await loadBalance()
         }
@@ -86,6 +125,12 @@ struct AssetDetailView: View {
             Text("Current Balance")
                 .font(.headline)
                 .foregroundColor(.secondary)
+
+            if let publicCryptoTrackingStatus {
+                Label(publicCryptoTrackingStatus.title, systemImage: publicCryptoTrackingStatus.systemImage)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
             
             if isLoadingBalance {
                 ProgressView()
@@ -165,7 +210,7 @@ struct AssetDetailView: View {
                 Spacer()
                 
                 Button("View All") {
-                    coordinator.showTransactionHistory(for: asset)
+                    showingTransactionHistory = true
                 }
                 .font(.caption)
             }
@@ -219,28 +264,18 @@ struct AssetDetailView: View {
     
     private var actionButtons: some View {
         VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                Button(action: {
-                    coordinator.goalCoordinator.showAddTransaction(to: asset)
-                }) {
-                    Label("Add Transaction", systemImage: "plus.circle")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                
-                Button(action: {
-                    coordinator.goalCoordinator.showEditAsset(asset)
-                }) {
-                    Label("Edit Asset", systemImage: "pencil.circle")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
+            Button(action: {
+                showingAddTransaction = true
+            }) {
+                Label("Add Transaction", systemImage: "plus.circle")
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
             
             Button(action: {
                 showingAllocationView = true
             }) {
-                Label("Manage Goal Allocations", systemImage: "chart.pie")
+                Label("Manage Allocations", systemImage: "chart.pie")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
@@ -278,7 +313,7 @@ struct AssetDetailView: View {
         } catch {
             await MainActor.run {
                 balanceError = error.localizedDescription
-                currentBalance = asset.manualBalance
+                currentBalance = max(asset.currentAmount, asset.manualBalance)
                 isLoadingBalance = false
             }
         }

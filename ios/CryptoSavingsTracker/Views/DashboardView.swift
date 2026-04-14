@@ -10,120 +10,6 @@ import Combine
 import SwiftData
 import SwiftUI
 
-@MainActor
-final class RetiredFeatureTransitionCoordinator: ObservableObject {
-    private enum StorageKey {
-        static let firstLaunchAt = "mvp.transition.firstLaunchAt"
-        static let launchCount = "mvp.transition.launchCount"
-        static let migrationBannerDismissed = "mvp.transition.migrationBannerDismissed"
-        static let supportArticleOpened = "mvp.transition.supportArticleOpened"
-    }
-
-    @Published private(set) var shouldShowMigrationBanner = false
-
-    let supportArticleURL = URL(string: "https://support.cryptosavingstracker.app/mvp")!
-
-    private let userDefaults: UserDefaults
-    private let nowProvider: () -> Date
-    private var hasRecordedLaunch = false
-
-    init(
-        userDefaults: UserDefaults = .standard,
-        nowProvider: @escaping () -> Date = Date.init
-    ) {
-        self.userDefaults = userDefaults
-        self.nowProvider = nowProvider
-        refreshBannerVisibility()
-    }
-
-    func registerLaunchIfNeeded() {
-        guard !hasRecordedLaunch else { return }
-        hasRecordedLaunch = true
-
-        if userDefaults.object(forKey: StorageKey.firstLaunchAt) == nil {
-            userDefaults.set(nowProvider(), forKey: StorageKey.firstLaunchAt)
-        }
-
-        let launchCount = userDefaults.integer(forKey: StorageKey.launchCount) + 1
-        userDefaults.set(launchCount, forKey: StorageKey.launchCount)
-        refreshBannerVisibility()
-    }
-
-    func dismissMigrationBanner() {
-        userDefaults.set(true, forKey: StorageKey.migrationBannerDismissed)
-        refreshBannerVisibility()
-    }
-
-    func recordSupportArticleOpened() {
-        userDefaults.set(true, forKey: StorageKey.supportArticleOpened)
-    }
-
-    private func refreshBannerVisibility() {
-        shouldShowMigrationBanner = !isDismissed && !hasExpiredFallbackWindow
-    }
-
-    private var isDismissed: Bool {
-        userDefaults.bool(forKey: StorageKey.migrationBannerDismissed)
-    }
-
-    private var hasExpiredFallbackWindow: Bool {
-        if userDefaults.integer(forKey: StorageKey.launchCount) >= 3 {
-            return true
-        }
-
-        guard let firstLaunchAt = userDefaults.object(forKey: StorageKey.firstLaunchAt) as? Date else {
-            return false
-        }
-
-        return nowProvider().timeIntervalSince(firstLaunchAt) >= (7 * 24 * 60 * 60)
-    }
-}
-
-private struct MVPMigrationBanner: View {
-    let onLearnMore: () -> Void
-    let onDismiss: () -> Void
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("CryptoSavingsTracker is now focused on personal goal tracking.")
-                    .font(.headline)
-                Text("Planning, reminders, sharing, and export tools are no longer part of this version.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Button("Learn More", action: onLearnMore)
-                    .font(.subheadline.weight(.semibold))
-                    .buttonStyle(.plain)
-                    .foregroundStyle(AccessibleColors.primaryInteractive)
-            }
-
-            Spacer(minLength: 8)
-
-            Button(action: onDismiss) {
-                Image(systemName: "xmark")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 28, height: 28)
-                    .background(Color.secondary.opacity(0.08), in: Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Dismiss migration banner")
-        }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(AccessibleColors.warning.opacity(0.12))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(AccessibleColors.warning.opacity(0.28), lineWidth: 1)
-        )
-        .accessibilityIdentifier("mvpMigrationBanner")
-    }
-}
-
 private struct DashboardGoalSnapshot: Equatable {
     let currentTotal: Double
     let progress: Double
@@ -169,9 +55,7 @@ private enum DashboardPrimaryAction {
 }
 
 struct DashboardView: View {
-    @Environment(\.openURL) private var openURL
     @Query(sort: \Goal.deadline) private var goals: [Goal]
-    @StateObject private var transitionCoordinator = RetiredFeatureTransitionCoordinator()
     @State private var snapshots: [UUID: DashboardGoalSnapshot] = [:]
     @State private var isLoadingSnapshots = false
 
@@ -251,20 +135,6 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                if transitionCoordinator.shouldShowMigrationBanner {
-                    MVPMigrationBanner(
-                        onLearnMore: {
-                            transitionCoordinator.recordSupportArticleOpened()
-                            openURL(transitionCoordinator.supportArticleURL)
-                        },
-                        onDismiss: {
-                            withAnimation(.easeInOut(duration: 0.18)) {
-                                transitionCoordinator.dismissMigrationBanner()
-                            }
-                        }
-                    )
-                }
-
                 if activeGoals.isEmpty {
                     DashboardEmptyState()
                 } else {
@@ -291,7 +161,6 @@ struct DashboardView: View {
 #endif
         .accessibilityIdentifier("mvpRootDashboard")
         .task {
-            transitionCoordinator.registerLaunchIfNeeded()
             await loadSnapshots()
         }
         .onChange(of: goals.count) { _, _ in

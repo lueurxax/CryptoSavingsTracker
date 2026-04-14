@@ -7,6 +7,7 @@ import Foundation
 /// whichever is **larger**. This prevents churn on small goals ($5 floor) while
 /// catching significant drift on large goals (1% cap).
 struct FamilyShareMaterialityPolicy: Sendable {
+    nonisolated init() {}
 
     /// Evaluate whether a change is material for a specific goal.
     ///
@@ -18,7 +19,7 @@ struct FamilyShareMaterialityPolicy: Sendable {
     ///   - usdToGoalCurrencyRate: The current USD-to-goal-currency exchange rate.
     ///     `nil` if the rate is unavailable (falls back to 1% only).
     /// - Returns: `true` if the change exceeds the materiality threshold.
-    func isMaterial(
+    nonisolated func isMaterial(
         newAmount: Decimal,
         lastPublishedAmount: Decimal,
         targetAmount: Decimal,
@@ -47,7 +48,7 @@ struct FamilyShareMaterialityPolicy: Sendable {
 
     /// Round a decimal to the appropriate number of minor units for the given currency.
     /// Uses `.bankers` rounding (round half to even).
-    private func roundToMinorUnits(_ value: Decimal, currency: String) -> Decimal {
+    private nonisolated func roundToMinorUnits(_ value: Decimal, currency: String) -> Decimal {
         let minorUnits = Self.minorUnitsForCurrency(currency)
         var result = value
         var rounded = Decimal()
@@ -56,7 +57,7 @@ struct FamilyShareMaterialityPolicy: Sendable {
     }
 
     /// Number of minor units (decimal places) for common currencies.
-    private static func minorUnitsForCurrency(_ currency: String) -> Int {
+    private nonisolated static func minorUnitsForCurrency(_ currency: String) -> Int {
         switch currency.uppercased() {
         case "JPY", "KRW", "VND", "ISK":
             return 0

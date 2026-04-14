@@ -8,55 +8,6 @@ import Testing
 @testable import CryptoSavingsTracker
 
 struct MVPContainmentContractTests {
-    @Test("Transition coordinator shows the migration banner until dismissal")
-    @MainActor
-    func transitionCoordinatorShowsBannerUntilDismissal() {
-        let suiteName = "MVPContainmentContractTests.dismissal.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
-        let coordinator = RetiredFeatureTransitionCoordinator(
-            userDefaults: defaults,
-            nowProvider: { Date(timeIntervalSince1970: 1_000) }
-        )
-
-        coordinator.registerLaunchIfNeeded()
-        #expect(coordinator.shouldShowMigrationBanner)
-
-        coordinator.dismissMigrationBanner()
-        #expect(!coordinator.shouldShowMigrationBanner)
-    }
-
-    @Test("Transition coordinator expires the migration banner after the fallback window")
-    @MainActor
-    func transitionCoordinatorExpiresBannerAfterFallbackWindow() {
-        let suiteName = "MVPContainmentContractTests.expiry.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
-        let start = Date(timeIntervalSince1970: 1_000)
-        let coordinator = RetiredFeatureTransitionCoordinator(
-            userDefaults: defaults,
-            nowProvider: { start }
-        )
-        coordinator.registerLaunchIfNeeded()
-        #expect(coordinator.shouldShowMigrationBanner)
-
-        let secondLaunch = RetiredFeatureTransitionCoordinator(
-            userDefaults: defaults,
-            nowProvider: { start.addingTimeInterval(60) }
-        )
-        secondLaunch.registerLaunchIfNeeded()
-        #expect(secondLaunch.shouldShowMigrationBanner)
-
-        let thirdLaunch = RetiredFeatureTransitionCoordinator(
-            userDefaults: defaults,
-            nowProvider: { start.addingTimeInterval(120) }
-        )
-        thirdLaunch.registerLaunchIfNeeded()
-        #expect(!thirdLaunch.shouldShowMigrationBanner)
-    }
-
     @Test("Retained Apple hosts no longer embed monthly planning widgets")
     func retainedHostsExcludeMonthlyPlanningWidget() throws {
         let root = repositoryRoot()
@@ -84,8 +35,8 @@ struct MVPContainmentContractTests {
         #expect(!appSource.contains("@UIApplicationDelegateAdaptor(FamilyShareAppDelegate.self)"))
     }
 
-    @Test("Retained MVP routes do not refresh family sharing from ContentView or SettingsView")
-    func retainedRoutesExcludeFamilyShareRefresh() throws {
+    @Test("Retained MVP routes exclude migration chrome and hidden settings destinations")
+    func retainedRoutesExcludeMigrationChromeAndHiddenDestinations() throws {
         let root = repositoryRoot()
         let contentView = try readSource(root, "ios/CryptoSavingsTracker/Views/ContentView.swift")
         let settingsView = try readSource(root, "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift")
@@ -97,9 +48,9 @@ struct MVPContainmentContractTests {
         #expect(!settingsView.contains("LocalBridgeSyncView"))
         #expect(!settingsView.contains("CSVExportService"))
         #expect(!settingsView.contains("MonthlyPlanningSettingsView"))
-        #expect(dashboardView.contains("RetiredFeatureTransitionCoordinator"))
-        #expect(dashboardView.contains("mvpMigrationBanner"))
-        #expect(settingsView.contains("What changed in this update"))
+        #expect(!dashboardView.contains("RetiredFeatureTransitionCoordinator"))
+        #expect(!dashboardView.contains("mvpMigrationBanner"))
+        #expect(!settingsView.contains("What changed in this update"))
     }
 
     @Test("Root dashboard uses the fixed MVP contract and excludes legacy customization paths")
@@ -150,6 +101,70 @@ struct MVPContainmentContractTests {
         #expect(assetRowView.contains("name: .sharedGoalDataDidChange"))
     }
 
+    @Test("Retained asset detail and transaction history use local navigation seams")
+    func retainedAssetDetailAndHistoryDropAppCoordinatorDependency() throws {
+        let root = repositoryRoot()
+        let assetDetail = try readSource(root, "ios/CryptoSavingsTracker/Views/AssetDetailView.swift")
+        let transactionHistory = try readSource(root, "ios/CryptoSavingsTracker/Views/TransactionHistoryView.swift")
+
+        #expect(!assetDetail.contains("@EnvironmentObject private var coordinator: AppCoordinator"))
+        #expect(!assetDetail.contains("coordinator.showTransactionHistory"))
+        #expect(!assetDetail.contains("coordinator.goalCoordinator.showAddTransaction"))
+        #expect(!assetDetail.contains("coordinator.goalCoordinator.showEditAsset"))
+        #expect(assetDetail.contains("showingTransactionHistory"))
+        #expect(assetDetail.contains("showingAddTransaction"))
+
+        #expect(!transactionHistory.contains("@EnvironmentObject private var coordinator: AppCoordinator"))
+        #expect(!transactionHistory.contains("coordinator.goalCoordinator.showAddTransaction"))
+        #expect(transactionHistory.contains("showingAddTransaction"))
+    }
+
+    @Test("Public asset allocation copy avoids sharing language and planner shortcuts")
+    func publicAssetAllocationCopyAndBehaviorStayMvpScoped() throws {
+        let root = repositoryRoot()
+        let assetAllocation = try readSource(root, "ios/CryptoSavingsTracker/Views/AssetSharingView.swift")
+        let assetDetail = try readSource(root, "ios/CryptoSavingsTracker/Views/AssetDetailView.swift")
+        let banner = try readSource(root, "ios/CryptoSavingsTracker/Views/Components/AllocationPromptBanner.swift")
+        let assetRow = try readSource(root, "ios/CryptoSavingsTracker/Views/AssetRowView.swift")
+        let unallocatedSection = try readSource(root, "ios/CryptoSavingsTracker/Views/Components/UnallocatedAssetsSection.swift")
+
+        #expect(!assetAllocation.contains(".monthlyPlanningAssetUpdated"))
+        #expect(!assetAllocation.contains("executionTrackingService"))
+        #expect(!assetAllocation.contains("makeMonthlyPlanService"))
+        #expect(!assetAllocation.contains("Share Asset"))
+        #expect(!assetAllocation.contains("How to share this asset"))
+        #expect(assetAllocation.contains("Manage Allocations"))
+        #expect(assetAllocation.contains("Allocate to Goals"))
+
+        #expect(assetDetail.contains("Manage Allocations"))
+        #expect(!banner.contains("share \\(asset.currency) with other goals"))
+        #expect(banner.contains("assign \\(asset.currency)"))
+        #expect(!assetRow.contains("Text(\"Share\")"))
+        #expect(assetRow.contains("Text(\"Allocate\")"))
+        #expect(!assetRow.contains("shareAssetButton"))
+        #expect(assetRow.contains("manageAllocationButton"))
+        #expect(!unallocatedSection.contains("share this asset"))
+        #expect(unallocatedSection.contains("allocate this asset"))
+    }
+
+    @Test("Retained crypto tracking uses explicit public state vocabulary")
+    func retainedCryptoTrackingUsesExplicitPublicStateVocabulary() throws {
+        let root = repositoryRoot()
+        let balanceState = try readSource(root, "ios/CryptoSavingsTracker/Models/BalanceState.swift")
+        let assetViewModel = try readSource(root, "ios/CryptoSavingsTracker/ViewModels/AssetViewModel.swift")
+        let addAssetView = try readSource(root, "ios/CryptoSavingsTracker/Views/AddAssetView.swift")
+        let assetRowView = try readSource(root, "ios/CryptoSavingsTracker/Views/AssetRowView.swift")
+        let assetDetailView = try readSource(root, "ios/CryptoSavingsTracker/Views/AssetDetailView.swift")
+
+        for state in ["Connecting", "Syncing", "Connected", "Stale", "Needs Attention"] {
+            #expect(balanceState.contains(state))
+        }
+        #expect(assetViewModel.contains("publicCryptoTrackingStatus"))
+        #expect(addAssetView.contains("Tracking states: Connecting, Syncing, Connected, Stale, Needs Attention."))
+        #expect(assetRowView.contains("publicCryptoTrackingStatus"))
+        #expect(assetDetailView.contains("publicCryptoTrackingStatus"))
+    }
+
     @Test("Goal edit flow excludes planner recalculation and reminder-state restoration")
     func goalEditFlowExcludesPlannerAndReminderRevival() throws {
         let root = repositoryRoot()
@@ -163,7 +178,7 @@ struct MVPContainmentContractTests {
         #expect(!goalEditViewModel.contains("originalSnapshot.reminderTime"))
         #expect(!goalEditViewModel.contains("notificationUpdateFailed"))
         #expect(goalEditViewModel.contains("goal.clearRetiredReminderState()"))
-        #expect(goalEditView.contains("Basic Information"))
+        #expect(editGoalView.contains("Basic Information"))
         #expect(!editGoalView.contains("ReminderConfigurationView"))
     }
 
@@ -184,6 +199,58 @@ struct MVPContainmentContractTests {
         #expect(onboardingStepViews.contains("Manual Flexibility"))
         #expect(!goalTemplate.contains("estimatedMonthlyContribution"))
         #expect(!goalDetailView.contains("Next reminder:"))
+    }
+
+    @Test("Goal detail is native detail-only and does not embed dashboard visuals")
+    func goalDetailExcludesDashboardVisuals() throws {
+        let root = repositoryRoot()
+        let goalDetailView = try readSource(root, "ios/CryptoSavingsTracker/Views/GoalDetailView.swift")
+        let detailContainer = try readSource(root, "ios/CryptoSavingsTracker/Views/Components/DetailContainerView.swift")
+        let goalDashboard = try readSource(root, "ios/CryptoSavingsTracker/Views/Dashboard/GoalDashboardScreen.swift")
+
+        #expect(!goalDetailView.contains("ProgressRingView("))
+        #expect(!goalDetailView.contains("CompactAssetCompositionView("))
+        #expect(!goalDetailView.contains("Show Details"))
+        #expect(!goalDetailView.contains("Hide Details"))
+        #expect(goalDetailView.contains("Section(\"Assets\")") || goalDetailView.contains("Text(\"Assets\")"))
+        #expect(detailContainer.contains("GoalDashboardScreen(goal: goal)"))
+        #expect(goalDashboard.contains("Goal Snapshot"))
+    }
+
+    @Test("Retained goal dashboard excludes planning and forecast CTAs")
+    func retainedGoalDashboardExcludesPlannerEraCtas() throws {
+        let root = repositoryRoot()
+        let contract = try readSource(root, "ios/CryptoSavingsTracker/Models/GoalDashboardContract.swift")
+        let sceneAssembler = try readSource(root, "ios/CryptoSavingsTracker/Services/GoalDashboardSceneAssembler.swift")
+        let migration = try readSource(root, "ios/CryptoSavingsTracker/Utilities/GoalDashboardLegacyWidgetMigration.swift")
+        let copyCatalog = try readSource(root, "ios/CryptoSavingsTracker/Utilities/GoalDashboardCopyCatalog.swift")
+        let screen = try readSource(root, "ios/CryptoSavingsTracker/Views/Dashboard/GoalDashboardScreen.swift")
+        #expect(!contract.contains("\"view_history\""))
+        #expect(!sceneAssembler.contains("plan_this_month"))
+        #expect(!sceneAssembler.contains("open_forecast"))
+        #expect(!sceneAssembler.contains("view_goal_history"))
+        #expect(!sceneAssembler.contains("\"view_history\""))
+        #expect(!migration.contains("\"view_history\""))
+        #expect(contract.contains("\"review_activity\""))
+        #expect(sceneAssembler.contains("\"review_activity\""))
+        #expect(migration.contains("\"review_activity\""))
+        #expect(!copyCatalog.contains("Plan this month now."))
+        #expect(!screen.contains("Monthly Planning"))
+    }
+
+    @Test("Public diagnostics remains dashboard-local and not a Settings row")
+    func publicDiagnosticsSurfaceIsDashboardLocalOnly() throws {
+        let root = repositoryRoot()
+        let proposal = try readSource(root, "docs/proposals/MVP_FEATURE_FLAG_CONTAINMENT_PROPOSAL.md")
+        let settingsView = try readSource(root, "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift")
+        let sceneAssembler = try readSource(root, "ios/CryptoSavingsTracker/Services/GoalDashboardSceneAssembler.swift")
+        let screen = try readSource(root, "ios/CryptoSavingsTracker/Views/Dashboard/GoalDashboardScreen.swift")
+
+        #expect(proposal.contains("Public diagnostics remains goal-dashboard-local"))
+        #expect(proposal.contains("Settings/About does not expose a separate diagnostics status row"))
+        #expect(!settingsView.contains("Diagnostics"))
+        #expect(sceneAssembler.contains("id: \"view_diagnostics\""))
+        #expect(screen.contains("case \"view_diagnostics\":"))
     }
 
     @Test("Transaction entry flow excludes reminder scheduling hooks")

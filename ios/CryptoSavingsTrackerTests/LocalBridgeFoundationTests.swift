@@ -259,7 +259,15 @@ struct LocalBridgeFoundationTests {
         let pairingCode = try token.encodedPairingCode()
         let decoded = try BridgeBootstrapToken.decodePairingCode(pairingCode)
 
-        #expect(decoded == token)
+        #expect(decoded.pairingID == token.pairingID)
+        #expect(decoded.deviceName == token.deviceName)
+        #expect(decoded.oneTimeSecretReference == token.oneTimeSecretReference)
+        #expect(decoded.ephemeralPublicKey == token.ephemeralPublicKey)
+        #expect(decoded.signingKeyID == token.signingKeyID)
+        #expect(decoded.publicKeyRepresentation == token.publicKeyRepresentation)
+        #expect(decoded.signingAlgorithm == token.signingAlgorithm)
+        #expect(decoded.fingerprint == token.fingerprint)
+        #expect(abs(decoded.expiresAt.timeIntervalSince(token.expiresAt)) < 0.001)
         #expect(pairingCode.contains("."))
     }
 

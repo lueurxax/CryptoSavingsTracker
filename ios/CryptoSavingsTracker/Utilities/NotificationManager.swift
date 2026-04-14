@@ -11,59 +11,81 @@ import SwiftData
 
 class NotificationManager {
     static let shared = NotificationManager()
-    
-    private init() {}
+
+    private let runtimeMode: HiddenRuntimeMode
+    private nonisolated(unsafe) let isUITestRunProvider: () -> Bool
+
+    nonisolated init(
+        runtimeMode: HiddenRuntimeMode = .current,
+        isUITestRunProvider: @escaping () -> Bool = {
+            let processInfo = ProcessInfo.processInfo
+            let arguments = processInfo.arguments
+            let environment = processInfo.environment
+            return arguments.contains(where: { $0.hasPrefix("UITEST") })
+                || environment["XCTestConfigurationFilePath"] != nil
+                || environment["UITEST_FAMILY_SHARE_SCENARIO"] != nil
+        }
+    ) {
+        self.runtimeMode = runtimeMode
+        self.isUITestRunProvider = isUITestRunProvider
+    }
 
     private var isUITestRun: Bool {
-        let processInfo = ProcessInfo.processInfo
-        let arguments = processInfo.arguments
-        let environment = processInfo.environment
-        return arguments.contains(where: { $0.hasPrefix("UITEST") })
-            || environment["XCTestConfigurationFilePath"] != nil
-            || environment["UITEST_FAMILY_SHARE_SCENARIO"] != nil
+        isUITestRunProvider()
     }
-    
+
+    var isNotificationPromptEnabled: Bool {
+        runtimeMode.allowsNotificationPrompts && !isUITestRun
+    }
+
+    var isReminderRuntimeSchedulingEnabled: Bool {
+        runtimeMode.allowsReminderScheduling && !isUITestRun
+    }
+
+    var isAutomationSchedulerEnabled: Bool {
+        runtimeMode.allowsAutomationScheduler && !isUITestRun
+    }
+
     func requestPermission() async -> Bool {
-        guard !isUITestRun else { return false }
+        guard isNotificationPromptEnabled else { return false }
         do {
-            let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+            let granted = try await requestAuthorization(options: [.alert, .sound, .badge])
             return granted
         } catch {
             // Notification permission failed - user will need to enable manually
             return false
         }
     }
-    
+
     func scheduleReminders(for goal: Goal) async {
-        guard !isUITestRun else { return }
-        let center = UNUserNotificationCenter.current()
-        
         // Cancel existing notifications for this goal
         await cancelNotifications(for: goal)
-        
+
+        guard isReminderRuntimeSchedulingEnabled else { return }
+
         // Check if reminders are enabled
         guard goal.isReminderEnabled else { return }
-        
+
         // Get reminder dates from the goal
         let reminderDates = goal.reminderDates
-        
+
         // Filter to only future dates
         let futureReminderDates = reminderDates.filter { $0 > Date() }
-        
+
         guard !futureReminderDates.isEmpty else { return }
-        
+
         // Get current total for suggested deposit calculation
-        // Note: Uses manual balance only. For accurate values with currency conversion, 
+        // Note: Uses manual balance only. For accurate values with currency conversion,
         // this would need to use GoalViewModel, but for notification scheduling we use basic calculation
         let currentTotal = goal.currentTotal
         let remainingAmount = max(goal.targetAmount - currentTotal, 0)
         let suggestedDepositAmount = remainingAmount / Double(futureReminderDates.count)
-        
+
         // Schedule new reminders
         for date in futureReminderDates {
             let content = UNMutableNotificationContent()
             content.title = "Savings Reminder: \(goal.name)"
-            
+
             // Create personalized message based on goal progress
             let progressPercent = Int((currentTotal / goal.targetAmount) * 100)
             if progressPercent >= 90 {
@@ -73,79 +95,77 @@ class NotificationManager {
             } else {
                 content.body = "Time to save! Add \(String(format: "%.2f", suggestedDepositAmount)) \(goal.currency) toward your \(goal.name) goal."
             }
-            
+
             content.sound = .default
             content.categoryIdentifier = "SAVINGS_REMINDER"
-            
+
             // Use the exact date and time from reminder configuration
             let calendar = Calendar.current
             let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
             let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-            
+
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "yyyy-MM-dd-HHmm"
             let dateString = dateFormatter.string(from: date)
             let identifier = "\(goal.id.uuidString)-reminder-\(dateString)"
-            
+
             let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-            
+
             do {
-                try await center.add(request)
+                try await addPendingNotificationRequest(request)
             } catch {
                 print("Failed to schedule notification for \(date): \(error)")
             }
         }
-        
+
         // Log successful scheduling
         print("Scheduled \(futureReminderDates.count) reminders for goal: \(goal.name)")
         if let nextReminder = futureReminderDates.first {
             print("Next reminder: \(nextReminder)")
         }
     }
-    
+
     func cancelNotifications(for goal: Goal) async {
-        let center = UNUserNotificationCenter.current()
-        let pendingRequests = await center.pendingNotificationRequests()
-        
+        let pendingRequests = await pendingNotificationRequests()
+
         let identifiersToRemove = pendingRequests
             .filter { $0.identifier.hasPrefix("\(goal.id.uuidString)-reminder-") || $0.identifier.hasPrefix("\(goal.id.uuidString)-monthly-") }
             .map { $0.identifier }
-        
+
         if !identifiersToRemove.isEmpty {
-            center.removePendingNotificationRequests(withIdentifiers: identifiersToRemove)
+            removePendingNotificationRequests(withIdentifiers: identifiersToRemove)
             print("Cancelled \(identifiersToRemove.count) notifications for goal: \(goal.name)")
         }
     }
-    
+
     // MARK: - Monthly Payment Reminders
-    
+
     /// Schedule monthly payment reminders for all active goals based on Required Monthly calculations
     func scheduleMonthlyPaymentReminders(
         requirements: [MonthlyRequirement],
         modelContext: ModelContext,
         settings: MonthlyReminderSettings
     ) async {
-        guard !isUITestRun else { return }
-        let center = UNUserNotificationCenter.current()
-        
         // Cancel existing monthly reminders
         await cancelAllMonthlyPaymentReminders()
-        
+
+        guard isReminderRuntimeSchedulingEnabled else { return }
+
         // Group by next payment date
         let upcomingReminders = generateMonthlyReminderSchedule(
             from: requirements,
             settings: settings
         )
-        
+
         for reminder in upcomingReminders {
             do {
                 let content = createMonthlyReminderContent(reminder)
                 let trigger = createMonthlyReminderTrigger(for: reminder.scheduledDate)
                 let identifier = "monthly-payment-\(reminder.month)-\(reminder.year)"
-                
+
                 let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-                try await center.add(request)
-                
+                try await addPendingNotificationRequest(request)
+
                 // Store reminder in database for tracking
                 let storedReminder = StoredMonthlyReminder(
                     month: reminder.month,
@@ -156,32 +176,31 @@ class NotificationManager {
                     currency: reminder.displayCurrency
                 )
                 modelContext.insert(storedReminder)
-                
+
                 print("📅 Scheduled monthly reminder for \(reminder.month)/\(reminder.year): \(reminder.totalAmount) \(reminder.displayCurrency)")
-                
+
             } catch {
                 print("❌ Failed to schedule monthly reminder for \(reminder.month)/\(reminder.year): \(error)")
             }
         }
-        
+
         // Save stored reminders
         try? modelContext.save()
-        
+
         print("✅ Scheduled \(upcomingReminders.count) monthly payment reminders")
     }
-    
+
     /// Schedule smart reminders that adapt based on goal urgency and progress
     func scheduleSmartReminders(
         requirements: [MonthlyRequirement],
         adjustedRequirements: [AdjustedRequirement]? = nil,
         modelContext: ModelContext
     ) async {
-        guard !isUITestRun else { return }
-        let center = UNUserNotificationCenter.current()
-        
         // Cancel existing smart reminders
         await cancelSmartReminders()
-        
+
+        guard isReminderRuntimeSchedulingEnabled else { return }
+
         let effectiveRequirements = adjustedRequirements ?? requirements.map { req in
             AdjustedRequirement(
                 requirement: req,
@@ -191,98 +210,110 @@ class NotificationManager {
                 impactAnalysis: ImpactAnalysis(changeAmount: 0, changePercentage: 0, estimatedDelay: 0, riskLevel: .low)
             )
         }
-        
+
         for adjusted in effectiveRequirements {
             let reminderSchedule = generateSmartReminderSchedule(for: adjusted)
-            
+
             for reminderDate in reminderSchedule {
                 do {
                     let content = createSmartReminderContent(adjusted, scheduledDate: reminderDate)
                     let trigger = createSmartReminderTrigger(for: reminderDate)
                     let identifier = "smart-\(adjusted.requirement.goalId.uuidString)-\(Int(reminderDate.timeIntervalSince1970))"
-                    
+
                     let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-                    try await center.add(request)
-                    
+                    try await addPendingNotificationRequest(request)
+
                 } catch {
                     print("❌ Failed to schedule smart reminder for \(adjusted.requirement.goalName): \(error)")
                 }
             }
         }
     }
-    
+
     /// Schedule deadline approach warnings for critical goals
     func scheduleDeadlineWarnings(requirements: [MonthlyRequirement]) async {
-        guard !isUITestRun else { return }
-        let center = UNUserNotificationCenter.current()
-        
         // Cancel existing deadline warnings
         await cancelDeadlineWarnings()
-        
+
+        guard isReminderRuntimeSchedulingEnabled else { return }
+
         let criticalRequirements = requirements.filter { $0.status == .critical || $0.monthsRemaining <= 1 }
-        
+
         for requirement in criticalRequirements {
             let warningDates = generateDeadlineWarningDates(for: requirement)
-            
+
             for (warningDate, warningType) in warningDates {
                 do {
                     let content = createDeadlineWarningContent(requirement, type: warningType)
                     let trigger = createDeadlineWarningTrigger(for: warningDate)
                     let identifier = "deadline-\(requirement.goalId.uuidString)-\(warningType.rawValue)"
-                    
+
                     let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-                    try await center.add(request)
-                    
+                    try await addPendingNotificationRequest(request)
+
                 } catch {
                     print("❌ Failed to schedule deadline warning for \(requirement.goalName): \(error)")
                 }
             }
         }
-        
+
         print("⚠️ Scheduled deadline warnings for \(criticalRequirements.count) critical goals")
     }
-    
+
     /// Cancel all monthly payment reminders
     func cancelAllMonthlyPaymentReminders() async {
-        let center = UNUserNotificationCenter.current()
-        let pendingRequests = await center.pendingNotificationRequests()
-        
+        let pendingRequests = await pendingNotificationRequests()
+
         let monthlyIdentifiers = pendingRequests
             .filter { $0.identifier.hasPrefix("monthly-payment-") }
             .map { $0.identifier }
-        
+
         if !monthlyIdentifiers.isEmpty {
-            center.removePendingNotificationRequests(withIdentifiers: monthlyIdentifiers)
+            removePendingNotificationRequests(withIdentifiers: monthlyIdentifiers)
             print("🗑️ Cancelled \(monthlyIdentifiers.count) monthly payment reminders")
         }
     }
-    
+
     /// Cancel smart reminders
     private func cancelSmartReminders() async {
-        let center = UNUserNotificationCenter.current()
-        let pendingRequests = await center.pendingNotificationRequests()
-        
+        let pendingRequests = await pendingNotificationRequests()
+
         let smartIdentifiers = pendingRequests
             .filter { $0.identifier.hasPrefix("smart-") }
             .map { $0.identifier }
-        
+
         if !smartIdentifiers.isEmpty {
-            center.removePendingNotificationRequests(withIdentifiers: smartIdentifiers)
+            removePendingNotificationRequests(withIdentifiers: smartIdentifiers)
         }
     }
-    
+
     /// Cancel deadline warnings
     private func cancelDeadlineWarnings() async {
-        let center = UNUserNotificationCenter.current()
-        let pendingRequests = await center.pendingNotificationRequests()
-        
+        let pendingRequests = await pendingNotificationRequests()
+
         let warningIdentifiers = pendingRequests
             .filter { $0.identifier.hasPrefix("deadline-") }
             .map { $0.identifier }
-        
+
         if !warningIdentifiers.isEmpty {
-            center.removePendingNotificationRequests(withIdentifiers: warningIdentifiers)
+            removePendingNotificationRequests(withIdentifiers: warningIdentifiers)
         }
+    }
+
+    func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool {
+        try await UNUserNotificationCenter.current().requestAuthorization(options: options)
+    }
+
+    func pendingNotificationRequests() async -> [UNNotificationRequest] {
+        await UNUserNotificationCenter.current().pendingNotificationRequests()
+    }
+
+    func addPendingNotificationRequest(_ request: UNNotificationRequest) async throws {
+        try await UNUserNotificationCenter.current().add(request)
+    }
+
+    func removePendingNotificationRequests(withIdentifiers identifiers: [String]) {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
     }
     
     // MARK: - Private Helper Methods

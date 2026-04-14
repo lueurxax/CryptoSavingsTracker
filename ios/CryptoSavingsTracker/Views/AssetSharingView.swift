@@ -23,16 +23,10 @@ struct AssetSharingView: View {
     @State private var hasLoadedInitial = false
     @State private var fetchedOnChainBalance: Double? = nil
     @State private var isLoadingBalance: Bool = false
-    @State private var closeMonthSuggestions: [UUID: Double] = [:]
-    @State private var isLoadingCloseMonth = false
-    @State private var hasActiveExecution = false
-    @State private var pendingPrefillGoalId: UUID?
-    @State private var closeMonthClampWarning: String?
 
-    init(asset: Asset, currentGoalId: UUID? = nil, prefillCloseMonthGoalId: UUID? = nil) {
+    init(asset: Asset, currentGoalId: UUID? = nil) {
         self.asset = asset
         self.currentGoalId = currentGoalId
-        _pendingPrefillGoalId = State(initialValue: prefillCloseMonthGoalId)
     }
 
     private var hasOnChainAddress: Bool {
@@ -87,7 +81,6 @@ struct AssetSharingView: View {
                     assetInfoCard
                     instructionsCard
                     goalsAllocationSection
-                    closeMonthClampWarningView
                     quickActionsSection
                     if isOverAllocated {
                         overAllocationWarning
@@ -95,7 +88,7 @@ struct AssetSharingView: View {
                 }
                 .padding(.vertical)
             }
-            .navigationTitle("Share Asset")
+            .navigationTitle("Manage Allocations")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -121,14 +114,8 @@ struct AssetSharingView: View {
                 loadExistingAllocations()
                 Task {
                     await refreshOnChainBalanceIfNeeded()
-                    await loadCloseMonthSuggestionsIfNeeded()
                 }
                 hasLoadedInitial = true
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .monthlyPlanningAssetUpdated)) { _ in
-            Task {
-                await loadCloseMonthSuggestionsIfNeeded()
             }
         }
     }
@@ -169,11 +156,11 @@ struct AssetSharingView: View {
 
     private var instructionsCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("How to share this asset:", systemImage: "info.circle.fill")
+            Label("How to allocate this asset:", systemImage: "info.circle.fill")
                 .font(.headline)
                 .foregroundColor(.blue)
 
-            Text("Enter fixed amounts (in \(asset.currency)) to allocate to each goal. Total cannot exceed your asset balance.")
+            Text("Assign fixed amounts in \(asset.currency) to each goal. The total cannot exceed the available balance.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -188,22 +175,8 @@ struct AssetSharingView: View {
             Text("Allocate to Goals")
                 .font(.headline)
 
-            if hasActiveExecution {
-                HStack(spacing: 6) {
-                    if isLoadingCloseMonth {
-                        ProgressView()
-                            .controlSize(.small)
-                    } else {
-                        Image(systemName: "target")
-                    }
-                    Text("Quick add: close current month")
-                }
-                .font(.caption)
-                .foregroundColor(.secondary)
-            }
-
             if orderedGoals.isEmpty {
-                Text("No goals available. Create goals first to share this asset.")
+                Text("No goals available. Create a goal first to allocate this asset.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .italic()
@@ -219,9 +192,7 @@ struct AssetSharingView: View {
                         assetCurrency: asset.currency,
                         assetBalance: bestKnownBalance,
                         remainingAmount: remainingAmount,
-                        onAllocateRemaining: { allocateRemaining(to: goal) },
-                        closeMonthAmount: closeMonthAmount(for: goal),
-                        onAddToCloseMonth: closeMonthAction(for: goal)
+                        onAllocateRemaining: { allocateRemaining(to: goal) }
                     )
                 }
             }
@@ -232,29 +203,13 @@ struct AssetSharingView: View {
     private var quickActionsSection: some View {
         VStack(spacing: 12) {
             Button(action: clearAll) {
-                Label("Clear All Allocations", systemImage: "xmark.circle")
+                Label("Clear Allocations", systemImage: "xmark.circle")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .tint(.red)
         }
         .padding(.horizontal)
-    }
-
-    private var closeMonthClampWarningView: some View {
-        Group {
-            if let closeMonthClampWarning {
-                Label(closeMonthClampWarning, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundColor(.orange)
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.orange.opacity(0.1))
-                    .cornerRadius(10)
-                    .padding(.horizontal)
-                    .accessibilityIdentifier("closeMonthClampWarning")
-            }
-        }
     }
 
     private var overAllocationWarning: some View {
@@ -278,7 +233,6 @@ struct AssetSharingView: View {
     
     private func clearAll() {
         allocations.removeAll()
-        closeMonthClampWarning = nil
     }
 
     private func allocationBinding(for goal: Goal) -> Binding<Double> {
@@ -293,36 +247,6 @@ struct AssetSharingView: View {
         let remaining = remainingAmount
         guard remaining > epsilon else { return }
         allocations[goal.id] = (allocations[goal.id] ?? 0) + remaining
-    }
-
-    private func closeMonthAmount(for goal: Goal) -> Double? {
-        hasActiveExecution ? closeMonthSuggestions[goal.id] : nil
-    }
-
-    private func closeMonthAction(for goal: Goal) -> (() -> Void)? {
-        guard hasActiveExecution else { return nil }
-        return { addCloseMonthAllocation(for: goal) }
-    }
-
-    private func addCloseMonthAllocation(for goal: Goal) {
-        let epsilon = 0.0000001
-        guard let suggestion = closeMonthSuggestions[goal.id], suggestion > epsilon else { return }
-        let available = max(0, remainingAmount)
-        let toAllocate = min(suggestion, available)
-        guard toAllocate > epsilon else {
-            closeMonthClampWarning = "No unallocated balance available to add for \(goal.name)."
-            return
-        }
-        allocations[goal.id] = (allocations[goal.id] ?? 0) + toAllocate
-        if suggestion > available + epsilon {
-            closeMonthClampWarning = "Only \(formatAmount(toAllocate)) \(asset.currency) available to add for \(goal.name)."
-        } else {
-            closeMonthClampWarning = nil
-        }
-    }
-
-    private func formatAmount(_ amount: Double) -> String {
-        String(format: "%.4f", amount)
     }
     
     private func saveAllocations() {
@@ -339,64 +263,6 @@ struct AssetSharingView: View {
         } catch {
             // Error handling would go here
         }
-    }
-
-    @MainActor
-    private func loadCloseMonthSuggestionsIfNeeded() async {
-        guard !isLoadingCloseMonth else { return }
-        isLoadingCloseMonth = true
-        defer { isLoadingCloseMonth = false }
-
-        let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
-        do {
-            guard let record = try executionService.getActiveRecord() else {
-                hasActiveExecution = false
-                closeMonthSuggestions = [:]
-                pendingPrefillGoalId = nil
-                return
-            }
-
-            hasActiveExecution = true
-
-            let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
-            let plans = try planService.fetchPlans(for: record.monthLabel)
-            let trackedIds = Set(record.goalIds)
-            let trackedPlans = plans.filter { trackedIds.contains($0.goalId) }
-            let contributions = try await executionService.getContributionTotals(for: record)
-            let calculator = ExecutionContributionCalculator(exchangeRateService: DIContainer.shared.exchangeRateService)
-
-            var suggestions: [UUID: Double] = [:]
-            for plan in trackedPlans {
-                let planned = plan.effectiveAmount
-                guard planned > 0 else { continue }
-
-                let contributed = contributions[plan.goalId] ?? 0
-                let remaining = max(0, planned - contributed)
-                guard remaining > 0 else { continue }
-
-                if let converted = await calculator.convertAmount(
-                    remaining,
-                    from: plan.currency,
-                    to: asset.currency
-                ), converted > 0 {
-                    suggestions[plan.goalId] = converted
-                }
-            }
-
-            closeMonthSuggestions = suggestions
-            applyPendingPrefillIfNeeded()
-        } catch {
-            hasActiveExecution = false
-            closeMonthSuggestions = [:]
-            pendingPrefillGoalId = nil
-        }
-    }
-
-    private func applyPendingPrefillIfNeeded() {
-        guard let goalId = pendingPrefillGoalId else { return }
-        guard let goal = goals.first(where: { $0.id == goalId }) else { return }
-        addCloseMonthAllocation(for: goal)
-        pendingPrefillGoalId = nil
     }
 
     private func cacheFetchedBalanceIfNeeded() {

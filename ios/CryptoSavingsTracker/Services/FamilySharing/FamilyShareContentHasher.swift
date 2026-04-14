@@ -11,6 +11,7 @@ import CryptoKit
 /// `.participantChange` dirty events produce a different hash because root
 /// metadata is included — these publishes are never incorrectly deduplicated.
 struct FamilyShareContentHasher: Sendable {
+    nonisolated init() {}
 
     /// Compute a deterministic content hash from canonical projection data.
     ///
@@ -23,7 +24,7 @@ struct FamilyShareContentHasher: Sendable {
     ///   - ownerDisplayName: The owner's display name visible to invitees.
     ///   - participantIDs: Sorted participant identifiers.
     /// - Returns: Hex-encoded SHA-256 digest string.
-    func hash(
+    nonisolated func hash(
         goalData: [(goalID: UUID, currentAmount: Decimal, targetAmount: Decimal)],
         rateSnapshotTimestamp: Date?,
         ownerDisplayName: String?,

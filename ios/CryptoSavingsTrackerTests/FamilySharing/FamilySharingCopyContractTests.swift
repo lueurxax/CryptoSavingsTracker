@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import CryptoSavingsTracker
 
@@ -30,17 +31,16 @@ struct FamilySharingCopyContractTests {
         )
     }
 
-    @Test("settings rows keep family access before local bridge sync")
-    func settingsFamilyAccessComesBeforeLocalBridgeSync() throws {
+    @Test("public mvp settings excludes family access and local bridge sync rows")
+    func settingsExcludesFamilyAccessAndLocalBridgeSync() throws {
         let root = repositoryRoot()
         let source = try readSource(root, "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift")
 
         let familyAccessRow = source.range(of: "settings.cloudkit.familyAccessRow")
         let localBridgeRow = source.range(of: "settings.cloudkit.localBridgeSyncRow")
 
-        #expect(familyAccessRow != nil)
-        #expect(localBridgeRow != nil)
-        #expect(familyAccessRow!.lowerBound < localBridgeRow!.lowerBound)
+        #expect(familyAccessRow == nil)
+        #expect(localBridgeRow == nil)
     }
 
     @Test("family-sharing state copy is user-facing in revoked/unavailable states")

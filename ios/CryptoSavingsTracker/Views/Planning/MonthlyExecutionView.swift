@@ -167,8 +167,7 @@ struct MonthlyExecutionView: View {
         }) { sheetData in
             AssetSharingView(
                 asset: sheetData.asset,
-                currentGoalId: sheetData.goalSnapshot.goalId,
-                prefillCloseMonthGoalId: sheetData.goalSnapshot.goalId
+                currentGoalId: sheetData.goalSnapshot.goalId
             )
         }
         .overlay {

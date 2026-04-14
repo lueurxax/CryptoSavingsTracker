@@ -89,8 +89,7 @@ actor FamilyShareRateDriftEvaluator {
             let lastAmount = lastPublishedAmounts[input.goalID] ?? 0
 
             // Get USD-to-goal-currency rate for materiality check
-            let usdPair = CurrencyPair(from: "USD", to: input.currency)
-            let usdToGoalRate = rateEvent.rates[usdPair]
+            let usdToGoalRate = rateEvent.rate(from: "USD", to: input.currency)
 
             if materialityPolicy.isMaterial(
                 newAmount: result.currentAmount,

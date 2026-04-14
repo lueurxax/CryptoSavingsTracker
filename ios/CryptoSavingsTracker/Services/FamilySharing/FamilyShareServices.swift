@@ -985,7 +985,6 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
 
         Task { [weak self] in
             await self?.refreshAllState()
-            await self?.startFreshnessPipeline()
         }
     }
 
@@ -2100,18 +2099,18 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         }
 
         // Build rate snapshot from currently cached exchange rates
-        var rateMap: [CurrencyPair: Decimal] = [:]
-        var ratePairs: Set<CurrencyPair> = []
+        var rateMap: [String: Decimal] = [:]
+        var ratePairs: Set<String> = []
         for input in inputs {
             for alloc in input.allocations {
                 let from = alloc.assetCurrency.uppercased()
                 let to = input.currency.uppercased()
                 if from != to {
-                    let pair = CurrencyPair(from: from, to: to)
-                    ratePairs.insert(pair)
-                    if rateMap[pair] == nil {
+                    let pairKey = CurrencyPair.canonicalKey(from: from, to: to)
+                    ratePairs.insert(pairKey)
+                    if rateMap[pairKey] == nil {
                         if let rate = try? await exchangeRateService.fetchRate(from: from, to: to) {
-                            rateMap[pair] = Decimal(rate)
+                            rateMap[pairKey] = Decimal(rate)
                         }
                     }
                 }

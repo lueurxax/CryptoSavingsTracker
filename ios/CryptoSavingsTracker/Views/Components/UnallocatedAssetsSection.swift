@@ -42,7 +42,7 @@ struct UnallocatedAssetsSection: View {
                 .padding(.horizontal)
                 
                 // Info message
-                Text("These assets have unallocated portions. Assign them to goals to track progress accurately.")
+                Text("These assets have unallocated portions. Use the allocation workspace to allocate this asset to one or more goals.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.horizontal)

@@ -78,7 +78,8 @@ struct GoalsListContainer: View {
                 }
             }
             .onAppear {
-                if PlatformManager.shared.capabilities.supportsHapticFeedback {
+                if HiddenRuntimeMode.current.allowsShortcuts,
+                   PlatformManager.shared.capabilities.supportsHapticFeedback {
                     setupShortcuts()
                 }
             }

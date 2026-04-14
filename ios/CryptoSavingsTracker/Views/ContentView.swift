@@ -50,9 +50,9 @@ struct ContentView: View {
             iOSContentView()
         case .splitView:
             #if os(macOS)
-                macOSContentView()
+            macOSContentView()
             #else
-                iOSContentView()
+            iOSContentView()
             #endif
         }
     }

@@ -52,6 +52,6 @@ enum GoalDashboardContract {
         "add_asset",
         "add_contribution",
         "edit_goal",
-        "view_history"
+        "review_activity"
     ]
 }

@@ -11,14 +11,15 @@ enum GoalDashboardCopyCatalog {
     private static let values: [String: String] = [
         "dashboard.nextAction.hardError.reason": "Data sync failed. Retry now or inspect diagnostics.",
         "dashboard.nextAction.hardError.nextStep": "Retry sync first. If it still fails, verify connection and currency rates.",
-        "dashboard.nextAction.finished.reason": "This goal is closed. Review history or create a new goal.",
+        "dashboard.nextAction.finished.reason": "This goal is closed. Review activity or create a new goal.",
         "dashboard.nextAction.paused.reason": "This goal is paused. Resume tracking to continue progress.",
         "dashboard.nextAction.overAllocated.reason": "Allocated amounts exceed available balance on at least one asset.",
         "dashboard.nextAction.noAssets.reason": "No assets are linked to this goal yet.",
         "dashboard.nextAction.noContributions.reason": "No contributions were recorded this month.",
         "dashboard.nextAction.stale.reason": "Dashboard data is stale. Refresh before making decisions.",
-        "dashboard.nextAction.behind.reason": "Current pace is below target. Plan this month now.",
-        "dashboard.nextAction.onTrack.reason": "Goal is on track. Log your next contribution.",
+        "dashboard.nextAction.behind.reason": "Current pace is below target. Add a contribution or edit the goal.",
+        "dashboard.nextAction.onTrack.reason": "Goal is on track. Log the next contribution or review recent activity.",
+        "dashboard.utilities.reviewActivity": "Review recent activity for this goal.",
         "dashboard.forecast.empty": "Forecast needs more activity data."
     ]
 

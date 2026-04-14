@@ -48,7 +48,7 @@ struct GoalDashboardNextActionResolverTests {
         #expect(result.diagnostics?.lastSuccessfulRefreshAt == now)
     }
 
-    @Test("Resolver behind schedule has planning CTA")
+    @Test("Resolver behind schedule stays inside retained MVP actions")
     func resolverBehindSchedule() {
         let result = resolver.resolve(
             lifecycle: .active,
@@ -62,7 +62,8 @@ struct GoalDashboardNextActionResolverTests {
             reasonCode: nil
         )
         #expect(result.resolverState == .behindSchedule)
-        #expect(result.primaryCta.id == "plan_this_month")
+        #expect(result.primaryCta.id == "add_contribution")
+        #expect(result.secondaryCta?.id == "edit_goal")
     }
 
     @Test("Resolver covers all contract states deterministically")
@@ -103,6 +104,32 @@ struct GoalDashboardNextActionResolverTests {
             reasonCode: nil
         )
         #expect(result.resolverState == .onTrack)
+        #expect(result.secondaryCta?.id == "review_activity")
+    }
+
+    @Test("Resolver contract excludes planner and forecast CTAs in retained Apple mode")
+    func resolverContractExcludesHiddenFeatureCtas() {
+        let hiddenIDs = Set(["plan_this_month", "open_forecast", "view_goal_history", "view_history", "open_activity"])
+
+        for state in GoalDashboardNextActionResolverState.allCases {
+            let input = input(for: state)
+            let result = resolver.resolve(
+                lifecycle: input.lifecycle,
+                freshness: input.freshness,
+                hasAssets: input.hasAssets,
+                hasContributionsThisMonth: input.hasContributionsThisMonth,
+                forecastStatus: input.forecastStatus,
+                forecastConfidence: input.forecastConfidence,
+                overAllocated: input.overAllocated,
+                lastSuccessfulRefreshAt: nil,
+                reasonCode: nil
+            )
+
+            #expect(!hiddenIDs.contains(result.primaryCta.id))
+            if let secondaryID = result.secondaryCta?.id {
+                #expect(!hiddenIDs.contains(secondaryID))
+            }
+        }
     }
 
     private func assertResolvedState(_ input: ResolverInput, _ expected: GoalDashboardNextActionResolverState) {
@@ -118,6 +145,29 @@ struct GoalDashboardNextActionResolverTests {
             reasonCode: nil
         )
         #expect(result.resolverState == expected)
+    }
+
+    private func input(for state: GoalDashboardNextActionResolverState) -> ResolverInput {
+        switch state {
+        case .hardError:
+            return ResolverInput(lifecycle: .active, freshness: .hardError, hasAssets: true, hasContributionsThisMonth: true, forecastStatus: .onTrack, forecastConfidence: .high, overAllocated: false)
+        case .goalFinishedOrArchived:
+            return ResolverInput(lifecycle: .finished, freshness: .fresh, hasAssets: true, hasContributionsThisMonth: true, forecastStatus: .onTrack, forecastConfidence: .high, overAllocated: false)
+        case .goalPaused:
+            return ResolverInput(lifecycle: .paused, freshness: .fresh, hasAssets: true, hasContributionsThisMonth: true, forecastStatus: .onTrack, forecastConfidence: .high, overAllocated: false)
+        case .overAllocated:
+            return ResolverInput(lifecycle: .active, freshness: .fresh, hasAssets: true, hasContributionsThisMonth: true, forecastStatus: .onTrack, forecastConfidence: .high, overAllocated: true)
+        case .noAssets:
+            return ResolverInput(lifecycle: .active, freshness: .fresh, hasAssets: false, hasContributionsThisMonth: true, forecastStatus: .onTrack, forecastConfidence: .high, overAllocated: false)
+        case .noContributions:
+            return ResolverInput(lifecycle: .active, freshness: .fresh, hasAssets: true, hasContributionsThisMonth: false, forecastStatus: .onTrack, forecastConfidence: .high, overAllocated: false)
+        case .staleData:
+            return ResolverInput(lifecycle: .active, freshness: .stale, hasAssets: true, hasContributionsThisMonth: true, forecastStatus: .onTrack, forecastConfidence: .high, overAllocated: false)
+        case .behindSchedule:
+            return ResolverInput(lifecycle: .active, freshness: .fresh, hasAssets: true, hasContributionsThisMonth: true, forecastStatus: .offTrack, forecastConfidence: .medium, overAllocated: false)
+        case .onTrack:
+            return ResolverInput(lifecycle: .active, freshness: .fresh, hasAssets: true, hasContributionsThisMonth: true, forecastStatus: .onTrack, forecastConfidence: .high, overAllocated: false)
+        }
     }
 }
 

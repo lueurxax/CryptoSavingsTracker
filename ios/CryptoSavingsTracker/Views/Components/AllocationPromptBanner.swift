@@ -18,11 +18,11 @@ struct AllocationPromptBanner: View {
                         .foregroundColor(.blue)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Asset Added Successfully")
+                        Text("Asset Added")
                             .font(.caption)
                             .fontWeight(.semibold)
                         
-                        Text("You can share \(asset.currency) with other goals")
+                        Text("You can assign \(asset.currency) to your goals")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -32,7 +32,7 @@ struct AllocationPromptBanner: View {
                     Button(action: {
                         showingAllocationView = true
                     }) {
-                        Text("Manage")
+                        Text("Allocate")
                             .font(.caption)
                             .fontWeight(.medium)
                     }

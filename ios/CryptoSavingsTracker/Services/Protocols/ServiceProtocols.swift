@@ -50,11 +50,11 @@ protocol ExchangeRateServiceProtocol {
 
     /// Returns the conservative snapshot timestamp for the supplied rate pairs.
     /// For mixed-age batches this is the oldest available pair timestamp.
-    func rateSnapshotTimestamp(for pairs: Set<CurrencyPair>) -> Date?
+    func rateSnapshotTimestamp(for pairs: Set<String>) -> Date?
 }
 
 extension ExchangeRateServiceProtocol {
-    func rateSnapshotTimestamp(for pairs: Set<CurrencyPair>) -> Date? { nil }
+    func rateSnapshotTimestamp(for pairs: Set<String>) -> Date? { nil }
 }
 
 protocol FlexAdjustmentServiceProtocol {

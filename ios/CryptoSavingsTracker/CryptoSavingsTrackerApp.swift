@@ -18,22 +18,18 @@ import UIKit
 struct CryptoSavingsTrackerApp: App {
     static let previewModelContainer: ModelContainer = PersistenceStackFactory.makePreviewContainer()
 
+    private let bootstrapPlan: AppBootstrapPlan
     @StateObject private var persistenceController: PersistenceController
-    #if os(iOS)
-    @UIApplicationDelegateAdaptor(AppDelegateRouter.self) private var appDelegateRouter
-    #endif
 
     init() {
-        if UITestFlags.isEnabled {
-            UserDefaults.standard.set("ui-test-owner", forKey: "familyShare.ownerID")
-            UserDefaults.standard.set("ui-test-household", forKey: "familyShare.shareID")
-            UserDefaults.standard.set("UI Test Owner", forKey: "familyShare.ownerName")
-        }
-        // Clean up any cloud-backed store files left by a retired cutover attempt.
-        // Must run before any cloud-backed ModelContainer is opened.
-        PersistenceController.performDeferredCloudStoreCleanupIfNeeded()
-        // Phase 1.5 hard cutover: retired local-primary store files are removed on launch.
-        PersistenceController.performLegacyLocalStoreCleanupIfNeeded()
+        let bootstrapPlan = BootstrapPolicyResolver.resolve()
+        self.bootstrapPlan = bootstrapPlan
+        bootstrapPlan.testHarnessPlan.applyLaunchDefaults()
+        bootstrapPlan.persistenceBootstrap.run()
+        assert(
+            !bootstrapPlan.platformBridgePlan.shouldEnableAppDelegateBridge,
+            "BootstrapPolicyResolver must stay aligned with the removed app-root delegate bridge seam."
+        )
         _persistenceController = StateObject(wrappedValue: PersistenceController.shared)
 
         // Suppress haptic feedback warnings in iOS Simulator
@@ -45,20 +41,9 @@ struct CryptoSavingsTrackerApp: App {
         }
         #endif
 
-        // Mark startup complete after a delay to prevent API spam
         Task {
-            await StartupThrottler.shared.waitForStartup()
-            let args = ProcessInfo.processInfo.arguments
-            let environment = ProcessInfo.processInfo.environment
-            let isXCTestRun = environment["XCTestConfigurationFilePath"] != nil
-            let isUITestRun = args.contains(where: { $0.hasPrefix("UITEST") })
-            let isPreviewRun = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
-            let isTestRun = isXCTestRun || isUITestRun || isPreviewRun
-
-            if !isTestRun {
-                await MainActor.run {
-                    DIContainer.shared.cloudKitHealthMonitor.startMonitoring()
-                }
+            await bootstrapPlan.monitoringPlan.startIfNeeded(throttler: StartupThrottler.shared) {
+                DIContainer.shared.cloudKitHealthMonitor.startMonitoring()
             }
         }
     }
@@ -179,30 +164,25 @@ struct CryptoSavingsTrackerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            let args = ProcessInfo.processInfo.arguments
-            let environment = ProcessInfo.processInfo.environment
-            let isXCTestRun = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-            let captureMode = environment["VISUAL_CAPTURE_MODE"]?.lowercased()
-            let productionFlow = environment["VISUAL_PRODUCTION_FLOW"]
-            let productionState = environment["VISUAL_PRODUCTION_STATE"]
-            let captureComponent = environment["VISUAL_CAPTURE_COMPONENT"]
-            let captureState = environment["VISUAL_CAPTURE_STATE"]
-            UITestBootstrapView {
-                // Keep the app headless only for unit/integration tests.
-                // UI tests rely on UITEST_* launch arguments and need real UI rendered.
-                if isXCTestRun && !UITestFlags.isEnabled {
+            UITestBootstrapView(plan: bootstrapPlan.testHarnessPlan) {
+                if case .headless = bootstrapPlan.rootShellPlan.destination {
                     Color.clear
-                } else if captureMode == "production", let productionFlow {
-                    VisualProductionCaptureView(flow: productionFlow, state: productionState ?? "default")
-                } else if let captureComponent, let captureState {
-                    VisualStateCaptureView(component: captureComponent, state: captureState)
-                } else if args.contains("UITEST_SEED_MANY_GOALS")
-                    || args.contains("UITEST_SEED_GOALS")
-                    || args.contains("UITEST_UI_FLOW")
-                {
-                    ContentView()
                 } else {
-                    OnboardingContentView()
+                    switch bootstrapPlan.visualCapturePlan.destination {
+                    case .none:
+                        switch bootstrapPlan.rootShellPlan.destination {
+                        case .headless:
+                            Color.clear
+                        case .content:
+                            ContentView()
+                        case .onboarding:
+                            OnboardingContentView()
+                        }
+                    case .production(let flow, let state):
+                        VisualProductionCaptureView(flow: flow, state: state)
+                    case .component(let component, let state):
+                        VisualStateCaptureView(component: component, state: state)
+                    }
                 }
             }
         }
@@ -444,7 +424,3 @@ private struct VisualProductionCaptureView: View {
         }
     }
 }
-
-#if os(iOS)
-final class AppDelegateRouter: NSObject, UIApplicationDelegate {}
-#endif

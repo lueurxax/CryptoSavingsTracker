@@ -140,8 +140,12 @@ struct AccessibilityTests {
 
     @Test("Accessibility audit flags current budget sheet done button identifiers as unique")
     func testBudgetSheetDoneButtonIdentifiersAreDistinct() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
         let source = try String(
-            contentsOfFile: "/Users/user/Library/Application Support/Chainworks Forge/worktrees/cw-улучшения-пользовательского-оп-ea93e8/ios/CryptoSavingsTracker/Views/Planning/BudgetCalculatorSheet.swift",
+            contentsOf: root.appendingPathComponent("ios/CryptoSavingsTracker/Views/Planning/BudgetCalculatorSheet.swift"),
             encoding: .utf8
         )
 

@@ -13,11 +13,13 @@ struct GoalLifecycleService {
     private let modelContext: ModelContext
     private let allocationService: AllocationService
     private let executionService: ExecutionTrackingService
+    private let notificationManager: NotificationManager
 
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, notificationManager: NotificationManager? = nil) {
         self.modelContext = modelContext
         self.allocationService = AllocationService(modelContext: modelContext)
         self.executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
+        self.notificationManager = notificationManager ?? .shared
     }
 
     /// Cancel a goal: allocations become unallocated/reusable, goal is excluded from current execution tracking.
@@ -91,7 +93,7 @@ struct GoalLifecycleService {
     }
 
     private func retireLegacyReminderRuntime(for goal: Goal) async {
-        await NotificationManager.shared.cancelNotifications(for: goal)
+        await notificationManager.cancelNotifications(for: goal)
         clearReminderState(for: goal)
     }
 

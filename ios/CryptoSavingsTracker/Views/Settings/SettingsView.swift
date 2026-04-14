@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct SettingsView: View {
+    static let syncSectionFooterCopy = SettingsUXCopy.syncSectionFooter
+
     @Environment(\.dismiss) private var dismiss
     @AppStorage("mvp.settings.displayCurrency") private var displayCurrency = "USD"
     @AppStorage("mvp.settings.appearance") private var appearance = "system"
@@ -34,10 +36,6 @@ struct SettingsView: View {
                 Section("About") {
                     Link(destination: supportURL) {
                         settingsRow(title: "Support", value: "Open")
-                    }
-
-                    Link(destination: supportURL) {
-                        settingsRow(title: "What changed in this update", value: "Open")
                     }
 
                     settingsRow(title: "Version", value: appVersion)

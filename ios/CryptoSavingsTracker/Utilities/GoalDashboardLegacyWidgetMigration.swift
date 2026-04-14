@@ -81,9 +81,9 @@ enum GoalDashboardLegacyWidgetMigration {
     private static func mappedActionID(forLegacyWidgetType type: String) -> String? {
         switch type {
         case DashboardWidgetType.progressRing.rawValue:
-            return "view_history"
+            return "review_activity"
         case DashboardWidgetType.lineChart.rawValue:
-            return "view_history"
+            return "review_activity"
         case DashboardWidgetType.stackedBar.rawValue:
             return "add_asset"
         case DashboardWidgetType.forecast.rawValue:

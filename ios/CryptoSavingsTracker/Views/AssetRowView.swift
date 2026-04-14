@@ -47,6 +47,14 @@ struct AssetRowView: View {
     private var hasOnChainAddress: Bool {
         safeAssetAddress != nil && safeAssetChainId != nil
     }
+
+    private var publicCryptoTrackingStatus: BalanceState.CryptoTrackingStatus? {
+        guard hasOnChainAddress else { return nil }
+        return balanceState.publicCryptoTrackingStatus(
+            isRefreshing: isRefreshing || isLoadingBalance,
+            hasRetainedValue: lastBalanceUpdate != nil || onChainBalance > 0 || asset.cachedOnChainBalance > 0
+        )
+    }
     
     private var assetTransactions: [Transaction] {
         allTransactions.filter { $0.asset?.id == asset.id }
@@ -62,7 +70,7 @@ struct AssetRowView: View {
             .reduce(0) { $0 + $1.amount }
     }
     
-    private var isSharedAsset: Bool {
+    private var hasMultipleGoalAllocations: Bool {
         (asset.allocations ?? []).count > 1
     }
 
@@ -118,7 +126,7 @@ struct AssetRowView: View {
                                 .font(.headline)
                                 .fontWeight(.semibold)
                             
-                            if isSharedAsset {
+                            if hasMultipleGoalAllocations {
                                 Image(systemName: "chart.pie.fill")
                                     .font(.caption)
                                     .foregroundColor(.purple)
@@ -130,6 +138,12 @@ struct AssetRowView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .monospaced()
+                        }
+
+                        if let publicCryptoTrackingStatus {
+                            Label(publicCryptoTrackingStatus.title, systemImage: publicCryptoTrackingStatus.systemImage)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
                         }
                         
                         if goal != nil {
@@ -256,7 +270,7 @@ struct AssetRowView: View {
                                     Image(systemName: "chart.pie.fill")
                                         .font(.title3)
                                         .foregroundColor(.purple)
-                                    Text("Share")
+                                    Text("Allocate")
                                         .font(.caption2)
                                         .foregroundColor(.primary)
                                 }
@@ -264,7 +278,7 @@ struct AssetRowView: View {
                                 .background(Color.purple.opacity(0.1))
                                 .cornerRadius(10)
                             }
-                            .accessibilityIdentifier("shareAssetButton")
+                            .accessibilityIdentifier("manageAllocationButton")
                             .buttonStyle(PlainButtonStyle())
 
                             if let goal, unallocatedAmountForAllocationUI > 0.0000001 {

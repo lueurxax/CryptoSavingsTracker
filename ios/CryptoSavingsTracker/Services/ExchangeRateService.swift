@@ -412,14 +412,14 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
 
         guard !stalePairs.isEmpty else { return }
 
-        var refreshedPairs: Set<CurrencyPair> = []
-        var refreshedRates: [CurrencyPair: Decimal] = [:]
+        var refreshedPairs: Set<String> = []
+        var refreshedRates: [String: Decimal] = [:]
         for (from, to) in stalePairs {
             do {
                 let refreshedRate = try await fetchRate(from: from, to: to)
-                let pair = CurrencyPair(from: from, to: to)
-                refreshedPairs.insert(pair)
-                refreshedRates[pair] = Decimal(refreshedRate)
+                let pairKey = CurrencyPair.canonicalKey(from: from, to: to)
+                refreshedPairs.insert(pairKey)
+                refreshedRates[pairKey] = Decimal(refreshedRate)
             } catch {
                 AppLog.warning("Failed to refresh stale rate \(from)→\(to): \(error)", category: .api)
             }
@@ -438,10 +438,12 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
         }
     }
 
-    func rateSnapshotTimestamp(for pairs: Set<CurrencyPair>) -> Date? {
+    func rateSnapshotTimestamp(for pairs: Set<String>) -> Date? {
         cacheQueue.sync {
-            let timestamps = pairs.compactMap { pair in
-                lastFetchTime["\(pair.from.uppercased())-\(pair.to.uppercased())"]
+            let timestamps: [Date] = pairs.compactMap { pairKey -> Date? in
+                let components = pairKey.split(separator: "→", maxSplits: 1).map(String.init)
+                guard components.count == 2 else { return nil }
+                return lastFetchTime["\(components[0].uppercased())-\(components[1].uppercased())"]
             }
             return timestamps.min()
         }

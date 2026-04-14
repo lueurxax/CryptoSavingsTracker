@@ -133,6 +133,29 @@ struct AddAssetView: View {
             return first.symbol.lowercased() < second.symbol.lowercased()
         }
     }
+
+    private var trackingStatusGuide: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Tracking states you'll see after adding a wallet:")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            ForEach(BalanceState.CryptoTrackingStatus.allCases, id: \.self) { status in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(status.title)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                    Text(status.addAssetDescription)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Text("Wallet addresses are optional and stay read-only once saved for tracking. If a refresh fails, the last successful balance stays visible while the status changes to Needs Attention.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+    }
     
     var body: some View {
         Group {
@@ -278,6 +301,8 @@ struct AddAssetView: View {
                                     }
                                 }
                             }
+
+                            trackingStatusGuide
                         }
 
                         // MARK: Footer note
@@ -480,13 +505,14 @@ struct AddAssetView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             Spacer()
-                        }, footer: VStack(alignment: .leading, spacing: 4) {
+                        }, footer: VStack(alignment: .leading, spacing: 8) {
                             Text("Add a blockchain address to automatically track balance and transactions.")
                             if !address.isEmpty {
                                 Text("Format: \(addressFormatHint)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
+                            trackingStatusGuide
                         }) {
                             HStack {
                                 Text("Address:")
@@ -644,7 +670,7 @@ struct AddAssetView: View {
         .alert("Asset Tracking Help", isPresented: $showingHelp) {
             Button("Got it") { }
         } message: {
-            Text("Manual tracking: Add transactions yourself for assets you hold offline, in wallets, or in fiat accounts.\n\nOn-chain tracking: Automatically monitor blockchain addresses for balance and transaction updates (crypto assets only).\n\nYou can use both methods for the same crypto asset.")
+            Text("Manual tracking: Add transactions yourself for assets you hold offline, in wallets, or in fiat accounts.\n\nOn-chain tracking: Automatically monitor blockchain addresses for balance and transaction updates (crypto assets only).\n\nTracking states: Connecting, Syncing, Connected, Stale, Needs Attention.\n\nWallet addresses are optional and become read-only once saved for tracking. If a refresh fails, the last successful balance stays visible while the status changes to Needs Attention.\n\nYou can use both methods for the same crypto asset.")
         }
     }
 

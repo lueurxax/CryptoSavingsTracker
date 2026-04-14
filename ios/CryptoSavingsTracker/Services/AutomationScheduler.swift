@@ -34,6 +34,8 @@ final class AutomationScheduler {
 
     /// Check if any automated transitions should occur and execute them
     func checkAndExecuteAutomation() async throws {
+        guard notificationManager.isAutomationSchedulerEnabled else { return }
+
         let calendar = Calendar.current
         let now = Date()
         let components = calendar.dateComponents([.year, .month, .day], from: now)
@@ -53,6 +55,7 @@ final class AutomationScheduler {
 
     /// Schedule notifications for upcoming automated transitions
     func scheduleAutomationNotifications() async throws {
+        guard notificationManager.isAutomationSchedulerEnabled else { return }
         guard await notificationManager.requestPermission() else {
             print("Notification permission not granted, skipping automation notifications")
             return

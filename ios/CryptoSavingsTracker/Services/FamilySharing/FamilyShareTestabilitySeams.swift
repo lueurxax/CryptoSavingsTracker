@@ -3,13 +3,21 @@ import Foundation
 // MARK: - Currency Pair
 
 /// Represents a directional currency conversion pair (e.g., BTC -> USD).
-struct CurrencyPair: Hashable, Sendable, Codable {
+struct CurrencyPair: Sendable, Codable, Equatable {
     let from: String
     let to: String
 
-    init(from: String, to: String) {
+    nonisolated init(from: String, to: String) {
         self.from = from.uppercased()
         self.to = to.uppercased()
+    }
+
+    nonisolated static func canonicalKey(from: String, to: String) -> String {
+        "\(from.uppercased())→\(to.uppercased())"
+    }
+
+    nonisolated var canonicalKey: String {
+        Self.canonicalKey(from: from, to: to)
     }
 }
 
@@ -17,33 +25,35 @@ struct CurrencyPair: Hashable, Sendable, Codable {
 
 /// Abstraction over `Date()` for deterministic testing.
 protocol FamilyShareClock: Sendable {
-    func now() -> Date
+    nonisolated func now() -> Date
 }
 
 /// Production clock returning the system time.
 struct SystemClock: FamilyShareClock, Sendable {
-    func now() -> Date { Date() }
+    nonisolated init() {}
+    nonisolated func now() -> Date { Date() }
 }
 
 // MARK: - Cancellable
 
 /// Cancellation handle returned by scheduler operations.
 protocol FamilyShareCancellable: Sendable {
-    func cancel()
+    nonisolated func cancel()
 }
 
 // MARK: - Scheduler Seam
 
 /// Abstraction over timers and delayed execution for deterministic testing.
 protocol FamilyShareScheduler: Sendable {
-    func scheduleDebounce(delay: TimeInterval, action: @escaping @Sendable () async -> Void) -> any FamilyShareCancellable
-    func schedulePeriodic(interval: TimeInterval, action: @escaping @Sendable () async -> Void) -> any FamilyShareCancellable
+    nonisolated func scheduleDebounce(delay: TimeInterval, action: @escaping @Sendable () async -> Void) -> any FamilyShareCancellable
+    nonisolated func schedulePeriodic(interval: TimeInterval, action: @escaping @Sendable () async -> Void) -> any FamilyShareCancellable
 }
 
 /// Production scheduler using Swift concurrency `Task.sleep`.
 struct GCDScheduler: FamilyShareScheduler, Sendable {
+    nonisolated init() {}
 
-    func scheduleDebounce(delay: TimeInterval, action: @escaping @Sendable () async -> Void) -> any FamilyShareCancellable {
+    nonisolated func scheduleDebounce(delay: TimeInterval, action: @escaping @Sendable () async -> Void) -> any FamilyShareCancellable {
         let task = Task {
             try? await Task.sleep(for: .seconds(delay))
             guard !Task.isCancelled else { return }
@@ -52,7 +62,7 @@ struct GCDScheduler: FamilyShareScheduler, Sendable {
         return TaskCancellable(task: task)
     }
 
-    func schedulePeriodic(interval: TimeInterval, action: @escaping @Sendable () async -> Void) -> any FamilyShareCancellable {
+    nonisolated func schedulePeriodic(interval: TimeInterval, action: @escaping @Sendable () async -> Void) -> any FamilyShareCancellable {
         let task = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(interval))
@@ -87,29 +97,33 @@ protocol FamilySharePublishTransport: Sendable {
 
 /// Event emitted when exchange rates are refreshed.
 struct RateRefreshEvent: Sendable {
-    let refreshedPairs: Set<CurrencyPair>
+    let refreshedPairs: Set<String>
     let rateSnapshotTimestamp: Date
-    let rates: [CurrencyPair: Decimal]
+    let rates: [String: Decimal]
+
+    nonisolated func rate(from: String, to: String) -> Decimal? {
+        rates[CurrencyPair.canonicalKey(from: from, to: to)]
+    }
 }
 
 /// Abstraction over exchange-rate refresh notifications for testing.
 protocol FamilyShareRateRefreshSource: Sendable {
-    var ratesDidRefresh: AsyncStream<RateRefreshEvent> { get }
+    nonisolated var ratesDidRefresh: AsyncStream<RateRefreshEvent> { get }
 }
 
 /// Production implementation bridging `NotificationCenter` to `AsyncStream`.
 final class NotificationCenterRateRefreshSource: FamilyShareRateRefreshSource, Sendable {
-    let ratesDidRefresh: AsyncStream<RateRefreshEvent>
+    nonisolated let ratesDidRefresh: AsyncStream<RateRefreshEvent>
 
-    init() {
+    nonisolated init() {
         ratesDidRefresh = AsyncStream { continuation in
             let observer = NotificationCenter.default.addObserver(
                 forName: .exchangeRatesDidRefresh,
                 object: nil,
                 queue: nil
             ) { notification in
-                let pairs = notification.userInfo?["refreshedPairs"] as? Set<CurrencyPair> ?? []
-                let refreshedRates = notification.userInfo?["refreshedRates"] as? [CurrencyPair: Decimal] ?? [:]
+                let pairs = notification.userInfo?["refreshedPairs"] as? Set<String> ?? []
+                let refreshedRates = notification.userInfo?["refreshedRates"] as? [String: Decimal] ?? [:]
                 let timestamp = notification.userInfo?["rateSnapshotTimestamp"] as? Date ?? Date()
                 let event = RateRefreshEvent(
                     refreshedPairs: pairs,

@@ -9,6 +9,7 @@ import XCTest
 import Foundation
 @testable import CryptoSavingsTracker
 
+@MainActor
 final class TatumTransactionParsingTests: XCTestCase {
     
     func testTatumV4TransactionResponseParsing() throws {

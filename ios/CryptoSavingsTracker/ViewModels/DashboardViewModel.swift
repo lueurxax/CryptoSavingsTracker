@@ -67,7 +67,7 @@ class DashboardViewModel: ObservableObject, ErrorAwareViewModel {
     }
     
     func retry() async {
-        guard let goal = currentGoal else { return }
+        guard currentGoal != nil else { return }
         // loadData requires modelContext which we don't store, so we just reset viewState
         viewState = .idle
     }
