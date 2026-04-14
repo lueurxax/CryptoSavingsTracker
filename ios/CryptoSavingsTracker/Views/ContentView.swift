@@ -43,14 +43,17 @@ private struct AppleRootShellState {
 struct ContentView: View {
     @Environment(\.platformCapabilities) private var platform
 
+    @ViewBuilder
     var body: some View {
-        Group {
-            switch platform.navigationStyle {
-            case .stack, .tabs:
-                iOSContentView()
-            case .splitView:
+        switch platform.navigationStyle {
+        case .stack, .tabs:
+            iOSContentView()
+        case .splitView:
+            #if os(macOS)
                 macOSContentView()
-            }
+            #else
+                iOSContentView()
+            #endif
         }
     }
 }
@@ -81,6 +84,7 @@ struct iOSContentView: View {
     }
 }
 
+#if os(macOS)
 struct macOSContentView: View {
     @State private var shellState = AppleRootShellState()
     @State private var selectedGoal: Goal?
@@ -113,3 +117,4 @@ struct macOSContentView: View {
         }
     }
 }
+#endif
