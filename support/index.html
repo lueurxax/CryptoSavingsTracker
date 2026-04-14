@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CryptoSavingsTracker Support</title>
+    <meta name="description" content="Support page for CryptoSavingsTracker. Get help, read FAQs, and contact support.">
+    <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #f5f7fb;
+            --surface: rgba(255, 255, 255, 0.9);
+            --surface-border: rgba(22, 27, 45, 0.08);
+            --text: #111827;
+            --muted: #5b6474;
+            --accent: #1677ff;
+            --accent-strong: #0b5bd3;
+            --shadow: 0 24px 60px rgba(17, 24, 39, 0.12);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0f1117;
+                --surface: rgba(20, 24, 34, 0.92);
+                --surface-border: rgba(255, 255, 255, 0.08);
+                --text: #f3f4f6;
+                --muted: #b1b7c4;
+                --accent: #5aa2ff;
+                --accent-strong: #81b7ff;
+                --shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+            }
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(22, 119, 255, 0.14), transparent 28rem),
+                radial-gradient(circle at top right, rgba(62, 207, 142, 0.12), transparent 24rem),
+                var(--bg);
+            line-height: 1.5;
+        }
+
+        .shell {
+            max-width: 880px;
+            margin: 0 auto;
+            padding: 32px 20px 72px;
+        }
+
+        .hero,
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--surface-border);
+            border-radius: 24px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(12px);
+        }
+
+        .hero {
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(22, 119, 255, 0.12);
+            color: var(--accent-strong);
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 18px;
+        }
+
+        h1, h2 {
+            margin: 0 0 12px;
+            line-height: 1.1;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 3.25rem);
+            letter-spacing: -0.03em;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 1rem;
+        }
+
+        .hero-copy {
+            max-width: 60ch;
+            margin-bottom: 24px;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+            padding: 0 18px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 120ms ease, opacity 120ms ease, background 120ms ease;
+        }
+
+        .button:hover {
+            transform: translateY(-1px);
+        }
+
+        .button-primary {
+            color: white;
+            background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+        }
+
+        .button-secondary {
+            color: var(--text);
+            background: rgba(127, 138, 160, 0.12);
+            border: 1px solid var(--surface-border);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            padding: 24px;
+        }
+
+        .list {
+            margin: 14px 0 0;
+            padding-left: 18px;
+            color: var(--muted);
+        }
+
+        .list li + li {
+            margin-top: 10px;
+        }
+
+        .meta {
+            margin-top: 24px;
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        .meta a {
+            color: var(--accent-strong);
+        }
+
+        a {
+            color: var(--accent-strong);
+        }
+
+        @media (max-width: 720px) {
+            .shell {
+                padding: 20px 16px 56px;
+            }
+
+            .hero,
+            .card {
+                border-radius: 20px;
+            }
+
+            .hero {
+                padding: 24px 20px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <section class="hero">
+            <div class="eyebrow">CryptoSavingsTracker Support</div>
+            <h1>Need help with CryptoSavingsTracker?</h1>
+            <p class="hero-copy">
+                CryptoSavingsTracker helps you track savings goals, manage assets, and follow real progress.
+                If something is not working as expected, use the support options below.
+            </p>
+            <div class="actions">
+                <a class="button button-primary" href="https://github.com/lueurxax/CryptoSavingsTracker/issues/new/choose">Contact Support</a>
+                <a class="button button-secondary" href="https://github.com/lueurxax/CryptoSavingsTracker">Project Page</a>
+            </div>
+        </section>
+
+        <section class="grid">
+            <article class="card">
+                <h2>Frequently Asked Questions</h2>
+                <ul class="list">
+                    <li><strong>How do I add a goal?</strong><br>Open the Goals tab and use the add button in the top-right corner.</li>
+                    <li><strong>How do I track progress?</strong><br>Add assets to a goal, then review the goal detail and dashboard surfaces.</li>
+                    <li><strong>Why don’t I see some advanced features?</strong><br>Public App Store builds may use a narrower runtime configuration than internal development builds.</li>
+                    <li><strong>How do I report a bug?</strong><br>Use the Contact Support button above and include screenshots, device model, and iOS version if possible.</li>
+                </ul>
+            </article>
+
+            <article class="card">
+                <h2>Before You Contact Support</h2>
+                <ul class="list">
+                    <li>Make sure you are using the latest version available in TestFlight or the App Store.</li>
+                    <li>Try restarting the app and reopening the affected screen.</li>
+                    <li>Include the exact steps that caused the issue.</li>
+                    <li>Attach a screenshot if the problem is visual or layout-related.</li>
+                </ul>
+            </article>
+        </section>
+
+        <p class="meta">
+            Support page for CryptoSavingsTracker.
+            If you need direct help, open an issue at
+            <a href="https://github.com/lueurxax/CryptoSavingsTracker/issues">github.com/lueurxax/CryptoSavingsTracker/issues</a>.
+        </p>
+    </main>
+</body>
+</html>
