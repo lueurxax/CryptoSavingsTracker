@@ -6,33 +6,22 @@
 //
 
 import SwiftUI
-import SwiftData
 
 // DetailViewType is now a shared enum
 
-/// Container view for goal detail screens with tab selection
+/// Container view for goal detail screens without nested tab chrome.
 struct DetailContainerView: View {
     let goal: Goal
     @Binding var selectedView: DetailViewType
-    @Environment(\.modelContext) private var modelContext
     
     var body: some View {
-        TabView(selection: $selectedView) {
-            GoalDetailView(goal: goal)
-                .tabItem {
-                    Image(systemName: "target")
-                    Text("Details")
-                }
-                .tag(DetailViewType.details)
-                .transition(.opacity)
-            
-            GoalDashboardScreen(goal: goal)
-                .tabItem {
-                    Image(systemName: "chart.bar.fill")
-                    Text("Dashboard")
-                }
-                .tag(DetailViewType.dashboard)
-                .transition(.opacity)
+        Group {
+            switch selectedView {
+            case .details:
+                GoalDetailView(goal: goal)
+            case .dashboard:
+                DashboardViewForGoal(goal: goal)
+            }
         }
         .animation(.easeInOut, value: selectedView)
         .navigationTitle(goal.name)

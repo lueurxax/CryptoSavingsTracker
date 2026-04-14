@@ -7,16 +7,24 @@ import Foundation
 import Testing
 
 struct GoalDashboardNavigationContractTests {
-    @Test("iOS canonical entry uses GoalDetail -> GoalDashboardScreen")
+    @Test("Goal detail shell has no nested tab bar and keeps dashboard as a separate surface")
     func canonicalEntryFromGoalDetail() throws {
         let root = repositoryRoot()
         let detailContainer = try readSource(
             root,
             "ios/CryptoSavingsTracker/Views/Components/DetailContainerView.swift"
         )
+        let dashboardAdapter = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Views/Dashboard/DashboardViewForGoal.swift"
+        )
 
-        #expect(detailContainer.contains("GoalDashboardScreen(goal: goal)"))
-        #expect(detailContainer.contains(".tag(DetailViewType.dashboard)"))
+        #expect(!detailContainer.contains("TabView(selection: $selectedView)"))
+        #expect(!detailContainer.contains(".tabItem {"))
+        #expect(detailContainer.contains("switch selectedView"))
+        #expect(detailContainer.contains("GoalDetailView(goal: goal)"))
+        #expect(detailContainer.contains("DashboardViewForGoal(goal: goal)"))
+        #expect(dashboardAdapter.contains("GoalDashboardScreen(goal: goal)"))
     }
 
     @Test("iOS production path has no runtime fallback flag for goal dashboard")
@@ -67,6 +75,51 @@ struct GoalDashboardNavigationContractTests {
             coordinator.contains("DetailContainerView(goal: goal, selectedView: .constant(.details))")
         )
         #expect(!coordinator.contains("GoalDetailView("))
+    }
+
+    @Test("Public coordinator graph excludes planner and flex destinations")
+    func publicCoordinatorGraphExcludesHiddenRoutes() throws {
+        let root = repositoryRoot()
+        let coordinator = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Navigation/Coordinator.swift"
+        )
+
+        #expect(!coordinator.contains("case monthlyPlanning"))
+        #expect(!coordinator.contains("case monthlyPlanningSettings"))
+        #expect(!coordinator.contains("case flexAdjustment"))
+        #expect(!coordinator.contains("showMonthlyPlanning"))
+        #expect(!coordinator.contains("SettingsCoordinator"))
+        #expect(!coordinator.contains("DashboardCoordinator"))
+        #expect(!coordinator.contains("MonthlyPlanningContainer()"))
+        #expect(!coordinator.contains("MonthlyPlanningSettingsView"))
+        #expect(!coordinator.contains("FlexAdjustmentView"))
+    }
+
+    @Test("Goal dashboard allocation CTA stays inside retained asset allocation flow")
+    func goalDashboardAllocationActionUsesRetainedFlow() throws {
+        let root = repositoryRoot()
+        let screen = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Views/Dashboard/GoalDashboardScreen.swift"
+        )
+
+        #expect(screen.contains("case .rebalanceAllocations:"))
+        #expect(screen.contains("openAllocationFlow()"))
+        #expect(!screen.contains("Open goal details and adjust asset allocations."))
+    }
+
+    @Test("Public goal dashboard structurally disables forecast assembly in release MVP")
+    func goalDashboardForecastAssemblyIsContainedInPublicMode() throws {
+        let root = repositoryRoot()
+        let assembler = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Services/GoalDashboardSceneAssembler.swift"
+        )
+
+        #expect(assembler.contains("let forecastModulesEnabled = HiddenRuntimeMode.current.showsForecastModules"))
+        #expect(assembler.contains("includeForecastState: forecastModulesEnabled"))
+        #expect(assembler.contains("guard isEnabled else {"))
     }
 
     private func repositoryRoot() -> URL {

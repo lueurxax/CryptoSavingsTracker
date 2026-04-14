@@ -18,10 +18,7 @@ struct GoalDetailView: View {
     @State private var showingAddAsset = false
     @State private var expandedAssets: Set<UUID> = []
     @State private var goalViewModel: GoalViewModel
-    @StateObject private var dashboardViewModel = DIContainer.shared.makeDashboardViewModel()
-    @State private var isRefreshing = false
     @State private var lastRefresh: Date?
-    @State private var showingCharts = false
     @State private var editingGoal: Goal?
     @State private var showingDeleteConfirmation = false
     @State private var hasStartedDestructiveJourney = false
@@ -44,106 +41,6 @@ struct GoalDetailView: View {
     }
 
     // MARK: - Sub Views
-    
-    @ViewBuilder
-    private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Deadline: \(goal.deadline, format: .dateTime.day().month().year()) (\(goal.daysRemaining) days remaining)")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Target: \(String(format: "%.2f", goal.targetAmount)) \(goal.currency)")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    Text("Current: \(String(format: "%.2f", goalViewModel.currentTotal)) \(goal.currency)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                refreshButton
-            }
-            
-            HStack {
-                Text("Suggested deposit: \(String(format: "%.2f", goalViewModel.suggestedDeposit)) \(goal.currency)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Spacer()
-            }
-            
-            descriptionSection
-            linkSection
-        }
-        .padding()
-    }
-    
-    @ViewBuilder
-    private var refreshButton: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            Button(action: {
-                Task { await refreshBalances() }
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: goalViewModel.isLoading ? "arrow.clockwise.circle.fill" : "arrow.clockwise.circle")
-                    Text("Refresh").font(.caption)
-                }
-                .foregroundColor(goalViewModel.isLoading ? .accessibleSecondary : .accessiblePrimary)
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .disabled(goalViewModel.isLoading)
-            .buttonStyle(PlainButtonStyle())
-            
-            if let lastRefresh = lastRefresh {
-                Text("Updated: \(lastRefresh, format: .relative(presentation: .numeric))")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private var descriptionSection: some View {
-        if let description = goal.goalDescription, !description.isEmpty {
-            Divider().padding(.vertical, 4)
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "doc.text").foregroundColor(.accessibleSecondary)
-                    Text("Description").font(.caption).fontWeight(.medium).foregroundColor(.accessibleSecondary)
-                    Spacer()
-                }
-                Text(description).font(.callout).foregroundColor(.primary)
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private var linkSection: some View {
-        if let linkString = goal.link, !linkString.isEmpty, let url = URL(string: linkString.contains("://") ? linkString : "https://\(linkString)") {
-            Divider().padding(.vertical, 4)
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "link").foregroundColor(.accessibleSecondary)
-                    Text("Link").font(.caption).fontWeight(.medium).foregroundColor(.accessibleSecondary)
-                    Spacer()
-                }
-                Link(destination: url) {
-                    HStack {
-                        Text(url.host ?? linkString)
-                            .font(.callout)
-                            .foregroundColor(.accessiblePrimary)
-                            .lineLimit(1)
-                        Image(systemName: "arrow.up.right.square")
-                            .font(.caption2)
-                            .foregroundColor(.accessiblePrimary)
-                    }
-                }
-            }
-        }
-    }
 
     private var goalActionsMenu: some View {
         Menu {
@@ -204,98 +101,58 @@ struct GoalDetailView: View {
         }
 #endif
     }
-    
-    @ViewBuilder
-    private var chartsSection: some View {
-        VStack(spacing: 16) {
+
+    private var goalSummarySection: some View {
+        Section("Goal Summary") {
+            summaryRow(label: "Target", value: currencyAmount(goal.targetAmount))
+            summaryRow(label: "Current", value: currencyAmount(goalViewModel.currentTotal))
+            summaryRow(
+                label: "Deadline",
+                value: "\(goal.deadline.formatted(date: .abbreviated, time: .omitted)) (\(goal.daysRemaining) days remaining)"
+            )
             HStack {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) { showingCharts.toggle() }
-                }) {
-                    HStack(spacing: 4) {
-                        Text(showingCharts ? "Hide Details" : "Show Details")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                        Image(systemName: showingCharts ? "chevron.up" : "chevron.down")
-                            .font(.caption2)
-                    }
-                    .foregroundColor(.accessiblePrimary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.accessiblePrimaryBackground)
-                    .cornerRadius(12)
-                }
-                .buttonStyle(PlainButtonStyle())
+                Text("Suggested deposit")
                 Spacer()
+                Text(currencyAmount(goalViewModel.suggestedDeposit))
+                    .foregroundStyle(.secondary)
             }
-            
-            progressRingSection
-            
-            if showingCharts && !dashboardViewModel.assetComposition.isEmpty {
-                CompactAssetCompositionView(
-                    assetCompositions: dashboardViewModel.assetComposition,
-                    size: 100
-                )
-                .padding(12)
-                .background(.regularMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private var progressRingSection: some View {
-        ZStack {
-            if goalViewModel.isLoading && goalViewModel.currentTotal == 0 && goalViewModel.progress == 0 {
-                // Show loading indicator while data is being fetched
-                VStack(spacing: 12) {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                        .scaleEffect(1.5)
-                    Text("Loading...")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Refresh balances")
+                    if let lastRefresh {
+                        Text("Updated \(lastRefresh, format: .relative(presentation: .named))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .frame(height: 180)
-            } else {
-                ProgressRingView(
-                    progress: goalViewModel.progress,
-                    current: goalViewModel.currentTotal,
-                    target: goal.targetAmount,
-                    currency: goal.currency,
-                    lineWidth: 15,
-                    showLabels: true
-                )
-                .frame(height: 180)
-                .animation(.easeInOut(duration: 0.6), value: goalViewModel.progress)
+                Spacer()
+                Button {
+                    Task { await refreshBalances() }
+                } label: {
+                    Label("Refresh", systemImage: goalViewModel.isLoading ? "arrow.clockwise.circle.fill" : "arrow.clockwise.circle")
+                }
+                .disabled(goalViewModel.isLoading)
+                .buttonStyle(.bordered)
             }
         }
-        .task(id: goal.id) { await goalViewModel.refreshValues() }
-        .onChange(of: goal.allocations) { _, _ in
-            Task { await goalViewModel.refreshValues() }
-        }
     }
-    
-    // Balance history views removed per request.
-    
-    @ViewBuilder
+
     private var assetsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Assets")
-                .font(.title2)
-                .fontWeight(.bold)
-                .padding(.top, 8)
+        Section("Assets") {
             if goalAssets.isEmpty {
-                EmptyStateView(
-                    icon: "bitcoinsign.circle",
-                    title: "No Assets Added",
-                    description: "Add cryptocurrency assets to start tracking your progress toward this goal",
-                    primaryAction: EmptyStateAction(
-                        title: "Add First Asset",
-                        accessibilityIdentifier: "addAssetButton"
-                    ) { showingAddAsset = true }
-                )
-                .frame(height: 200)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("No assets added")
+                        .font(.headline)
+                    Text("Add an asset to start tracking real progress toward this goal.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Button("Add Asset") {
+                        showingAddAsset = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("addAssetButton")
+                }
                 .padding(.vertical, 8)
             } else {
                 ForEach(goalAssets) { asset in
@@ -305,10 +162,10 @@ struct GoalDetailView: View {
                         isExpanded: expandedAssets.contains(asset.id),
                         onToggleExpanded: {
                             withAnimation(.default) {
-                                if expandedAssets.contains(asset.id) { 
-                                    expandedAssets.remove(asset.id) 
-                                } else { 
-                                    expandedAssets.insert(asset.id) 
+                                if expandedAssets.contains(asset.id) {
+                                    expandedAssets.remove(asset.id)
+                                } else {
+                                    expandedAssets.insert(asset.id)
                                 }
                             }
                         },
@@ -319,39 +176,50 @@ struct GoalDetailView: View {
                             }
                         }
                     )
+                    .listRowInsets(EdgeInsets())
                 }
                 .onDelete(perform: deleteAssets)
                 .animation(.default, value: goalAssets.count)
-                
-                Button(action: { showingAddAsset = true }) {
-                    HStack { Image(systemName: "plus.circle.fill"); Text("Add Asset") }
-                        .foregroundColor(.accessiblePrimary)
+
+                Button("Add Asset") {
+                    showingAddAsset = true
                 }
                 .accessibilityIdentifier("addAssetButton")
             }
         }
     }
-    
-    private var scrollViewContent: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                // Header + Charts card
-                VStack(spacing: 20) {
-                    headerSection
-                    chartsSection
-                }
-                .padding(16)
-                .background(.regularMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
 
-                // Assets Section
-                assetsSection
-            }
-            .padding(.top, 8)
-            .padding(.bottom, 24)
-            .padding(.horizontal, 16)
+    private var descriptionSection: some View {
+        Section("Notes") {
+            Text(goal.goalDescription ?? "")
+                .foregroundStyle(.primary)
         }
-        .safeAreaPadding(.top)
+    }
+
+    private var linkSection: some View {
+        Section("Link") {
+            if let linkString = goal.link,
+               let url = URL(string: linkString.contains("://") ? linkString : "https://\(linkString)") {
+                Link(destination: url) {
+                    Label(url.host ?? linkString, systemImage: "link")
+                }
+                .foregroundColor(.accessiblePrimary)
+            }
+        }
+    }
+
+    private var detailListContent: some View {
+        List {
+            goalSummarySection
+            assetsSection
+            if let description = goal.goalDescription, !description.isEmpty {
+                descriptionSection
+            }
+            if let linkString = goal.link, !linkString.isEmpty {
+                linkSection
+            }
+        }
+        .listStyle(.insetGrouped)
         .navigationTitle(goal.name)
     }
 
@@ -404,7 +272,7 @@ struct GoalDetailView: View {
     } // End of body
 
     private var goalDetailCore: some View {
-        scrollViewContent
+        detailListContent
             .toolbar {
                 goalToolbarContent
             }
@@ -445,7 +313,6 @@ struct GoalDetailView: View {
             .task(id: goal.id) {
                 goalViewModel.setModelContext(modelContext)
                 await goalViewModel.refreshValues()
-                await dashboardViewModel.loadData(for: goal, modelContext: modelContext)
             }
     }
     
@@ -455,14 +322,26 @@ struct GoalDetailView: View {
         
         // Refresh goal values
         await goalViewModel.refreshValues()
-        
-        // Also refresh dashboard data (for charts)
-        await dashboardViewModel.loadData(for: goal, modelContext: modelContext)
-        
+
         await MainActor.run {
             lastRefresh = Date()
             // Post notification to refresh all goal progress views
             NotificationCenter.default.post(name: .goalProgressRefreshed, object: goal)
+        }
+    }
+
+    private func currencyAmount(_ amount: Double) -> String {
+        "\(String(format: "%.2f", amount)) \(goal.currency)"
+    }
+
+    @ViewBuilder
+    private func summaryRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            Text(value)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
         }
     }
     
