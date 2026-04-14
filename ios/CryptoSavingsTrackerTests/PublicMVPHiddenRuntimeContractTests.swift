@@ -1,0 +1,43 @@
+import Foundation
+import Testing
+@testable import CryptoSavingsTracker
+
+struct PublicMVPHiddenRuntimeContractTests {
+    @Test("Public MVP hidden runtime defaults automation and family sharing off")
+    func publicMVPHiddenRuntimeDefaultsOff() throws {
+        let root = repositoryRoot()
+        let rollout = try readSource(root, "ios/CryptoSavingsTracker/Utilities/FamilySharing/FamilyShareRollout.swift")
+        let runtime = try readSource(root, "ios/CryptoSavingsTracker/Utilities/MVPContainmentRuntime.swift")
+        let notificationManager = try readSource(root, "ios/CryptoSavingsTracker/Utilities/NotificationManager.swift")
+        let automationScheduler = try readSource(root, "ios/CryptoSavingsTracker/Services/AutomationScheduler.swift")
+        let familyShareServices = try readSource(root, "ios/CryptoSavingsTracker/Services/FamilySharing/FamilyShareServices.swift")
+
+        #expect(runtime.contains("case publicMVP = \"release_mvp\""))
+        #expect(runtime.contains("return isTestHarness ? .debugInternal : .publicMVP"))
+        #expect(runtime.contains("var allowsFamilySharing"))
+        #expect(rollout.contains("let releaseDefault = runtimeMode.hiddenRuntimeEnabledByDefault"))
+        #expect(notificationManager.contains("var isReminderRuntimeSchedulingEnabled: Bool"))
+        #expect(notificationManager.contains("var isNotificationPromptEnabled: Bool"))
+        #expect(notificationManager.contains("var isAutomationSchedulerEnabled: Bool"))
+        #expect(notificationManager.contains("guard isNotificationPromptEnabled else { return false }"))
+        #expect(notificationManager.contains("await cancelNotifications(for: goal)"))
+        #expect(notificationManager.contains("guard isReminderRuntimeSchedulingEnabled else { return }"))
+        #expect(automationScheduler.contains("guard notificationManager.isAutomationSchedulerEnabled else { return }"))
+        #expect(familyShareServices.contains("guard rollout.isEnabled() else {"))
+        #expect(familyShareServices.contains("await teardownFreshnessPipelineIfNeeded()"))
+        #expect(familyShareServices.contains("if rollout.isFreshnessPipelineEnabled(), freshnessPipelineActive == false {"))
+        #expect(familyShareServices.contains("await startFreshnessPipeline()"))
+    }
+
+    private func repositoryRoot() -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    private func readSource(_ root: URL, _ relativePath: String) throws -> String {
+        let url = root.appendingPathComponent(relativePath)
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+}

@@ -1,135 +1,77 @@
 # CryptoSavingsTracker
 
-A multi-platform application for tracking cryptocurrency savings goals.
+CryptoSavingsTracker is a savings goal and asset tracking app.
 
-## Platforms
+The current public release scope is focused on the Apple app experience: create goals, add assets, record contributions, review progress, and manage monthly planning and execution flows. The repository also contains Android work, internal review artifacts, and proposal documents that support ongoing product development.
 
-| Platform | Directory | Status | Completion |
-|----------|-----------|--------|------------|
-| iOS / macOS / visionOS | [`/CryptoSavingsTracker`](./CryptoSavingsTracker) | ✅ Production | 100% |
-| Android | [`/android`](./android) | 🔄 In Development | ~90% |
+## Current Scope
 
-### Android Development Progress
+- Apple app: active public MVP / App Store release track
+- Android app: repository work in progress, not the primary public release contract
+- Internal docs: architecture notes, proposals, audits, and release evidence
 
-The Android version is nearing completion with full iOS feature parity:
+## Repository Layout
 
-| Phase | Status |
-|-------|--------|
-| Foundation (Room, Hilt, Compose) | ✅ Complete |
-| Goal Management | ✅ Complete |
-| Asset Management | ✅ Complete |
-| Transaction Management | ✅ Complete |
-| Allocation System | ✅ Complete |
-| Monthly Planning | ✅ Complete |
-| Execution Tracking | ✅ Complete |
-| Dashboard & API Integration | ✅ Complete |
-| Testing & Polish | 🔄 In Progress |
-
-**Codebase:** 179 Kotlin files, 14 domain models, 50+ screens
-
-See [`/docs/ANDROID_DEVELOPMENT_PLAN.md`](./docs/ANDROID_DEVELOPMENT_PLAN.md) for detailed status.
-
-## Project Structure
-
-```
-CryptoSavingsTracker/
-├── CryptoSavingsTracker/               # iOS, macOS, visionOS source
-│   ├── Models/                         # SwiftData models
-│   ├── Views/                          # SwiftUI views
-│   ├── ViewModels/                     # MVVM coordinators
-│   ├── Services/                       # Business logic
-│   └── Utilities/                      # Helpers & extensions
-│
-├── CryptoSavingsTrackerTests/          # iOS unit tests
-├── CryptoSavingsTrackerUITests/        # iOS UI tests
-├── CryptoSavingsTracker.xcodeproj/     # Xcode project
-│
-├── android/                            # Android (Kotlin + Jetpack Compose)
-│   └── app/src/main/java/.../
-│       ├── data/                       # Room database, repositories, APIs
-│       │   ├── local/database/         # Entities, DAOs, converters
-│       │   ├── remote/api/             # CoinGecko, Tatum APIs
-│       │   └── repository/             # Repository implementations
-│       ├── domain/                     # Business logic
-│       │   ├── model/                  # Domain models (14)
-│       │   ├── repository/             # Repository interfaces
-│       │   └── usecase/                # Use cases (57+)
-│       ├── presentation/               # UI layer
-│       │   ├── goals/                  # Goal screens
-│       │   ├── assets/                 # Asset screens
-│       │   ├── planning/               # Monthly planning
-│       │   ├── execution/              # Execution tracking
-│       │   ├── dashboard/              # Dashboard
-│       │   ├── charts/                 # Chart components
-│       │   └── navigation/             # Navigation
-│       └── di/                         # Hilt modules
-│
-├── docs/                               # Shared documentation
-│   ├── ANDROID_DEVELOPMENT_PLAN.md     # Android implementation status
-│   ├── ARCHITECTURE.md                 # iOS system design
-│   ├── DEVELOPMENT.md                  # Development guide
-│   └── ...
-│
-├── LICENSE
-└── README.md                           # This file
+```text
+.
+├── ios/
+│   ├── CryptoSavingsTracker/                # Apple app source (Swift / SwiftUI / SwiftData)
+│   ├── CryptoSavingsTrackerTests/           # Unit and integration tests
+│   ├── CryptoSavingsTrackerUITests/         # UI tests
+│   └── CryptoSavingsTracker.xcodeproj/      # Xcode project
+├── android/                                 # Android app work (Kotlin / Compose)
+├── docs/                                    # Product, architecture, proposals, runbooks
+├── artifacts/                               # Review evidence and generated screenshots
+└── README.md
 ```
 
-## Documentation
+## Apple App Highlights
 
-See [`/docs`](./docs) for comprehensive documentation:
+- Goal creation and editing
+- Asset tracking and allocation to goals
+- Manual contribution logging
+- Goal dashboard and progress review
+- Monthly planning and monthly execution flows
+- Settings, support, and App Store release metadata
 
-### Android Development
-- **[ANDROID_DEVELOPMENT_PLAN.md](./docs/ANDROID_DEVELOPMENT_PLAN.md)** - Android implementation status, iOS parity tracking, architecture
+## Development
 
-### iOS/macOS Development
-- **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - iOS system architecture and design patterns
-- **[DEVELOPMENT.md](./docs/DEVELOPMENT.md)** - Development guide and roadmap
-- **[USER_GUIDES.md](./docs/USER_GUIDES.md)** - User guides and troubleshooting
-- **[MONTHLY_PLANNING.md](./docs/MONTHLY_PLANNING.md)** - Monthly planning feature docs
+### Build
 
-## Quick Start
+```bash
+cd ios
+xcodebuild -scheme CryptoSavingsTracker -configuration Debug build
+```
 
-### iOS / macOS
+### Test
+
+```bash
+cd ios
+xcodebuild -scheme CryptoSavingsTracker -destination 'platform=iOS Simulator,name=iPhone 15' test
+```
+
+### Open in Xcode
 
 ```bash
 cd ios
 open CryptoSavingsTracker.xcodeproj
 ```
 
-Requirements:
-- Xcode 15+
-- iOS 17+ / macOS 14+
+## Documentation
 
-### Android
+Useful starting points:
 
-```bash
-cd android
-./gradlew assembleDebug        # Build debug APK
-./gradlew testDebugUnitTest    # Run unit tests
-./gradlew connectedDebugAndroidTest  # Run instrumented tests
-```
+- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)
+- [docs/MONTHLY_PLANNING.md](./docs/MONTHLY_PLANNING.md)
+- [docs/USER_GUIDES.md](./docs/USER_GUIDES.md)
+- [docs/proposals](./docs/proposals)
 
-Requirements:
-- Android Studio Ladybug+ (2024.2+)
-- Android SDK 36 (compileSdk)
-- Android SDK 34+ (minSdk)
-- JDK 17
+## Public Support
 
-Key Technologies:
-- Jetpack Compose (UI)
-- Room (Database)
-- Hilt (Dependency Injection)
-- Kotlin Coroutines + Flow (Async/Reactive)
-- Retrofit + OkHttp (Networking)
-
-## Features
-
-- Track savings goals in any cryptocurrency
-- Monitor progress across multiple wallets
-- Monthly planning and budgeting tools
-- Multi-currency support with real-time exchange rates
-- Cloud sync (iCloud for Apple platforms)
+- Support: [https://lueurxax.github.io/CryptoSavingsTracker/support/](https://lueurxax.github.io/CryptoSavingsTracker/support/)
+- Privacy Policy: [https://lueurxax.github.io/CryptoSavingsTracker/privacy/](https://lueurxax.github.io/CryptoSavingsTracker/privacy/)
 
 ## License
 
-See [LICENSE](./LICENSE) for details.
+See [LICENSE](./LICENSE).
