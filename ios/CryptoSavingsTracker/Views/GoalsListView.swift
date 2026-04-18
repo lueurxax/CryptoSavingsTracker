@@ -46,13 +46,6 @@ struct GoalsListView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         
-                        Section {
-                            GoalsListMVPGuidanceCard()
-                        }
-                        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        
                         // Individual Goals
                         Section("Your Goals") {
                             ForEach(goals) { goal in
@@ -180,23 +173,5 @@ struct GoalsListView: View {
                 }
             }
         }
-    }
-}
-
-private struct GoalsListMVPGuidanceCard: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Focused MVP", systemImage: "flag.2.crossed")
-                .font(.headline)
-            Text("Create goals here, then add assets and contributions from each goal to keep progress moving.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.regularMaterial)
-        )
     }
 }

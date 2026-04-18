@@ -53,6 +53,35 @@ struct MVPContainmentContractTests {
         #expect(!settingsView.contains("What changed in this update"))
     }
 
+    @Test("Public surfaces never disclose containment or removed-feature language")
+    func publicSurfacesExcludeContainmentDisclosureLanguage() throws {
+        let root = repositoryRoot()
+        let publicSurfaces = [
+            try readSource(root, "ios/CryptoSavingsTracker/Views/ContentView.swift"),
+            try readSource(root, "ios/CryptoSavingsTracker/Views/GoalsListView.swift"),
+            try readSource(root, "ios/CryptoSavingsTracker/Views/DashboardView.swift"),
+            try readSource(root, "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift"),
+            try readSource(root, "docs/support/index.html")
+        ].joined(separator: "\n")
+
+        let forbiddenCopy = [
+            "Focused MVP",
+            "Public MVP",
+            "narrower runtime",
+            "advanced features",
+            "internal development builds",
+            "What changed in this update",
+            "removed features",
+            "features were removed",
+            "hidden features",
+            "support.cryptosavingstracker.app/mvp"
+        ]
+
+        for copy in forbiddenCopy {
+            #expect(!publicSurfaces.localizedCaseInsensitiveContains(copy))
+        }
+    }
+
     @Test("Root dashboard uses the fixed MVP contract and excludes legacy customization paths")
     func rootDashboardUsesFixedMVPContract() throws {
         let root = repositoryRoot()

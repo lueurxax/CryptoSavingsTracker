@@ -22,6 +22,8 @@ struct GoalsListContainer: View {
     @State private var refreshTrigger = UUID()
     @State private var selectedGoalForLifecycleAction: Goal?
     @State private var showingLifecycleActions = false
+    @State private var addAssetContextGoal: Goal?
+    @State private var addTransactionContextGoal: Goal?
     
     var body: some View {
         NavigationStack {
@@ -55,9 +57,11 @@ struct GoalsListContainer: View {
                             }
                             .contextMenu {
                                 GoalContextMenu(
-                                    goal: goal, 
+                                    goal: goal,
                                     onDelete: { deleteGoal(goal) },
-                                    onEdit: { editingGoal = goal }
+                                    onEdit: { editingGoal = goal },
+                                    onAddAsset: { addAssetContextGoal = goal },
+                                    onAddTransaction: { addTransactionContextGoal = goal }
                                 )
                             }
                         }
@@ -109,6 +113,15 @@ struct GoalsListContainer: View {
             EditGoalView(goal: goal, modelContext: modelContext)
                 .presentationDetents([.large])
         }
+        // NAV-MOD: MOD-01
+        .sheet(item: $addAssetContextGoal) { goal in
+            AddAssetView(goal: goal)
+                .presentationDetents([.large])
+        }
+        .sheet(item: $addTransactionContextGoal) { goal in
+            GoalTransactionEntrySheet(goal: goal)
+                .presentationDetents([.large])
+        }
     }
     
     // MARK: - Private Methods
@@ -136,28 +149,89 @@ struct GoalsListContainer: View {
     }
 }
 
+/// Sheet that lets the user pick an asset and record a transaction from the goals list context menu
+struct GoalTransactionEntrySheet: View {
+    let goal: Goal
+    @Environment(\.dismiss) private var dismiss
+    @Query private var assets: [Asset]
+
+    init(goal: Goal) {
+        self.goal = goal
+        self._assets = Query(
+            filter: #Predicate<Asset> { _ in true },
+            sort: \Asset.currency
+        )
+    }
+
+    private var goalAssets: [Asset] {
+        assets.filter { asset in
+            (asset.allocations ?? []).contains { $0.goal?.id == goal.id }
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if goalAssets.isEmpty {
+                    ContentUnavailableView(
+                        "No Assets",
+                        systemImage: "bitcoinsign.circle",
+                        description: Text("Add an asset to \(goal.name) before recording a transaction.")
+                    )
+                } else if goalAssets.count == 1, let asset = goalAssets.first {
+                    AddTransactionView(asset: asset)
+                } else {
+                    List(goalAssets) { asset in
+                        NavigationLink(destination: AddTransactionView(asset: asset)) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(asset.currency)
+                                    .font(.headline)
+                                if let address = asset.address {
+                                    Text(address)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                }
+                            }
+                        }
+                    }
+                    .navigationTitle("Select Asset")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { dismiss() }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Context menu for goal actions
 struct GoalContextMenu: View {
     let goal: Goal
     let onDelete: () -> Void
     let onEdit: () -> Void
-    
+    let onAddAsset: () -> Void
+    let onAddTransaction: () -> Void
+
     var body: some View {
         Group {
             Button("Edit Goal") {
                 onEdit()
             }
-            
+
             Button("Add Asset") {
-                // Add asset action
+                onAddAsset()
             }
-            
+
             Button("Add Transaction") {
-                // Add transaction action
+                onAddTransaction()
             }
-            
+
             Divider()
-            
+
             Button("Delete Goal", role: .destructive) {
                 onDelete()
             }

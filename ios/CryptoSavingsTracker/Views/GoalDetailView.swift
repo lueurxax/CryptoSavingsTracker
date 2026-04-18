@@ -189,6 +189,27 @@ struct GoalDetailView: View {
         }
     }
 
+    private var hasAnyTransactions: Bool {
+        goalAssets.contains { ($0.transactions ?? []).isEmpty == false }
+    }
+
+    @ViewBuilder
+    private var zeroTransactionSection: some View {
+        if !goalAssets.isEmpty && !hasAnyTransactions {
+            Section("Transactions") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("No transactions yet")
+                        .font(.headline)
+                    Text("Record your first deposit on one of the assets above to start tracking progress.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 8)
+                .accessibilityElement(children: .combine)
+            }
+        }
+    }
+
     private var descriptionSection: some View {
         Section("Notes") {
             Text(goal.goalDescription ?? "")
@@ -212,6 +233,7 @@ struct GoalDetailView: View {
         List {
             goalSummarySection
             assetsSection
+            zeroTransactionSection
             if let description = goal.goalDescription, !description.isEmpty {
                 descriptionSection
             }

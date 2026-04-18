@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct SettingsView: View {
     static let syncSectionFooterCopy = SettingsUXCopy.syncSectionFooter
@@ -14,7 +15,10 @@ struct SettingsView: View {
     @AppStorage("mvp.settings.displayCurrency") private var displayCurrency = "USD"
     @AppStorage("mvp.settings.appearance") private var appearance = "system"
 
-    private let supportURL = URL(string: "https://support.cryptosavingstracker.app/mvp")!
+    @Query(filter: #Predicate<Goal> { $0.lifecycleStatusRawValue == "active" })
+    private var activeGoals: [Goal]
+
+    private let supportURL = URL(string: "https://lueurxax.github.io/CryptoSavingsTracker/support/")!
 
     var body: some View {
         NavigationStack {
@@ -31,6 +35,44 @@ struct SettingsView: View {
                         Text("Light").tag("light")
                         Text("Dark").tag("dark")
                     }
+                }
+
+                Section {
+                    NavigationLink {
+                        FamilyAccessView(
+                            model: DIContainer.shared.familyShareAcceptanceCoordinator.makeFamilyAccessModel(
+                                currentGoals: activeGoals
+                            ),
+                            onShareWithFamily: {
+                                let goals = activeGoals
+                                Task { await DIContainer.shared.familyShareAcceptanceCoordinator.shareAllGoals(goals) }
+                            },
+                            onRefresh: {
+                                let goals = activeGoals
+                                Task { await DIContainer.shared.familyShareAcceptanceCoordinator.refreshFamilyAccessOwnerData(currentGoals: goals) }
+                            },
+                            onShowScopePreview: {},
+                            onShowParticipants: {}
+                        )
+                        .navigationTitle("Family Access")
+                    } label: {
+                        Text("Family Access")
+                    }
+                    .accessibilityIdentifier("settings.cloudkit.familyAccessRow")
+                    .accessibilityHint(SettingsUXCopy.navigationHint(destination: "Family Access"))
+
+                    NavigationLink {
+                        LocalBridgeSyncView(persistenceSnapshot: PersistenceController.shared.snapshot)
+                            .navigationTitle("Local Bridge Sync")
+                    } label: {
+                        Text("Local Bridge Sync")
+                    }
+                    .accessibilityIdentifier("settings.cloudkit.localBridgeSyncRow")
+                    .accessibilityHint(SettingsUXCopy.navigationHint(destination: "Local Bridge Sync"))
+                } header: {
+                    Text("Sync & Sharing")
+                } footer: {
+                    Text(SettingsUXCopy.syncSectionFooter)
                 }
 
                 Section("About") {

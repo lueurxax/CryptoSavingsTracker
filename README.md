@@ -6,7 +6,7 @@ The current public release scope is focused on the Apple app experience: create 
 
 ## Current Scope
 
-- Apple app: active public MVP / App Store release track
+- Apple app: active App Store release track
 - Android app: repository work in progress, not the primary public release contract
 - Internal docs: architecture notes, proposals, audits, and release evidence
 

@@ -329,13 +329,19 @@ struct InfoRow: View {
         HStack {
             Text(label)
                 .foregroundColor(.secondary)
-            
+
             Spacer()
-            
-            Text(value)
-                .lineLimit(1)
-                .truncationMode(truncate ? .middle : .tail)
-                .font(.callout)
+
+            if truncate {
+                Text(value)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .font(.callout)
+            } else {
+                Text(value)
+                    .font(.callout)
+                    .multilineTextAlignment(.trailing)
+            }
         }
     }
 }

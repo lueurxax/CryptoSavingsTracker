@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
 #if os(macOS)
 import AppKit
 #endif
@@ -21,6 +22,7 @@ struct AddTransactionView: View {
     @State private var amount = ""
     @State private var comment = ""
     @State private var accessErrorMessage: String?
+    @State private var saveError: String?
 
     init(asset: Asset, prefillAmount: Double? = nil, autoAllocateGoalId: UUID? = nil) {
         self.asset = asset
@@ -72,8 +74,9 @@ struct AddTransactionView: View {
                         }
                         .padding(.horizontal, 4)
 
-                        Section(footer: Text("Enter the amount you're depositing and optionally add a comment for reference.")) {
-                            EmptyView()
+                        Section {
+                        } footer: {
+                            Text("Enter the amount you're depositing and optionally add a comment for reference.")
                         }
                         .padding(.horizontal, 4)
                     }
@@ -121,8 +124,9 @@ struct AddTransactionView: View {
                         }
                         .padding(.horizontal, 4)
 
-                        Section(footer: Text("Enter the amount you're depositing and optionally add a comment for reference.")) {
-                            EmptyView()
+                        Section {
+                        } footer: {
+                            Text("Enter the amount you're depositing and optionally add a comment for reference.")
                         }
                         .padding(.horizontal, 4)
                     }
@@ -151,6 +155,14 @@ struct AddTransactionView: View {
         .onAppear {
             validateWritableContext()
         }
+        .alert("Transaction Failed", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("OK") { saveError = nil }
+        } message: {
+            Text(saveError ?? "")
+        }
     }
     
     private var isValidInput: Bool {
@@ -158,16 +170,13 @@ struct AddTransactionView: View {
         return value > 0
     }
     
+    private static let logger = Logger(subsystem: "xax.CryptoSavingsTracker", category: "AddTransactionView")
+
     private func saveTransaction() async {
         guard let depositAmount = Double(amount) else { return }
 
-        print("💾 Saving new transaction:")
-        print("   Amount: \(depositAmount)")
-        print("   Asset: \(asset.currency)")
-        print("   Comment: \(comment.isEmpty ? "none" : comment)")
-        print("   Asset ID: \(asset.id)")
-        print("   Current transaction count for asset: \((asset.transactions ?? []).count)")
-        
+        Self.logger.debug("Saving transaction: amount=\(depositAmount) asset=\(asset.currency)")
+
         do {
             _ = try DIContainer.shared.makeTransactionMutationService(modelContext: modelContext).createTransaction(
                 for: asset,
@@ -175,15 +184,12 @@ struct AddTransactionView: View {
                 comment: comment.isEmpty ? nil : comment,
                 autoAllocateGoalId: autoAllocateGoalId
             )
-            print("✅ Transaction saved successfully")
-            print("   New transaction count for asset: \((asset.transactions ?? []).count)")
+            Self.logger.debug("Transaction saved for asset \(asset.currency)")
+            dismiss()
         } catch {
-            print("❌ Failed to save transaction: \(error)")
-            // Show user-friendly error message
-            // TODO: Add error state display to UI
+            Self.logger.error("Failed to save transaction: \(error)")
+            saveError = error.localizedDescription
         }
-        
-        dismiss()
     }
 
     private func validateWritableContext() {
