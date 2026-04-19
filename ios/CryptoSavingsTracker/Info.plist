@@ -8,8 +8,6 @@
 	<array>
 		<string>_cstbridge._tcp</string>
 	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>Scan QR pairing codes to establish a trusted Local Bridge Sync session with your Mac.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Discover and connect to your trusted Mac for foreground Local Bridge Sync sessions.</string>
 	<key>UIBackgroundModes</key>

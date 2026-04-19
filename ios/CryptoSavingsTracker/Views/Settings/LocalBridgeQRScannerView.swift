@@ -1,4 +1,4 @@
-#if os(iOS)
+#if DEBUG && os(iOS)
 import AVFoundation
 import SwiftUI
 import UIKit

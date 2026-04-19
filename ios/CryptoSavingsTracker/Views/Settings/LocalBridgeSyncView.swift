@@ -718,7 +718,7 @@ struct LocalBridgeSyncView: View {
                 }
             }
         }
-        #if os(iOS)
+        #if DEBUG && os(iOS)
         .sheet(isPresented: $presentsQRScanner) {
             NavigationStack {
                 LocalBridgeQRScannerView(
@@ -846,8 +846,10 @@ struct LocalBridgeSyncView: View {
     private var pairingMethods: [BridgePairingMethod] {
 #if os(macOS)
         [.enterCodeManually, .pasteBootstrapToken]
-#else
+#elseif DEBUG
         [.enterCodeManually, .scanQR, .pasteBootstrapToken]
+#else
+        [.enterCodeManually, .pasteBootstrapToken]
 #endif
     }
 
@@ -910,7 +912,12 @@ struct LocalBridgeSyncView: View {
             pairingTokenInput = ""
             presentsPairingTokenEntry = true
         case .scanQR:
+            #if DEBUG && os(iOS)
             presentsQRScanner = true
+            #else
+            pairingTokenInput = ""
+            presentsPairingTokenEntry = true
+            #endif
         case .pasteBootstrapToken:
             #if os(iOS)
             pairingTokenInput = UIPasteboard.general.string ?? ""

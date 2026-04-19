@@ -34,6 +34,20 @@ struct PublicMVPHiddenRuntimeContractTests {
         #expect(familyShareServices.contains("await startFreshnessPipeline()"))
     }
 
+    @Test("Public MVP release build does not declare or compile camera access")
+    func publicMVPReleaseDoesNotDeclareOrCompileCameraAccess() throws {
+        let root = repositoryRoot()
+        let infoPlist = try readSource(root, "ios/CryptoSavingsTracker/Info.plist")
+        let localBridgeSyncView = try readSource(root, "ios/CryptoSavingsTracker/Views/Settings/LocalBridgeSyncView.swift")
+        let qrScannerView = try readSource(root, "ios/CryptoSavingsTracker/Views/Settings/LocalBridgeQRScannerView.swift")
+
+        #expect(!infoPlist.contains("NSCameraUsageDescription"))
+        #expect(qrScannerView.contains("#if DEBUG && os(iOS)"))
+        #expect(localBridgeSyncView.contains("#elseif DEBUG\n        [.enterCodeManually, .scanQR, .pasteBootstrapToken]\n#else\n        [.enterCodeManually, .pasteBootstrapToken]\n#endif"))
+        #expect(localBridgeSyncView.contains("#if DEBUG && os(iOS)\n        .sheet(isPresented: $presentsQRScanner)"))
+        #expect(localBridgeSyncView.contains("#if DEBUG && os(iOS)\n            presentsQRScanner = true\n#else\n            pairingTokenInput = \"\""))
+    }
+
     private func repositoryRoot() -> URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
