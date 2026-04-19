@@ -18,6 +18,8 @@ struct SettingsView: View {
     private var activeGoals: [Goal]
     @AppStorage("mvp.settings.displayCurrency") private var displayCurrency = "USD"
     @AppStorage("mvp.settings.appearance") private var appearance = "system"
+    @AppStorage(PreviewFeaturesRuntime.userDefaultsKey) private var previewFeaturesEnabled = false
+    @State private var isShowingPreviewFeaturesWarning = false
 
     private let supportURL = URL(string: "https://support.cryptosavingstracker.app")!
     private let syncSharingGateway: any SettingsSyncSharingGateway
@@ -42,6 +44,22 @@ struct SettingsView: View {
                         Text("Light").tag("light")
                         Text("Dark").tag("dark")
                     }
+                }
+
+                Section {
+                    Button {
+                        handlePreviewFeaturesButtonTapped()
+                    } label: {
+                        previewFeaturesRow
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("settings.previewFeaturesButton")
+                    .accessibilityLabel("Preview Features")
+                    .accessibilityValue(previewFeaturesEnabled ? "On" : "Off")
+                } header: {
+                    Text("Preview")
+                } footer: {
+                    Text(previewFeaturesFooterCopy)
                 }
 
                 if syncSharingGateway.isSyncSharingSectionEnabled {
@@ -74,6 +92,14 @@ struct SettingsView: View {
             .accessibilityIdentifier("settingsForm")
             .formStyle(.grouped)
             .navigationTitle("Settings")
+            .alert("Preview Features", isPresented: $isShowingPreviewFeaturesWarning) {
+                Button("Enable Preview") {
+                    previewFeaturesEnabled = true
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("These features are still being tested and may be incomplete, unstable, or change without notice.")
+            }
             #if os(iOS)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -114,6 +140,37 @@ struct SettingsView: View {
             Spacer()
             Text(value)
                 .foregroundStyle(AccessibleColors.secondaryText)
+        }
+    }
+
+    private var previewFeaturesRow: some View {
+        HStack {
+            Label {
+                Text("Preview Features")
+                    .foregroundStyle(AccessibleColors.primaryText)
+            } icon: {
+                Image(systemName: "sparkles")
+                    .foregroundStyle(AccessibleColors.primaryInteractive)
+            }
+            Spacer()
+            Text(previewFeaturesEnabled ? "On" : "Off")
+                .foregroundStyle(AccessibleColors.secondaryText)
+        }
+    }
+
+    private var previewFeaturesFooterCopy: String {
+        if previewFeaturesEnabled {
+            return "Preview features are visible. Turn this off to return to the stable experience."
+        }
+
+        return "Enable unreleased app surfaces for early testing only."
+    }
+
+    private func handlePreviewFeaturesButtonTapped() {
+        if previewFeaturesEnabled {
+            previewFeaturesEnabled = false
+        } else {
+            isShowingPreviewFeaturesWarning = true
         }
     }
 

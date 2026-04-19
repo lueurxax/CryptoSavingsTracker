@@ -13,14 +13,16 @@ struct PublicMVPHiddenRuntimeContractTests {
         let familyShareServices = try readSource(root, "ios/CryptoSavingsTracker/Services/FamilySharing/FamilyShareServices.swift")
 
         #expect(runtime.contains("case publicMVP = \"release_mvp\""))
-        #expect(runtime.contains("#if DEBUG\n        let processInfo = ProcessInfo.processInfo"))
-        #expect(runtime.contains("if let explicit = HiddenRuntimeMode(rawValue: processInfo.environment[\"CST_RUNTIME_MODE\"] ?? \"\")"))
+        #expect(runtime.contains("enum PreviewFeaturesRuntime"))
+        #expect(runtime.contains("static let userDefaultsKey = \"mvp.previewFeatures.enabled\""))
+        #expect(runtime.contains("static func resolved("))
+        #expect(runtime.contains("if let explicit = HiddenRuntimeMode(rawValue: environment[\"CST_RUNTIME_MODE\"] ?? \"\")"))
         #expect(runtime.contains("environment[\"VISUAL_CAPTURE_MODE\"] != nil"))
         #expect(runtime.contains("environment[\"VISUAL_CAPTURE_COMPONENT\"] != nil"))
-        #expect(runtime.contains("return isTestHarness ? .debugInternal : .publicMVP"))
-        #expect(runtime.contains("#else\n        return .publicMVP\n        #endif"))
+        #expect(runtime.contains("if isTestHarness {\n            return .debugInternal\n        }"))
+        #expect(runtime.contains("PreviewFeaturesRuntime.isEnabled(userDefaults: userDefaults) ? .debugInternal : .publicMVP"))
         #expect(runtime.contains("var allowsFamilySharing"))
-        #expect(rollout.contains("let releaseDefault = runtimeMode.hiddenRuntimeEnabledByDefault"))
+        #expect(rollout.contains("let releaseDefault = runtimeModeProvider().hiddenRuntimeEnabledByDefault"))
         #expect(notificationManager.contains("var isReminderRuntimeSchedulingEnabled: Bool"))
         #expect(notificationManager.contains("var isNotificationPromptEnabled: Bool"))
         #expect(notificationManager.contains("var isAutomationSchedulerEnabled: Bool"))
@@ -46,6 +48,18 @@ struct PublicMVPHiddenRuntimeContractTests {
         #expect(localBridgeSyncView.contains("#elseif DEBUG\n        [.enterCodeManually, .scanQR, .pasteBootstrapToken]\n#else\n        [.enterCodeManually, .pasteBootstrapToken]\n#endif"))
         #expect(localBridgeSyncView.contains("#if DEBUG && os(iOS)\n        .sheet(isPresented: $presentsQRScanner)"))
         #expect(localBridgeSyncView.contains("#if DEBUG && os(iOS)\n            presentsQRScanner = true\n#else\n            pairingTokenInput = \"\""))
+    }
+
+    @Test("Settings exposes Preview Features with an explicit warning before opt-in")
+    func settingsExposesPreviewFeaturesWarning() throws {
+        let root = repositoryRoot()
+        let settingsView = try readSource(root, "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift")
+
+        #expect(settingsView.contains("@AppStorage(PreviewFeaturesRuntime.userDefaultsKey)"))
+        #expect(settingsView.contains("settings.previewFeaturesButton"))
+        #expect(settingsView.contains(".alert(\"Preview Features\""))
+        #expect(settingsView.contains("Enable Preview"))
+        #expect(settingsView.contains("still being tested"))
     }
 
     private func repositoryRoot() -> URL {

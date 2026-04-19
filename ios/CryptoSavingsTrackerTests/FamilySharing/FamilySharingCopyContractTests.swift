@@ -99,6 +99,41 @@ struct FamilySharingCopyContractTests {
         #expect(builtDestinations == [.familyAccess, .localBridgeSync])
     }
 
+    @Test("preview features opt-in exposes sync sharing rows through the runtime gateway")
+    @MainActor
+    func previewFeaturesOptInExposesSyncSharingRows() {
+        let suiteName = "FamilySharingCopyContractTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        var builtDestinations: [SettingsSyncSharingDestination] = []
+        let gateway = RuntimeSettingsSyncSharingGateway(
+            runtimeModeProvider: {
+                HiddenRuntimeMode.resolved(environment: [:], arguments: [], userDefaults: defaults)
+            },
+            familyAccessDestinationFactory: { _ in
+                builtDestinations.append(.familyAccess)
+                return AnyView(Text("Family Access"))
+            },
+            localBridgeDestinationFactory: {
+                builtDestinations.append(.localBridgeSync)
+                return AnyView(Text("Local Bridge Sync"))
+            }
+        )
+
+        #expect(gateway.isSyncSharingSectionEnabled == false)
+        #expect(gateway.rows.isEmpty)
+
+        PreviewFeaturesRuntime.setEnabled(true, userDefaults: defaults)
+
+        #expect(gateway.isSyncSharingSectionEnabled)
+        #expect(gateway.rows.map(\.destination) == [.familyAccess, .localBridgeSync])
+
+        _ = gateway.makeDestination(for: .familyAccess, activeGoals: [makeGoal()])
+        _ = gateway.makeDestination(for: .localBridgeSync, activeGoals: [makeGoal()])
+        #expect(builtDestinations == [.familyAccess, .localBridgeSync])
+    }
+
     @Test("enabled family access destination receives active goals")
     @MainActor
     func enabledFamilyAccessDestinationReceivesActiveGoals() {

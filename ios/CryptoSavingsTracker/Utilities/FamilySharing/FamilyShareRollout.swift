@@ -191,20 +191,25 @@ final class FamilyShareRollout: @unchecked Sendable {
     nonisolated(unsafe) private let telemetryProvider: any FamilyShareTelemetryProviding
     nonisolated(unsafe) private let userDefaults: UserDefaults
     nonisolated(unsafe) private let nowProvider: () -> Date
-    private let runtimeMode: HiddenRuntimeMode
+    nonisolated(unsafe) private let runtimeModeProvider: () -> HiddenRuntimeMode
 
     nonisolated init(
         remoteConfigProvider: FamilyShareRemoteConfigProviding,
         telemetryProvider: FamilyShareTelemetryProviding,
         userDefaults: UserDefaults = .standard,
         nowProvider: @escaping () -> Date = { Date() },
-        runtimeMode: HiddenRuntimeMode? = nil
+        runtimeMode: HiddenRuntimeMode? = nil,
+        runtimeModeProvider: (() -> HiddenRuntimeMode)? = nil
     ) {
         self.remoteConfigProvider = remoteConfigProvider
         self.telemetryProvider = telemetryProvider
         self.userDefaults = userDefaults
         self.nowProvider = nowProvider
-        self.runtimeMode = runtimeMode ?? HiddenRuntimeMode.current
+        if let runtimeMode {
+            self.runtimeModeProvider = { runtimeMode }
+        } else {
+            self.runtimeModeProvider = runtimeModeProvider ?? { HiddenRuntimeMode.current }
+        }
     }
 
     nonisolated func isEnabled() -> Bool {
@@ -230,7 +235,7 @@ final class FamilyShareRollout: @unchecked Sendable {
     }
 
     nonisolated func isHiddenRuntimeEnabledByDefault() -> Bool {
-        runtimeMode.hiddenRuntimeEnabledByDefault
+        runtimeModeProvider().hiddenRuntimeEnabledByDefault
     }
 
     nonisolated func setDebugOverride(_ value: Bool?) {
@@ -243,7 +248,7 @@ final class FamilyShareRollout: @unchecked Sendable {
     }
 
     nonisolated private func resolvedValue() -> (Bool, Source) {
-        let releaseDefault = runtimeMode.hiddenRuntimeEnabledByDefault
+        let releaseDefault = runtimeModeProvider().hiddenRuntimeEnabledByDefault
         var value = releaseDefault
         var source: Source = .releaseDefault
 

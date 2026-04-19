@@ -49,18 +49,27 @@ protocol SettingsSyncSharingGateway: AnyObject {
 
 @MainActor
 final class RuntimeSettingsSyncSharingGateway: SettingsSyncSharingGateway {
-    private let runtimeMode: HiddenRuntimeMode
+    private let runtimeModeProvider: () -> HiddenRuntimeMode
     private let familyAccessDestinationFactory: ([Goal]) -> AnyView
     private let localBridgeDestinationFactory: () -> AnyView
 
     init(
-        runtimeMode: HiddenRuntimeMode = .current,
+        runtimeMode: HiddenRuntimeMode? = nil,
+        runtimeModeProvider: (() -> HiddenRuntimeMode)? = nil,
         familyAccessDestinationFactory: (([Goal]) -> AnyView)? = nil,
         localBridgeDestinationFactory: (() -> AnyView)? = nil
     ) {
-        self.runtimeMode = runtimeMode
+        if let runtimeMode {
+            self.runtimeModeProvider = { runtimeMode }
+        } else {
+            self.runtimeModeProvider = runtimeModeProvider ?? { HiddenRuntimeMode.current }
+        }
         self.familyAccessDestinationFactory = familyAccessDestinationFactory ?? Self.makeFamilyAccessDestination
         self.localBridgeDestinationFactory = localBridgeDestinationFactory ?? Self.makeLocalBridgeDestination
+    }
+
+    private var runtimeMode: HiddenRuntimeMode {
+        runtimeModeProvider()
     }
 
     var isSyncSharingSectionEnabled: Bool {

@@ -27,6 +27,7 @@ struct GoalsListContainer: View {
     @State private var selectedGoalForLifecycleAction: Goal?
     @State private var selectedSharedGoal: FamilyShareInviteeGoalProjection?
     @State private var showingLifecycleActions = false
+    @AppStorage(PreviewFeaturesRuntime.userDefaultsKey) private var previewFeaturesEnabled = false
     @StateObject private var familyShareCoordinator = DIContainer.shared.familyShareAcceptanceCoordinator
 
     var body: some View {
@@ -203,7 +204,8 @@ struct GoalsListContainer: View {
     // MARK: - Private Methods
 
     private var showsSharedGoalsSection: Bool {
-        HiddenRuntimeMode.current.allowsFamilySharing && familyShareCoordinator.sharedSections.isEmpty == false
+        _ = previewFeaturesEnabled
+        return HiddenRuntimeMode.current.allowsFamilySharing && familyShareCoordinator.sharedSections.isEmpty == false
     }
 
     private func deleteGoal(_ goal: Goal) {

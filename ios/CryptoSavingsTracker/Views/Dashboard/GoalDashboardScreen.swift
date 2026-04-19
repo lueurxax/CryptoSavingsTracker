@@ -17,6 +17,7 @@ struct GoalDashboardScreen: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @AppStorage("dashboard_widgets") private var legacyWidgetsJSON: String = ""
+    @AppStorage(PreviewFeaturesRuntime.userDefaultsKey) private var previewFeaturesEnabled = false
 
     let goal: Goal
 
@@ -64,6 +65,7 @@ struct GoalDashboardScreen: View {
             .onChange(of: goal.lifecycleStatus) { _, _ in reloadScene() }
             .onChange(of: goal.targetAmount) { _, _ in reloadScene() }
             .onChange(of: goal.deadline) { _, _ in reloadScene() }
+            .onChange(of: previewFeaturesEnabled) { _, _ in reloadScene() }
             .onChange(of: sceneModel?.goalId) { _, newGoalID in
                 guard !dashboardOpenedTracked, newGoalID != nil else { return }
                 telemetryTracker.goalDashboardOpened(goalID: goal.id.uuidString.lowercased(), entryPoint: "goal_detail")
