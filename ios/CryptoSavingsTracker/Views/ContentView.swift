@@ -36,8 +36,21 @@ private enum AppleRootSurface: String, CaseIterable, Hashable {
 }
 
 private struct AppleRootShellState {
-    var selectedRootSurface: AppleRootSurface = .dashboard
+    var selectedRootSurface: AppleRootSurface = Self.defaultRootSurface
     var selectedGoalDetailView: DetailViewType = .details
+
+    private static var defaultRootSurface: AppleRootSurface {
+        #if DEBUG
+        if UITestFlags.shouldStartOnGoals {
+            return .goals
+        }
+        if HiddenRuntimeMode.current.allowsFamilySharing,
+           UITestFlags.familyShareScenario != nil {
+            return .goals
+        }
+        #endif
+        return .dashboard
+    }
 }
 
 struct ContentView: View {

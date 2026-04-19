@@ -1,0 +1,48 @@
+{
+  "evidence_id": "W4-02-EVIDENCE-001",
+  "owner": "TBD",
+  "captured_at": "2026-04-18T00:00:00Z",
+  "build_identifier": "CryptoSavingsTracker-1.0.0-build-123",
+  "xcode_version": "16.x",
+  "runtime_mode": "debugInternal",
+  "unit_tests": [
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareAcceptanceCoordinatorTests",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerTests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=26.0",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerTests/FamilyShareAcceptanceCoordinatorTests",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    }
+  ],
+  "ui_tests": [
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testSettingsShowsFamilyAccessBeforeLocalBridgeSync",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerUITests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=18.5",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerUITests/FamilySharingUITests/testSettingsShowsFamilyAccessBeforeLocalBridgeSync",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    }
+  ],
+  "manual_smoke": [
+    {
+      "item": "Owner can create a share from Settings -> Family Access in enabled internal mode.",
+      "result": "TBD",
+      "notes": null
+    }
+  ],
+  "redaction_attestation": false,
+  "rollback_threshold_review": null,
+  "overall_result": "blocked",
+  "defects_found": [],
+  "phase5_decision": "blocked_pending_evidence"
+}

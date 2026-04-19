@@ -121,12 +121,18 @@ struct GoalFormUITestHooks: View {
     let focusedFieldIdentifier: String?
 
     var body: some View {
+        #if DEBUG
         if UITestFlags.isEnabled {
             Color.clear
                 .frame(width: 1, height: 1)
                 .accessibilityElement()
                 .accessibilityLabel(focusedFieldIdentifier ?? "none")
                 .accessibilityIdentifier("goalFormFocusedField")
+        } else {
+            EmptyView()
         }
+        #else
+        EmptyView()
+        #endif
     }
 }

@@ -242,6 +242,7 @@ struct PersistenceMutationServicesTests {
             _ = try service.createTransaction(
                 for: asset,
                 amount: 100,
+                date: Date(),
                 comment: "Blocked",
                 autoAllocateGoalId: nil
             )
@@ -290,6 +291,7 @@ struct PersistenceMutationServicesTests {
         _ = try service.createTransaction(
             for: asset,
             amount: 125,
+            date: Date(),
             comment: "MVP contribution",
             autoAllocateGoalId: nil
         )

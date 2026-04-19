@@ -22,21 +22,27 @@ final class LocalBridgeSyncUITests: XCTestCase {
             "-ApplePersistenceIgnoreState",
             "YES"
         ]
+        app.launchEnvironment["CST_RUNTIME_MODE"] = "debug_internal"
         app.launchEnvironment["UITEST_LOCAL_BRIDGE_SCENARIO"] = localBridgeScenario
         app.launch()
     }
 
     private func openSettings() {
         let settingsButton = app.buttons["openSettingsButton"]
-        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5), "Settings button should be visible")
-        settingsButton.tap()
-        let localBridgeRow = app.buttons["settings.cloudkit.localBridgeSync"]
+        if settingsButton.waitForExistence(timeout: 5) {
+            settingsButton.tap()
+        } else {
+            let settingsTab = app.tabBars.buttons["Settings"]
+            XCTAssertTrue(settingsTab.waitForExistence(timeout: 5), "Settings tab should be visible")
+            settingsTab.tap()
+        }
+        let localBridgeRow = app.buttons["settings.cloudkit.localBridgeSyncRow"]
         XCTAssertTrue(localBridgeRow.waitForExistence(timeout: 5), "Local Bridge Sync row should be visible in Settings")
     }
 
     private func openLocalBridge() {
         openSettings()
-        let localBridgeRow = app.buttons["settings.cloudkit.localBridgeSync"]
+        let localBridgeRow = app.buttons["settings.cloudkit.localBridgeSyncRow"]
         localBridgeRow.tap()
         XCTAssertTrue(app.navigationBars["Local Bridge Sync"].waitForExistence(timeout: 5))
     }

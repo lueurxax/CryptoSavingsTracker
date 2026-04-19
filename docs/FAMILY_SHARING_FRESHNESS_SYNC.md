@@ -3,7 +3,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | Implemented |
-| Last Updated | 2026-03-22 |
+| Last Updated | 2026-04-18 |
 | Platform | iOS 18+, iPadOS 18+ |
 | Audience | Developers, QA, Release Managers |
 
@@ -104,12 +104,12 @@ On successful refresh, the coordinator rehydrates the namespace cache and the UI
 
 ### Rollout and Teardown
 
-The freshness pipeline is currently controlled by the same rollout flag as family sharing itself:
+The freshness pipeline is controlled by both the rollout flag and the runtime boundary:
 
 - [`FamilyShareRollout.flagEnabled`](../ios/CryptoSavingsTracker/Utilities/FamilySharing/FamilyShareRollout.swift)
-- [`FamilyShareRollout.isFreshnessPipelineEnabled()`](../ios/CryptoSavingsTracker/Utilities/FamilySharing/FamilyShareRollout.swift)
+- [`HiddenRuntimeMode.current.allowsFamilySharing`](../ios/CryptoSavingsTracker/Utilities/MVPContainmentRuntime.swift)
 
-If the rollout is disabled, the coordinator does not start owner mutation observation, foreground rate refresh, rate-drift evaluation, or invitee refresh scheduling. Rollback behavior and validation live in [runbooks/family-sharing-release-gate.md](runbooks/family-sharing-release-gate.md).
+If the rollout is disabled or the runtime mode is `publicMVP`, the coordinator does not start owner mutation observation, foreground rate refresh, rate-drift evaluation, or invitee refresh scheduling. Rollback behavior and validation live in [runbooks/family-sharing-release-gate.md](runbooks/family-sharing-release-gate.md).
 
 ## Data Contract
 

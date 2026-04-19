@@ -1,5 +1,16 @@
 # Family Sharing Release Gate
 
+> Operational release gate for CloudKit Read-Only Family Sharing on iPhone/iPad
+
+| Metadata | Value |
+|----------|-------|
+| Status | ✅ Current |
+| Last Updated | 2026-04-18 |
+| Platform | iOS |
+| Audience | All |
+
+---
+
 Operational release gate for `CloudKit Read-Only Family Sharing` on iPhone/iPad.
 
 This runbook also gates the `Shared Goals Freshness Sync` rollout. Treat freshness regressions as trust regressions, not cosmetic issues.
@@ -18,33 +29,47 @@ Trigger rollback investigation immediately when any of the following are breache
 
 ## Pre-release gates
 
-Before shipping or promoting the build:
+Before shipping or promoting the build, all unit and UI tests must pass.
 
-1. `FamilyShareAcceptanceCoordinatorTests` must pass.
-2. `PersistenceMutationServicesTests` must pass.
-3. Freshness unit gates must pass:
-   - `FamilyShareFreshnessLabelTests`
-   - `FamilyShareFreshnessPolicyTests`
-   - `FamilyShareForegroundRateRefreshDriverTests`
-   - `FamilyShareInviteeRefreshSchedulerTests`
-   - `FamilyShareRateDriftEvaluatorTests`
-   - `FamilyShareReconciliationBarrierTests`
-   - `FamilyShareProjectionAutoRepublishCoordinatorTests`
-   - `FamilyShareInviteeOrderingTests`
-   - `FamilyShareMaterialityPolicyTests`
-   - `GoalProgressCalculatorTests`
-4. Family-sharing redesign UI evidence must pass as deterministic per-test invocations, not as one class-level run:
-   - `testSettingsShowsFamilyAccessBeforeLocalBridgeSync`
-   - `testInviteeScenarioShowsSharedWithYouAndReadOnlyDetail`
-   - `testInviteeScenarioShowsMultiOwnerGroupingAndStickyOwnerHeaders`
-   - `testInviteeScenarioShowsNonActiveStateBannerAndPrimaryAction`
-   - `testInviteeScenarioSuppressesBlockedDeviceOwnerLabels`
-   - `testInviteeScenarioUsesLockedOwnershipLineAndSuppressesHealthyLifecycleChip`
-   - `testScopePreviewKeepsPersistentCTAVisibleAtAccessibilitySize`
-   - `testInviteeEmptyNamespaceShowsFreshnessHeaderButNoRows`
-   - `testInviteeUnavailableNamespaceShowsRetryWithoutRows`
-   - `testInviteeDetailFreshnessCardCollapsesExactTimestampAtAccessibilitySize`
+### Required Unit Test Invocations
+
+```bash
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareAcceptanceCoordinatorTests
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/PersistenceMutationServicesTests
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareFreshnessLabelTests
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareFreshnessPolicyTests
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareForegroundRateRefreshDriverTests
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareInviteeRefreshSchedulerTests
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareRateDriftEvaluatorTests
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareReconciliationBarrierTests
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareProjectionAutoRepublishCoordinatorTests
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareInviteeOrderingTests
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareMaterialityPolicyTests
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/GoalProgressCalculatorTests
+```
+
+### Required UI Test Invocations
+
+```bash
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testSettingsShowsFamilyAccessBeforeLocalBridgeSync
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioShowsSharedWithYouAndReadOnlyDetail
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioShowsMultiOwnerGroupingAndStickyOwnerHeaders
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioShowsNonActiveStateBannerAndPrimaryAction
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioSuppressesBlockedDeviceOwnerLabels
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioUsesLockedOwnershipLineAndSuppressesHealthyLifecycleChip
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testScopePreviewKeepsPersistentCTAVisibleAtAccessibilitySize
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeEmptyNamespaceShowsFreshnessHeaderButNoRows
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeUnavailableNamespaceShowsRetryWithoutRows
+xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeDetailFreshnessCardCollapsesExactTimestampAtAccessibilitySize
+```
+
+### Evidence Artifact
+
+The canonical W4-02 evidence package must be captured and stored at:
+`/docs/release/visual-system/phase5/family-sharing-release-gate-evidence.json`
+
 5. Manual smoke on two Apple IDs must confirm:
+   - Use the CloudKit sandbox entitlement with provisioned owner_A and invitee_B test Apple IDs before manual smoke starts; if the environment differs, record the entitlement and account setup in the evidence artifact.
    - owner can create a share from `Settings -> Family Access`,
    - invitee can accept and see `Shared with You`,
    - shared detail remains read-only,

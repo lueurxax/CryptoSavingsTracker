@@ -120,9 +120,11 @@ class GoalEditViewModel: ObservableObject {
                 return
             }
 
+            #if DEBUG
             if UITestFlags.consumeSimulatedGoalSaveFailureIfNeeded() {
                 throw GoalEditError.cannotSave("Simulated UI test save failure")
             }
+            #endif
 
             clearReminderState()
 

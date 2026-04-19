@@ -409,6 +409,10 @@ class DIContainer: ObservableObject {
         return store
     }
 
+    private var familyShareCloudSyncForRuntime: FamilyShareCloudSyncing? {
+        FamilyShareCacheStoreEnvironment.current().isTestRun ? nil : familyShareCloudKitStore
+    }
+
     private var _familyShareStateProvider: DefaultFamilyShareStateProvider?
     var familyShareStateProvider: DefaultFamilyShareStateProvider {
         if let provider = _familyShareStateProvider { return provider }
@@ -426,7 +430,7 @@ class DIContainer: ObservableObject {
         if let publisher = _familyShareProjectionPublisher { return publisher }
         let publisher = DefaultFamilyShareProjectionPublisher(
             registry: familyShareNamespaceRegistry,
-            cloudSync: familyShareCloudKitStore,
+            cloudSync: familyShareCloudSyncForRuntime,
             telemetry: familyShareTelemetryTracker
         )
         _familyShareProjectionPublisher = publisher
@@ -448,7 +452,7 @@ class DIContainer: ObservableObject {
             registry: familyShareNamespaceRegistry,
             stateProvider: familyShareStateProvider,
             publisher: familyShareProjectionPublisher,
-            cloudSync: familyShareCloudKitStore,
+            cloudSync: familyShareCloudSyncForRuntime,
             telemetry: familyShareTelemetryTracker
         )
         _familyShareOwnerSharingService = service
@@ -474,7 +478,7 @@ class DIContainer: ObservableObject {
             cacheMigrationCoordinator: familyShareCacheMigrationCoordinator,
             publishCoordinator: familyShareProjectionPublishCoordinator,
             seeder: FamilyShareTestSeeder(registry: familyShareNamespaceRegistry),
-            cloudSync: familyShareCloudKitStore,
+            cloudSync: familyShareCloudSyncForRuntime,
             rollout: familyShareRollout,
             telemetry: familyShareTelemetryTracker
         )

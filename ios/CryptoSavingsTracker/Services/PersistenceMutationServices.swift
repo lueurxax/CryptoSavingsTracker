@@ -255,6 +255,7 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
     func createTransaction(
         for asset: Asset,
         amount: Double,
+        date: Date,
         comment: String?,
         autoAllocateGoalId: UUID?
     ) throws -> Transaction {
@@ -268,7 +269,7 @@ final class TransactionMutationService: TransactionMutationServiceProtocol {
         let preWasDedicatedToSingleGoal = (asset.allocations ?? []).count == 1
         let singleAllocation = (asset.allocations ?? []).first
 
-        let newTransaction = Transaction(amount: amount, asset: asset, comment: comment)
+        let newTransaction = Transaction(amount: amount, asset: asset, date: date, comment: comment)
         asset.transactions = (asset.transactions ?? []) + [newTransaction]
         modelContext.insert(newTransaction)
 
@@ -524,6 +525,19 @@ final class OnboardingMutationService: OnboardingMutationServiceProtocol {
     }
 
     func createGoalFromTemplate(_ template: GoalTemplate, userProfile: UserProfile) async throws {
+        #if DEBUG
+        if UITestFlags.consumeSimulatedGoalSaveFailureIfNeeded() {
+            throw PersistenceMutationError.saveFailed(
+                "Unable to create onboarding goal",
+                underlying: NSError(
+                    domain: "UITestFlags",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Simulated onboarding goal save failure"]
+                )
+            )
+        }
+        #endif
+
         let goalData = template.createGoal()
         let goal = Goal(
             name: goalData.name,
@@ -535,16 +549,27 @@ final class OnboardingMutationService: OnboardingMutationServiceProtocol {
         goal.clearRetiredReminderState()
 
         modelContext.insert(goal)
+        var insertedAssets: [Asset] = []
+        var insertedAllocations: [AssetAllocation] = []
 
         for recommendation in template.generateAssets().prefix(3) {
             let asset = Asset(currency: recommendation.currency)
+            let allocation = AssetAllocation(asset: asset, goal: goal, amount: asset.currentAmount)
             modelContext.insert(asset)
-            modelContext.insert(AssetAllocation(asset: asset, goal: goal, amount: asset.currentAmount))
+            modelContext.insert(allocation)
+            insertedAssets.append(asset)
+            insertedAllocations.append(allocation)
         }
 
         do {
             try modelContext.save()
         } catch {
+            for allocation in insertedAllocations {
+                modelContext.delete(allocation)
+            }
+            for asset in insertedAssets {
+                modelContext.delete(asset)
+            }
             modelContext.delete(goal)
             throw PersistenceMutationError.saveFailed("Unable to create onboarding goal", underlying: error)
         }

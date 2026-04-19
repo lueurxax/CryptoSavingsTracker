@@ -10,6 +10,10 @@ The current public release scope is focused on the Apple app experience: create 
 - Android app: repository work in progress, not the primary public release contract
 - Internal docs: architecture notes, proposals, audits, and release evidence
 
+### Internal Feature Boundaries
+
+The Apple release build uses explicit runtime boundaries for trust-sensitive capabilities. Experimental sync surfaces remain limited to internal-debug mode until they pass the required release gates.
+
 ## Repository Layout
 
 ```text
@@ -47,7 +51,7 @@ xcodebuild -scheme CryptoSavingsTracker -configuration Debug build
 
 ```bash
 cd ios
-xcodebuild -scheme CryptoSavingsTracker -destination 'platform=iOS Simulator,name=iPhone 15' test
+xcodebuild -scheme CryptoSavingsTracker -destination 'platform=iOS Simulator,name=iPhone 16' test
 ```
 
 ### Open in Xcode

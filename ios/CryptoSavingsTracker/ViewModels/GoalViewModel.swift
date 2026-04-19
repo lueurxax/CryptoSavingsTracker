@@ -15,6 +15,7 @@ class GoalViewModel: ObservableObject, ErrorAwareViewModel {
     @Published var progress: Double = 0
     @Published var suggestedDeposit: Double = 0
     @Published var isLoading: Bool = false
+    @Published var balanceRefreshError: UserFacingError?
     @Published var viewState: ViewState = .idle
     var lastSuccessfulLoad: Date?
     
@@ -60,7 +61,8 @@ class GoalViewModel: ObservableObject, ErrorAwareViewModel {
             try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         }
 
-        let total = await calculateCurrentTotal()
+        let result = await calculateCurrentTotal()
+        let total = result.total
         let prog = calculateProgress(currentTotal: total)
         let deposit = calculateSuggestedDeposit(currentTotal: total)
 
@@ -69,8 +71,9 @@ class GoalViewModel: ObservableObject, ErrorAwareViewModel {
             self.progress = prog
             self.suggestedDeposit = deposit
             self.isLoading = false
+            self.balanceRefreshError = result.error
             self.lastSuccessfulLoad = Date()
-            self.viewState = .loaded
+            self.viewState = result.error == nil ? .loaded : .degraded(result.error?.message ?? "")
         }
     }
 
@@ -78,12 +81,18 @@ class GoalViewModel: ObservableObject, ErrorAwareViewModel {
         await refreshValues()
     }
     
-    private func calculateCurrentTotal() async -> Double {
-        
+    private func calculateCurrentTotal() async -> (total: Double, error: UserFacingError?) {
         var total: Double = 0
+        var firstRefreshError: UserFacingError?
+
         for (_,  allocation) in (goal.allocations ?? []).enumerated() {
             guard let asset = allocation.asset else { continue }
-            let assetBalance = await AssetViewModel.getCurrentAmount(for: asset)
+            let balanceResult = await currentAmount(for: asset)
+            if balanceResult.error != nil, firstRefreshError == nil {
+                firstRefreshError = balanceRefreshUserError()
+            }
+
+            let assetBalance = balanceResult.amount
             let allocatedPortion = min(max(0, allocation.amountValue), assetBalance)
             guard allocatedPortion > 0 else { continue }
 
@@ -96,12 +105,49 @@ class GoalViewModel: ObservableObject, ErrorAwareViewModel {
                     total += convertedValue
                 } catch {
                     AppLog.error("Exchange rate failed for \(asset.currency) → \(goal.currency). Skipping value to avoid wrong totals. Error: \(error.localizedDescription)", category: .exchangeRate)
+                    if firstRefreshError == nil {
+                        firstRefreshError = balanceRefreshUserError()
+                    }
                     continue
                 }
             }
         }
         
-        return total
+        return (total, firstRefreshError)
+    }
+
+    private func currentAmount(for asset: Asset) async -> (amount: Double, error: Error?) {
+        var total = asset.manualBalance
+
+        guard let address = asset.address,
+              let chainId = asset.chainId,
+              !address.isEmpty else {
+            return (total, nil)
+        }
+
+        do {
+            let onChainBalance = try await tatumService.fetchBalance(
+                chainId: chainId,
+                address: address,
+                symbol: asset.currency,
+                forceRefresh: false
+            )
+            total += onChainBalance
+            return (total, nil)
+        } catch {
+            AppLog.warning("Goal detail balance refresh kept manual balance after on-chain fetch failed: \(error.localizedDescription)", category: .balanceService)
+            return (total, error)
+        }
+    }
+
+    private func balanceRefreshUserError() -> UserFacingError {
+        UserFacingError(
+            title: "Balances Not Refreshed",
+            message: "Some balances could not be updated. Existing values are still shown.",
+            recoverySuggestion: "Check your connection and retry.",
+            isRetryable: true,
+            category: .network
+        )
     }
     
     private func calculateProgress(currentTotal: Double) -> Double {

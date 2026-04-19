@@ -24,7 +24,7 @@ struct GoalsListView: View {
     @State private var selectedGoalForLifecycleAction: Goal?
     @State private var showingLifecycleActions = false
     @State private var showingOnboarding = false
-    
+
     var body: some View {
         Group {
                 if goals.isEmpty {
@@ -45,7 +45,14 @@ struct GoalsListView: View {
                         .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                        
+
+                        Section {
+                            GoalsListMVPGuidanceCard()
+                        }
+                        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+
                         // Individual Goals
                         Section("Your Goals") {
                             ForEach(goals) { goal in
@@ -53,6 +60,7 @@ struct GoalsListView: View {
                                     UnifiedGoalRowView.iOS(goal: goal, refreshTrigger: refreshTrigger)
                                         .id("\(goal.id)-\(refreshTrigger)") // Force refresh when goal changes or when triggered
                                 }
+                                .accessibilityIdentifier("goalRow-\(goal.name)")
                                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                                 .listRowBackground(
                                     RoundedRectangle(cornerRadius: 12)
@@ -78,7 +86,7 @@ struct GoalsListView: View {
                                             Image(systemName: "flag")
                                         }
                                     }
-                                    
+
                                     Button {
                                         Task { @MainActor in
                                             await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
@@ -130,13 +138,13 @@ struct GoalsListView: View {
             .onChange(of: editingGoal) { oldValue, newValue in
                 // When edit dialog closes, force refresh goal data
                 if oldValue != nil && newValue == nil {
-                    
+
                     // Force SwiftData to refresh by calling processPendingChanges
                     modelContext.processPendingChanges()
-                    
+
                     // Force view refresh by updating refresh trigger
                     refreshTrigger = UUID()
-                    
+
                     // Log updated goal data
                     for _ in goals {
                     }
@@ -163,7 +171,7 @@ struct GoalsListView: View {
                 }
             }
     }
-    
+
     private func deleteGoals(offsets: IndexSet) {
         withAnimation(.default) {
             for index in offsets {
@@ -173,5 +181,23 @@ struct GoalsListView: View {
                 }
             }
         }
+    }
+}
+
+private struct GoalsListMVPGuidanceCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Getting Started", systemImage: "flag.2.crossed")
+                .font(.headline)
+            Text("Create goals here, then add assets and contributions from each goal to keep progress moving.")
+                .font(.subheadline)
+                .foregroundStyle(AccessibleColors.secondaryText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.regularMaterial)
+        )
     }
 }

@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-03-17 |
+| Last Updated | 2026-04-18 |
 | Platform | iOS |
 | Audience | Developers |
 
@@ -87,6 +87,7 @@ enum NavigationStylePreference {
 | **macOS** | `GoalSidebarRow` | `/Views/Components/GoalsSidebarView.swift` | macOS sidebar goal entries |
 | **Shared** | `GoalRowView` (alt) | `/Views/ContentView.swift` (GoalsList) | Alternative iOS implementation |
 | **Shared** | `GoalRowView` (alt) | `/Views/Goals/GoalsListContainer.swift` | iOS container variant |
+| **iOS** | `AdaptiveSummaryRow` | `/Views/Components/AdaptiveSummaryRow.swift` | GoalDetail summary row with 320pt vertical fallback |
 
 #### Goal Component Responsibilities
 
@@ -98,6 +99,7 @@ enum NavigationStylePreference {
 // ✅ Days remaining with urgency indicators
 // ✅ Description preview (if available)
 // ✅ Accessibility support
+// ✅ Adaptive layout for 320pt small-screen constraints (Summary Rows)
 ```
 
 ### Progress Calculation Architecture
@@ -127,6 +129,7 @@ When you need to modify goal display logic:
 2. **macOS Primary**: Look in `GoalsSidebarView.swift` for `GoalSidebarRow`
 3. **Alternative implementations**: Search for `GoalRowView` usage across codebase
 4. **Progress calculation**: Always use `GoalCalculationService` for currency conversion
+5. **Goal Detail Summary**: Use `AdaptiveSummaryRow.swift` for finance-critical summary data
 
 ### Component Unification Status
 
@@ -136,6 +139,7 @@ When you need to modify goal display logic:
 | ✅ **Unified** | Progress calculation | Uses GoalCalculationService |
 | ✅ **Unified** | Emoji/description data | Shared Goal model properties |
 | ✅ **Enhanced (Phase 2)** | Platform abstraction | Enhanced `PlatformCapabilities` with modal styles, haptics, window management |
+| ✅ **Remediated (Phase 4)** | Goal Detail Summary | `AdaptiveSummaryRow` with multiline 320pt fallback |
 
 ---
 
@@ -152,7 +156,9 @@ Services/
 ├── TransactionService.swift          ← Transaction history fetching (DI)
 ├── TatumService.swift                ← Blockchain data wrapper (DI)
 ├── MonthlyPlanningService.swift      ← Required monthly calculations
-└── FlexAdjustmentService.swift       ← Payment flexibility
+├── FlexAdjustmentService.swift       ← Payment flexibility
+├── SettingsSyncSharingGateway.swift  ← **Runtime eligibility for Sync & Sharing (NEW)**
+└── PersistenceMutationServices.swift ← **Transaction and onboarding persistence**
 ```
 
 ### Service Responsibilities
@@ -166,6 +172,8 @@ Services/
 | `TransactionService` | Transaction history | DI (TatumClient, ChainService) | Transaction views |
 | `TatumService` | Blockchain API wrapper | DI (TatumClient, ChainService) | Views, ViewModels |
 | `MonthlyPlanningService` | Required payment calculations | DI (ExchangeRateService) | Planning views, widgets |
+| `SettingsSyncSharingGateway` | Gates Sync & Sharing visibility and service instantiation based on HiddenRuntimeMode. Ensures no side effects or service construction in public MVP builds. | DIContainer | SettingsView |
+| `PersistenceMutationServices` | Provides TransactionMutationServiceProtocol for AddTransactionView save-failure injection. | DIContainer | AddTransactionView, Onboarding |
 
 ### Dependency Injection Architecture
 
@@ -180,7 +188,15 @@ let balanceService = BalanceService(
 DIContainer.shared.coinGeckoService     // Returns service or fallback
 DIContainer.shared.exchangeRateService  // Automatic error handling
 DIContainer.shared.makeDashboardViewModel() // ViewModel factory with injected deps
+
+// Save-failure regression guard injection
+AddTransactionView(viewModel: AddTransactionViewModel(service: DIContainer.shared.transactionMutationService))
 ```
+
+#### Runtime Boundary Policy
+
+The application uses `HiddenRuntimeMode` as the authoritative source of truth for runtime boundaries. This policy distinguishes between `publicMVP` and `debugInternal` modes, ensuring that trust-sensitive features like Family Access remain hidden from public builds until a separate release decision is made.
+
 
 #### ViewModel Factories (Usage)
 
@@ -367,6 +383,15 @@ Goal Model ←── AssetAllocation ──→ Asset Model
 ✅ **Persistent Caching**: BalanceCacheManager with UserDefaults persistence  
 ✅ **Startup Throttling**: StartupThrottler prevents API spam  
 ✅ **Structured Logging**: AppLog with 16 categories replacing print statements
+✅ **Wave 3 Remediation**:
+    - Implemented simulated goal-save failure and retry recovery in `OnboardingFlowView`.
+    - Wired onboarding completion to successful goal creation rather than initial intent.
+    - Added deterministic `OnboardingUITests` for failure-path coverage.
+✅ **Wave 4 Remediation (Phase 4)**:
+    - Implemented `SettingsSyncSharingGateway` to enforce runtime boundaries for Sync & Sharing.
+    - Introduced `AdaptiveSummaryRow` for small-device Goal Detail summary constraints.
+    - Added deterministic save-failure coverage for `AddTransactionView` via `TransactionMutationServiceProtocol`.
+    - Integrated `ErrorBannerView` into `GoalDetailView` balance refresh failures.
 
 ### Patterns Needing Improvement
 

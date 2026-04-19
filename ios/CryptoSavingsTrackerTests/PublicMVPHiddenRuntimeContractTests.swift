@@ -13,7 +13,12 @@ struct PublicMVPHiddenRuntimeContractTests {
         let familyShareServices = try readSource(root, "ios/CryptoSavingsTracker/Services/FamilySharing/FamilyShareServices.swift")
 
         #expect(runtime.contains("case publicMVP = \"release_mvp\""))
+        #expect(runtime.contains("#if DEBUG\n        let processInfo = ProcessInfo.processInfo"))
+        #expect(runtime.contains("if let explicit = HiddenRuntimeMode(rawValue: processInfo.environment[\"CST_RUNTIME_MODE\"] ?? \"\")"))
+        #expect(runtime.contains("environment[\"VISUAL_CAPTURE_MODE\"] != nil"))
+        #expect(runtime.contains("environment[\"VISUAL_CAPTURE_COMPONENT\"] != nil"))
         #expect(runtime.contains("return isTestHarness ? .debugInternal : .publicMVP"))
+        #expect(runtime.contains("#else\n        return .publicMVP\n        #endif"))
         #expect(runtime.contains("var allowsFamilySharing"))
         #expect(rollout.contains("let releaseDefault = runtimeMode.hiddenRuntimeEnabledByDefault"))
         #expect(notificationManager.contains("var isReminderRuntimeSchedulingEnabled: Bool"))

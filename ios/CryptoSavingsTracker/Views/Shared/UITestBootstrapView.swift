@@ -9,6 +9,7 @@
 import SwiftUI
 import SwiftData
 
+#if DEBUG
 struct UITestBootstrapView<Content: View>: View {
     @Environment(\.modelContext) private var modelContext
     private let content: () -> Content
@@ -44,7 +45,12 @@ struct UITestBootstrapView<Content: View>: View {
                 await CryptoSavingsTrackerApp.runUITestSeedIfNeeded(context: modelContext)
             }
 
+            if let familyShareScenario = UITestFlags.familyShareScenario {
+                await DIContainer.shared.familyShareAcceptanceCoordinator.seedUITestScenario(familyShareScenario)
+            }
+
             isReady = true
         }
     }
 }
+#endif

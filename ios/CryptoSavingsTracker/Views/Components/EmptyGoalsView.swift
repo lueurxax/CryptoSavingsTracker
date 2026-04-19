@@ -15,7 +15,7 @@ struct EmptyGoalsView: View {
             // Icon
             Image(systemName: "target")
                 .font(.system(size: 64))
-                .foregroundColor(.secondary)
+                .foregroundColor(AccessibleColors.secondaryText)
             
             // Text content
             VStack(spacing: 8) {
@@ -25,7 +25,7 @@ struct EmptyGoalsView: View {
                 
                 Text("Create your first cryptocurrency savings goal to start tracking your progress")
                     .font(.body)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AccessibleColors.secondaryText)
                     .multilineTextAlignment(.center)
             }
             

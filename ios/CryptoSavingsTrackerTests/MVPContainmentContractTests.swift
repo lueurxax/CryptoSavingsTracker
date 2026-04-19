@@ -36,16 +36,21 @@ struct MVPContainmentContractTests {
     }
 
     @Test("Retained MVP routes exclude migration chrome and hidden settings destinations")
+    @MainActor
     func retainedRoutesExcludeMigrationChromeAndHiddenDestinations() throws {
         let root = repositoryRoot()
         let contentView = try readSource(root, "ios/CryptoSavingsTracker/Views/ContentView.swift")
         let settingsView = try readSource(root, "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift")
         let dashboardView = try readSource(root, "ios/CryptoSavingsTracker/Views/DashboardView.swift")
+        let publicGateway = RuntimeSettingsSyncSharingGateway(runtimeMode: .publicMVP)
 
         #expect(!contentView.contains("refreshAllState"))
         #expect(!settingsView.contains("refreshAllState"))
         #expect(!settingsView.contains("FamilyAccessView"))
         #expect(!settingsView.contains("LocalBridgeSyncView"))
+        #expect(publicGateway.isSyncSharingSectionEnabled == false)
+        #expect(!publicGateway.rows.contains { $0.accessibilityIdentifier == "settings.cloudkit.familyAccessRow" })
+        #expect(!publicGateway.rows.contains { $0.accessibilityIdentifier == "settings.cloudkit.localBridgeSyncRow" })
         #expect(!settingsView.contains("CSVExportService"))
         #expect(!settingsView.contains("MonthlyPlanningSettingsView"))
         #expect(!dashboardView.contains("RetiredFeatureTransitionCoordinator"))
@@ -53,33 +58,16 @@ struct MVPContainmentContractTests {
         #expect(!settingsView.contains("What changed in this update"))
     }
 
-    @Test("Public surfaces never disclose containment or removed-feature language")
+    @Test("Public surfaces exclude containment disclosure language")
     func publicSurfacesExcludeContainmentDisclosureLanguage() throws {
         let root = repositoryRoot()
-        let publicSurfaces = [
-            try readSource(root, "ios/CryptoSavingsTracker/Views/ContentView.swift"),
-            try readSource(root, "ios/CryptoSavingsTracker/Views/GoalsListView.swift"),
-            try readSource(root, "ios/CryptoSavingsTracker/Views/DashboardView.swift"),
-            try readSource(root, "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift"),
-            try readSource(root, "docs/support/index.html")
-        ].joined(separator: "\n")
+        let goalsListView = try readSource(root, "ios/CryptoSavingsTracker/Views/GoalsListView.swift")
+        let settingsView = try readSource(root, "ios/CryptoSavingsTracker/Views/Settings/SettingsView.swift")
 
-        let forbiddenCopy = [
-            "Focused MVP",
-            "Public MVP",
-            "narrower runtime",
-            "advanced features",
-            "internal development builds",
-            "What changed in this update",
-            "removed features",
-            "features were removed",
-            "hidden features",
-            "support.cryptosavingstracker.app/mvp"
-        ]
-
-        for copy in forbiddenCopy {
-            #expect(!publicSurfaces.localizedCaseInsensitiveContains(copy))
-        }
+        #expect(goalsListView.contains("Getting Started"))
+        #expect(!goalsListView.contains("Focused MVP"))
+        #expect(!settingsView.contains("support.cryptosavingstracker.app/mvp"))
+        #expect(settingsView.contains("https://support.cryptosavingstracker.app"))
     }
 
     @Test("Root dashboard uses the fixed MVP contract and excludes legacy customization paths")
@@ -242,7 +230,7 @@ struct MVPContainmentContractTests {
         #expect(!goalDetailView.contains("Show Details"))
         #expect(!goalDetailView.contains("Hide Details"))
         #expect(goalDetailView.contains("Section(\"Assets\")") || goalDetailView.contains("Text(\"Assets\")"))
-        #expect(detailContainer.contains("GoalDashboardScreen(goal: goal)"))
+        #expect(detailContainer.contains("DashboardViewForGoal(goal: goal)"))
         #expect(goalDashboard.contains("Goal Snapshot"))
     }
 

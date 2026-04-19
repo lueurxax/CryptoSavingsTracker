@@ -26,7 +26,11 @@ struct SearchableCurrencyPicker: View {
     #if !os(macOS)
     @FocusState private var searchFieldFocused: Bool
     @State private var autoPicked = false
+    #if DEBUG
     private let isUITest = UITestFlags.isEnabled
+    #else
+    private let isUITest = false
+    #endif
     #endif
     
     private static let isoFiatCurrencyCodes = Set(Locale.Currency.isoCurrencies.map(\.identifier).map { $0.uppercased() })

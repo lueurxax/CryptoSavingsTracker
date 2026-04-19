@@ -12,13 +12,20 @@ struct SettingsView: View {
     static let syncSectionFooterCopy = SettingsUXCopy.syncSectionFooter
 
     @Environment(\.dismiss) private var dismiss
+    @Query(filter: #Predicate<Goal> { goal in
+        goal.lifecycleStatusRawValue == "active"
+    })
+    private var activeGoals: [Goal]
     @AppStorage("mvp.settings.displayCurrency") private var displayCurrency = "USD"
     @AppStorage("mvp.settings.appearance") private var appearance = "system"
 
-    @Query(filter: #Predicate<Goal> { $0.lifecycleStatusRawValue == "active" })
-    private var activeGoals: [Goal]
+    private let supportURL = URL(string: "https://support.cryptosavingstracker.app")!
+    private let syncSharingGateway: any SettingsSyncSharingGateway
 
-    private let supportURL = URL(string: "https://lueurxax.github.io/CryptoSavingsTracker/support/")!
+    @MainActor
+    init(syncSharingGateway: (any SettingsSyncSharingGateway)? = nil) {
+        self.syncSharingGateway = syncSharingGateway ?? RuntimeSettingsSyncSharingGateway()
+    }
 
     var body: some View {
         NavigationStack {
@@ -37,42 +44,23 @@ struct SettingsView: View {
                     }
                 }
 
-                Section {
-                    NavigationLink {
-                        FamilyAccessView(
-                            model: DIContainer.shared.familyShareAcceptanceCoordinator.makeFamilyAccessModel(
-                                currentGoals: activeGoals
-                            ),
-                            onShareWithFamily: {
-                                let goals = activeGoals
-                                Task { await DIContainer.shared.familyShareAcceptanceCoordinator.shareAllGoals(goals) }
-                            },
-                            onRefresh: {
-                                let goals = activeGoals
-                                Task { await DIContainer.shared.familyShareAcceptanceCoordinator.refreshFamilyAccessOwnerData(currentGoals: goals) }
-                            },
-                            onShowScopePreview: {},
-                            onShowParticipants: {}
-                        )
-                        .navigationTitle("Family Access")
-                    } label: {
-                        Text("Family Access")
+                if syncSharingGateway.isSyncSharingSectionEnabled {
+                    Section {
+                        ForEach(syncSharingGateway.rows) { row in
+                            NavigationLink {
+                                syncSharingGateway.makeDestination(for: row, activeGoals: activeGoals)
+                            } label: {
+                                syncSharingRow(row)
+                            }
+                            .accessibilityIdentifier(row.accessibilityIdentifier)
+                            .accessibilityLabel(row.accessibilityLabel)
+                            .accessibilityHint(SettingsUXCopy.navigationHint(destination: row.title))
+                        }
+                    } header: {
+                        Text("Sync & Sharing")
+                    } footer: {
+                        Text(Self.syncSectionFooterCopy)
                     }
-                    .accessibilityIdentifier("settings.cloudkit.familyAccessRow")
-                    .accessibilityHint(SettingsUXCopy.navigationHint(destination: "Family Access"))
-
-                    NavigationLink {
-                        LocalBridgeSyncView(persistenceSnapshot: PersistenceController.shared.snapshot)
-                            .navigationTitle("Local Bridge Sync")
-                    } label: {
-                        Text("Local Bridge Sync")
-                    }
-                    .accessibilityIdentifier("settings.cloudkit.localBridgeSyncRow")
-                    .accessibilityHint(SettingsUXCopy.navigationHint(destination: "Local Bridge Sync"))
-                } header: {
-                    Text("Sync & Sharing")
-                } footer: {
-                    Text(SettingsUXCopy.syncSectionFooter)
                 }
 
                 Section("About") {
@@ -103,12 +91,29 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
+    private func syncSharingRow(_ row: SettingsSyncSharingRow) -> some View {
+        Label {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(row.title)
+                    .foregroundStyle(AccessibleColors.primaryText)
+                Text(row.detail)
+                    .font(.footnote)
+                    .foregroundStyle(AccessibleColors.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } icon: {
+            Image(systemName: row.systemImage)
+                .foregroundStyle(AccessibleColors.primaryInteractive)
+        }
+    }
+
+    @ViewBuilder
     private func settingsRow(title: String, value: String) -> some View {
         HStack {
             Text(title)
             Spacer()
             Text(value)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AccessibleColors.secondaryText)
         }
     }
 

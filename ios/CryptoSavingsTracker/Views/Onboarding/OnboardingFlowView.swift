@@ -112,7 +112,7 @@ struct OnboardingFlowView: View {
                     .font(.title2.bold())
                 Text("Onboarding is complete. Continue to your goals and begin tracking.")
                     .font(.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AccessibleColors.secondaryText)
                     .multilineTextAlignment(.center)
             }
             .padding()

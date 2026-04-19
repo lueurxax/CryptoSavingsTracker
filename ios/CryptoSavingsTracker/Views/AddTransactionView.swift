@@ -7,7 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import OSLog
 #if os(macOS)
 import AppKit
 #endif
@@ -18,15 +17,25 @@ struct AddTransactionView: View {
     
     let asset: Asset
     let autoAllocateGoalId: UUID?
+    private let transactionServiceFactory: @MainActor (ModelContext) -> TransactionMutationServiceProtocol
     
     @State private var amount = ""
     @State private var comment = ""
+    @State private var transactionDate = Date()
     @State private var accessErrorMessage: String?
-    @State private var saveError: String?
+    @State private var saveError: UserFacingError?
 
-    init(asset: Asset, prefillAmount: Double? = nil, autoAllocateGoalId: UUID? = nil) {
+    init(
+        asset: Asset,
+        prefillAmount: Double? = nil,
+        autoAllocateGoalId: UUID? = nil,
+        transactionServiceFactory: @escaping @MainActor (ModelContext) -> TransactionMutationServiceProtocol = {
+            DIContainer.shared.makeTransactionMutationService(modelContext: $0)
+        }
+    ) {
         self.asset = asset
         self.autoAllocateGoalId = autoAllocateGoalId
+        self.transactionServiceFactory = transactionServiceFactory
         if let prefillAmount {
             _amount = State(initialValue: Self.formatAmount(prefillAmount))
         }
@@ -57,12 +66,13 @@ struct AddTransactionView: View {
                         .padding()
 
                     Form {
-                        Section(header: Text("Transaction Details")) {
+                        Section {
                             HStack {
                                 Text("Asset:")
                                 Spacer()
                                 Text(asset.currency)
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(AccessibleColors.secondaryText)
+                                    .accessibilityIdentifier("transactionAssetCurrencyLabel")
                             }
                             .padding(.vertical, 4)
 
@@ -71,10 +81,15 @@ struct AddTransactionView: View {
 
                             TextField("Comment (optional)", text: $comment)
                                 .padding(.vertical, 4)
-                        }
-                        .padding(.horizontal, 4)
 
-                        Section {
+                            DatePicker(
+                                "Date",
+                                selection: $transactionDate,
+                                displayedComponents: [.date]
+                            )
+                            .padding(.vertical, 4)
+                        } header: {
+                            Text("Transaction Details")
                         } footer: {
                             Text("Enter the amount you're depositing and optionally add a comment for reference.")
                         }
@@ -104,12 +119,13 @@ struct AddTransactionView: View {
 #else
                 NavigationStack {
                     Form {
-                        Section(header: Text("Transaction Details")) {
+                        Section {
                             HStack {
                                 Text("Asset:")
                                 Spacer()
                                 Text(asset.currency)
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(AccessibleColors.secondaryText)
+                                    .accessibilityIdentifier("transactionAssetCurrencyLabel")
                             }
                             .padding(.vertical, 4)
 
@@ -121,10 +137,16 @@ struct AddTransactionView: View {
                             TextField("Comment (optional)", text: $comment)
                                 .accessibilityIdentifier("transactionCommentField")
                                 .padding(.vertical, 4)
-                        }
-                        .padding(.horizontal, 4)
 
-                        Section {
+                            DatePicker(
+                                "Date",
+                                selection: $transactionDate,
+                                displayedComponents: [.date]
+                            )
+                            .accessibilityIdentifier("transactionDatePicker")
+                            .padding(.vertical, 4)
+                        } header: {
+                            Text("Transaction Details")
                         } footer: {
                             Text("Enter the amount you're depositing and optionally add a comment for reference.")
                         }
@@ -155,13 +177,27 @@ struct AddTransactionView: View {
         .onAppear {
             validateWritableContext()
         }
-        .alert("Transaction Failed", isPresented: Binding(
-            get: { saveError != nil },
-            set: { if !$0 { saveError = nil } }
-        )) {
-            Button("OK") { saveError = nil }
-        } message: {
-            Text(saveError ?? "")
+        .alert(
+            "Transaction Not Saved",
+            isPresented: Binding(
+                get: { saveError != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        saveError = nil
+                    }
+                }
+            ),
+            presenting: saveError
+        ) { _ in
+            Button("Retry") {
+                Task { await saveTransaction() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { error in
+            Text([
+                error.message,
+                error.recoverySuggestion
+            ].compactMap { $0 }.joined(separator: "\n\n"))
         }
     }
     
@@ -170,25 +206,24 @@ struct AddTransactionView: View {
         return value > 0
     }
     
-    private static let logger = Logger(subsystem: "xax.CryptoSavingsTracker", category: "AddTransactionView")
-
     private func saveTransaction() async {
-        guard let depositAmount = Double(amount) else { return }
+        let result = AddTransactionSaveCoordinator.save(
+            asset: asset,
+            amountText: amount,
+            date: transactionDate,
+            comment: comment,
+            autoAllocateGoalId: autoAllocateGoalId,
+            service: transactionServiceFactory(modelContext)
+        )
 
-        Self.logger.debug("Saving transaction: amount=\(depositAmount) asset=\(asset.currency)")
+        if let error = result.error {
+            saveError = error
+            return
+        }
 
-        do {
-            _ = try DIContainer.shared.makeTransactionMutationService(modelContext: modelContext).createTransaction(
-                for: asset,
-                amount: depositAmount,
-                comment: comment.isEmpty ? nil : comment,
-                autoAllocateGoalId: autoAllocateGoalId
-            )
-            Self.logger.debug("Transaction saved for asset \(asset.currency)")
+        if result.shouldDismiss {
+            saveError = nil
             dismiss()
-        } catch {
-            Self.logger.error("Failed to save transaction: \(error)")
-            saveError = error.localizedDescription
         }
     }
 
@@ -206,5 +241,63 @@ struct AddTransactionView: View {
         formatter.maximumFractionDigits = 8
         formatter.minimumFractionDigits = 0
         return formatter.string(from: NSNumber(value: amount)) ?? "\(amount)"
+    }
+}
+
+@MainActor
+enum AddTransactionSaveCoordinator {
+    struct SaveResult: Equatable {
+        let shouldDismiss: Bool
+        let error: UserFacingError?
+    }
+
+    static func save(
+        asset: Asset,
+        amountText: String,
+        date: Date,
+        comment: String,
+        autoAllocateGoalId: UUID?,
+        service: TransactionMutationServiceProtocol
+    ) -> SaveResult {
+        guard let depositAmount = Double(amountText), depositAmount > 0 else {
+            return SaveResult(shouldDismiss: false, error: nil)
+        }
+
+        #if DEBUG
+        if UITestFlags.consumeSimulatedTransactionSaveFailureIfNeeded() {
+            return SaveResult(
+                shouldDismiss: false,
+                error: UserFacingError(
+                    title: "Transaction Not Saved",
+                    message: "Your transaction could not be saved.",
+                    recoverySuggestion: "Check that the goal is still writable, then retry.",
+                    isRetryable: true,
+                    category: .dataCorruption
+                )
+            )
+        }
+        #endif
+
+        do {
+            _ = try service.createTransaction(
+                for: asset,
+                amount: depositAmount,
+                date: date,
+                comment: comment.isEmpty ? nil : comment,
+                autoAllocateGoalId: autoAllocateGoalId
+            )
+            return SaveResult(shouldDismiss: true, error: nil)
+        } catch {
+            return SaveResult(
+                shouldDismiss: false,
+                error: UserFacingError(
+                    title: "Transaction Not Saved",
+                    message: "Your transaction could not be saved.",
+                    recoverySuggestion: "Check that the goal is still writable, then retry.",
+                    isRetryable: true,
+                    category: .dataCorruption
+                )
+            )
+        }
     }
 }

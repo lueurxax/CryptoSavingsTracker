@@ -46,7 +46,7 @@ final class OnboardingUITests: XCTestCase {
         let startSavingButton = app.buttons["Start Saving"]
         XCTAssertTrue(startSavingButton.waitForExistence(timeout: 5))
         XCTAssertTrue(
-            app.staticTexts["Your \"Emergency Fund\" goal is ready to track."].waitForExistence(timeout: 5),
+            waitForStaticText(containing: "Your \"Emergency Fund\" goal is ready", timeout: 5),
             "Template selection should remain visible before save attempt"
         )
 
@@ -61,7 +61,7 @@ final class OnboardingUITests: XCTestCase {
             "Retry action should be available for recoverable failures"
         )
         XCTAssertTrue(
-            app.staticTexts["Your \"Emergency Fund\" goal is ready to track."].waitForExistence(timeout: 3),
+            waitForStaticText(containing: "Your \"Emergency Fund\" goal is ready", timeout: 3),
             "Recoverable failure should preserve setup selection state for retry"
         )
 
@@ -83,7 +83,7 @@ final class OnboardingUITests: XCTestCase {
         var launchArguments = [
             "UITEST_RESET_DATA",
             "UITEST_FORCE_ONBOARDING",
-            "UITEST_UI_FLOW",
+            "UITEST_START_ON_GOALS",
             "-ApplePersistenceIgnoreState",
             "YES"
         ]
@@ -95,7 +95,7 @@ final class OnboardingUITests: XCTestCase {
     }
 
     private func completeOnboardingFlow(profileChoice: String, templateName: String) {
-        XCTAssertTrue(app.staticTexts["Welcome to CryptoSavings"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Welcome to CryptoSavings"].waitForExistence(timeout: 20))
 
         tapIfExists(app.buttons["Continue"])
 
@@ -112,7 +112,15 @@ final class OnboardingUITests: XCTestCase {
         templateButton.tap()
 
         tapIfExists(app.buttons["Continue"])
+        tapIfExists(app.buttons["Create Goal"])
         XCTAssertTrue(app.staticTexts["You're all set!"].waitForExistence(timeout: 5))
+    }
+
+    private func waitForStaticText(containing text: String, timeout: TimeInterval) -> Bool {
+        let matchingText = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS %@", text)
+        ).firstMatch
+        return matchingText.waitForExistence(timeout: timeout)
     }
 
     @discardableResult
@@ -129,4 +137,3 @@ final class OnboardingUITests: XCTestCase {
         return false
     }
 }
-

@@ -53,9 +53,11 @@ struct OnboardingContentView: View {
     private var shouldShowOnboarding: Bool {
         if showOnboarding {
             // In test-forced mode, force onboarding for empty-state reproducibility.
+            #if DEBUG
             if UITestFlags.shouldForceOnboarding {
                 return goals.isEmpty
             }
+            #endif
             return !onboardingManager.hasCompletedOnboarding && goals.isEmpty
         }
         return false
@@ -66,7 +68,12 @@ struct OnboardingContentView: View {
         // 1. User hasn't completed onboarding (production path), OR
         // 2. Tests explicitly force onboarding for reproducibility, and
         // 3. No goals exist (empty-state entry point)
-        let shouldShow = (!onboardingManager.hasCompletedOnboarding || UITestFlags.shouldForceOnboarding) && goals.isEmpty
+        #if DEBUG
+        let forceOnboardingForUITest = UITestFlags.shouldForceOnboarding
+        #else
+        let forceOnboardingForUITest = false
+        #endif
+        let shouldShow = (!onboardingManager.hasCompletedOnboarding || forceOnboardingForUITest) && goals.isEmpty
         
         if shouldShow != showOnboarding {
             withAnimation(.easeInOut(duration: 0.4)) {

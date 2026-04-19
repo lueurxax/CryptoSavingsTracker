@@ -135,7 +135,9 @@ private struct MonthlyPlanningContainerContent: View {
             }
 
             // Ensure UI test seed (if requested) completes before loading execution/planning state
+            #if DEBUG
             await CryptoSavingsTrackerApp.runUITestSeedIfNeeded(context: modelContext)
+            #endif
             await loadExecutionRecord()
             // Also load monthly requirements after execution record is loaded
             await planningViewModel.loadMonthlyRequirements()
@@ -179,7 +181,7 @@ private struct MonthlyPlanningContainerContent: View {
         .alert("Action unavailable", isPresented: $showActionErrorAlert) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text(actionErrorMessage)
+            actionUnavailableAlertMessage
         }
         .navigationDestination(isPresented: $showingAddGoal) {
             AddGoalView()
@@ -187,6 +189,10 @@ private struct MonthlyPlanningContainerContent: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
+    }
+
+    private var actionUnavailableAlertMessage: some View {
+        Text(actionErrorMessage)
     }
 
     private var planningViewWithStartButton: some View {
@@ -266,6 +272,7 @@ private struct MonthlyPlanningContainerContent: View {
             if case .executing(let month, _, let canUndoStart) = cycleState {
                 VStack(spacing: 8) {
                     Button {
+                        #if DEBUG
                         if UITestFlags.isEnabled {
                             Task {
                                 await finishMonth()
@@ -273,6 +280,9 @@ private struct MonthlyPlanningContainerContent: View {
                         } else {
                             showFinishMonthConfirmation = true
                         }
+                        #else
+                        showFinishMonthConfirmation = true
+                        #endif
                     } label: {
                         Label("Finish \(formatMonthLabel(month))", systemImage: "checkmark.circle.fill")
                             .frame(maxWidth: .infinity)
@@ -398,12 +408,14 @@ private struct MonthlyPlanningContainerContent: View {
         isLoading = true
         dockPhase = .expanded
         // Only reset on initial load in UI tests, not on reloads after state changes
+        #if DEBUG
         if UITestFlags.isEnabled && !hasInitiallyLoaded {
             executionRecord = nil
             isExecuting = false
             executionCoordinator.isExecuting = false
             hasInitiallyLoaded = true
         }
+        #endif
 
         do {
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)

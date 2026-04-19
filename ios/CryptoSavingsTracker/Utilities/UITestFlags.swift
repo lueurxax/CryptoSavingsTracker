@@ -7,10 +7,12 @@
 
 import Foundation
 
+#if DEBUG
 enum UITestFlags {
     private static let args = ProcessInfo.processInfo.arguments
     private static let environment = ProcessInfo.processInfo.environment
     private static var remainingSimulatedGoalSaveFailures = shouldSimulateGoalSaveFailure ? 1 : 0
+    private static var remainingSimulatedTransactionSaveFailures = shouldSimulateTransactionSaveFailure ? 1 : 0
 
     enum FamilyShareScenario: String {
         case ownerNotShared = "owner_not_shared"
@@ -47,6 +49,10 @@ enum UITestFlags {
         args.contains("UITEST_SEED_MANY_GOALS")
     }
 
+    static var shouldStartOnGoals: Bool {
+        args.contains("UITEST_START_ON_GOALS")
+    }
+
     static var shouldSeedSharedAsset: Bool {
         args.contains("UITEST_SEED_SHARED_ASSET")
     }
@@ -65,6 +71,10 @@ enum UITestFlags {
 
     static var shouldSimulateGoalSaveFailure: Bool {
         args.contains("UITEST_SIMULATE_GOAL_SAVE_FAILURE")
+    }
+
+    static var shouldSimulateTransactionSaveFailure: Bool {
+        args.contains("UITEST_SIMULATE_TRANSACTION_SAVE_FAILURE")
     }
 
     static var familyShareScenario: FamilyShareScenario? {
@@ -89,4 +99,14 @@ enum UITestFlags {
         remainingSimulatedGoalSaveFailures -= 1
         return true
     }
+
+    @MainActor
+    static func consumeSimulatedTransactionSaveFailureIfNeeded() -> Bool {
+        guard shouldSimulateTransactionSaveFailure, remainingSimulatedTransactionSaveFailures > 0 else {
+            return false
+        }
+        remainingSimulatedTransactionSaveFailures -= 1
+        return true
+    }
 }
+#endif

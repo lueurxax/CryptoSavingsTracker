@@ -1,0 +1,318 @@
+{
+  "evidence_id": "W4-02-EVIDENCE-001",
+  "owner": "TBD",
+  "captured_at": "2026-04-18T00:00:00Z",
+  "build_identifier": "CryptoSavingsTracker-1.0.0-build-123",
+  "xcode_version": "16.x",
+  "runtime_mode": "debugInternal",
+  "unit_tests": [
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareAcceptanceCoordinatorTests",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerTests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=26.0",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerTests/FamilyShareAcceptanceCoordinatorTests",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/PersistenceMutationServicesTests",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerTests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=26.0",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerTests/PersistenceMutationServicesTests",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareFreshnessLabelTests",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerTests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=26.0",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerTests/FamilyShareFreshnessLabelTests",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareFreshnessPolicyTests",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerTests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=26.0",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerTests/FamilyShareFreshnessPolicyTests",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareForegroundRateRefreshDriverTests",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerTests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=26.0",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerTests/FamilyShareForegroundRateRefreshDriverTests",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareInviteeRefreshSchedulerTests",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerTests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=26.0",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerTests/FamilyShareInviteeRefreshSchedulerTests",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareRateDriftEvaluatorTests",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerTests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=26.0",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerTests/FamilyShareRateDriftEvaluatorTests",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareReconciliationBarrierTests",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerTests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=26.0",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerTests/FamilyShareReconciliationBarrierTests",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareProjectionAutoRepublishCoordinatorTests",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerTests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=26.0",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerTests/FamilyShareProjectionAutoRepublishCoordinatorTests",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareInviteeOrderingTests",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerTests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=26.0",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerTests/FamilyShareInviteeOrderingTests",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/FamilyShareMaterialityPolicyTests",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerTests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=26.0",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerTests/FamilyShareMaterialityPolicyTests",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' test -only-testing:CryptoSavingsTrackerTests/GoalProgressCalculatorTests",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerTests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=26.0",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerTests/GoalProgressCalculatorTests",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    }
+  ],
+  "ui_tests": [
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testSettingsShowsFamilyAccessBeforeLocalBridgeSync",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerUITests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=18.5",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerUITests/FamilySharingUITests/testSettingsShowsFamilyAccessBeforeLocalBridgeSync",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioShowsSharedWithYouAndReadOnlyDetail",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerUITests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=18.5",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioShowsSharedWithYouAndReadOnlyDetail",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioShowsMultiOwnerGroupingAndStickyOwnerHeaders",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerUITests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=18.5",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioShowsMultiOwnerGroupingAndStickyOwnerHeaders",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioShowsNonActiveStateBannerAndPrimaryAction",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerUITests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=18.5",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioShowsNonActiveStateBannerAndPrimaryAction",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioSuppressesBlockedDeviceOwnerLabels",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerUITests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=18.5",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioSuppressesBlockedDeviceOwnerLabels",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioUsesLockedOwnershipLineAndSuppressesHealthyLifecycleChip",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerUITests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=18.5",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeScenarioUsesLockedOwnershipLineAndSuppressesHealthyLifecycleChip",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testScopePreviewKeepsPersistentCTAVisibleAtAccessibilitySize",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerUITests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=18.5",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerUITests/FamilySharingUITests/testScopePreviewKeepsPersistentCTAVisibleAtAccessibilitySize",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeEmptyNamespaceShowsFreshnessHeaderButNoRows",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerUITests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=18.5",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeEmptyNamespaceShowsFreshnessHeaderButNoRows",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeUnavailableNamespaceShowsRetryWithoutRows",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerUITests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=18.5",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeUnavailableNamespaceShowsRetryWithoutRows",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    },
+    {
+      "command": "xcodebuild -project ios/CryptoSavingsTracker.xcodeproj -scheme CryptoSavingsTrackerUITests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test -only-testing:CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeDetailFreshnessCardCollapsesExactTimestampAtAccessibilitySize",
+      "project": "ios/CryptoSavingsTracker.xcodeproj",
+      "scheme": "CryptoSavingsTrackerUITests",
+      "destination": "platform=iOS Simulator,name=iPhone 16,OS=18.5",
+      "runtime_mode": "debugInternal",
+      "only_testing": "CryptoSavingsTrackerUITests/FamilySharingUITests/testInviteeDetailFreshnessCardCollapsesExactTimestampAtAccessibilitySize",
+      "result": "TBD",
+      "started_at": null,
+      "finished_at": null,
+      "failure_output": null
+    }
+  ],
+  "manual_smoke": [
+    {
+      "item": "Owner can create a share from Settings -> Family Access in enabled internal mode.",
+      "result": "TBD",
+      "notes": null
+    },
+    {
+      "item": "Invitee can accept and see Shared with You.",
+      "result": "TBD",
+      "notes": null
+    },
+    {
+      "item": "Shared detail remains read-only for invitee.",
+      "result": "TBD",
+      "notes": null
+    },
+    {
+      "item": "Invitee foreground refresh updates stale data after owner mutation.",
+      "result": "TBD",
+      "notes": null
+    },
+    {
+      "item": "Invitee manual refresh can surface Checked just now - no newer update yet.",
+      "result": "TBD",
+      "notes": null
+    },
+    {
+      "item": "Rate-driven freshness degrades to rate-governed copy when rates are old.",
+      "result": "TBD",
+      "notes": null
+    },
+    {
+      "item": "Revoke or removal degrades into a reason-specific unavailable state.",
+      "result": "TBD",
+      "notes": null
+    }
+  ],
+  "redaction_attestation": false,
+  "rollback_threshold_review": null,
+  "overall_result": "blocked",
+  "defects_found": [],
+  "phase5_decision": "blocked_pending_evidence"
+}

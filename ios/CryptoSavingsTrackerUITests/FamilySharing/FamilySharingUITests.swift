@@ -27,6 +27,7 @@ final class FamilySharingUITests: XCTestCase {
             "-ApplePersistenceIgnoreState",
             "YES"
         ]
+        app.launchEnvironment["CST_RUNTIME_MODE"] = "debug_internal"
         if let familyShareScenario {
             app.launchEnvironment["UITEST_FAMILY_SHARE_SCENARIO"] = familyShareScenario
         }
@@ -38,10 +39,15 @@ final class FamilySharingUITests: XCTestCase {
 
     private func openSettings() {
         let settingsButton = app.buttons["openSettingsButton"]
-        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
-        settingsButton.tap()
-        let familyAccessRow = app.buttons["settings.cloudkit.familyAccess"]
-        let localBridgeRow = app.buttons["settings.cloudkit.localBridgeSync"]
+        if settingsButton.waitForExistence(timeout: 5) {
+            settingsButton.tap()
+        } else {
+            let settingsTab = app.tabBars.buttons["Settings"]
+            XCTAssertTrue(settingsTab.waitForExistence(timeout: 5), "Settings tab should be visible")
+            settingsTab.tap()
+        }
+        let familyAccessRow = app.buttons["settings.cloudkit.familyAccessRow"]
+        let localBridgeRow = app.buttons["settings.cloudkit.localBridgeSyncRow"]
         XCTAssertTrue(
             familyAccessRow.waitForExistence(timeout: 5) || localBridgeRow.waitForExistence(timeout: 5),
             "Settings sync rows should be visible after opening Settings"
@@ -111,8 +117,8 @@ final class FamilySharingUITests: XCTestCase {
         launchApp()
         openSettings()
 
-        let familyAccessRow = app.buttons["settings.cloudkit.familyAccess"]
-        let localBridgeRow = app.buttons["settings.cloudkit.localBridgeSync"]
+        let familyAccessRow = app.buttons["settings.cloudkit.familyAccessRow"]
+        let localBridgeRow = app.buttons["settings.cloudkit.localBridgeSyncRow"]
 
         XCTAssertTrue(familyAccessRow.waitForExistence(timeout: 5), "Family Access row should be visible in Sync settings")
         XCTAssertTrue(localBridgeRow.waitForExistence(timeout: 5), "Local Bridge Sync row should remain visible in Sync settings")
@@ -225,7 +231,7 @@ final class FamilySharingUITests: XCTestCase {
         launchApp(contentSizeCategory: "UICTContentSizeCategoryAccessibilityXXXL")
         openSettings()
 
-        let familyAccessRow = app.buttons["settings.cloudkit.familyAccess"]
+        let familyAccessRow = app.buttons["settings.cloudkit.familyAccessRow"]
         XCTAssertTrue(familyAccessRow.waitForExistence(timeout: 5))
         familyAccessRow.tap()
 

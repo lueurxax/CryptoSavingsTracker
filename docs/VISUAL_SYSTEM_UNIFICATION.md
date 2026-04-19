@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-03-04 |
+| Last Updated | 2026-04-18 |
 | Platform | iOS + Android |
 | Audience | Developers |
 
@@ -50,6 +50,7 @@ The visual system enforces a governed cross-platform visual token contract with 
 1. Monthly Planning core flow.
 2. Dashboard core flow.
 3. Settings critical rows with warning/error semantics.
+4. Settings and Family Access (Remediation).
 
 ### Priority components
 
@@ -57,6 +58,9 @@ The visual system enforces a governed cross-platform visual token contract with 
 2. `planning.goal_row`
 3. `dashboard.summary_card`
 4. `settings.section_row`
+5. `goal_detail.summary_row` (AdaptiveSummaryRow)
+6. `settings.cloudkit.familyAccessRow` (Wave 4)
+7. `settings.cloudkit.localBridgeSyncRow` (Wave 4)
 
 ---
 
@@ -159,6 +163,7 @@ Decision: finance content uses calm surfaces by default; stronger glass depth is
 3. No color-only status semantics.
 4. Dynamic Type / large text: no clipped critical finance copy, minimum touch targets 44x44 pt (iOS), 48x48 dp (Android).
 5. VoiceOver/TalkBack labels are explicit and consequence-aware.
+6. Use AccessibleColors tokens in remediated views instead of drifting to standard system colors where an accessible token exists.
 
 ### UX success metrics
 
@@ -193,6 +198,7 @@ Confidence requirement: report Wilson interval and 95% confidence level for bina
 1. **Wave 1**: Monthly Planning flow.
 2. **Wave 2**: Dashboard flow.
 3. **Wave 3**: Settings critical rows.
+4. **Wave 4**: Settings and Family Access (Remediation).
 
 No release may ship a partially migrated primary flow.
 
@@ -462,4 +468,4 @@ python3 scripts/validate_visual_wave_bundle.py --wave ${VISUAL_SYSTEM_WAVE}
 
 ---
 
-*Last updated: 2026-03-04*
+*Last updated: 2026-04-18*

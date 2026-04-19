@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-03-22 |
+| Last Updated | 2026-04-18 |
 | Platform | Shared |
 | Audience | All |
 
@@ -166,7 +166,8 @@ CryptoSavingsTracker/
 │   ├── Components/          # Reusable UI components
 │   │   ├── HeroProgressView.swift
 │   │   ├── FlexAdjustmentSlider.swift
-│   │   └── MonthlyPlanningWidget.swift
+│   │   ├── MonthlyPlanningWidget.swift
+│   │   └── AdaptiveSummaryRow.swift
 │   ├── Planning/            # Monthly planning feature
 │   │   ├── PlanningView.swift
 │   │   └── MonthlyExecutionView.swift
@@ -184,6 +185,7 @@ CryptoSavingsTracker/
 │   ├── MonthlyPlanService.swift
 │   ├── ExchangeRateService.swift
 │   ├── BalanceService.swift
+│   ├── SettingsSyncSharingGateway.swift
 │   └── TransactionService.swift
 │
 ├── Utilities/               # Helpers & extensions
@@ -305,7 +307,7 @@ Platform abstraction and component unification. See DEVELOPMENT.md for:
 - **Phase 1**: Unified goal components ✅ COMPLETED
 - **Phase 2**: Platform abstraction ✅ COMPLETED
 - **Phase 3**: File organization ✅ COMPLETED
-- **Phase 4**: Testing & validation (in progress)
+- **Phase 4**: Testing & validation ✅ COMPLETED
 
 **Status**: See "Architectural Refactoring Plan" in DEVELOPMENT.md
 
@@ -479,26 +481,29 @@ let container = try ModelContainer(for:
 
 | Document | Last Updated | Status | Coverage |
 |----------|--------------|--------|----------|
-| README.md | 2026-03-16 | ✅ Current | Complete |
+| README.md | 2026-04-18 | ✅ Current | Complete |
 | STYLE_GUIDE.md | 2026-01-04 | ✅ Current | Complete |
 | ANDROID_DEVELOPMENT_PLAN.md | 2026-01-04 | ✅ Current | Complete |
-| ARCHITECTURE.md | 2026-01-04 | ✅ Current | Complete |
+| ARCHITECTURE.md | 2026-04-18 | ✅ Current | Complete |
 | BUDGET_CALCULATOR.md | 2026-03-16 | ✅ Current | Complete |
 | CONTRIBUTION_PROCESS.md | 2026-01-04 | ✅ Current | Complete |
 | CONTRIBUTION_FLOW.md | 2026-01-04 | ✅ Current | Complete |
 | CONTRIBUTION_TRACKING_REDESIGN.md | 2026-01-04 | ✅ Current | Complete |
 | CLOUDKIT_MIGRATION_PLAN.md | 2026-01-04 | 📋 Planning | Complete |
-| DEVELOPMENT.md | 2026-01-04 | ✅ Current | Complete |
+| DEVELOPMENT.md | 2026-04-18 | ✅ Current | Complete |
 | MONTHLY_PLANNING.md | 2026-01-04 | ✅ Current | Complete |
 | USER_GUIDES.md | 2026-01-04 | ✅ Current | Complete |
 | API_INTEGRATIONS.md | 2026-01-04 | ✅ Current | Complete |
 | NAVIGATION_PRESENTATION_CONSISTENCY.md | 2026-03-04 | ✅ Current | Complete |
 | VISUAL_SYSTEM_UNIFICATION.md | 2026-03-04 | ✅ Current | Complete |
 | GOAL_DASHBOARD.md | 2026-03-16 | ✅ Current | Complete |
-| COMPONENT_REGISTRY.md | 2026-03-16 | ✅ Current | iOS Only |
+| COMPONENT_REGISTRY.md | 2026-04-18 | ✅ Current | iOS Only |
 | sample-data.md | 2026-01-04 | ✅ Current | Complete |
+| FAMILY_SHARING.md | 2026-03-21 | ✅ Current | Complete |
+| FAMILY_SHARING_FRESHNESS_SYNC.md | 2026-03-21 | ✅ Current | Complete |
 
 ### Recent Updates
+- **2026-04-18**: Completed Wave 4 UX remediation: implemented SettingsSyncSharingGateway for runtime boundary alignment, AdaptiveSummaryRow for 320pt accessibility, and deterministic save-failure coverage for AddTransactionView.
 - **2026-03-21**: Converted Shared Goals Reputation Redesign proposal to FAMILY_SHARING.md; removed 10 proposal/review/audit files
 - **2026-03-16**: Converted 4 implemented proposals to documentation (Goal Dashboard, Budget Flow Hardening, Commit Dock Scroll Collapse, UI/UX Incremental Improvements); removed 16 proposal/review files
 - **2026-03-04**: Converted implemented Navigation and Visual System proposals to proper documentation
@@ -519,4 +524,4 @@ let container = try ModelContainer(for:
 
 ---
 
-*Last updated: 2026-03-16*
+*Last updated: 2026-04-18*

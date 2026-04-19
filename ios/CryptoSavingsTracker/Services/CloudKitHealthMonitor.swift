@@ -48,6 +48,7 @@ final class CloudKitHealthMonitor: ObservableObject {
     // MARK: - Lifecycle
 
     func startMonitoring() {
+        guard !shouldSkipCloudKitAccess else { return }
         guard !isMonitoring else { return }
         isMonitoring = true
         logger.info("Starting CloudKit health monitoring")
@@ -111,6 +112,8 @@ final class CloudKitHealthMonitor: ObservableObject {
     // MARK: - Account Status
 
     func refreshAccountStatus() async {
+        guard !shouldSkipCloudKitAccess else { return }
+
         do {
             let status = try await CKContainer.default().accountStatus()
             switch status {
@@ -176,6 +179,18 @@ final class CloudKitHealthMonitor: ObservableObject {
 
     var isCloudKitAvailable: Bool {
         accountHealth == .available
+    }
+
+    private var shouldSkipCloudKitAccess: Bool {
+        #if targetEnvironment(simulator)
+        return true
+        #else
+        return Self.shouldSkipCloudKitAccess(for: .current())
+        #endif
+    }
+
+    static func shouldSkipCloudKitAccess(for launchContext: BootstrapLaunchContext) -> Bool {
+        launchContext.skipsStartupThrottle
     }
 
     var statusSummary: String {

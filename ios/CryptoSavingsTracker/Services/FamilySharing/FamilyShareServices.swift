@@ -1403,16 +1403,18 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
 
     func handleScenePhaseChange(_ scenePhase: ScenePhase) {
         guard rollout.isFreshnessPipelineEnabled() else { return }
-        let isSeededUITestScenario = UITestFlags.familyShareScenario != nil
 
         switch scenePhase {
         case .active:
             if shouldRunOwnerRateRefreshDriver(for: ownerState) {
                 rateRefreshDriver?.start()
             }
+            #if DEBUG
+            let isSeededUITestScenario = UITestFlags.familyShareScenario != nil
             if isSeededUITestScenario {
                 return
             }
+            #endif
             let inviteeNamespaceKeys = registry
                 .allNamespaceIDs()
                 .filter { $0 != ownerNamespaceID }
@@ -1434,7 +1436,9 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     }
 
     func noteSharedSectionBecameVisible(_ namespaceID: FamilyShareNamespaceID) {
+        #if DEBUG
         guard UITestFlags.familyShareScenario == nil else { return }
+        #endif
         inviteeRefreshScheduler.onFirstVisibility(namespaceKey: namespaceID.namespaceKey)
     }
 
@@ -1458,6 +1462,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         }
     }
 
+    #if DEBUG
     func seedUITestScenario(_ scenario: UITestFlags.FamilyShareScenario) async {
         guard let mappedScenario = FamilyShareTestScenario(rawValue: scenario.rawValue) else { return }
         let namespaceID: FamilyShareNamespaceID
@@ -1476,6 +1481,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             latestErrorMessage = error.localizedDescription
         }
     }
+    #endif
 
     func resetAllNamespaces() async {
         registry.purgeAllNamespaces()

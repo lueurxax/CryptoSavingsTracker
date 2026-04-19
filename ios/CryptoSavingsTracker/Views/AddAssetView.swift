@@ -44,7 +44,11 @@ struct AddAssetView: View {
     @State private var accessErrorMessage: String?
 
     private var isUITestFlow: Bool {
+        #if DEBUG
         UITestFlags.isEnabled
+        #else
+        false
+        #endif
     }
     
     // Computed validation properties

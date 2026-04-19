@@ -170,6 +170,7 @@ protocol TransactionMutationServiceProtocol {
     func createTransaction(
         for asset: Asset,
         amount: Double,
+        date: Date,
         comment: String?,
         autoAllocateGoalId: UUID?
     ) throws -> Transaction

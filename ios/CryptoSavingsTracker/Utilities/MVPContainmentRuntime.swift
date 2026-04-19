@@ -10,6 +10,7 @@ enum HiddenRuntimeMode: String, Sendable {
     case debugInternal = "debug_internal"
 
     nonisolated static var current: HiddenRuntimeMode {
+        #if DEBUG
         let processInfo = ProcessInfo.processInfo
         if let explicit = HiddenRuntimeMode(rawValue: processInfo.environment["CST_RUNTIME_MODE"] ?? "") {
             return explicit
@@ -24,6 +25,9 @@ enum HiddenRuntimeMode: String, Sendable {
             || environment["VISUAL_CAPTURE_COMPONENT"] != nil
 
         return isTestHarness ? .debugInternal : .publicMVP
+        #else
+        return .publicMVP
+        #endif
     }
 
     nonisolated var hiddenRuntimeEnabledByDefault: Bool {

@@ -142,24 +142,28 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         static let contentHash = "contentHash"
     }
 
-    private let container: CKContainer
+    private let configuredContainer: CKContainer?
     private let environment: FamilyShareCacheStoreEnvironment
     private let telemetry: FamilyShareTelemetryTracking
     private let rollout: FamilyShareRollout
     private let rootLocatorStore: FamilyShareRootRecordLocatorStore
 
     init(
-        container: CKContainer = .default(),
+        container: CKContainer? = nil,
         environment: FamilyShareCacheStoreEnvironment = .current(),
         telemetry: FamilyShareTelemetryTracking = FamilyShareTelemetryTracker(),
         rollout: FamilyShareRollout = .shared,
         rootLocatorStore: FamilyShareRootRecordLocatorStore = FamilyShareRootRecordLocatorStore()
     ) {
-        self.container = container
+        self.configuredContainer = container
         self.environment = environment
         self.telemetry = telemetry
         self.rollout = rollout
         self.rootLocatorStore = rootLocatorStore
+    }
+
+    private var container: CKContainer {
+        configuredContainer ?? CKContainer.default()
     }
 
     func publishProjection(_ payload: FamilyShareProjectionPayload) async throws {

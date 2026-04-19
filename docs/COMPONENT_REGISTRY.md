@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-03-16 |
+| Last Updated | 2026-04-18 |
 | Platform | iOS |
 | Audience | Developers |
 
@@ -14,6 +14,12 @@
 This document provides a registry of all reusable UI components in the CryptoSavingsTracker project.
 
 ## Components
+
+### AdaptiveSummaryRow
+
+*   **File**: `/Views/Components/AdaptiveSummaryRow.swift`
+*   **Purpose**: A summary row component that adaptively switches from a horizontal to a vertical layout on small (320pt) screens to preserve readability.
+*   **Dependencies**: `AccessibleColors`
 
 ### ChartErrorView
 
@@ -56,6 +62,12 @@ This document provides a registry of all reusable UI components in the CryptoSav
 *   **File**: `/Views/Components/EmptyGoalsView.swift`
 *   **Purpose**: A view that is displayed when there are no goals.
 *   **Dependencies**: None
+
+### ErrorBannerView
+
+*   **File**: `/Views/Components/ErrorBannerView.swift`
+*   **Purpose**: A banner component for displaying recoverable errors with a retry action. Used in navigable flows like Onboarding and Goal Detail.
+*   **Dependencies**: `AccessibleColors`
 
 ### FlexAdjustmentSlider
 

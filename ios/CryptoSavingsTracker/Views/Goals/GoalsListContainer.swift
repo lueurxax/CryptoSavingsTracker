@@ -18,32 +18,64 @@ struct GoalsListContainer: View {
     private var goals: [Goal]
     @Binding var selectedView: DetailViewType
     @Environment(\.modelContext) private var modelContext
+    @State private var showingAddGoal = false
     @State private var editingGoal: Goal?
+    @State private var selectedGoalForAddAsset: Goal?
+    @State private var selectedAssetForAddTransaction: Asset?
+    @State private var selectedGoalForTransactionAssetPicker: Goal?
     @State private var refreshTrigger = UUID()
     @State private var selectedGoalForLifecycleAction: Goal?
+    @State private var selectedSharedGoal: FamilyShareInviteeGoalProjection?
     @State private var showingLifecycleActions = false
-    @State private var addAssetContextGoal: Goal?
-    @State private var addTransactionContextGoal: Goal?
-    
+    @StateObject private var familyShareCoordinator = DIContainer.shared.familyShareAcceptanceCoordinator
+
     var body: some View {
         NavigationStack {
             List {
+                if showsSharedGoalsSection {
+                    Section {
+                        Color.clear
+                            .frame(height: 0)
+                            .accessibilityIdentifier("sharedGoalsSection")
+
+                        ForEach(familyShareCoordinator.sharedSections) { section in
+                            SharedGoalsSectionView(
+                                section: section,
+                                onGoalSelected: { goal in
+                                    selectedSharedGoal = goal
+                                },
+                                onPrimaryAction: { section in
+                                    Task {
+                                        await familyShareCoordinator.handlePrimaryAction(for: section)
+                                    }
+                                }
+                            )
+                            .environmentObject(familyShareCoordinator)
+                        }
+                    } header: {
+                        Text(familyShareCoordinator.inviteeProjection.entryTitle)
+                    } footer: {
+                        Text(familyShareCoordinator.inviteeProjection.entrySummary)
+                    }
+                }
+
                 Section("Your Goals") {
                     if goals.isEmpty {
                         EmptyGoalsView {
-                            // Handled by toolbar button
+                            showingAddGoal = true
                         }
                     } else {
                         ForEach(goals) { goal in
                             NavigationLink(destination: DetailContainerView(goal: goal, selectedView: $selectedView)) {
                                 UnifiedGoalRowView.iOS(goal: goal, refreshTrigger: refreshTrigger)
                             }
+                            .accessibilityIdentifier("goalRow-\(goal.name)")
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button("Delete", role: .destructive) {
                                     deleteGoal(goal)
                                 }
                                 .tint(AccessibleColors.error)
-                                
+
                                 Button("Status") {
                                     selectedGoalForLifecycleAction = goal
                                     showingLifecycleActions = true
@@ -58,10 +90,14 @@ struct GoalsListContainer: View {
                             .contextMenu {
                                 GoalContextMenu(
                                     goal: goal,
+                                    onAddAsset: {
+                                        selectedGoalForAddAsset = goal
+                                    },
+                                    onAddTransaction: {
+                                        presentAddTransaction(for: goal)
+                                    },
                                     onDelete: { deleteGoal(goal) },
-                                    onEdit: { editingGoal = goal },
-                                    onAddAsset: { addAssetContextGoal = goal },
-                                    onAddTransaction: { addTransactionContextGoal = goal }
+                                    onEdit: { editingGoal = goal }
                                 )
                             }
                         }
@@ -71,6 +107,14 @@ struct GoalsListContainer: View {
             .navigationTitle("Goals")
             .refreshable {
                 await refreshGoalData()
+            }
+            .sheet(item: $selectedSharedGoal) { goal in
+                NavigationStack {
+                    SharedGoalDetailView(goal: goal) {
+                        selectedSharedGoal = nil
+                    }
+                    .environmentObject(familyShareCoordinator)
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -109,33 +153,69 @@ struct GoalsListContainer: View {
             Button("Close", role: .cancel) { }
         }
         // NAV-MOD: MOD-01
-        .sheet(item: $editingGoal) { goal in
-            EditGoalView(goal: goal, modelContext: modelContext)
-                .presentationDetents([.large])
-        }
-        // NAV-MOD: MOD-01
-        .sheet(item: $addAssetContextGoal) { goal in
-            AddAssetView(goal: goal)
-                .presentationDetents([.large])
-        }
-        .sheet(item: $addTransactionContextGoal) { goal in
-            GoalTransactionEntrySheet(goal: goal)
-                .presentationDetents([.large])
-        }
+            .sheet(item: $editingGoal) { goal in
+                EditGoalView(goal: goal, modelContext: modelContext)
+                    .presentationDetents([.large])
+            }
+            .sheet(isPresented: $showingAddGoal) {
+                AddGoalView()
+                    .presentationDetents([.large])
+            }
+            .sheet(item: $selectedGoalForAddAsset) { goal in
+                AddAssetView(goal: goal)
+                    .presentationDetents([.large])
+            }
+            .sheet(item: $selectedAssetForAddTransaction) { asset in
+                AddTransactionView(asset: asset)
+                    .presentationDetents([.large])
+            }
+            .sheet(item: $selectedGoalForTransactionAssetPicker) { goal in
+                NavigationStack {
+                    List(goal.uniqueAllocatedAssets) { asset in
+                        Button {
+                            selectedGoalForTransactionAssetPicker = nil
+                            DispatchQueue.main.async {
+                                selectedAssetForAddTransaction = asset
+                            }
+                        } label: {
+                            HStack {
+                                Label(asset.currency, systemImage: "bitcoinsign.circle")
+                                Spacer()
+                                Text("\((asset.transactions ?? []).count) transactions")
+                                    .font(.footnote)
+                                    .foregroundStyle(AccessibleColors.secondaryText)
+                            }
+                        }
+                        .accessibilityIdentifier("goalsContextTransactionAsset-\(asset.currency)")
+                    }
+                    .navigationTitle("Choose Asset")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                selectedGoalForTransactionAssetPicker = nil
+                            }
+                        }
+                    }
+                }
+            }
     }
-    
+
     // MARK: - Private Methods
-    
+
+    private var showsSharedGoalsSection: Bool {
+        HiddenRuntimeMode.current.allowsFamilySharing && familyShareCoordinator.sharedSections.isEmpty == false
+    }
+
     private func deleteGoal(_ goal: Goal) {
         withAnimation {
             Task { @MainActor in
                 await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
             }
-            
+
             NotificationCenter.default.post(name: .goalDeleted, object: goal)
         }
     }
-    
+
     private func refreshGoalData() async {
         let calc = DIContainer.shared.goalCalculationService
         for goal in goals {
@@ -143,67 +223,19 @@ struct GoalsListContainer: View {
             _ = await calc.getProgress(for: goal)
         }
     }
-    
+
     private func setupShortcuts() {
         // iOS Shortcuts integration handled in ShortcutsProvider.swift
     }
-}
 
-/// Sheet that lets the user pick an asset and record a transaction from the goals list context menu
-struct GoalTransactionEntrySheet: View {
-    let goal: Goal
-    @Environment(\.dismiss) private var dismiss
-    @Query private var assets: [Asset]
-
-    init(goal: Goal) {
-        self.goal = goal
-        self._assets = Query(
-            filter: #Predicate<Asset> { _ in true },
-            sort: \Asset.currency
-        )
-    }
-
-    private var goalAssets: [Asset] {
-        assets.filter { asset in
-            (asset.allocations ?? []).contains { $0.goal?.id == goal.id }
-        }
-    }
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if goalAssets.isEmpty {
-                    ContentUnavailableView(
-                        "No Assets",
-                        systemImage: "bitcoinsign.circle",
-                        description: Text("Add an asset to \(goal.name) before recording a transaction.")
-                    )
-                } else if goalAssets.count == 1, let asset = goalAssets.first {
-                    AddTransactionView(asset: asset)
-                } else {
-                    List(goalAssets) { asset in
-                        NavigationLink(destination: AddTransactionView(asset: asset)) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(asset.currency)
-                                    .font(.headline)
-                                if let address = asset.address {
-                                    Text(address)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                        .truncationMode(.middle)
-                                }
-                            }
-                        }
-                    }
-                    .navigationTitle("Select Asset")
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancel") { dismiss() }
-                        }
-                    }
-                }
-            }
+    private func presentAddTransaction(for goal: Goal) {
+        switch goal.uniqueAllocatedAssets.count {
+        case 0:
+            selectedGoalForAddAsset = goal
+        case 1:
+            selectedAssetForAddTransaction = goal.uniqueAllocatedAssets[0]
+        default:
+            selectedGoalForTransactionAssetPicker = goal
         }
     }
 }
@@ -211,10 +243,10 @@ struct GoalTransactionEntrySheet: View {
 /// Context menu for goal actions
 struct GoalContextMenu: View {
     let goal: Goal
-    let onDelete: () -> Void
-    let onEdit: () -> Void
     let onAddAsset: () -> Void
     let onAddTransaction: () -> Void
+    let onDelete: () -> Void
+    let onEdit: () -> Void
 
     var body: some View {
         Group {

@@ -134,9 +134,11 @@ final class LocalBridgeSyncController: ObservableObject {
     }
 
     func refresh() {
+        #if DEBUG
         if UITestFlags.localBridgeScenario != nil {
             return
         }
+        #endif
         trustedDevices = trustStore.loadTrustedDevices()
         latestExportArtifact = artifactStore.latestSnapshotArtifact()
         let latestImportPackage = artifactStore.latestImportPackageArtifact()
@@ -737,6 +739,7 @@ final class LocalBridgeSyncController: ObservableObject {
         }
     }
 
+    #if DEBUG
     func resetForUITesting() {
         trustedDevices = []
         lastSyncOutcome = .neverSynced
@@ -1024,4 +1027,5 @@ final class LocalBridgeSyncController: ObservableObject {
             blockingIssues: reviewDTO.blockingIssues
         )
     }
+    #endif
 }

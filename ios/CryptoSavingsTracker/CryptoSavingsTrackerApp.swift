@@ -50,6 +50,7 @@ struct CryptoSavingsTrackerApp: App {
 
     // MARK: - UI Test Seeding
 
+#if DEBUG
     private static var didRunUITestSeed = false
 
     /// Seed deterministic data for UI tests: two goals, shared asset, plans, start execution,
@@ -151,7 +152,11 @@ struct CryptoSavingsTrackerApp: App {
             (goals as [any PersistentModel]).forEach { context.delete($0) }
 
             try context.save()
-            OnboardingManager.shared.completeOnboarding()
+            if UITestFlags.shouldForceOnboarding {
+                OnboardingManager.shared.startOnboarding()
+            } else {
+                OnboardingManager.shared.completeOnboarding()
+            }
             UserDefaults.standard.set("ui-test-owner", forKey: "familyShare.ownerID")
             UserDefaults.standard.set("ui-test-household", forKey: "familyShare.shareID")
             UserDefaults.standard.set("UI Test Owner", forKey: "familyShare.ownerName")
@@ -161,30 +166,17 @@ struct CryptoSavingsTrackerApp: App {
             AppLog.error("UITEST_RESET_DATA failed: \(error)", category: .ui)
         }
     }
+#endif
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
             UITestBootstrapView(plan: bootstrapPlan.testHarnessPlan) {
-                if case .headless = bootstrapPlan.rootShellPlan.destination {
-                    Color.clear
-                } else {
-                    switch bootstrapPlan.visualCapturePlan.destination {
-                    case .none:
-                        switch bootstrapPlan.rootShellPlan.destination {
-                        case .headless:
-                            Color.clear
-                        case .content:
-                            ContentView()
-                        case .onboarding:
-                            OnboardingContentView()
-                        }
-                    case .production(let flow, let state):
-                        VisualProductionCaptureView(flow: flow, state: state)
-                    case .component(let component, let state):
-                        VisualStateCaptureView(component: component, state: state)
-                    }
-                }
+                rootContent
             }
+            #else
+            rootContent
+            #endif
         }
         .modelContainer(persistenceController.activeContainer)
         #if os(macOS)
@@ -201,6 +193,29 @@ struct CryptoSavingsTrackerApp: App {
         .windowResizability(.contentSize)
         .defaultSize(width: 600, height: 400)
         #endif
+    }
+
+    @ViewBuilder
+    private var rootContent: some View {
+        if case .headless = bootstrapPlan.rootShellPlan.destination {
+            Color.clear
+        } else {
+            switch bootstrapPlan.visualCapturePlan.destination {
+            case .none:
+                switch bootstrapPlan.rootShellPlan.destination {
+                case .headless:
+                    Color.clear
+                case .content:
+                    ContentView()
+                case .onboarding:
+                    OnboardingContentView()
+                }
+            case .production(let flow, let state):
+                VisualProductionCaptureView(flow: flow, state: state)
+            case .component(let component, let state):
+                VisualStateCaptureView(component: component, state: state)
+            }
+        }
     }
     
 }

@@ -12,6 +12,97 @@ final class ExecutionUserFlowUITests: XCTestCase {
         continueAfterFailure = false
     }
 
+    /// Verifies that a forced transaction save failure keeps the sheet open with entered data preserved.
+    func testTransactionSaveFailureKeepsSheetDraftAndRetryVisible() throws {
+#if os(macOS)
+        throw XCTSkip("Flow is automated on iOS simulator.")
+#endif
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "UITEST_RESET_DATA",
+            "UITEST_SEED_GOALS",
+            "UITEST_UI_FLOW",
+            "UITEST_START_ON_GOALS",
+            "UITEST_SIMULATE_TRANSACTION_SAVE_FAILURE",
+            "-ApplePersistenceIgnoreState",
+            "YES",
+            "-ApplePersistenceDisableAutosave",
+            "YES"
+        ]
+        app.launch()
+        dismissMonthlyPlanningSettingsIfPresent(app)
+        if app.tabBars.buttons["Goals"].waitForExistence(timeout: 3) {
+            app.tabBars.buttons["Goals"].tap()
+        }
+
+        XCTAssertTrue(
+            tapWithScroll(app: app, element: app.buttons["goalRow-UI Goal Seed"], maxSwipes: 10),
+            "Unable to open seeded goal row"
+        )
+        if app.tabBars.buttons["Details"].waitForExistence(timeout: 2) {
+            app.tabBars.buttons["Details"].tap()
+        }
+
+        let addAssetButton = app.buttons["addAssetButton"]
+        XCTAssertTrue(tapWithScroll(app: app, element: addAssetButton, maxSwipes: 10), "Unable to find add asset button")
+        if app.buttons["Fiat"].waitForExistence(timeout: 2) {
+            app.buttons["Fiat"].tap()
+        }
+        pickCurrency(app, symbol: "USD", buttonId: "assetCurrencyButton")
+        XCTAssertTrue(app.buttons["saveAssetButton"].waitForExistence(timeout: 2))
+        app.buttons["saveAssetButton"].tap()
+        XCTAssertTrue(app.buttons["saveAssetButton"].waitForNonExistence(timeout: 8))
+
+        var assetRow = app.buttons.matching(NSPredicate(format: "identifier CONTAINS[c] %@", "assetRow-USD")).firstMatch
+        if !assetRow.exists {
+            assetRow = app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", "assetRow-USD")).firstMatch
+        }
+        XCTAssertTrue(
+            waitForExistenceWithScroll(app: app, element: assetRow, maxSwipes: 10, perAttemptTimeout: 1.0),
+            "Asset row not found after saving asset"
+        )
+        tapForce(assetRow)
+
+        let addTransactionButton = app.descendants(matching: .any)["addTransactionButton"]
+        if !addTransactionButton.waitForExistence(timeout: 1) {
+            tapForce(assetRow)
+        }
+        XCTAssertTrue(
+            waitForExistenceWithScroll(app: app, element: addTransactionButton, maxSwipes: 3, perAttemptTimeout: 1.0)
+                || addTransactionButton.waitForExistence(timeout: 6),
+            "addTransactionButton did not appear after expanding the asset row"
+        )
+        tapForce(addTransactionButton)
+
+        let amountField = app.textFields["transactionAmountField"]
+        let commentField = app.textFields["transactionCommentField"]
+        let datePicker = app.datePickers["transactionDatePicker"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 2))
+        XCTAssertTrue(commentField.waitForExistence(timeout: 2))
+        XCTAssertTrue(datePicker.waitForExistence(timeout: 2))
+
+        amountField.tap()
+        amountField.typeText("125.50")
+        commentField.tap()
+        commentField.typeText("April deposit")
+        let dateValueBeforeSave = String(describing: datePicker.value ?? "")
+
+        app.buttons["saveTransactionButton"].tap()
+
+        XCTAssertTrue(app.alerts["Transaction Not Saved"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.alerts["Transaction Not Saved"].buttons["Retry"].exists)
+        app.alerts["Transaction Not Saved"].buttons["Cancel"].tap()
+
+        XCTAssertTrue(app.navigationBars["New Transaction"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["saveTransactionButton"].exists, "Save button should remain in the sheet after failure")
+        let selectedAssetLabel = app.staticTexts["transactionAssetCurrencyLabel"]
+        XCTAssertTrue(selectedAssetLabel.exists, "Selected asset currency should remain visible after failure")
+        XCTAssertEqual(selectedAssetLabel.label, "USD")
+        XCTAssertEqual(String(describing: amountField.value ?? ""), "125.50")
+        XCTAssertEqual(String(describing: commentField.value ?? ""), "April deposit")
+        XCTAssertEqual(String(describing: datePicker.value ?? ""), dateValueBeforeSave)
+    }
+
     /// **Test: Sharing Asset After Starting Execution + Multi-Asset Contributions**
     ///
     /// This test validates:

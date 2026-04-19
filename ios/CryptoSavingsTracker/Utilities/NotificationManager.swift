@@ -19,11 +19,16 @@ class NotificationManager {
         runtimeMode: HiddenRuntimeMode = .current,
         isUITestRunProvider: @escaping () -> Bool = {
             let processInfo = ProcessInfo.processInfo
-            let arguments = processInfo.arguments
             let environment = processInfo.environment
+            let isXCTestRun = environment["XCTestConfigurationFilePath"] != nil
+            #if DEBUG
+            let arguments = processInfo.arguments
             return arguments.contains(where: { $0.hasPrefix("UITEST") })
-                || environment["XCTestConfigurationFilePath"] != nil
+                || isXCTestRun
                 || environment["UITEST_FAMILY_SHARE_SCENARIO"] != nil
+            #else
+            return isXCTestRun
+            #endif
         }
     ) {
         self.runtimeMode = runtimeMode

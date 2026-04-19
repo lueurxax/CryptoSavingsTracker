@@ -100,23 +100,19 @@ struct AssetDetailView: View {
                 
                 Text(asset.currency)
                     .font(.title2)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(AccessibleColors.secondaryText)
             }
             
             if let address = asset.address {
                 Text(address)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(AccessibleColors.secondaryText)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
         }
         .padding()
-        #if os(iOS)
-        .background(Color(UIColor.systemGray6))
-        #else
-        .background(Color.gray.opacity(0.1))
-        #endif
+        .background(AccessibleColors.surfaceSubtle)
         .cornerRadius(12)
     }
     
@@ -124,12 +120,12 @@ struct AssetDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Current Balance")
                 .font(.headline)
-                .foregroundColor(.secondary)
+                .foregroundStyle(AccessibleColors.secondaryText)
 
             if let publicCryptoTrackingStatus {
                 Label(publicCryptoTrackingStatus.title, systemImage: publicCryptoTrackingStatus.systemImage)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(AccessibleColors.secondaryText)
             }
             
             if isLoadingBalance {
@@ -137,7 +133,7 @@ struct AssetDetailView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if let error = balanceError {
                 Text(error)
-                    .foregroundColor(.red)
+                    .foregroundStyle(AccessibleColors.error)
                     .font(.caption)
             } else {
                 HStack(alignment: .firstTextBaseline) {
@@ -146,16 +142,12 @@ struct AssetDetailView: View {
                     
                     Text(asset.currency)
                         .font(.title3)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(AccessibleColors.secondaryText)
                 }
             }
         }
         .padding()
-        #if os(iOS)
-        .background(Color(UIColor.systemBackground))
-        #else
-        .background(Color(NSColor.windowBackgroundColor))
-        #endif
+        .background(AccessibleColors.surfaceBase)
         .cornerRadius(12)
         .shadow(radius: 2)
     }
@@ -166,27 +158,28 @@ struct AssetDetailView: View {
                 .font(.headline)
             
             VStack(spacing: 8) {
-                InfoRow(label: "Type", value: assetTypeLabel)
-                InfoRow(label: "Currency", value: asset.currency)
+                AdaptiveSummaryRow(label: "Type", value: assetTypeLabel)
+                AdaptiveSummaryRow(label: "Currency", value: asset.currency)
                 
                 if asset.address != nil && asset.chainId != nil {
                     if let chainId = asset.chainId {
-                        InfoRow(label: "Chain", value: chainId)
+                        AdaptiveSummaryRow(label: "Chain", value: chainId)
                     }
                     if let address = asset.address {
-                        InfoRow(label: "Address", value: address, truncate: true)
+                        AdaptiveSummaryRow(
+                            label: "Address",
+                            value: address,
+                            valueLineLimit: 1,
+                            valueTruncationMode: .middle
+                        )
                     }
                 } else {
-                    InfoRow(label: "Manual Balance", value: String(format: "%.6f", asset.manualBalance))
+                    AdaptiveSummaryRow(label: "Manual Balance", value: String(format: "%.6f", asset.manualBalance))
                 }
             }
         }
         .padding()
-        #if os(iOS)
-        .background(Color(UIColor.systemGray6))
-        #else
-        .background(Color.gray.opacity(0.1))
-        #endif
+        .background(AccessibleColors.surfaceSubtle)
         .cornerRadius(12)
     }
 
@@ -217,7 +210,7 @@ struct AssetDetailView: View {
             
             if (asset.transactions ?? []).isEmpty {
                 Text("No transactions yet")
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(AccessibleColors.secondaryText)
                     .font(.caption)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding()
@@ -228,11 +221,11 @@ struct AssetDetailView: View {
                             VStack(alignment: .leading) {
                                 Text(String(format: "%.6f %@", transaction.amount, asset.currency))
                                     .font(.callout)
-                                    .foregroundColor(transaction.amount >= 0 ? .green : .red)
+                                    .foregroundStyle(transaction.amount >= 0 ? AccessibleColors.success : AccessibleColors.error)
                                 
                                 Text(transaction.date, style: .date)
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(AccessibleColors.secondaryText)
                             }
                             
                             Spacer()
@@ -240,7 +233,7 @@ struct AssetDetailView: View {
                             if let comment = transaction.comment, !comment.isEmpty {
                                 Text(comment)
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(AccessibleColors.secondaryText)
                                     .lineLimit(1)
                             }
                         }
@@ -254,11 +247,7 @@ struct AssetDetailView: View {
             }
         }
         .padding()
-        #if os(iOS)
-        .background(Color(UIColor.systemGray6))
-        #else
-        .background(Color.gray.opacity(0.1))
-        #endif
+        .background(AccessibleColors.surfaceSubtle)
         .cornerRadius(12)
     }
     
@@ -279,7 +268,7 @@ struct AssetDetailView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
-            .tint(.purple)
+            .tint(AccessibleColors.secondaryInteractive)
         }
         // NAV-MOD: MOD-01
         .sheet(isPresented: $showingAllocationView) {
@@ -315,32 +304,6 @@ struct AssetDetailView: View {
                 balanceError = error.localizedDescription
                 currentBalance = max(asset.currentAmount, asset.manualBalance)
                 isLoadingBalance = false
-            }
-        }
-    }
-}
-
-struct InfoRow: View {
-    let label: String
-    let value: String
-    var truncate: Bool = false
-    
-    var body: some View {
-        HStack {
-            Text(label)
-                .foregroundColor(.secondary)
-
-            Spacer()
-
-            if truncate {
-                Text(value)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .font(.callout)
-            } else {
-                Text(value)
-                    .font(.callout)
-                    .multilineTextAlignment(.trailing)
             }
         }
     }

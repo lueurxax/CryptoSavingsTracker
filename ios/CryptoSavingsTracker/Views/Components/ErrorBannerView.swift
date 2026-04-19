@@ -24,13 +24,13 @@ struct ErrorBannerView: View {
 
                 Text(error.message)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AccessibleColors.secondaryText)
                     .lineLimit(2)
 
                 if let suggestion = error.recoverySuggestion {
                     Text(suggestion)
                         .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(AccessibleColors.tertiaryText)
                 }
             }
 
@@ -59,7 +59,7 @@ struct ErrorBannerView: View {
                 } label: {
                     Image(systemName: "xmark")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AccessibleColors.secondaryText)
                 }
                 .buttonStyle(.plain)
             }

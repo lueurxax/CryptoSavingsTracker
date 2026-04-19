@@ -3,7 +3,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | Implemented |
-| Last Updated | 2026-03-22 |
+| Last Updated | 2026-04-18 |
 | Platform | iOS 18+, iPadOS 18+ |
 | Audience | Developers |
 
@@ -14,6 +14,23 @@ Family Sharing allows the goal owner to grant household members strict read-only
 This feature is higher priority than `Local Bridge Sync` and must remain shipped before any further bridge expansion.
 
 Detailed runtime documentation for freshness behavior, automatic republish, invitee refresh scheduling, and the shared-goals list/detail freshness UI lives in [FAMILY_SHARING_FRESHNESS_SYNC.md](FAMILY_SHARING_FRESHNESS_SYNC.md).
+
+---
+
+## Runtime Boundary Alignment
+
+The application enforces a strict runtime boundary between `publicMVP` and `debugInternal` modes using the `HiddenRuntimeMode` policy.
+
+- **Public MVP**: Family Sharing and Local Bridge Sync are hidden from public routes. The `SettingsSyncSharingGateway` ensures that these surfaces are not visible and their underlying services (like `FamilyShareAcceptanceCoordinator`) are not instantiated from Settings.
+- **Debug/Internal**: Internal QA and development builds may expose Sync & Sharing features for evidence capture and manual smoke testing.
+
+### SettingsSyncSharingGateway
+
+The `SettingsSyncSharingGateway` (in `Services/SettingsSyncSharingGateway.swift`) is the authoritative seam for Settings-driven visibility:
+
+- `isSyncSharingSectionEnabled`: Only true when `HiddenRuntimeMode.current.allowsFamilySharing` is true.
+- `rows`: Returns `familyAccess` and `localBridgeSync` rows only when enabled.
+- `makeDestination`: Lazily constructs the destination views only after eligibility is confirmed, preventing side effects in hidden modes.
 
 ---
 

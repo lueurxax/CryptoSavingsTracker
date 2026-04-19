@@ -63,7 +63,11 @@ struct AddGoalView: View {
     }
 
     private var isUITestFlow: Bool {
+        #if DEBUG
         UITestFlags.isEnabled
+        #else
+        false
+        #endif
     }
 
     private var shouldShowValidationFeedback: Bool {
@@ -557,6 +561,7 @@ struct AddGoalView: View {
         isSaving = true
         defer { isSaving = false }
 
+        #if DEBUG
         if UITestFlags.consumeSimulatedGoalSaveFailureIfNeeded() {
             saveErrorMessage = "Unable to save this goal right now. Please try again."
             DIContainer.shared.navigationTelemetryTracker.recoveryCompleted(
@@ -566,6 +571,7 @@ struct AddGoalView: View {
             )
             return
         }
+        #endif
         
         let newGoal = Goal(name: name, currency: currency.uppercased(), targetAmount: amount, deadline: deadline, startDate: startDate)
         newGoal.clearRetiredReminderState()

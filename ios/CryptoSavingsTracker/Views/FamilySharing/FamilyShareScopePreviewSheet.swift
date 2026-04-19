@@ -98,12 +98,14 @@ struct FamilyShareScopePreviewSheet: View {
     private var actionBar: some View {
         VStack(spacing: 10) {
             Divider()
+            #if DEBUG
             if UITestFlags.isEnabled {
                 Rectangle()
                     .fill(Color.clear)
                     .frame(height: 1)
                     .accessibilityIdentifier("familyShareScopePreviewActionBar")
             }
+            #endif
             HStack(spacing: 12) {
                 Button("Cancel", action: onCancel)
                     .buttonStyle(.bordered)

@@ -31,7 +31,11 @@ struct BootstrapLaunchContext: Equatable, Sendable {
     }
 
     var isUITestRun: Bool {
+        #if DEBUG
         arguments.contains(where: { $0.hasPrefix("UITEST") })
+        #else
+        false
+        #endif
     }
 
     var isPreviewRun: Bool {
@@ -180,6 +184,7 @@ enum BootstrapPolicyResolver {
         }
 
         let rootShellDestination: AppBootstrapPlan.RootShellPlan.Destination
+        #if DEBUG
         if launchContext.isXCTestRun && !launchContext.isUITestRun {
             rootShellDestination = .headless
         } else if launchContext.arguments.contains("UITEST_SEED_MANY_GOALS")
@@ -189,6 +194,29 @@ enum BootstrapPolicyResolver {
         } else {
             rootShellDestination = .onboarding
         }
+        #else
+        if launchContext.isXCTestRun {
+            rootShellDestination = .headless
+        } else {
+            rootShellDestination = .onboarding
+        }
+        #endif
+
+        #if DEBUG
+        let testHarnessPlan = AppBootstrapPlan.TestHarnessPlan(
+            isUITestRun: launchContext.isUITestRun,
+            shouldResetData: launchContext.arguments.contains("UITEST_RESET_DATA"),
+            shouldSeedGoals: launchContext.arguments.contains("UITEST_SEED_GOALS"),
+            shouldSeedManyGoals: launchContext.arguments.contains("UITEST_SEED_MANY_GOALS")
+        )
+        #else
+        let testHarnessPlan = AppBootstrapPlan.TestHarnessPlan(
+            isUITestRun: false,
+            shouldResetData: false,
+            shouldSeedGoals: false,
+            shouldSeedManyGoals: false
+        )
+        #endif
 
         return AppBootstrapPlan(
             launchContext: launchContext,
@@ -201,12 +229,7 @@ enum BootstrapPolicyResolver {
                 shouldStartCloudMonitoring: !launchContext.skipsStartupThrottle
             ),
             platformBridgePlan: .retainedPublicDefault,
-            testHarnessPlan: .init(
-                isUITestRun: launchContext.isUITestRun,
-                shouldResetData: launchContext.arguments.contains("UITEST_RESET_DATA"),
-                shouldSeedGoals: launchContext.arguments.contains("UITEST_SEED_GOALS"),
-                shouldSeedManyGoals: launchContext.arguments.contains("UITEST_SEED_MANY_GOALS")
-            ),
+            testHarnessPlan: testHarnessPlan,
             visualCapturePlan: .init(destination: visualCaptureDestination),
             rootShellPlan: .init(destination: rootShellDestination)
         )

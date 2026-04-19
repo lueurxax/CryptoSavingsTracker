@@ -283,10 +283,10 @@ struct PersistenceStackFactory {
         switch mode {
         case .localOnly:
             activeDescriptor = localPrimaryDescriptor
-            cloudKitSetting = .none
+            cloudKitSetting = makeCloudKitSetting(enabled: false)
         case .cloudKitPrimary, .cloudRollbackBlocked:
             activeDescriptor = cloudPrimaryDescriptor
-            cloudKitSetting = .automatic
+            cloudKitSetting = makeCloudKitSetting(enabled: true)
         }
 
         backupStoreFilesIfNeededForCurrentBuild(descriptor: activeDescriptor)
@@ -314,7 +314,7 @@ struct PersistenceStackFactory {
     ) throws -> ModelContainer {
         ensureApplicationSupportDirectoryExists()
 
-        let cloudKitSetting: ModelConfiguration.CloudKitDatabase = cloudKitEnabled ? .automatic : .none
+        let cloudKitSetting = makeCloudKitSetting(enabled: cloudKitEnabled)
         let modelConfiguration = ModelConfiguration(
             descriptor.storeName,
             schema: Self.schema,
@@ -325,6 +325,13 @@ struct PersistenceStackFactory {
         )
 
         return try ModelContainer(for: Self.schema, configurations: [modelConfiguration])
+    }
+
+    private func makeCloudKitSetting(enabled: Bool) -> ModelConfiguration.CloudKitDatabase {
+        guard enabled, !environment.isTestRun else {
+            return .none
+        }
+        return .automatic
     }
 
     func removeStoreFiles(descriptor: PersistenceStoreDescriptor) {

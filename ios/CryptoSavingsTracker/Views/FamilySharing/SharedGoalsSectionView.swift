@@ -65,7 +65,7 @@ struct SharedGoalsSectionView: View {
         .onAppear {
             familyShareCoordinator.noteSharedSectionBecameVisible(section.namespaceID)
         }
-        .accessibilityIdentifier("sharedGoalsSectionContent-\(section.uiTestIdentifier)")
+        .accessibilityIdentifier("sharedGoalsOwnerSection-\(section.uiTestIdentifier)")
     }
 
     /// Build freshness label from section freshness metadata.

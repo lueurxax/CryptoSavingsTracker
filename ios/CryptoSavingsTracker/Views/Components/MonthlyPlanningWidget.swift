@@ -14,7 +14,11 @@ struct MonthlyPlanningWidget: View {
     @ObservedObject var viewModel: MonthlyPlanningViewModel
     @State private var isExpanded = false
     @State private var lastRefresh: Date?
+    #if DEBUG
     private let isUITestFlow = ProcessInfo.processInfo.arguments.contains("UITEST_UI_FLOW")
+    #else
+    private let isUITestFlow = false
+    #endif
     
     init(viewModel: MonthlyPlanningViewModel) {
         self.viewModel = viewModel

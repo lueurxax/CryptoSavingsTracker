@@ -145,6 +145,24 @@ struct PersistenceControllerTests {
         #expect(localGoals.first?.name == "Local Goal")
     }
 
+    @Test("Test-run cloud container can launch without CloudKit entitlements")
+    func testRunCloudContainerDoesNotRequireCloudKitEntitlements() throws {
+        let factory = PersistenceStackFactory(environment: .preview)
+        let container = try factory.makeContainer(for: .cloudKitPrimary)
+        let context = ModelContext(container)
+
+        let goal = Goal(
+            name: "UI Test Goal",
+            currency: "USD",
+            targetAmount: 1000,
+            deadline: Date().addingTimeInterval(86400 * 30)
+        )
+        context.insert(goal)
+        try context.save()
+
+        #expect(try context.fetchCount(FetchDescriptor<Goal>()) == 1)
+    }
+
     @Test("Persistence controller reconciles production bootstrap to cloud mode")
     func persistenceControllerReconcilesBootstrapToCloudMode() throws {
         let suiteName = "PersistenceControllerTests.Controller.\(UUID().uuidString)"

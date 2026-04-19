@@ -16,6 +16,8 @@ struct GoalDetailView: View {
     @Query private var allAssets: [Asset]
     @Query private var allTransactions: [Transaction]
     @State private var showingAddAsset = false
+    @State private var showingTransactionAssetPicker = false
+    @State private var selectedAssetForAddTransaction: Asset?
     @State private var expandedAssets: Set<UUID> = []
     @State private var goalViewModel: GoalViewModel
     @State private var lastRefresh: Date?
@@ -38,6 +40,16 @@ struct GoalDetailView: View {
                 allocation.goal?.id == goal.id
             }
         }
+    }
+
+    private var goalTransactions: [Transaction] {
+        let goalAssetIDs = Set(goalAssets.map(\.id))
+        return allTransactions
+            .filter { transaction in
+                guard let assetID = transaction.asset?.id else { return false }
+                return goalAssetIDs.contains(assetID)
+            }
+            .sorted { $0.date > $1.date }
     }
 
     // MARK: - Sub Views
@@ -110,12 +122,7 @@ struct GoalDetailView: View {
                 label: "Deadline",
                 value: "\(goal.deadline.formatted(date: .abbreviated, time: .omitted)) (\(goal.daysRemaining) days remaining)"
             )
-            HStack {
-                Text("Suggested deposit")
-                Spacer()
-                Text(currencyAmount(goalViewModel.suggestedDeposit))
-                    .foregroundStyle(.secondary)
-            }
+            summaryRow(label: "Suggested deposit", value: currencyAmount(goalViewModel.suggestedDeposit))
 
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -123,7 +130,7 @@ struct GoalDetailView: View {
                     if let lastRefresh {
                         Text("Updated \(lastRefresh, format: .relative(presentation: .named))")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AccessibleColors.secondaryText)
                     }
                 }
                 Spacer()
@@ -134,6 +141,14 @@ struct GoalDetailView: View {
                 }
                 .disabled(goalViewModel.isLoading)
                 .buttonStyle(.bordered)
+            }
+
+            if let balanceRefreshError = goalViewModel.balanceRefreshError {
+                ErrorBannerView(
+                    error: balanceRefreshError,
+                    onRetry: { await refreshBalances() },
+                    onDismiss: { goalViewModel.balanceRefreshError = nil }
+                )
             }
         }
     }
@@ -146,7 +161,7 @@ struct GoalDetailView: View {
                         .font(.headline)
                     Text("Add an asset to start tracking real progress toward this goal.")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AccessibleColors.secondaryText)
                     Button("Add Asset") {
                         showingAddAsset = true
                     }
@@ -189,23 +204,37 @@ struct GoalDetailView: View {
         }
     }
 
-    private var hasAnyTransactions: Bool {
-        goalAssets.contains { ($0.transactions ?? []).isEmpty == false }
-    }
-
-    @ViewBuilder
-    private var zeroTransactionSection: some View {
-        if !goalAssets.isEmpty && !hasAnyTransactions {
-            Section("Transactions") {
-                VStack(alignment: .leading, spacing: 10) {
+    private var transactionsSection: some View {
+        Section("Transactions") {
+            if goalTransactions.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("No transactions yet")
                         .font(.headline)
-                    Text("Record your first deposit on one of the assets above to start tracking progress.")
+                    Text("Record a deposit when you add funds toward this goal.")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AccessibleColors.secondaryText)
+
+                    Button {
+                        presentAddTransaction()
+                    } label: {
+                        Label(goalAssets.isEmpty ? "Add Asset First" : "Add Transaction", systemImage: "plus.circle")
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("goalDetailAddTransactionButton")
                 }
                 .padding(.vertical, 8)
-                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("goalDetailZeroTransactions")
+            } else {
+                ForEach(goalTransactions) { transaction in
+                    transactionRow(transaction)
+                }
+
+                Button {
+                    presentAddTransaction()
+                } label: {
+                    Label("Add Transaction", systemImage: "plus.circle")
+                }
+                .accessibilityIdentifier("goalDetailAddTransactionButton")
             }
         }
     }
@@ -213,7 +242,7 @@ struct GoalDetailView: View {
     private var descriptionSection: some View {
         Section("Notes") {
             Text(goal.goalDescription ?? "")
-                .foregroundStyle(.primary)
+                .foregroundStyle(AccessibleColors.primaryText)
         }
     }
 
@@ -224,7 +253,7 @@ struct GoalDetailView: View {
                 Link(destination: url) {
                     Label(url.host ?? linkString, systemImage: "link")
                 }
-                .foregroundColor(.accessiblePrimary)
+                .foregroundStyle(AccessibleColors.primaryInteractive)
             }
         }
     }
@@ -233,7 +262,7 @@ struct GoalDetailView: View {
         List {
             goalSummarySection
             assetsSection
-            zeroTransactionSection
+            transactionsSection
             if let description = goal.goalDescription, !description.isEmpty {
                 descriptionSection
             }
@@ -291,6 +320,41 @@ struct GoalDetailView: View {
                     .presentationDetents([.large])
             }
 #endif
+            .sheet(item: $selectedAssetForAddTransaction) { asset in
+                AddTransactionView(asset: asset)
+#if os(iOS)
+                    .presentationDetents([.large])
+#endif
+            }
+            .sheet(isPresented: $showingTransactionAssetPicker) {
+                NavigationStack {
+                    List(goalAssets) { asset in
+                        Button {
+                            showingTransactionAssetPicker = false
+                            DispatchQueue.main.async {
+                                selectedAssetForAddTransaction = asset
+                            }
+                        } label: {
+                            HStack {
+                                Label(asset.currency, systemImage: "bitcoinsign.circle")
+                                Spacer()
+                                Text("\((asset.transactions ?? []).count) transactions")
+                                    .font(.footnote)
+                                    .foregroundStyle(AccessibleColors.secondaryText)
+                            }
+                        }
+                        .accessibilityIdentifier("goalDetailTransactionAsset-\(asset.currency)")
+                    }
+                    .navigationTitle("Choose Asset")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                showingTransactionAssetPicker = false
+                            }
+                        }
+                    }
+                }
+            }
     } // End of body
 
     private var goalDetailCore: some View {
@@ -358,12 +422,43 @@ struct GoalDetailView: View {
 
     @ViewBuilder
     private func summaryRow(label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-            Spacer()
-            Text(value)
-                .foregroundStyle(.secondary)
+        AdaptiveSummaryRow(label: label, value: value)
+    }
+
+    @ViewBuilder
+    private func transactionRow(_ transaction: Transaction) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(transaction.comment?.isEmpty == false ? transaction.comment ?? "Transaction" : "Transaction")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AccessibleColors.primaryText)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(transaction.date.formatted(date: .abbreviated, time: .omitted))
+                    .font(.footnote)
+                    .foregroundStyle(AccessibleColors.secondaryText)
+            }
+
+            Spacer(minLength: 12)
+
+            Text("\(String(format: "%.6f", transaction.amount)) \(transaction.asset?.currency ?? goal.currency)")
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(transaction.amount >= 0 ? AccessibleColors.success : AccessibleColors.error)
                 .multilineTextAlignment(.trailing)
+                .lineLimit(2)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("goalDetailTransactionRow")
+    }
+
+    private func presentAddTransaction() {
+        switch goalAssets.count {
+        case 0:
+            showingAddAsset = true
+        case 1:
+            selectedAssetForAddTransaction = goalAssets[0]
+        default:
+            showingTransactionAssetPicker = true
         }
     }
     
