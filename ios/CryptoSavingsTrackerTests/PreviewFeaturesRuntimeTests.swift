@@ -17,6 +17,7 @@ struct PreviewFeaturesRuntimeTests {
         let enabledMode = HiddenRuntimeMode.resolved(environment: [:], arguments: [], userDefaults: defaults)
         #expect(enabledMode == .debugInternal)
         #expect(enabledMode.allowsFamilySharing)
+        #expect(enabledMode.allowsMonthlyPlanning)
         #expect(enabledMode.allowsShortcuts)
         #expect(enabledMode.showsForecastModules)
     }

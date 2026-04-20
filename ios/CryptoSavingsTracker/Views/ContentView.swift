@@ -10,6 +10,7 @@ import SwiftUI
 private enum AppleRootSurface: String, CaseIterable, Hashable {
     case dashboard
     case goals
+    case monthlyPlanning
     case settings
 
     var title: String {
@@ -18,6 +19,8 @@ private enum AppleRootSurface: String, CaseIterable, Hashable {
             return "Dashboard"
         case .goals:
             return "Goals"
+        case .monthlyPlanning:
+            return "Planning"
         case .settings:
             return "Settings"
         }
@@ -29,9 +32,20 @@ private enum AppleRootSurface: String, CaseIterable, Hashable {
             return "chart.pie"
         case .goals:
             return "flag"
+        case .monthlyPlanning:
+            return "calendar"
         case .settings:
             return "gearshape"
         }
+    }
+
+    static func visibleSurfaces(for runtimeMode: HiddenRuntimeMode) -> [AppleRootSurface] {
+        var surfaces: [AppleRootSurface] = [.dashboard, .goals]
+        if runtimeMode.allowsMonthlyPlanning {
+            surfaces.append(.monthlyPlanning)
+        }
+        surfaces.append(.settings)
+        return surfaces
     }
 }
 
@@ -73,6 +87,12 @@ struct ContentView: View {
 
 struct iOSContentView: View {
     @State private var shellState = AppleRootShellState()
+    @AppStorage(PreviewFeaturesRuntime.userDefaultsKey) private var previewFeaturesEnabled = false
+
+    private var visibleRootSurfaces: [AppleRootSurface] {
+        _ = previewFeaturesEnabled
+        return AppleRootSurface.visibleSurfaces(for: HiddenRuntimeMode.current)
+    }
 
     var body: some View {
         TabView(selection: $shellState.selectedRootSurface) {
@@ -88,11 +108,28 @@ struct iOSContentView: View {
                 }
                 .tag(AppleRootSurface.goals)
 
+            if HiddenRuntimeMode.current.allowsMonthlyPlanning {
+                MonthlyPlanningContainer()
+                    .tabItem {
+                        Label(
+                            AppleRootSurface.monthlyPlanning.title,
+                            systemImage: AppleRootSurface.monthlyPlanning.systemImage
+                        )
+                    }
+                    .tag(AppleRootSurface.monthlyPlanning)
+            }
+
             SettingsView()
             .tabItem {
                 Label(AppleRootSurface.settings.title, systemImage: AppleRootSurface.settings.systemImage)
             }
             .tag(AppleRootSurface.settings)
+        }
+        .onChange(of: previewFeaturesEnabled) { _, _ in
+            guard visibleRootSurfaces.contains(shellState.selectedRootSurface) else {
+                shellState.selectedRootSurface = .dashboard
+                return
+            }
         }
     }
 }
@@ -101,10 +138,16 @@ struct iOSContentView: View {
 struct macOSContentView: View {
     @State private var shellState = AppleRootShellState()
     @State private var selectedGoal: Goal?
+    @AppStorage(PreviewFeaturesRuntime.userDefaultsKey) private var previewFeaturesEnabled = false
+
+    private var visibleRootSurfaces: [AppleRootSurface] {
+        _ = previewFeaturesEnabled
+        return AppleRootSurface.visibleSurfaces(for: HiddenRuntimeMode.current)
+    }
 
     var body: some View {
         NavigationSplitView {
-            List(AppleRootSurface.allCases, id: \.self, selection: $shellState.selectedRootSurface) { surface in
+            List(visibleRootSurfaces, id: \.self, selection: $shellState.selectedRootSurface) { surface in
                 Label(surface.title, systemImage: surface.systemImage)
                     .tag(surface)
             }
@@ -119,6 +162,8 @@ struct macOSContentView: View {
                     selectedGoal: $selectedGoal,
                     selectedView: $shellState.selectedGoalDetailView
                 )
+            case .monthlyPlanning:
+                MonthlyPlanningContainer()
             case .settings:
                 SettingsView()
             }
@@ -126,6 +171,12 @@ struct macOSContentView: View {
         .onChange(of: shellState.selectedRootSurface) { _, newValue in
             if newValue != .goals {
                 selectedGoal = nil
+            }
+        }
+        .onChange(of: previewFeaturesEnabled) { _, _ in
+            guard visibleRootSurfaces.contains(shellState.selectedRootSurface) else {
+                shellState.selectedRootSurface = .dashboard
+                return
             }
         }
     }

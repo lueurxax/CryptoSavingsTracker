@@ -62,6 +62,19 @@ struct PublicMVPHiddenRuntimeContractTests {
         #expect(settingsView.contains("still being tested"))
     }
 
+    @Test("Preview Features exposes Monthly Planning as a gated root surface")
+    func previewFeaturesExposeMonthlyPlanningRootSurface() throws {
+        let root = repositoryRoot()
+        let runtime = try readSource(root, "ios/CryptoSavingsTracker/Utilities/MVPContainmentRuntime.swift")
+        let contentView = try readSource(root, "ios/CryptoSavingsTracker/Views/ContentView.swift")
+
+        #expect(runtime.contains("var allowsMonthlyPlanning"))
+        #expect(contentView.contains("@AppStorage(PreviewFeaturesRuntime.userDefaultsKey)"))
+        #expect(contentView.contains("case monthlyPlanning"))
+        #expect(contentView.contains("HiddenRuntimeMode.current.allowsMonthlyPlanning"))
+        #expect(contentView.contains("MonthlyPlanningContainer()"))
+    }
+
     private func repositoryRoot() -> URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

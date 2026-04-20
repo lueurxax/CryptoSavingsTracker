@@ -78,6 +78,10 @@ enum HiddenRuntimeMode: String, Sendable {
         self == .debugInternal
     }
 
+    nonisolated var allowsMonthlyPlanning: Bool {
+        self == .debugInternal
+    }
+
     nonisolated var showsForecastModules: Bool {
         self == .debugInternal
     }
