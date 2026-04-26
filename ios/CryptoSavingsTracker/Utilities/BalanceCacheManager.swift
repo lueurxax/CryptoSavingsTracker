@@ -38,6 +38,7 @@ final class BalanceCacheManager {
     private var balanceCache: [String: BalanceCacheEntry] = [:]
     private var transactionsCache: [String: TransactionsCacheEntry] = [:]
     private let cacheQueue = DispatchQueue(label: "com.cryptosavings.cache", attributes: .concurrent)
+    private let persistenceQueue = DispatchQueue(label: "com.cryptosavings.cache.persistence", qos: .utility)
     
     // Cache duration in seconds (30 minutes default for balances - increased to reduce API calls)
     private let balanceCacheDuration: TimeInterval = 30 * 60
@@ -78,15 +79,18 @@ final class BalanceCacheManager {
             timestamp: Date(),
             expiresAt: Date().addingTimeInterval(self.balanceCacheDuration)
         )
+        var balanceSnapshot: [String: BalanceCacheEntry] = [:]
         cacheQueue.sync(flags: .barrier) {
             self.balanceCache[key] = entry
+            balanceSnapshot = self.balanceCache
         }
         Self.log.info("Cached balance \(balance, privacy: .public) for key: \(key, privacy: .public)")
 
-        // Persist asynchronously to avoid blocking the caller on JSON encoding/UserDefaults I/O.
-        cacheQueue.async(flags: .barrier) {
-            self.persistCache()
-            Self.log.info("Persisted \(self.balanceCache.count, privacy: .public) entries to disk")
+        // Persist on a separate queue. Keeping disk I/O off `cacheQueue` prevents UI reads
+        // from waiting behind UserDefaults serialization.
+        persistenceQueue.async {
+            self.persistCache(balanceSnapshot)
+            Self.log.info("Persisted \(balanceSnapshot.count, privacy: .public) entries to disk")
         }
     }
     
@@ -173,10 +177,9 @@ final class BalanceCacheManager {
         }
     }
     
-    private func persistCache() {
-        if let encoded = try? JSONEncoder().encode(self.balanceCache) {
+    private func persistCache(_ snapshot: [String: BalanceCacheEntry]) {
+        if let encoded = try? JSONEncoder().encode(snapshot) {
             UserDefaults.standard.set(encoded, forKey: self.balanceCacheKey)
-            UserDefaults.standard.synchronize() // Force immediate save
         }
     }
 }

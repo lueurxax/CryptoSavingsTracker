@@ -42,6 +42,11 @@ final class FamilyShareProjectionAutoRepublishCoordinatorTests: XCTestCase {
             scheduler: scheduler
         )
 
+        await coordinator.markDirty(reason: .assetMutation(goalIDs: []))
+
+        XCTAssertNil(scheduler.lastAction)
+        XCTAssertNil(scheduler.lastDelay)
+
         await coordinator.markDirty(reason: .goalMutation(goalIDs: [UUID()]))
 
         XCTAssertNotNil(scheduler.lastDelay)
@@ -59,7 +64,6 @@ final class FamilyShareProjectionAutoRepublishCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(scheduler.lastDelay, FamilyShareFreshnessPolicy.rateDriftDebounce)
     }
-
     func testTeardown_clearsState() async {
         let coordinator = FamilyShareProjectionAutoRepublishCoordinator(namespaceKey: "test-ns")
         await coordinator.markDirty(reason: .manualRefresh)

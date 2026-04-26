@@ -23,6 +23,8 @@ struct AssetSharingView: View {
     @State private var hasLoadedInitial = false
     @State private var fetchedOnChainBalance: Double? = nil
     @State private var isLoadingBalance: Bool = false
+    @State private var isSaving: Bool = false
+    @State private var saveError: String?
 
     init(asset: Asset, currentGoalId: UUID? = nil) {
         self.asset = asset
@@ -103,11 +105,19 @@ struct AssetSharingView: View {
                     Button("Save") {
                         saveAllocations()
                     }
-                    .disabled(isOverAllocated)
+                    .disabled(isOverAllocated || isSaving)
                     .accessibilityIdentifier("saveAllocationsButton")
                     .fontWeight(.semibold)
                 }
             }
+        }
+        .alert("Could not save allocations", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(saveError ?? "Please try again.")
         }
         .onAppear {
             if !hasLoadedInitial {
@@ -250,6 +260,10 @@ struct AssetSharingView: View {
     }
     
     private func saveAllocations() {
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+
         // Ensure the backing cache is updated so validation reflects the displayed balance.
         cacheFetchedBalanceIfNeeded()
 
@@ -261,7 +275,7 @@ struct AssetSharingView: View {
             try service.updateAllocations(for: asset, newAllocations: newAllocations)
             dismiss()
         } catch {
-            // Error handling would go here
+            saveError = error.localizedDescription
         }
     }
 

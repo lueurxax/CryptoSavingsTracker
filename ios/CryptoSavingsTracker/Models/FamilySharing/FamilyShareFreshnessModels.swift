@@ -22,6 +22,18 @@ enum FamilyShareProjectionDirtyReason: Sendable {
             return []
         }
     }
+
+    /// Mutations scoped to zero goals do not carry enough information to rebuild a useful projection.
+    /// Unscoped reasons like manual refresh and participant changes remain valid.
+    nonisolated var isEmptyScopedMutation: Bool {
+        switch self {
+        case .goalMutation(let ids), .assetMutation(let ids),
+             .transactionMutation(let ids), .rateDrift(let ids):
+            return ids.isEmpty
+        case .importOrRepair, .manualRefresh, .participantChange:
+            return false
+        }
+    }
 }
 
 // MARK: - Freshness Tier

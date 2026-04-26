@@ -147,6 +147,17 @@ enum FamilyShareTelemetryRedactor {
         if normalized.contains("save") {
             return "save_failed"
         }
+        if [
+            "goalmutation",
+            "assetmutation",
+            "transactionmutation",
+            "ratedrift",
+            "importorrepair",
+            "manualrefresh",
+            "participantchange"
+        ].contains(normalized) {
+            return normalized
+        }
 
         return "operation_failed"
     }

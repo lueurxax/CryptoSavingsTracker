@@ -17,7 +17,7 @@ struct SettingsView: View {
     })
     private var activeGoals: [Goal]
     @AppStorage("mvp.settings.displayCurrency") private var displayCurrency = "USD"
-    @AppStorage("mvp.settings.appearance") private var appearance = "system"
+    @AppStorage(AppAppearance.storageKey) private var appearance = "system"
     @AppStorage(PreviewFeaturesRuntime.userDefaultsKey) private var previewFeaturesEnabled = false
     @State private var isShowingPreviewFeaturesWarning = false
 

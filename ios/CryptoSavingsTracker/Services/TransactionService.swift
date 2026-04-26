@@ -492,7 +492,7 @@ final class TransactionService: TransactionServiceProtocol {
         
         let (data, _) = try await client.performRequest(request)
         
-        Self.log.debug("TRC-20 transaction response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
+        Self.log.debug("TRC-20 transaction response received (\(data.count) bytes)")
         
         let decoder = JSONDecoder()
         do {
@@ -505,8 +505,6 @@ final class TransactionService: TransactionServiceProtocol {
                 
                 // Convert amount based on token decimals from tokenInfo
                 let tokenAmount = trc20Tx.tokenAmount
-                
-                Self.log.debug("TRC-20 transaction \(trc20Tx.txID): token=\(trc20Tx.tokenInfo.symbol), amount=\(tokenAmount), subtype=\(subtype), from=\(trc20Tx.from ?? "nil"), to=\(trc20Tx.to ?? "nil")")
                 
                 return TatumTransaction(
                     hash: trc20Tx.txID,
@@ -542,8 +540,6 @@ final class TransactionService: TransactionServiceProtocol {
                     
                     // Convert amount based on token decimals from tokenInfo
                     let tokenAmount = trc20Tx.tokenAmount
-                    
-                    Self.log.debug("TRC-20 transaction \(trc20Tx.txID): token=\(trc20Tx.tokenInfo.symbol), amount=\(tokenAmount), subtype=\(subtype), from=\(trc20Tx.from ?? "nil"), to=\(trc20Tx.to ?? "nil")")
                     
                     return TatumTransaction(
                         hash: trc20Tx.txID,

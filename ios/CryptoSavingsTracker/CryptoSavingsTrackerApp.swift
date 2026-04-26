@@ -171,11 +171,15 @@ struct CryptoSavingsTrackerApp: App {
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            UITestBootstrapView(plan: bootstrapPlan.testHarnessPlan) {
-                rootContent
+            AppAppearanceHost {
+                UITestBootstrapView(plan: bootstrapPlan.testHarnessPlan) {
+                    rootContent
+                }
             }
             #else
-            rootContent
+            AppAppearanceHost {
+                rootContent
+            }
             #endif
         }
         .modelContainer(persistenceController.activeContainer)

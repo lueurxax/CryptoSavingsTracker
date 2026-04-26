@@ -98,6 +98,86 @@ final class AllocationHistoryTests: XCTestCase {
         XCTAssertTrue(histories.contains(where: { $0.goal?.id == goalB.id && $0.amount == 0 }))
     }
 
+    func testSmallCryptoAllocationInSharedAssetMaintainsRelationships() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+
+        let goalA = Goal(name: "Goal A", currency: "USD", targetAmount: 1000, deadline: Date().addingTimeInterval(86400 * 30))
+        let goalB = Goal(name: "Goal B", currency: "USD", targetAmount: 1000, deadline: Date().addingTimeInterval(86400 * 30))
+        let asset = Asset(currency: "BTC")
+
+        context.insert(goalA)
+        context.insert(goalB)
+        context.insert(asset)
+        try context.save()
+
+        let tx = Transaction(amount: 0.01, asset: asset)
+        asset.transactions = (asset.transactions ?? []) + [tx]
+        context.insert(tx)
+        try context.save()
+
+        let service = AllocationService(modelContext: context)
+        try service.updateAllocations(for: asset, newAllocations: [(goalA, 0.0099), (goalB, 0)])
+        try service.updateAllocations(for: asset, newAllocations: [(goalA, 0.0098), (goalB, 0.0001)])
+
+        let allocations = try context.fetch(FetchDescriptor<AssetAllocation>())
+        XCTAssertEqual(allocations.count, 2)
+        XCTAssertEqual(asset.allocations?.count, 2)
+        XCTAssertEqual(goalA.allocations?.count, 1)
+        XCTAssertEqual(goalB.allocations?.count, 1)
+        XCTAssertEqual(asset.getAllocationAmount(for: goalA), 0.0098, accuracy: 0.0000001)
+        XCTAssertEqual(asset.getAllocationAmount(for: goalB), 0.0001, accuracy: 0.0000001)
+
+        let histories = try context.fetch(FetchDescriptor<AllocationHistory>())
+        XCTAssertTrue(histories.contains(where: { $0.goal?.id == goalB.id && abs($0.amount - 0.0001) <= 0.0000001 }))
+    }
+
+    func testUpdateAllocationsNotifiesOnlyChangedGoals() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+
+        let goalA = Goal(name: "Goal A", currency: "USD", targetAmount: 1000, deadline: Date().addingTimeInterval(86400 * 30))
+        let goalB = Goal(name: "Goal B", currency: "USD", targetAmount: 1000, deadline: Date().addingTimeInterval(86400 * 30))
+        let goalC = Goal(name: "Goal C", currency: "USD", targetAmount: 1000, deadline: Date().addingTimeInterval(86400 * 30))
+        let asset = Asset(currency: "BTC")
+
+        context.insert(goalA)
+        context.insert(goalB)
+        context.insert(goalC)
+        context.insert(asset)
+        try context.save()
+
+        let tx = Transaction(amount: 1.0, asset: asset)
+        asset.transactions = (asset.transactions ?? []) + [tx]
+        context.insert(tx)
+        try context.save()
+
+        let service = AllocationService(modelContext: context)
+        try service.updateAllocations(for: asset, newAllocations: [(goalA, 0.5), (goalB, 0.4), (goalC, 0)])
+        await Task.yield()
+        await Task.yield()
+
+        var receivedGoalIDs: [[UUID]] = []
+        let observer = NotificationCenter.default.addObserver(
+            forName: .sharedGoalDataDidChange,
+            object: nil,
+            queue: nil
+        ) { notification in
+            receivedGoalIDs.append(notification.userInfo?["affectedGoalIDs"] as? [UUID] ?? [])
+        }
+        defer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        try service.updateAllocations(for: asset, newAllocations: [(goalA, 0.5), (goalB, 0.3999), (goalC, 0)])
+        let deadline = Date().addingTimeInterval(1)
+        while Date() < deadline && !receivedGoalIDs.contains(where: { Set($0) == [goalB.id] }) {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+
+        XCTAssertTrue(receivedGoalIDs.contains { Set($0) == [goalB.id] })
+    }
+
     func testOverAllocatedAfterExternalWithdrawalDoesNotCrash() throws {
         let container = try makeContainer()
         let context = container.mainContext

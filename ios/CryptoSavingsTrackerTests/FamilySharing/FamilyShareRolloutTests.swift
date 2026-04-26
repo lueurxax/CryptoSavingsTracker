@@ -28,6 +28,8 @@ final class FamilyShareRolloutTests: XCTestCase {
 
         XCTAssertFalse(rollout.isEnabled())
         XCTAssertFalse(rollout.isFreshnessPipelineEnabled())
+        XCTAssertEqual(FamilyShareTelemetryRedactor.coarseReason(for: "assetMutation"), "assetmutation")
+        XCTAssertEqual(FamilyShareTelemetryRedactor.coarseReason(for: "manualRefresh"), "manualrefresh")
     }
 
     func testPublicMVPModeStillHonorsExplicitDebugOverride() {

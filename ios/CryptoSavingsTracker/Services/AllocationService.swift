@@ -43,12 +43,16 @@ struct AllocationService {
         let existingAllocations = Array(asset.allocations ?? [])
         var existingByGoalId: [UUID: AssetAllocation] = [:]
         existingByGoalId.reserveCapacity(existingAllocations.count)
+        var orphanedAllocations: [AssetAllocation] = []
 
         var oldByGoalId: [UUID: (goal: Goal, amount: Double)] = [:]
         oldByGoalId.reserveCapacity(existingAllocations.count)
 
         for allocation in existingAllocations {
-            guard let goal = allocation.goal else { continue }
+            guard let goal = allocation.goal else {
+                orphanedAllocations.append(allocation)
+                continue
+            }
             existingByGoalId[goal.id] = allocation
             oldByGoalId[goal.id] = (goal, allocation.amountValue)
         }
@@ -64,9 +68,13 @@ struct AllocationService {
         for (goalId, entry) in newByGoalId {
             let newAmount = entry.amount
             if let existing = existingByGoalId[goalId] {
-                existing.updateAmount(newAmount)
+                if newAmount > epsilon {
+                    attach(existing, to: asset, goal: entry.goal)
+                    existing.updateAmount(newAmount)
+                }
             } else if newAmount > epsilon {
                 let newAllocation = AssetAllocation(asset: asset, goal: entry.goal, amount: newAmount)
+                attach(newAllocation, to: asset, goal: entry.goal)
                 modelContext.insert(newAllocation)
             }
         }
@@ -75,48 +83,34 @@ struct AllocationService {
         for (goalId, existing) in existingByGoalId {
             let newAmount = newByGoalId[goalId]?.amount ?? 0
             if newAmount <= epsilon {
+                detach(existing)
                 modelContext.delete(existing)
             }
         }
 
+        // Remove any stale relationship rows that no longer have a goal.
+        for allocation in orphanedAllocations {
+            detach(allocation)
+            modelContext.delete(allocation)
+        }
+
         // Record AllocationHistory for changed goal allocations (amount-only).
         let unionGoalIds = Set(oldByGoalId.keys).union(newByGoalId.keys)
+        var affectedGoalsById: [UUID: Goal] = [:]
         for goalId in unionGoalIds {
             let oldAmount = oldByGoalId[goalId]?.amount ?? 0
             let newEntry = newByGoalId[goalId]
             let newAmount = newEntry?.amount ?? 0
             guard abs(oldAmount - newAmount) > epsilon else { continue }
             if let goal = newEntry?.goal ?? oldByGoalId[goalId]?.goal {
+                affectedGoalsById[goal.id] = goal
                 modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: newAmount, timestamp: timestamp))
             }
         }
 
         try modelContext.save()
 
-        let goalIds = Array(newByGoalId.keys)
-        NotificationCenter.default.post(
-            name: .goalUpdated,
-            object: nil,
-            userInfo: [
-                "assetId": asset.id,
-                "goalIds": goalIds
-            ]
-        )
-        NotificationCenter.default.post(
-            name: .sharedGoalDataDidChange,
-            object: nil,
-            userInfo: [
-                "affectedGoalIDs": goalIds,
-                "reason": "assetMutation"
-            ]
-        )
-
-        if !Self.isTestRun {
-            let goals = newAllocations.map(\.goal)
-            Task { @MainActor in
-                await syncMonthlyPlans(for: goals)
-            }
-        }
+        schedulePostSaveWork(assetId: asset.id, affectedGoalIds: Array(affectedGoalsById.keys))
     }
 
     /// Add or update a single allocation for an asset to a goal using fixed amount
@@ -141,33 +135,22 @@ struct AllocationService {
         }
 
         if let existingAllocation = (asset.allocations ?? []).first(where: { $0.goal?.id == goal.id }) {
-            existingAllocation.updateAmount(amount)
+            if amount > 0 {
+                attach(existingAllocation, to: asset, goal: goal)
+                existingAllocation.updateAmount(amount)
+            } else {
+                detach(existingAllocation)
+                modelContext.delete(existingAllocation)
+            }
         } else if amount > 0 {
             let newAllocation = AssetAllocation(asset: asset, goal: goal, amount: amount)
+            attach(newAllocation, to: asset, goal: goal)
             modelContext.insert(newAllocation)
         }
 
         try modelContext.save()
 
-        NotificationCenter.default.post(
-            name: .goalUpdated,
-            object: nil,
-            userInfo: ["assetId": asset.id, "goalId": goal.id]
-        )
-        NotificationCenter.default.post(
-            name: .sharedGoalDataDidChange,
-            object: nil,
-            userInfo: [
-                "affectedGoalIDs": [goal.id],
-                "reason": "assetMutation"
-            ]
-        )
-
-        if !Self.isTestRun {
-            Task { @MainActor in
-                await syncMonthlyPlans(for: [goal])
-            }
-        }
+        schedulePostSaveWork(assetId: asset.id, affectedGoalIds: [goal.id], singleGoalId: goal.id)
     }
     
     /// Remove an allocation between an asset and a goal
@@ -179,30 +162,13 @@ struct AllocationService {
         if let allocation = (asset.allocations ?? []).first(where: { $0.goal?.id == goal.id }) {
             let oldAmount = allocation.amountValue
             let timestamp = Date()
+            detach(allocation)
             modelContext.delete(allocation)
             if oldAmount > 0.0000001 {
                 modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: 0, timestamp: timestamp))
             }
             try modelContext.save()
-            NotificationCenter.default.post(
-                name: .goalUpdated,
-                object: nil,
-                userInfo: ["assetId": asset.id, "goalId": goal.id, "removed": true]
-            )
-            NotificationCenter.default.post(
-                name: .sharedGoalDataDidChange,
-                object: nil,
-                userInfo: [
-                    "affectedGoalIDs": [goal.id],
-                    "reason": "assetMutation"
-                ]
-            )
-
-            if !Self.isTestRun {
-                Task { @MainActor in
-                    await syncMonthlyPlans(for: [goal])
-                }
-            }
+            schedulePostSaveWork(assetId: asset.id, affectedGoalIds: [goal.id], singleGoalId: goal.id, removed: true)
         }
     }
     
@@ -238,6 +204,24 @@ struct AllocationService {
 
     /// Recalculate monthly plans for affected goals so execution tracking stays in sync even when the planning view model is not active.
     @MainActor
+    private func syncMonthlyPlans(forGoalIds goalIds: [UUID]) async {
+        guard !goalIds.isEmpty else { return }
+
+        do {
+            let ids = goalIds
+            let descriptor = FetchDescriptor<Goal>(
+                predicate: #Predicate<Goal> { goal in
+                    ids.contains(goal.id)
+                }
+            )
+            let goals = try modelContext.fetch(descriptor)
+            await syncMonthlyPlans(for: goals)
+        } catch {
+            AppLog.error("Failed to fetch goals for monthly plan sync after allocation change: \(error)", category: .monthlyPlanning)
+        }
+    }
+
+    @MainActor
     private func syncMonthlyPlans(for goals: [Goal]) async {
         guard !goals.isEmpty else { return }
 
@@ -266,6 +250,7 @@ struct AllocationService {
     func removeAllAllocations(for asset: Asset) throws {
         let existingAllocations = asset.allocations ?? []
         for allocation in existingAllocations {
+            detach(allocation)
             modelContext.delete(allocation)
         }
         try modelContext.save()
@@ -276,6 +261,7 @@ struct AllocationService {
     func removeAllAllocations(for goal: Goal) throws {
         let existingAllocations = goal.allocations ?? []
         for allocation in existingAllocations {
+            detach(allocation)
             modelContext.delete(allocation)
         }
         try modelContext.save()
@@ -294,6 +280,77 @@ struct AllocationService {
         for entry in allocations {
             guard entry.amount >= 0 else {
                 throw AllocationError.negativeAmount(entry.amount)
+            }
+        }
+    }
+
+    @MainActor
+    private func attach(_ allocation: AssetAllocation, to asset: Asset, goal: Goal) {
+        allocation.asset = asset
+        allocation.goal = goal
+
+        if asset.allocations?.contains(where: { $0.id == allocation.id }) != true {
+            asset.allocations = (asset.allocations ?? []) + [allocation]
+        }
+
+        if goal.allocations?.contains(where: { $0.id == allocation.id }) != true {
+            goal.allocations = (goal.allocations ?? []) + [allocation]
+        }
+    }
+
+    @MainActor
+    private func detach(_ allocation: AssetAllocation) {
+        if let asset = allocation.asset {
+            asset.allocations = (asset.allocations ?? []).filter { $0.id != allocation.id }
+        }
+
+        if let goal = allocation.goal {
+            goal.allocations = (goal.allocations ?? []).filter { $0.id != allocation.id }
+        }
+
+        allocation.asset = nil
+        allocation.goal = nil
+    }
+
+    @MainActor
+    private func schedulePostSaveWork(
+        assetId: UUID,
+        affectedGoalIds: [UUID],
+        singleGoalId: UUID? = nil,
+        removed: Bool = false
+    ) {
+        guard !affectedGoalIds.isEmpty else { return }
+
+        Task { @MainActor in
+            await Task.yield()
+
+            var goalUpdatedInfo: [String: Any] = [
+                "assetId": assetId,
+                "goalIds": affectedGoalIds
+            ]
+            if let singleGoalId {
+                goalUpdatedInfo["goalId"] = singleGoalId
+            }
+            if removed {
+                goalUpdatedInfo["removed"] = true
+            }
+
+            NotificationCenter.default.post(
+                name: .goalUpdated,
+                object: nil,
+                userInfo: goalUpdatedInfo
+            )
+            NotificationCenter.default.post(
+                name: .sharedGoalDataDidChange,
+                object: nil,
+                userInfo: [
+                    "affectedGoalIDs": affectedGoalIds,
+                    "reason": "assetMutation"
+                ]
+            )
+
+            if !Self.isTestRun {
+                await syncMonthlyPlans(forGoalIds: affectedGoalIds)
             }
         }
     }

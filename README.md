@@ -2,7 +2,7 @@
 
 CryptoSavingsTracker is a savings goal and asset tracking app.
 
-The current public release scope is focused on the Apple app experience: create goals, add assets, record contributions, review progress, and manage monthly planning and execution flows. The repository also contains Android work, internal review artifacts, and proposal documents that support ongoing product development.
+The current public release scope is focused on the Apple app experience: create goals, add assets, record contributions, and review savings progress through dashboard and detail screens. The repository also contains Android work, internal review artifacts, and proposal documents that support ongoing product development.
 
 ## Current Scope
 
@@ -35,7 +35,6 @@ The Apple release build uses explicit runtime boundaries for trust-sensitive cap
 - Asset tracking and allocation to goals
 - Manual contribution logging
 - Goal dashboard and progress review
-- Monthly planning and monthly execution flows
 - Settings, support, and App Store release metadata
 
 ## Development

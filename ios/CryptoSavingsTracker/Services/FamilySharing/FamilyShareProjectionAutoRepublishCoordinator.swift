@@ -66,6 +66,7 @@ actor FamilyShareProjectionAutoRepublishCoordinator {
     /// Receive a dirty event and start the debounce/publish pipeline.
     func markDirty(reason: FamilyShareProjectionDirtyReason) {
         guard rollout.isFreshnessPipelineEnabled() else { return }
+        guard !reason.isEmptyScopedMutation else { return }
 
         isDirty = true
         pendingReasons.append(reason)
@@ -154,6 +155,7 @@ actor FamilyShareProjectionAutoRepublishCoordinator {
     @discardableResult
     func publishNow(reason: FamilyShareProjectionDirtyReason) async throws -> FamilySharePublishReceipt? {
         guard rollout.isFreshnessPipelineEnabled() else { return nil }
+        guard !reason.isEmptyScopedMutation else { return nil }
 
         isDirty = true
         pendingReasons.append(reason)
