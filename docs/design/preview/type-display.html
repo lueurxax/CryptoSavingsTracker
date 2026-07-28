@@ -1,0 +1,67 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Type scale · Display</title>
+<link rel="stylesheet" href="_card.css">
+<link rel="stylesheet" href="_glass.css">
+<style>
+  .panel {
+    border-radius: 18px;
+    padding: 22px 26px;
+    max-width: 760px;
+  }
+  .hero { font: 700 15px var(--font-sans); color: #fff; letter-spacing: -0.2px; }
+  .sub  { font: 500 12px var(--font-sans); color: rgba(255,255,255,0.65); margin-top: 2px; margin-bottom: 16px; }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+    gap: 24px;
+    padding: 14px 0;
+    border-bottom: 0.5px solid rgba(120,175,255,0.16);
+  }
+  .row:last-child { border-bottom: none; }
+
+  .specimen { color: #fff; }
+  .gold { color: #F5A623; }
+
+  .t-largetitle { font: 700 34px/1.1 var(--font-sans); letter-spacing: -0.02em; }
+  .t-title1     { font: 700 28px/1.15 var(--font-sans); letter-spacing: -0.015em; }
+  .t-title2     { font: 600 22px/1.2 var(--font-sans); letter-spacing: -0.01em; }
+  .t-title3     { font: 600 20px/1.25 var(--font-sans); letter-spacing: -0.005em; }
+
+  .meta {
+    font: 500 11px var(--font-mono);
+    color: rgba(255,255,255,0.55);
+    text-align: right;
+    line-height: 1.45;
+  }
+  .meta strong { color: rgba(255,255,255,0.85); font-weight: 600; }
+</style>
+</head>
+<body class="glass">
+
+<div class="panel glass-surface">
+  <div class="hero">Type scale · display</div>
+  <div class="sub">Headline tier — used for hero totals, screen titles, and section heads. Amber is reserved for the user's primary saved-amount.</div>
+
+  <div class="row">
+    <div class="specimen t-largetitle">$12,480<span class="gold">.50</span></div>
+    <div class="meta"><strong>LargeTitle</strong><br>34 / 700 / −0.02em</div>
+  </div>
+  <div class="row">
+    <div class="specimen t-title1">Emergency fund</div>
+    <div class="meta"><strong>Title 1</strong><br>28 / 700 / −0.015em</div>
+  </div>
+  <div class="row">
+    <div class="specimen t-title2">Monthly plan</div>
+    <div class="meta"><strong>Title 2</strong><br>22 / 600 / −0.01em</div>
+  </div>
+  <div class="row">
+    <div class="specimen t-title3">Allocation health</div>
+    <div class="meta"><strong>Title 3</strong><br>20 / 600 / −0.005em</div>
+  </div>
+</div>
+
+<div style="margin-top:14px"><span class="caption-pill">Decimal cents render in <span style="color:#F5A623">amber</span> on hero totals — the visual echo of the banner's gold word in the wordmark.</span></div>
+
+</body></html>

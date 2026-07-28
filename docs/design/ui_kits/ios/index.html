@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>CryptoSavingsTracker · iOS UI Kit</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  html, body { margin: 0; padding: 0; background: #050810; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, system-ui, sans-serif; -webkit-font-smoothing: antialiased; color: #fff; }
+  body::before {
+    content:''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(36% 50% at 18% 70%, rgba(245,166,35,0.22), transparent 65%),
+      radial-gradient(28% 45% at 82% 18%, rgba(120,175,255,0.16), transparent 70%),
+      linear-gradient(180deg, #050810 0%, #0A0F1F 100%);
+  }
+  .stage, .legend, .phone-wrap { position: relative; z-index: 1; }
+  [data-screen-label] { scroll-margin-top: 16px; }
+  .stage { display: flex; gap: 56px; align-items: flex-start; justify-content: center; padding: 40px 24px; flex-wrap: wrap; }
+  .phone-wrap { display:flex; flex-direction:column; gap: 10px; align-items: center; }
+  .phone-label { font: 600 13px -apple-system, system-ui, sans-serif; color: rgba(255,255,255,0.55); letter-spacing: 0.08em; text-transform: uppercase; }
+  .phone-label .theme-tag { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: 10px; letter-spacing: 0.10em; vertical-align: middle; }
+  .phone-label .theme-tag.dark { color: rgba(255,255,255,0.85); background: rgba(10,15,31,0.55); border: 0.5px solid rgba(120,175,255,0.22); }
+  .phone-label .theme-tag.light { color: #0A0F1F; background: rgba(255,240,210,0.85); border: 0.5px solid rgba(245,166,35,0.45); }
+  .legend { max-width: 920px; margin: 12px auto 0; padding: 24px 24px 0; color: rgba(255,255,255,0.7); font: 400 14px -apple-system, system-ui, sans-serif; line-height: 1.5; }
+  .legend h1 { font: 700 28px -apple-system, system-ui, sans-serif; color: #fff; margin: 0 0 8px; letter-spacing: -0.025em; }
+  .legend h1 .gold { color: #F5A623; }
+  .legend .muted { color: rgba(255,255,255,0.5); }
+  .legend code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; background: rgba(120,175,255,0.10); color: #FFC857; padding: 1px 6px; border-radius: 4px; border: 0.5px solid rgba(120,175,255,0.18); }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<div class="legend">
+  <h1>Crypto<span class="gold">Savings</span>Tracker · iOS UI Kit</h1>
+  <p>Three primary screens — <strong>Goals</strong>, <strong>Goal Dashboard</strong>, and <strong>Plan</strong> — recreated from <code>Views/GoalsListView.swift</code>, <code>Views/Dashboard/GoalDashboardScreen.swift</code>, and <code>Views/Planning/MonthlyPlanningContainer.swift</code>. <span class="muted">Two phones run the dark-banner theme (midnight + amber); the third runs the light-banner theme (cream + amber + midnight ink) so both brand surfaces are visible side-by-side. Tap a goal in phone 1 to open its dashboard, the Log button in phone 2 opens the half-sheet, and phone 3 has a working commit slider.</span></p>
+</div>
+
+<div class="stage" id="stage">
+  <div class="phone-wrap">
+    <div class="phone-label">1 · Goals list <span class="theme-tag dark">Dark</span></div>
+    <div id="root-goals"></div>
+  </div>
+  <div class="phone-wrap">
+    <div class="phone-label">2 · Goal dashboard <span class="theme-tag dark">Dark</span></div>
+    <div id="root-dashboard"></div>
+  </div>
+  <div class="phone-wrap">
+    <div class="phone-label">3 · Monthly plan <span class="theme-tag light">Light</span></div>
+    <div id="root-plan"></div>
+  </div>
+</div>
+
+<!-- All-light toggle -->
+<div style="position:fixed;bottom:20px;right:20px;background:rgba(20,28,52,0.78);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:0.5px solid rgba(120,175,255,0.22);border-radius:999px;padding:8px 14px;box-shadow:0 6px 18px rgba(0,0,0,0.45);display:flex;align-items:center;gap:10px;font:600 13px -apple-system,system-ui;color:#fff;z-index:99;">
+  <label for="lightmode" style="cursor:pointer;">Force all light</label>
+  <input id="lightmode" type="checkbox" style="cursor:pointer"/>
+</div>
+
+<script type="text/babel" data-presets="react,env" id="components-and-app">
+/* ============================================================
+   All components + App inlined in a single Babel block.
+   ============================================================ */
+const { useState, useEffect } = React;
+
+// ─────────────────────────────────────────────────────────────
+// THEME — banner-aligned tokens.
+// dark  → midnight surfaces + cool rim + warm amber spill (matches assets/banner.png)
+// light → cream/white surfaces + midnight ink + same amber accents (matches assets/banner-light.png)
+// ─────────────────────────────────────────────────────────────
+function theme(light) {
+  if (light) {
+    return {
+      mode: 'light',
+      // page + surface
+      pageBg: '#FAFBFD',
+      pageGlow: {
+        warm: 'rgba(245,166,35,0.14)',   // amber spill from banner
+        cool: 'rgba(120,175,255,0.10)',  // cool rim
+      },
+      cardBg:    'linear-gradient(180deg, #FFFFFF 0%, #F4F6FA 100%)',
+      cardBgFlat:'#FFFFFF',
+      heroBg:    'linear-gradient(180deg, #FFFFFF 0%, #F0F3F9 100%)',
+      sheetBg:   'linear-gradient(180deg, #FFFFFF 0%, #F4F6FA 100%)',
+      navBg:     'rgba(255,255,255,0.78)',
+      tabBg:     'rgba(255,255,255,0.82)',
+      // ink
+      fg1: '#0A0F1F',
+      fg2: 'rgba(10,15,31,0.58)',
+      fg3: 'rgba(10,15,31,0.42)',
+      // structure
+      sep:       'rgba(15,30,70,0.10)',
+      cardBorder:'rgba(15,30,70,0.08)',
+      rimGlass:  'rgba(245,166,35,0.18)',  // warm rim on glass — like light-banner outline
+      fillSubtle:'rgba(15,30,70,0.05)',
+      fillMed:   'rgba(15,30,70,0.08)',
+      // brand
+      primary:'#F5A623',
+      primaryHover:'#FFC857',
+      primaryDeep:'#C7821A',
+      // wordmark colors (banner)
+      wordCrypto: '#0A0F1F',  // navy
+      wordSavings:'#F5A623',  // amber
+      wordTracker:'#3D7BD9',  // muted blue (banner light variant)
+      tagline:    '#3D7BD9',
+      // status
+      success:'#00875A', warning:'#B84D00', danger:'#CC0000',
+      // amber number gradient (deeper for light bg)
+      amberText: 'linear-gradient(180deg, #F5A623 0%, #C7821A 100%)',
+      amberGlow: '0 0 20px rgba(245,166,35,0.20)',
+      // shadows
+      shadowCard:'0 6px 18px rgba(15,30,70,0.10), inset 0 1px 0 rgba(255,255,255,0.7)',
+      shadowHero:'0 10px 28px rgba(15,30,70,0.14), inset 0 1px 0 rgba(255,255,255,0.9)',
+      shadowSheet:'0 -16px 36px rgba(15,30,70,0.18)',
+      // tab/icon adornments
+      icon: '../../assets/icon-light.png',
+      activeFill: 'rgba(245,166,35,0.14)',
+      // dim overlay for sheet scrim
+      scrim: 'rgba(15,30,70,0.28)',
+    };
+  }
+  // dark — matches assets/banner.png
+  return {
+    mode: 'dark',
+    pageBg: '#0A0F1F',
+    pageGlow: {
+      warm: 'rgba(245,166,35,0.30)',
+      cool: 'rgba(120,175,255,0.18)',
+    },
+    cardBg:    'linear-gradient(180deg, rgba(20,28,52,0.65) 0%, rgba(10,15,31,0.65) 100%)',
+    cardBgFlat:'#121A2E',
+    heroBg:    'linear-gradient(180deg, rgba(20,28,52,0.85) 0%, rgba(8,12,26,0.95) 100%)',
+    sheetBg:   'linear-gradient(180deg, rgba(20,28,52,0.96) 0%, rgba(8,12,26,1) 100%)',
+    navBg:     'rgba(10,15,31,0.78)',
+    tabBg:     'rgba(14,20,38,0.85)',
+    fg1: '#fff',
+    fg2: 'rgba(255,255,255,0.6)',
+    fg3: 'rgba(255,255,255,0.4)',
+    sep:       'rgba(120,175,255,0.16)',
+    cardBorder:'rgba(120,175,255,0.16)',
+    rimGlass:  'rgba(120,175,255,0.22)',
+    fillSubtle:'rgba(120,175,255,0.08)',
+    fillMed:   'rgba(120,175,255,0.12)',
+    primary:'#F5A623',
+    primaryHover:'#FFC857',
+    primaryDeep:'#C7821A',
+    wordCrypto: '#FFFFFF',
+    wordSavings:'#F5A623',
+    wordTracker:'#FFFFFF',
+    tagline:    'rgba(255,255,255,0.55)',
+    success:'#00875A', warning:'#B84D00', danger:'#CC0000',
+    amberText: 'linear-gradient(180deg, #FFE8B2 0%, #F5A623 60%, #C7821A 100%)',
+    amberGlow: '0 0 28px rgba(245,166,35,0.30)',
+    shadowCard:'0 4px 14px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)',
+    shadowHero:'0 8px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)',
+    shadowSheet:'0 -16px 36px rgba(0,0,0,0.55)',
+    icon: '../../assets/icon-dark.png',
+    activeFill: 'rgba(245,166,35,0.18)',
+    scrim: 'rgba(0,0,0,0.32)',
+  };
+}
+
+// ===== ios-frame.jsx =====
+// iOS.jsx — Simplified iOS 26 device frame.
+
+function IOSStatusBar({ light = false, time = '9:41' }) {
+  const c = light ? '#0A0F1F' : '#fff';
+  return (
+    <div style={{
+      display: 'flex', gap: 154, alignItems: 'center', justifyContent: 'center',
+      padding: '21px 24px 19px', boxSizing: 'border-box',
+      position: 'relative', zIndex: 20, width: '100%',
+    }}>
+      <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 1.5 }}>
+        <span style={{
+          fontFamily: '-apple-system, "SF Pro", system-ui', fontWeight: 590,
+          fontSize: 17, lineHeight: '22px', color: c,
+        }}>{time}</span>
+      </div>
+      <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, paddingTop: 1, paddingRight: 1 }}>
+        <svg width="19" height="12" viewBox="0 0 19 12">
+          <rect x="0" y="7.5" width="3.2" height="4.5" rx="0.7" fill={c}/>
+          <rect x="4.8" y="5" width="3.2" height="7" rx="0.7" fill={c}/>
+          <rect x="9.6" y="2.5" width="3.2" height="9.5" rx="0.7" fill={c}/>
+          <rect x="14.4" y="0" width="3.2" height="12" rx="0.7" fill={c}/>
+        </svg>
+        <svg width="17" height="12" viewBox="0 0 17 12">
+          <path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z" fill={c}/>
+          <path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z" fill={c}/>
+          <circle cx="8.5" cy="10.5" r="1.5" fill={c}/>
+        </svg>
+        <svg width="27" height="13" viewBox="0 0 27 13">
+          <rect x="0" y="0" width="22" height="11" rx="2.5" stroke={c} strokeOpacity="0.35" fill="none"/>
+          <rect x="2" y="2" width="18" height="7" rx="1" fill={c}/>
+          <path d="M23.5 4 v5" stroke={c} strokeOpacity="0.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function IOSDevice({ light, width = 402, height = 874, children }) {
+  return (
+    <div style={{
+      width, height, position: 'relative',
+      borderRadius: 56, overflow: 'hidden',
+      background: light ? '#FFFFFF' : '#0A0F1F',
+      boxShadow:
+        '0 0 0 4px ' + (light ? '#1A1F2E' : '#1A1F2E') + ', 0 0 0 5px ' + (light ? '#0A0F1F' : '#000') + ', 0 30px 60px rgba(0,0,0,0.55)',
+    }}>
+      <IOSStatusBar light={light}/>
+      <div style={{ position:'absolute', top: 12, left:'50%', transform:'translateX(-50%)', width: 124, height: 36, borderRadius: 18, background:'#000', zIndex: 25 }}/>
+      <div style={{ position:'absolute', inset: 0, top: 60, zIndex: 10 }}>{children}</div>
+    </div>
+  );
+}
+
+window.IOSDevice = IOSDevice;
+window.IOSStatusBar = IOSStatusBar;
+
+
+// ─────────────────────────────────────────────────────────────
+// Tiny shared atoms
+// ─────────────────────────────────────────────────────────────
+function Wordmark({ t, size = 14 }) {
+  // Bicolor wordmark used in heroes — mirrors the banner: Crypto<Savings>Tracker
+  return (
+    <span style={{ fontFamily:'-apple-system, system-ui', fontWeight: 700, fontSize: size, letterSpacing: -0.02 * size, lineHeight: 1 }}>
+      <span style={{ color: t.wordCrypto }}>Crypto</span>
+      <span style={{ color: t.wordSavings }}>Savings</span>
+      <span style={{ color: t.wordTracker }}>Tracker</span>
+    </span>
+  );
+}
+
+function MiniRisingChart({ t, w = 86, h = 30 }) {
+  // Echoes the rising bar/line motif on the right of the light banner.
+  const bars = [4, 6, 7, 6, 9, 11, 13, 16, 19];
+  const max = Math.max(...bars);
+  const bw = (w - (bars.length - 1) * 2) / bars.length;
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display:'block' }}>
+      <defs>
+        <linearGradient id={`mr-${t.mode}`} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor={t.primary} stopOpacity="0.85"/>
+          <stop offset="1" stopColor={t.primary} stopOpacity="0.25"/>
+        </linearGradient>
+      </defs>
+      {bars.map((v, i) => {
+        const bh = (v / max) * (h - 2);
+        return <rect key={i} x={i * (bw + 2)} y={h - bh} width={bw} height={bh} rx={1.2} fill={`url(#mr-${t.mode})`}/>;
+      })}
+      {/* rising line on top */}
+      <path
+        d={bars.map((v, i) => {
+          const x = i * (bw + 2) + bw / 2;
+          const y = h - (v / max) * (h - 2) - 1;
+          return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+        }).join(' ')}
+        stroke={t.primary} strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+
+// ===== GoalsListScreen.jsx =====
+function GoalsListScreen({ light, onOpenGoal }) {
+  const t = theme(light);
+  const goals = [
+    { id: 1, emoji: '🏖️', name: 'Trip · Portugal', saved: 1980, target: 3000, deadline: 'Aug 2026', status: 'on' },
+    { id: 2, emoji: '🏠', name: 'House deposit', saved: 112305, target: 180000, deadline: 'Apr 2029', status: 'warn' },
+    { id: 3, emoji: '🚗', name: 'Car replacement', saved: 8200, target: 22000, deadline: 'Jan 2027', status: 'on' },
+    { id: 4, emoji: '💍', name: 'Engagement ring', saved: 1500, target: 9000, deadline: 'Dec 2025', status: 'off' },
+    { id: 5, emoji: '🎓', name: 'Masters programme', saved: 4600, target: 40000, deadline: 'Sep 2027', status: 'warn' },
+    { id: 6, emoji: '✈️', name: 'Japan sabbatical', saved: 3750, target: 8000, deadline: 'Oct 2026', status: 'on' },
+  ];
+
+  const statusColor = { on: t.success, warn: t.warning, off: t.danger };
+  const statusLabel = { on: 'On Track', warn: 'At Risk', off: 'Off Track' };
+  const statusIcon  = { on: '✓', warn: '⚠', off: '✕' };
+  const fmt = (n) => '$' + n.toLocaleString('en-US');
+
+  return (
+    <div style={{ background: t.pageBg, minHeight: '100%', padding: '8px 16px 120px' }}>
+      {/* HERO BANNER — directly mirrors the brand banner: glass capsule, jar/icon left with warm radial spill, bicolor wordmark + tagline + rising chart right */}
+      <div style={{
+        position: 'relative', borderRadius: 22, overflow: 'hidden',
+        padding: '16px 18px',
+        background: t.heroBg,
+        border: `0.5px solid ${t.cardBorder}`,
+        boxShadow: t.shadowHero,
+        marginBottom: 14,
+      }}>
+        {/* warm radial spill — left/bottom, like jar liquid glow on banner */}
+        <div style={{ position:'absolute', left:-40, bottom:-60, width: 240, height: 240,
+          background: `radial-gradient(closest-side, ${t.pageGlow.warm}, transparent 70%)`,
+          pointerEvents: 'none' }}/>
+        {/* cool rim — top/right, like banner light edge */}
+        <div style={{ position:'absolute', right:-30, top:-40, width: 160, height: 160,
+          background: `radial-gradient(closest-side, ${t.pageGlow.cool}, transparent 70%)`,
+          pointerEvents: 'none' }}/>
+        {/* horizontal warm sweep — like the amber wave through banner */}
+        <div style={{ position:'absolute', left: 0, right: 0, top: '52%', height: 1,
+          background: `linear-gradient(90deg, transparent 0%, ${t.primary}66 30%, ${t.primary}33 60%, transparent 100%)`,
+          filter: 'blur(0.5px)', pointerEvents: 'none' }}/>
+
+        {/* row 1 — wordmark + chart hint */}
+        <div style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 12 }}>
+          <Wordmark t={t} size={15}/>
+          <MiniRisingChart t={t} w={64} h={20}/>
+        </div>
+
+        {/* row 2 — jar icon + total */}
+        <div style={{ position:'relative', display:'flex', alignItems:'center', gap: 14 }}>
+          <img src={t.icon} alt="" style={{ width: 64, height: 64, borderRadius: '22%',
+            boxShadow: light
+              ? '0 8px 20px rgba(15,30,70,0.18), 0 0 0 0.5px rgba(15,30,70,0.06)'
+              : '0 6px 16px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.06)' }}/>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: t.fg2, fontSize: 11, fontWeight: 600, letterSpacing: 0.08, textTransform:'uppercase' }}>Total saved</div>
+            <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: -0.6, fontVariantNumeric:'tabular-nums', lineHeight: 1.05, marginTop: 2,
+              backgroundImage: t.amberText,
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+              textShadow: t.amberGlow,
+            }}>$132,335.00</div>
+            <div style={{ color: t.success, fontSize: 12, fontWeight: 600, marginTop: 4, fontVariantNumeric:'tabular-nums' }}>▲ $4,210.00 <span style={{ color: t.fg2, fontWeight: 400 }}>this month</span></div>
+          </div>
+        </div>
+
+        {/* tagline — matches banner "Track. Save. Grow." */}
+        <div style={{ position:'relative', marginTop: 10, color: t.tagline, fontSize: 11, fontWeight: 500, letterSpacing: 0.4, textTransform:'uppercase' }}>
+          Track. <span style={{ color: t.primary }}>Save.</span> Grow.
+        </div>
+      </div>
+
+      {/* search bar */}
+      <div style={{
+        display:'flex', alignItems:'center', gap:8, height: 38,
+        background: t.fillSubtle,
+        border: `0.5px solid ${t.cardBorder}`,
+        borderRadius: 10, padding: '0 12px', marginBottom: 14,
+      }}>
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke={t.fg2} strokeWidth="1.5"/><path d="M10.5 10.5l3.5 3.5" stroke={t.fg2} strokeWidth="1.5" strokeLinecap="round"/></svg>
+        <span style={{ color: t.fg2, fontSize: 15, letterSpacing: -0.2 }}>Search goals</span>
+      </div>
+
+      {/* section header */}
+      <div style={{ color: t.fg2, fontSize: 13, fontWeight: 400, textTransform: 'uppercase', letterSpacing: -0.08, padding: '8px 16px 6px' }}>Active goals · {goals.length}</div>
+
+      {/* list */}
+      <div style={{
+        background: t.cardBg,
+        border: `0.5px solid ${t.cardBorder}`,
+        borderRadius: 16, overflow: 'hidden',
+        boxShadow: t.shadowCard,
+      }}>
+        {goals.map((g, i) => {
+          const pct = Math.min(100, Math.round((g.saved / g.target) * 100));
+          const color = statusColor[g.status];
+          const r = 18, circ = 2 * Math.PI * r;
+          return (
+            <div key={g.id}
+              onClick={() => onOpenGoal && onOpenGoal(g)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '12px 16px', cursor: 'pointer',
+                borderTop: i === 0 ? 'none' : `0.5px solid ${t.sep}`,
+              }}>
+              <div style={{ width: 44, height: 44, borderRadius: 10, background: t.fillMed, display:'flex', alignItems:'center', justifyContent:'center', fontSize: 24 }}>{g.emoji}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: t.fg1, fontSize: 17, fontWeight: 600, letterSpacing: -0.43 }}>{g.name}</div>
+                <div style={{ color: t.fg2, fontSize: 13, fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>{fmt(g.saved)} <span style={{ opacity: 0.7 }}>/ {fmt(g.target)}</span> · {g.deadline}</div>
+                <div style={{ display:'flex', alignItems:'center', gap: 8, marginTop: 6 }}>
+                  <div style={{ flex: 1, height: 4, borderRadius: 2, background: t.fillMed, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 2 }}/>
+                  </div>
+                  <div style={{
+                    display:'inline-flex', alignItems:'center', gap:4,
+                    padding:'2px 8px', borderRadius: 999, background: color + '1A', color,
+                    fontSize: 11, fontWeight: 600,
+                  }}>{statusIcon[g.status]} {statusLabel[g.status]}</div>
+                </div>
+              </div>
+              {/* mini ring */}
+              <svg width="44" height="44" viewBox="0 0 44 44" style={{ flexShrink: 0 }}>
+                <circle cx="22" cy="22" r={r} stroke={t.fillMed} strokeWidth="4" fill="none"/>
+                <circle cx="22" cy="22" r={r} stroke={color} strokeWidth="4" fill="none" strokeLinecap="round"
+                  strokeDasharray={circ}
+                  strokeDashoffset={circ * (1 - pct / 100)}
+                  transform="rotate(-90 22 22)"/>
+                <text x="22" y="22" textAnchor="middle" dominantBaseline="central"
+                  fontFamily="-apple-system, system-ui" fontSize="11" fontWeight="700"
+                  fill={t.fg1}>{pct}%</text>
+              </svg>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+window.GoalsListScreen = GoalsListScreen;
+
+
+// ===== GoalDashboardScreen.jsx =====
+function GoalDashboardScreen({ light, goal, onLogContribution }) {
+  const t = theme(light);
+  const g = goal || { emoji: '🏖️', name: 'Trip · Portugal', saved: 1980, target: 3000, deadline: 'Aug 2026', status: 'on' };
+
+  const pct = Math.round((g.saved / g.target) * 100);
+  const r = 56, circ = 2 * Math.PI * r;
+
+  const sectionTitle = (text, aside) => (
+    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', padding: '16px 16px 8px' }}>
+      <div style={{ color: t.fg1, fontSize: 20, fontWeight: 600, letterSpacing: -0.4 }}>{text}</div>
+      {aside && <div style={{ color: t.primary, fontSize: 15, fontWeight: 500 }}>{aside}</div>}
+    </div>
+  );
+
+  const card = (child, style = {}) => (
+    <div style={{
+      background: t.cardBg,
+      border: `0.5px solid ${t.cardBorder}`,
+      borderRadius: 16, margin: '0 16px',
+      boxShadow: t.shadowCard,
+      ...style,
+    }}>{child}</div>
+  );
+
+  const forecastPts = [32, 30, 26, 28, 22, 18, 20, 14, 10, 12, 6];
+  const pathFor = (arr) => arr.map((y, i) => `${i === 0 ? 'M' : 'L'} ${i * (260/(arr.length-1))} ${y}`).join(' ');
+
+  const contrib = [40, 60, 75, 55, 90, 110, 85, 120, 95, 70, 115, 140];
+  const contribMax = Math.max(...contrib);
+
+  return (
+    <div style={{ background: t.pageBg, minHeight:'100%', paddingBottom: 120 }}>
+      {/* === goal_snapshot — banner-style hero === */}
+      <div style={{
+        position:'relative', overflow:'hidden',
+        margin: '0 16px 0', borderRadius: 18, padding: 20,
+        background: t.heroBg,
+        border: `0.5px solid ${t.cardBorder}`,
+        boxShadow: t.shadowHero,
+        display:'flex', gap: 16, alignItems: 'center',
+      }}>
+        <div style={{ position:'absolute', left:-30, bottom:-50, width: 200, height: 200,
+          background: `radial-gradient(closest-side, ${t.pageGlow.warm}, transparent 70%)`,
+          pointerEvents:'none' }}/>
+        <div style={{ position:'absolute', right:-30, top:-40, width: 140, height: 140,
+          background: `radial-gradient(closest-side, ${t.pageGlow.cool}, transparent 70%)`,
+          pointerEvents:'none' }}/>
+        <svg width="128" height="128" viewBox="0 0 128 128" style={{ position:'relative', flexShrink: 0 }}>
+          <circle cx="64" cy="64" r={r} stroke={t.fillMed} strokeWidth="10" fill="none"/>
+          <circle cx="64" cy="64" r={r} stroke={t.success} strokeWidth="10" fill="none" strokeLinecap="round"
+            strokeDasharray={circ} strokeDashoffset={circ * (1 - pct/100)}
+            transform="rotate(-90 64 64)"/>
+          <text x="64" y="58" textAnchor="middle" fill={t.fg1} fontFamily="-apple-system" fontSize="28" fontWeight="700" style={{ fontVariantNumeric:'tabular-nums' }}>{pct}%</text>
+          <text x="64" y="78" textAnchor="middle" fill={t.fg2} fontFamily="-apple-system" fontSize="11" fontWeight="600" letterSpacing="0.6">COMPLETE</text>
+        </svg>
+        <div style={{ position:'relative', flex: 1, minWidth: 0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap: 8 }}>
+            <span style={{ fontSize: 22 }}>{g.emoji}</span>
+            <span style={{ color: t.fg1, fontSize: 17, fontWeight: 600 }}>{g.name}</span>
+          </div>
+          <div style={{
+            fontSize: 28, fontWeight: 700, letterSpacing: -0.5, fontVariantNumeric:'tabular-nums', marginTop: 4, lineHeight: 1.05,
+            backgroundImage: t.amberText,
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            textShadow: t.amberGlow,
+          }}>${g.saved.toLocaleString()}</div>
+          <div style={{ color: t.fg2, fontSize: 13, fontVariantNumeric:'tabular-nums' }}>of ${g.target.toLocaleString()} · by {g.deadline}</div>
+          <div style={{ display:'inline-flex', alignItems:'center', gap: 4, padding:'3px 10px', borderRadius: 999, background: t.success+'1A', color: t.success, fontSize: 12, fontWeight: 600, marginTop: 8 }}>
+            ✓ On Track
+          </div>
+        </div>
+      </div>
+
+      {/* === next_action === */}
+      {sectionTitle('Next action')}
+      {card(
+        <div style={{ padding: 16, display:'flex', gap: 12, alignItems:'center' }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: t.primary + '1A', color: t.primary, display:'flex', alignItems:'center', justifyContent:'center', fontSize: 22, fontWeight: 600 }}>+</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: t.fg1, fontSize: 17, fontWeight: 600, letterSpacing: -0.43 }}>Log this month's contribution</div>
+            <div style={{ color: t.fg2, fontSize: 13 }}>Planned $180 · 12 days left this month</div>
+          </div>
+          <button onClick={onLogContribution} style={{
+            background: 'linear-gradient(180deg, #FFD884 0%, #F5A623 60%, #C7821A 100%)', color: '#1A0F00', border: 'none', borderRadius: 10,
+            padding: '10px 16px', fontSize: 15, fontWeight: 600, letterSpacing: -0.24,
+            fontFamily: '-apple-system, system-ui', cursor: 'pointer', minHeight: 44,
+            boxShadow: '0 4px 12px rgba(245,166,35,0.30)',
+          }}>Log</button>
+        </div>
+      )}
+
+      {/* === forecast_risk === */}
+      {sectionTitle('Forecast', 'Details')}
+      {card(
+        <div style={{ padding: 16 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom: 8 }}>
+            <div>
+              <div style={{ color: t.fg2, fontSize: 12, fontWeight: 600, textTransform:'uppercase', letterSpacing: 0.6 }}>Projected on deadline</div>
+              <div style={{ color: t.fg1, fontSize: 22, fontWeight: 700, fontVariantNumeric:'tabular-nums', letterSpacing: -0.4, marginTop: 2 }}>$3,120</div>
+            </div>
+            <div style={{
+              display:'inline-flex', alignItems:'center', gap:4, padding:'3px 10px',
+              borderRadius: 999, background: t.success+'1A', color: t.success, fontSize: 12, fontWeight: 600,
+            }}>✓ Above target</div>
+          </div>
+          <svg viewBox="0 0 260 50" width="100%" height="60">
+            <defs>
+              <linearGradient id={`gf-${t.mode}`} x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stopColor={t.primary} stopOpacity="0.3"/>
+                <stop offset="1" stopColor={t.primary} stopOpacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d={`${pathFor(forecastPts)} L 260 50 L 0 50 Z`} fill={`url(#gf-${t.mode})`}/>
+            <path d={pathFor(forecastPts)} fill="none" stroke={t.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <line x1="0" y1="24" x2="260" y2="24" stroke={t.fg2} strokeOpacity="0.3" strokeWidth="1" strokeDasharray="3 3"/>
+          </svg>
+          <div style={{ display:'flex', justifyContent:'space-between', color: t.fg2, fontSize: 11, marginTop: 4 }}>
+            <span>now</span><span>3m</span><span>6m</span><span>Aug 2026</span>
+          </div>
+        </div>
+      )}
+
+      {/* === contribution_activity === */}
+      {sectionTitle('Contributions', 'All time')}
+      {card(
+        <div style={{ padding: 16 }}>
+          <div style={{ color: t.fg2, fontSize: 12, fontWeight: 600, textTransform:'uppercase', letterSpacing: 0.6 }}>Last 12 months</div>
+          <div style={{ color: t.fg1, fontSize: 22, fontWeight: 700, letterSpacing: -0.4, fontVariantNumeric:'tabular-nums', marginTop: 2 }}>$1,055</div>
+          <div style={{ display:'flex', gap: 6, alignItems:'flex-end', height: 72, marginTop: 10 }}>
+            {contrib.map((v, i) => (
+              <div key={i} style={{ flex: 1, height: `${(v / contribMax) * 100}%`, background: i === contrib.length - 1 ? t.primary : t.primary + '66', borderRadius: 3 }}/>
+            ))}
+          </div>
+          <div style={{ display:'flex', justifyContent:'space-between', color: t.fg2, fontSize: 11, marginTop: 6, fontVariantNumeric:'tabular-nums' }}>
+            <span>May</span><span>Jul</span><span>Sep</span><span>Nov</span><span>Jan</span><span>Mar</span><span>Apr</span>
+          </div>
+        </div>
+      )}
+
+      {/* === allocation_health === */}
+      {sectionTitle('Allocation')}
+      {card(
+        <div style={{ padding: 16 }}>
+          {[
+            { label: 'BTC', pct: 52, color: '#F5A623' },
+            { label: 'ETH', pct: 28, color: '#00875A' },
+            { label: 'USDC', pct: 14, color: '#B84D00' },
+            { label: 'SOL',  pct: 6,  color: '#7B2CBF' },
+          ].map((a, i) => (
+            <div key={a.label} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderTop: i ? `0.5px solid ${t.sep}` : 'none' }}>
+              <div style={{ width: 10, height: 10, borderRadius: 3, background: a.color }}/>
+              <div style={{ flex: 1, color: t.fg1, fontSize: 15, fontWeight: 500 }}>{a.label}</div>
+              <div style={{ width: 120, height: 4, borderRadius: 2, background: t.fillMed, overflow:'hidden' }}>
+                <div style={{ width: `${a.pct}%`, height: '100%', background: a.color }}/>
+              </div>
+              <div style={{ color: t.fg1, fontSize: 13, fontVariantNumeric:'tabular-nums', fontWeight: 600, width: 40, textAlign: 'right' }}>{a.pct}%</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+window.GoalDashboardScreen = GoalDashboardScreen;
+
+
+// ===== MonthlyPlanningScreen.jsx =====
+function MonthlyPlanningScreen({ light, onCommit }) {
+  const t = theme(light);
+
+  const [edits, setEdits] = React.useState({});
+
+  const goals = [
+    { id: 1, emoji: '🏖️', name: 'Trip · Portugal', required: 180, suggested: 180 },
+    { id: 2, emoji: '🏠', name: 'House deposit', required: 420, suggested: 520 },
+    { id: 3, emoji: '🚗', name: 'Car replacement', required: 260, suggested: 260 },
+    { id: 4, emoji: '🎓', name: 'Masters programme', required: 140, suggested: 100 },
+  ];
+
+  const amountFor = (g) => edits[g.id] !== undefined ? edits[g.id] : g.suggested;
+  const total = goals.reduce((s, g) => s + amountFor(g), 0);
+  const income = 4200;
+  const pctIncome = Math.round((total / income) * 100);
+
+  return (
+    <div style={{ background: t.pageBg, minHeight:'100%', paddingBottom: 180 }}>
+      {/* month selector */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px 12px' }}>
+        <button style={{ background:'none', border:'none', color: t.primary, fontSize: 17, cursor:'pointer' }}>‹</button>
+        <div style={{ color: t.fg1, fontSize: 17, fontWeight: 600 }}>April 2026</div>
+        <button style={{ background:'none', border:'none', color: t.primary, fontSize: 17, cursor:'pointer' }}>›</button>
+      </div>
+
+      {/* stale banner */}
+      <div style={{
+        margin: '0 16px 12px', borderRadius: 12,
+        background: t.warning + '1A', color: t.warning,
+        padding: '10px 14px', display:'flex', gap: 10, alignItems:'flex-start',
+      }}>
+        <div style={{ fontWeight: 700, marginTop: -1 }}>⚠</div>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>Goals changed, review this plan</div>
+          <div style={{ fontSize: 13, opacity: 0.88, marginTop: 2 }}>Your deadlines were updated on Apr 14. Suggested amounts are recomputed.</div>
+        </div>
+      </div>
+
+      {/* summary card — banner-style hero with wordmark + warm spill + chart */}
+      <div style={{
+        position: 'relative', overflow: 'hidden',
+        margin: '0 16px 16px',
+        background: t.heroBg,
+        border: `0.5px solid ${t.cardBorder}`,
+        borderRadius: 18, padding: '16px 20px',
+        boxShadow: t.shadowHero,
+      }}>
+        <div style={{ position:'absolute', left:-30, bottom:-50, width: 200, height: 200,
+          background: `radial-gradient(closest-side, ${t.pageGlow.warm}, transparent 70%)`,
+          pointerEvents:'none' }}/>
+        <div style={{ position:'absolute', right:-20, top:-30, width: 140, height: 140,
+          background: `radial-gradient(closest-side, ${t.pageGlow.cool}, transparent 70%)`,
+          pointerEvents:'none' }}/>
+
+        {/* row: wordmark + chart */}
+        <div style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 10 }}>
+          <Wordmark t={t} size={13}/>
+          <MiniRisingChart t={t} w={64} h={20}/>
+        </div>
+
+        <div style={{ position:'relative' }}>
+          <div style={{ color: t.fg2, fontSize: 11, fontWeight: 600, textTransform:'uppercase', letterSpacing: 0.08 }}>Monthly plan total</div>
+          <div style={{
+            fontSize: 34, fontWeight: 700, letterSpacing: -0.6, fontVariantNumeric:'tabular-nums', marginTop: 2, lineHeight: 1.05,
+            backgroundImage: t.amberText,
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            textShadow: t.amberGlow,
+          }}>${total.toLocaleString()}</div>
+          <div style={{ color: t.fg2, fontSize: 13, marginTop: 2, fontVariantNumeric:'tabular-nums' }}>
+            {pctIncome}% of $4,200 income · {pctIncome > 30 ? <span style={{ color: t.warning, fontWeight: 600 }}>above 30% guideline</span> : <span style={{ color: t.success, fontWeight: 600 }}>within guideline</span>}
+          </div>
+          <div style={{ height: 6, borderRadius: 3, background: t.fillMed, overflow:'hidden', marginTop: 10 }}>
+            <div style={{ width: `${Math.min(100, pctIncome)}%`, height: '100%', background: pctIncome > 30 ? t.warning : t.primary, borderRadius: 3 }}/>
+          </div>
+        </div>
+      </div>
+
+      {/* section */}
+      <div style={{ color: t.fg2, fontSize: 13, padding: '0 32px 6px', textTransform:'uppercase', letterSpacing: -0.08 }}>Required this month</div>
+
+      <div style={{ margin: '0 16px',
+        background: t.cardBg,
+        border: `0.5px solid ${t.cardBorder}`,
+        borderRadius: 16, overflow:'hidden',
+        boxShadow: t.shadowCard,
+      }}>
+        {goals.map((g, i) => {
+          const amt = amountFor(g);
+          const diff = amt - g.required;
+          return (
+            <div key={g.id} style={{ padding: '12px 16px', borderTop: i ? `0.5px solid ${t.sep}` : 'none' }}>
+              <div style={{ display:'flex', alignItems:'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: t.fillMed, display:'flex', alignItems:'center', justifyContent:'center', fontSize: 20 }}>{g.emoji}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: t.fg1, fontSize: 17, fontWeight: 500, letterSpacing: -0.43 }}>{g.name}</div>
+                  <div style={{ color: t.fg2, fontSize: 12, fontVariantNumeric:'tabular-nums' }}>Required ${g.required} · Suggested ${g.suggested}</div>
+                </div>
+                <div style={{ color: t.fg1, fontSize: 17, fontVariantNumeric:'tabular-nums', fontWeight: 600 }}>${amt}</div>
+              </div>
+              {/* flex slider */}
+              <div style={{ marginTop: 10, display:'flex', alignItems:'center', gap: 10 }}>
+                <button
+                  onClick={() => setEdits({ ...edits, [g.id]: Math.max(0, amt - 20) })}
+                  style={{ width: 30, height: 30, borderRadius: 8, border:'none', background: t.fillMed, color: t.fg1, fontSize: 20, cursor:'pointer' }}>−</button>
+                <input type="range" min="0" max="1000" step="10" value={amt}
+                  onChange={(e) => setEdits({ ...edits, [g.id]: +e.target.value })}
+                  style={{ flex: 1, accentColor: t.primary }}/>
+                <button
+                  onClick={() => setEdits({ ...edits, [g.id]: amt + 20 })}
+                  style={{ width: 30, height: 30, borderRadius: 8, border:'none', background: t.fillMed, color: t.fg1, fontSize: 18, cursor:'pointer' }}>+</button>
+                {diff !== 0 && (
+                  <div style={{
+                    fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
+                    background: diff > 0 ? t.success+'1A' : t.warning + '1A',
+                    color: diff > 0 ? t.success : t.warning,
+                    fontVariantNumeric:'tabular-nums',
+                  }}>{diff > 0 ? '+' : ''}${diff}</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* commit dock — sticky at bottom of this scroll content */}
+      <div style={{ position:'sticky', bottom: 0, marginTop: 16, padding: '12px 16px 20px', background: t.navBg, backdropFilter:'blur(16px)', WebkitBackdropFilter:'blur(16px)', borderTop: `0.5px solid ${t.sep}` }}>
+        <div style={{ display:'flex', gap: 10 }}>
+          <button style={{ flex: 1, padding: '14px 16px', background: t.fillMed, color: t.fg1, border:'none', borderRadius: 12, fontSize: 16, fontWeight: 600, cursor:'pointer', minHeight: 44 }}>Save draft</button>
+          <button onClick={onCommit} style={{ flex: 2, padding: '14px 16px', background: 'linear-gradient(180deg, #FFD884 0%, #F5A623 60%, #C7821A 100%)', color: '#1A0F00', border:'none', borderRadius: 12, fontSize: 16, fontWeight: 600, cursor:'pointer', minHeight: 44, boxShadow: '0 6px 16px rgba(245,166,35,0.32)' }}>Commit plan · ${total.toLocaleString()}</button>
+        </div>
+        <div style={{ color: t.fg2, fontSize: 12, textAlign:'center', marginTop: 6 }}>Commit locks this month's targets. You can still log contributions later.</div>
+      </div>
+    </div>
+  );
+}
+
+window.MonthlyPlanningScreen = MonthlyPlanningScreen;
+
+
+// ===== LogContributionSheet.jsx =====
+function LogContributionSheet({ light, onClose, onSave, goal }) {
+  const t = theme(light);
+
+  const [amount, setAmount] = React.useState('180');
+  const [asset, setAsset] = React.useState('USDC');
+  const [note, setNote] = React.useState('');
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position:'absolute', inset: 0, background: t.scrim, zIndex: 100 }}/>
+      <div style={{
+        position:'absolute', left: 0, right: 0, bottom: 0, zIndex: 101,
+        background: t.sheetBg,
+        borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        borderTop: `0.5px solid ${t.rimGlass}`,
+        padding: '8px 0 120px',
+        boxShadow: t.shadowSheet,
+        maxHeight: '85%', overflow: 'auto',
+      }}>
+        {/* grabber */}
+        <div style={{ display:'flex', justifyContent:'center', padding:'6px 0 10px' }}>
+          <div style={{ width: 36, height: 5, borderRadius: 3, background: light ? 'rgba(15,30,70,0.25)' : 'rgba(255,255,255,0.4)' }}/>
+        </div>
+
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0 16px 14px' }}>
+          <button onClick={onClose} style={{ background:'none', border:'none', color: t.primary, fontSize: 17, cursor:'pointer' }}>Cancel</button>
+          <div style={{ color: t.fg1, fontSize: 17, fontWeight: 600 }}>Log contribution</div>
+          <button onClick={() => onSave({ amount: +amount, asset, note })} style={{ background:'none', border:'none', color: t.primary, fontSize: 17, fontWeight: 600, cursor:'pointer' }}>Save</button>
+        </div>
+
+        {/* goal context */}
+        <div style={{ padding:'10px 14px', display:'flex', alignItems:'center', gap: 10, margin:'0 16px 12px', borderRadius: 12,
+          background: t.fillSubtle,
+          border: `0.5px solid ${t.cardBorder}`,
+        }}>
+          <div style={{ fontSize: 22 }}>{goal?.emoji || '🏖️'}</div>
+          <div style={{ color: t.fg2, fontSize: 13 }}>Contributing to</div>
+          <div style={{ color: t.fg1, fontSize: 15, fontWeight: 600 }}>{goal?.name || 'Trip · Portugal'}</div>
+        </div>
+
+        {/* amount hero with banner-style spill */}
+        <div style={{ position:'relative', textAlign:'center', padding: '24px 16px 8px' }}>
+          <div style={{ position:'absolute', left:'50%', top: '50%', transform:'translate(-50%,-30%)', width: 240, height: 200,
+            background: `radial-gradient(closest-side, ${t.pageGlow.warm}, transparent 70%)`, pointerEvents:'none' }}/>
+          <div style={{ position:'relative', color: t.fg2, fontSize: 13, textTransform:'uppercase', letterSpacing: 0.6, fontWeight: 600 }}>Amount ({asset})</div>
+          <div style={{
+            position:'relative',
+            fontSize: 56, fontWeight: 700, letterSpacing: -1, fontVariantNumeric:'tabular-nums', marginTop: 6, lineHeight: 1.05,
+            backgroundImage: t.amberText,
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            textShadow: t.amberGlow,
+          }}>
+            ${amount || '0'}
+          </div>
+        </div>
+
+        {/* form */}
+        <div style={{ margin: '0 16px',
+          background: t.fillSubtle,
+          border: `0.5px solid ${t.cardBorder}`,
+          borderRadius: 14, overflow:'hidden',
+        }}>
+          <div style={{ display:'flex', alignItems:'center', padding:'12px 16px', gap: 10 }}>
+            <div style={{ color: t.fg1, fontSize: 17 }}>Amount</div>
+            <input value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g,''))}
+              style={{ flex: 1, background:'transparent', border:'none', textAlign:'right', color: t.fg1, fontSize: 17, outline:'none', fontVariantNumeric:'tabular-nums' }}/>
+          </div>
+          <div style={{ height: 0.5, background: t.sep, marginLeft: 16 }}/>
+          <div style={{ display:'flex', alignItems:'center', padding:'12px 16px', gap: 10 }}>
+            <div style={{ color: t.fg1, fontSize: 17, flex: 1 }}>Asset</div>
+            <div style={{ display:'flex', gap: 6 }}>
+              {['USDC','BTC','ETH','SOL'].map(a => (
+                <button key={a} onClick={() => setAsset(a)} style={{
+                  padding:'6px 10px', borderRadius: 8, border:'none', cursor:'pointer',
+                  background: asset === a ? 'linear-gradient(180deg, #FFD884 0%, #F5A623 60%, #C7821A 100%)' : t.fillMed,
+                  color: asset === a ? '#1A0F00' : t.fg1,
+                  fontSize: 13, fontWeight: 600,
+                  boxShadow: asset === a ? '0 3px 8px rgba(245,166,35,0.30)' : 'none',
+                }}>{a}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ height: 0.5, background: t.sep, marginLeft: 16 }}/>
+          <div style={{ display:'flex', alignItems:'center', padding:'12px 16px' }}>
+            <div style={{ color: t.fg1, fontSize: 17, flex: 1 }}>Date</div>
+            <div style={{ color: t.primary, fontSize: 17 }}>Apr 18, 2026</div>
+          </div>
+          <div style={{ height: 0.5, background: t.sep, marginLeft: 16 }}/>
+          <div style={{ display:'flex', alignItems:'center', padding:'12px 16px' }}>
+            <div style={{ color: t.fg1, fontSize: 17, flex: 1 }}>Note</div>
+            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional"
+              style={{ flex: 2, background:'transparent', border:'none', textAlign:'right', color: t.fg1, fontSize: 17, outline:'none' }}/>
+          </div>
+        </div>
+
+        <div style={{ padding:'12px 16px', color: t.fg2, fontSize: 12, fontVariantNumeric:'tabular-nums' }}>
+          You're on track to reach your goal by Nov 12, 2026.
+        </div>
+      </div>
+    </>
+  );
+}
+
+window.LogContributionSheet = LogContributionSheet;
+
+
+
+// ─────────────────────────────────────────────────────────────
+// App shell (TabBar + NavBar + routing)
+// ─────────────────────────────────────────────────────────────
+function TabBar({ tab, setTab, light }) {
+  const t = theme(light);
+  const idleColor = t.fg3;
+  const activeColor = t.primary;
+
+  const tabs = [
+    { id: 'goals', label: 'Goals',    icon: (c) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke={c} strokeWidth="2"/><path d="M12 4 A8 8 0 0 1 19 12" stroke={c} strokeWidth="2.5" strokeLinecap="round"/></svg> },
+    { id: 'plan',  label: 'Plan',     icon: (c) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="14" rx="2" stroke={c} strokeWidth="2"/><path d="M3 10h18" stroke={c} strokeWidth="2"/><path d="M8 3v4M16 3v4" stroke={c} strokeWidth="2" strokeLinecap="round"/></svg> },
+    { id: 'fore',  label: 'Forecast', icon: (c) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 17l6-6 4 4 8-8" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 7h7v7" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+    { id: 'prof',  label: 'Profile',  icon: (c) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke={c} strokeWidth="2"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke={c} strokeWidth="2"/></svg> },
+  ];
+
+  return (
+    <div style={{
+      position:'absolute', left: 0, right: 0, bottom: 0, zIndex: 55,
+      background: t.tabBg, backdropFilter:'blur(18px) saturate(180%)', WebkitBackdropFilter:'blur(18px) saturate(180%)',
+      borderTop: `0.5px solid ${t.sep}`,
+      paddingTop: 6, paddingBottom: 24,
+      display:'flex', justifyContent:'space-around',
+    }}>
+      {tabs.map(b => {
+        const active = tab === b.id;
+        const c = active ? activeColor : idleColor;
+        return (
+          <button key={b.id} onClick={() => setTab(b.id)} style={{
+            background:'none', border:'none', cursor:'pointer',
+            display:'flex', flexDirection:'column', alignItems:'center', gap: 2,
+            padding: '6px 12px', minWidth: 60, color: c,
+            fontFamily: '-apple-system, system-ui', fontSize: 10, fontWeight: 500,
+            position: 'relative',
+          }}>
+            {active && <span style={{ position:'absolute', inset: '2px 8px 18px', background: t.activeFill, borderRadius: 10 }}/>}
+            <span style={{ position:'relative' }}>{b.icon(c)}</span>
+            <span style={{ position:'relative' }}>{b.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function NavBar({ title, light, trailing, onBack }) {
+  const t = theme(light);
+  return (
+    <div style={{
+      paddingTop: 58, paddingBottom: 8,
+      position:'sticky', top: 0, zIndex: 30,
+      background: t.navBg,
+      backdropFilter:'blur(18px)', WebkitBackdropFilter:'blur(18px)',
+    }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px', height: 34 }}>
+        {onBack ? (
+          <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color: t.primary, fontSize: 17, display:'flex', alignItems:'center', gap: 2, padding: 0 }}>
+            <svg width="12" height="20" viewBox="0 0 12 20" fill="none"><path d="M10 2L2 10l8 8" stroke={t.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            Goals
+          </button>
+        ) : <div/>}
+        {trailing || <div/>}
+      </div>
+      <div style={{ color: t.fg1, fontFamily:'-apple-system, system-ui', fontSize: 28, fontWeight: 700, letterSpacing: -0.4, padding: '6px 16px 2px' }}>{title}</div>
+    </div>
+  );
+}
+
+function EmptyShell({ light, title, subtitle }) {
+  const t = theme(light);
+  return (
+    <div style={{ padding: '32px 16px', color: t.fg2 }}>
+      <div style={{
+        position:'relative', overflow:'hidden', borderRadius:18, padding:'40px 24px', textAlign:'center',
+        background: t.heroBg,
+        border: `0.5px solid ${t.cardBorder}`,
+        boxShadow: t.shadowHero,
+      }}>
+        <div style={{ position:'absolute', left:-30, bottom:-50, width:200, height:200,
+          background: `radial-gradient(closest-side, ${t.pageGlow.warm}, transparent 70%)` }}/>
+        <div style={{ position:'absolute', right:-20, top:-30, width: 140, height: 140,
+          background: `radial-gradient(closest-side, ${t.pageGlow.cool}, transparent 70%)` }}/>
+        <div style={{ position:'relative' }}>
+          <img src={t.icon} style={{ width:64, height:64, borderRadius:'22%', marginBottom:14, boxShadow: light ? '0 8px 20px rgba(15,30,70,0.18)' : '0 6px 16px rgba(0,0,0,0.5)' }}/>
+          <Wordmark t={t} size={14}/>
+          <div style={{ fontSize: 17, fontWeight: 600, color: t.fg1, marginTop: 12, marginBottom: 4 }}>{title}</div>
+          <div style={{ fontSize: 13 }}>{subtitle}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App({ initialTab = 'goals', initialOpenGoal = null, defaultLight = false }) {
+  const [light, setLight] = useState(defaultLight);
+  const [tab, setTab] = useState(initialTab);
+  const [openGoal, setOpenGoal] = useState(initialOpenGoal);
+  const [sheetGoal, setSheetGoal] = useState(null);
+
+  // Global "Force all light" toggle from page chrome.
+  useEffect(() => {
+    const checkbox = document.getElementById('lightmode');
+    if (!checkbox) return;
+    const h = () => setLight(checkbox.checked || defaultLight);
+    checkbox.addEventListener('change', h);
+    return () => checkbox.removeEventListener('change', h);
+  }, [defaultLight]);
+
+  const t = theme(light);
+
+  let content, navTitle = 'Goals', onBack = null;
+  if (tab === 'goals') {
+    if (openGoal) {
+      navTitle = 'Dashboard';
+      onBack = () => setOpenGoal(null);
+      content = <GoalDashboardScreen light={light} goal={openGoal} onLogContribution={() => setSheetGoal(openGoal)} />;
+    } else {
+      navTitle = 'Goals';
+      content = <GoalsListScreen light={light} onOpenGoal={(g) => setOpenGoal(g)} />;
+    }
+  } else if (tab === 'plan') {
+    navTitle = 'Plan';
+    content = <MonthlyPlanningScreen light={light} onCommit={() => {}} />;
+  } else if (tab === 'fore') {
+    navTitle = 'Forecast';
+    content = <EmptyShell light={light} title="Forecast view" subtitle={<>Not included in this UI‑kit slice — see <code style={{ fontFamily:'ui-monospace, "SF Mono", Menlo, monospace', fontSize: 11 }}>ForecastChartView.swift</code></>}/>;
+  } else {
+    navTitle = 'Profile';
+    content = <EmptyShell light={light} title="Profile view" subtitle="Not included in this UI‑kit slice."/>;
+  }
+
+  const screenLabel = openGoal && tab === 'goals' ? 'Goal Dashboard' : {
+    goals: 'Goals List', plan: 'Monthly Plan', fore: 'Forecast', prof: 'Profile',
+  }[tab];
+
+  return (
+    <IOSDevice light={light} width={402} height={874}>
+      <div data-screen-label={screenLabel} style={{ position:'absolute', inset: 0, background: t.pageBg, overflow:'hidden' }}>
+        <div style={{ position:'absolute', inset: 0, overflow:'auto' }}>
+          <NavBar title={navTitle} light={light} onBack={onBack}/>
+          {content}
+        </div>
+        <TabBar tab={tab} setTab={(b) => { setTab(b); setOpenGoal(null); }} light={light}/>
+        {sheetGoal && <LogContributionSheet light={light} goal={sheetGoal} onClose={() => setSheetGoal(null)} onSave={() => setSheetGoal(null)} />}
+      </div>
+    </IOSDevice>
+  );
+}
+
+const defaultGoal = { id: 1, emoji: '🏖️', name: 'Trip · Portugal', saved: 1980, target: 3000, deadline: 'Aug 2026', status: 'on' };
+
+ReactDOM.createRoot(document.getElementById('root-goals')).render(<App initialTab="goals"/>);
+ReactDOM.createRoot(document.getElementById('root-dashboard')).render(<App initialTab="goals" initialOpenGoal={defaultGoal}/>);
+ReactDOM.createRoot(document.getElementById('root-plan')).render(<App initialTab="plan" defaultLight={true}/>);
+</script>
+</body>
+</html>

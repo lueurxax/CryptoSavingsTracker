@@ -1,0 +1,54 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Tabular numerics</title>
+<link rel="stylesheet" href="_card.css">
+<link rel="stylesheet" href="_glass.css">
+<style>
+  .panel {
+    border-radius: 18px;
+    padding: 22px 24px;
+    max-width: 560px;
+  }
+  .hero { font: 700 15px var(--font-sans); color: #fff; letter-spacing: -0.2px; }
+  .sub  { font: 500 12px var(--font-sans); color: rgba(255,255,255,0.65); margin-top: 2px; margin-bottom: 14px; }
+  .sub code { font-family: var(--font-mono); color: #F5A623; }
+
+  .table {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 0.5px solid rgba(120,175,255,0.16);
+    background:
+      radial-gradient(80% 60% at 0% 100%, rgba(245,166,35,0.06), transparent 70%),
+      linear-gradient(180deg, rgba(20,28,52,0.55) 0%, rgba(10,15,31,0.65) 100%);
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 12px 16px;
+  }
+  .row + .row { border-top: 0.5px solid rgba(120,175,255,0.10); }
+
+  .name { font: 500 15px var(--font-sans); color: #fff; letter-spacing: -0.24px; }
+  .amt  {
+    font: 600 15px/1 var(--font-sans);
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .amt .gold { color: #F5A623; }
+</style>
+</head>
+<body class="glass">
+
+<div class="panel glass-surface">
+  <div class="hero">Tabular numerics</div>
+  <div class="sub">All financial amounts use <code>tabular-nums</code> so digits align column-by-column across rows. Decimal cents pick up the brand amber — same trick as the hero total.</div>
+
+  <div class="table">
+    <div class="row"><span class="name">Emergency fund</span>     <span class="amt">$  8,420<span class="gold">.00</span></span></div>
+    <div class="row"><span class="name">House deposit</span>      <span class="amt">$112,305<span class="gold">.18</span></span></div>
+    <div class="row"><span class="name">Trip · Portugal</span>     <span class="amt">$  1,980<span class="gold">.42</span></span></div>
+    <div class="row"><span class="name">Car replacement</span>    <span class="amt">$ 23,750<span class="gold">.00</span></span></div>
+  </div>
+</div>
+</body></html>

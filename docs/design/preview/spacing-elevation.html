@@ -1,0 +1,106 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Elevation</title>
+<link rel="stylesheet" href="_card.css">
+<link rel="stylesheet" href="_glass.css">
+<style>
+  .card {
+    border-radius: 18px;
+    padding: 22px 24px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin-top: 8px;
+  }
+  .tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 28px 12px 14px;
+    border-radius: 14px;
+    background:
+      radial-gradient(80% 60% at 0% 100%, rgba(245,166,35,0.08), transparent 70%),
+      linear-gradient(180deg, rgba(20,28,52,0.55) 0%, rgba(10,15,31,0.65) 100%);
+    border: 0.5px solid rgba(120,175,255,0.16);
+  }
+  .shape {
+    width: 120px;
+    height: 72px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #1a2138 0%, #0d1424 100%);
+    border: 0.5px solid rgba(120,175,255,0.22);
+    position: relative;
+  }
+  .shape::before {
+    content:''; position:absolute; left:8px; right:8px; top:8px; height:2px;
+    background: linear-gradient(90deg, transparent, rgba(245,166,35,0.40), transparent);
+    border-radius: 2px;
+  }
+
+  /* Cool-tinted shadows so they sit naturally on midnight */
+  .e-none    { box-shadow: none; }
+  .e-card    { box-shadow: 0 2px 6px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.35); }
+  .e-raised  { box-shadow: 0 6px 16px rgba(0,0,0,0.50), 0 2px 4px rgba(0,0,0,0.35),
+                            0 0 24px rgba(245,166,35,0.10); }
+  .e-modal   { box-shadow: 0 22px 48px rgba(0,0,0,0.65), 0 4px 12px rgba(0,0,0,0.45),
+                            0 0 40px rgba(120,175,255,0.10); }
+
+  .tok {
+    display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center;
+  }
+  .tok-name  { font: 700 12px var(--font-mono); color: #fff; }
+  .tok-value { font: 500 11px var(--font-mono); color: rgba(255,255,255,0.55); }
+  .tok-use   { font: 500 12px var(--font-sans); color: rgba(255,255,255,0.65); margin-top: 4px; max-width: 150px; line-height: 1.3; }
+
+  .hero { font: 700 15px var(--font-sans); color: #fff; letter-spacing: -0.2px; }
+  .sub  { font: 500 12px var(--font-sans); color: rgba(255,255,255,0.65); margin-top: 2px; }
+</style>
+</head>
+<body class="glass">
+
+<div class="card glass-surface">
+  <div class="hero">Elevation tiers</div>
+  <div class="sub">Four shadow tokens — every surface picks exactly one. Ad-hoc shadow literals are blocked by lint.</div>
+
+  <div class="grid">
+    <div class="tile">
+      <div class="shape e-none"></div>
+      <div class="tok">
+        <div class="tok-name">--elev-none</div>
+        <div class="tok-value">0 dp · no shadow</div>
+        <div class="tok-use">Embedded list rows, inputs, inline chips</div>
+      </div>
+    </div>
+    <div class="tile">
+      <div class="shape e-card"></div>
+      <div class="tok">
+        <div class="tok-name">--elev-card</div>
+        <div class="tok-value">2 dp · y2 blur6 + y1 blur2</div>
+        <div class="tok-use">Standard surface cards, summary tiles, goal rows</div>
+      </div>
+    </div>
+    <div class="tile">
+      <div class="shape e-raised"></div>
+      <div class="tok">
+        <div class="tok-name">--elev-raised</div>
+        <div class="tok-value">4 dp · y6 blur16 + amber bloom</div>
+        <div class="tok-use">Hero dashboard card, commit dock, floating tab bar</div>
+      </div>
+    </div>
+    <div class="tile">
+      <div class="shape e-modal"></div>
+      <div class="tok">
+        <div class="tok-name">--elev-modal</div>
+        <div class="tok-value">16 dp · y22 blur48 + cool aura</div>
+        <div class="tok-use">Bottom sheets, alerts, confirmation dialogs</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:14px"><span class="caption-pill">Shadows are pure black with cool/warm aura on raised tiers, so they punch through the midnight wallpaper. Pick the tier by role; never invent a new shadow.</span></div>
+
+</body></html>

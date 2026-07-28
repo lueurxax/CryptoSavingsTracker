@@ -29,10 +29,12 @@ struct AppAppearance: Equatable, Sendable {
 enum AppIconSelection {
     static let darkAlternateIconName = "AppIconDark"
 
-    static func iconName(for appearance: AppAppearance, systemColorScheme _: ColorScheme) -> String? {
+    static func iconName(for appearance: AppAppearance, systemColorScheme: ColorScheme) -> String? {
         switch appearance.rawValue {
         case "dark":
             return darkAlternateIconName
+        case "system":
+            return systemColorScheme == .dark ? darkAlternateIconName : nil
         default:
             return nil
         }
@@ -43,12 +45,20 @@ enum AppIconSelection {
 @MainActor
 enum AppIconSwitcher {
     static func apply(iconName: String?) {
-        guard UIApplication.shared.supportsAlternateIcons else { return }
-        guard UIApplication.shared.alternateIconName != iconName else { return }
+        guard UIApplication.shared.supportsAlternateIcons else {
+            AppLog.warning("Alternate app icons are not supported on this device", category: .ui)
+            return
+        }
+        guard UIApplication.shared.alternateIconName != iconName else {
+            AppLog.info("App icon already matches requested icon: \(iconName ?? "primary")", category: .ui)
+            return
+        }
 
         UIApplication.shared.setAlternateIconName(iconName) { error in
             if let error {
                 AppLog.warning("Failed to switch app icon: \(error.localizedDescription)", category: .ui)
+            } else {
+                AppLog.info("Switched app icon to \(iconName ?? "primary")", category: .ui)
             }
         }
     }
