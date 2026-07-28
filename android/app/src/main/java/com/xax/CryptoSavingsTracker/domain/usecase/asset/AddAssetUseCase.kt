@@ -19,28 +19,31 @@ class AddAssetUseCase @Inject constructor(
         address: String? = null,
         chainId: String? = null
     ): Result<Asset> {
-        val normalizedAddress = address?.trim()?.takeIf { it.isNotBlank() }
-        val normalizedChainId = chainId?.trim()?.takeIf { it.isNotBlank() }
+        val normalized = runCatching {
+            AddressedAssetRoutePolicy.normalize(currency, address, chainId)
+        }.getOrElse { return Result.failure(it) }
 
-        // Validation
-        if (currency.isBlank()) {
-            return Result.failure(IllegalArgumentException("Currency cannot be empty"))
-        }
-
-        // Check for duplicate address if provided
-        if (normalizedAddress != null) {
-            val existingAsset = repository.getAssetByAddress(normalizedAddress)
+        if (normalized.address != null) {
+            val existingAsset = repository.getAssetByOnChainIdentity(
+                address = normalized.address,
+                chainId = checkNotNull(normalized.chainId),
+                currency = normalized.currency
+            )
             if (existingAsset != null) {
-                return Result.failure(IllegalArgumentException("An asset with this address already exists"))
+                return Result.failure(
+                    IllegalArgumentException(
+                        "This wallet is already tracked for ${normalized.currency} on ${normalized.chainId}"
+                    )
+                )
             }
         }
 
         val now = System.currentTimeMillis()
         val asset = Asset(
             id = UUID.randomUUID().toString(),
-            currency = currency.uppercase().trim(),
-            address = normalizedAddress,
-            chainId = normalizedChainId,
+            currency = normalized.currency,
+            address = normalized.address,
+            chainId = normalized.chainId,
             createdAt = now,
             updatedAt = now
         )

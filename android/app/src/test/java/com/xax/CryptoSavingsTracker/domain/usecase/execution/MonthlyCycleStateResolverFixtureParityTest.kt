@@ -18,7 +18,8 @@ import org.junit.jupiter.api.Test
 class MonthlyCycleStateResolverFixtureParityTest {
 
     private val recordRepository = mockk<ExecutionRecordRepository>(relaxed = true)
-    private val resolver = MonthlyCycleStateResolverUseCase(recordRepository)
+    private val sessionUseCase = mockk<GetExecutionSessionUseCase>(relaxed = true)
+    private val resolver = MonthlyCycleStateResolverUseCase(recordRepository, sessionUseCase)
     private val json = Json { ignoreUnknownKeys = false }
 
     @Test

@@ -12,6 +12,8 @@ struct OnboardingFlowView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var onboardingManager = OnboardingManager.shared
     @State private var selectedTemplate: GoalTemplate?
+    @State private var selectedAssetCurrencies: Set<String> = []
+    @State private var initializedAssetTemplateID: UUID?
     @State private var goalCreationState = OnboardingGoalCreationState()
 
     var body: some View {
@@ -94,8 +96,12 @@ struct OnboardingFlowView: View {
             if let template = selectedTemplate {
                 OnboardingAssetSelectionView(
                     template: template,
-                    userProfile: onboardingManager.userProfile
+                    userProfile: onboardingManager.userProfile,
+                    selectedAssetCurrencies: $selectedAssetCurrencies
                 )
+                .onAppear {
+                    initializeAssetSelectionIfNeeded(for: template)
+                }
             }
             
         case .setupComplete:
@@ -172,7 +178,11 @@ struct OnboardingFlowView: View {
         Task {
             do {
                 try await DIContainer.shared.makeOnboardingMutationService(modelContext: modelContext)
-                    .createGoalFromTemplate(template, userProfile: onboardingManager.userProfile)
+                    .createGoalFromTemplate(
+                        template,
+                        userProfile: onboardingManager.userProfile,
+                        selectedAssetCurrencies: selectedAssetCurrencies
+                    )
                 
                 // Mark achievements
                 await MainActor.run {
@@ -185,6 +195,12 @@ struct OnboardingFlowView: View {
                 }
             }
         }
+    }
+
+    private func initializeAssetSelectionIfNeeded(for template: GoalTemplate) {
+        guard initializedAssetTemplateID != template.id else { return }
+        selectedAssetCurrencies = Set(template.recommendedAssets.map(\.currency))
+        initializedAssetTemplateID = template.id
     }
 }
 

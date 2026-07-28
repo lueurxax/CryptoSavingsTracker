@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | 🔄 In Progress |
-| Last Updated | 2026-01-05 |
+| Last Updated | 2026-07-28 |
 | Platform | Android |
 | Audience | Developers |
 
@@ -57,7 +57,7 @@ This document outlines the comprehensive plan to build the Android version of Cr
 | Transaction CRUD | ✅ Full | Manual + on-chain source tracking |
 | Allocations | ✅ Full | Over-allocation detection, history tracking |
 | Monthly Planning | ✅ Full | Per-goal customization, flex percentage |
-| Execution Tracking | ✅ Full | 24-hour undo window, progress calculation |
+| Execution Tracking | ✅ Full | Configurable no-undo/24h/48h/7d window, progress calculation |
 | Exchange Rates | ✅ Full | CoinGecko API with rate limiting |
 | On-Chain Balances | ✅ Full | Tatum API integration |
 | Dashboard | ✅ Full | Portfolio overview, goal summary |
@@ -242,7 +242,7 @@ fun LocalDate.plusFrequency(frequency: ReminderFrequency): LocalDate = when (fre
 **iOS Has**: `AutomationScheduler.swift` for auto-start/auto-complete monthly executions
 - Auto-start tracking on 1st of month
 - Auto-complete on last day of month
-- Configurable grace period (24h, 48h, 168h, or disabled)
+- Configurable grace period (`0`/no undo, 24h, 48h, or 168h)
 - Background task scheduling
 
 **Android Missing**: No equivalent background automation
@@ -626,7 +626,7 @@ Findings:
 - [ ] Add transaction same day → falls within execution window
 - [ ] Add transaction past date → handled correctly
 - [ ] Progress updates in real-time
-- [ ] Undo within 24h works
+- [ ] Undo respects the configured no-undo/24h/48h/168h window
 - [ ] Complete execution → data frozen correctly
 
 **Time-Window Edge Cases (Critical):**
@@ -645,7 +645,7 @@ Findings:
 |-------|-------------------|--------|
 | Timestamp stored | `ExecutionRecordDaoTest.kt` | ✅ Exists |
 | Window filtering | `ExecutionProgressCalculatorTest.kt` | ✅ Created (12 tests) |
-| Undo within 24h | `UndoExecutionUseCaseTest.kt` | ✅ Exists |
+| Configured undo window | `UndoExecutionUseCaseTest.kt` | ✅ Exists |
 | Undo start execution | `UndoStartExecutionUseCaseTest.kt` | ✅ Exists |
 | Complete execution | `CompleteExecutionUseCaseTest.kt` | ✅ Exists |
 | Timezone edge cases | `ExecutionProgressCalculatorTest.kt` | ⚠️ Partial (boundary tests) |
@@ -777,7 +777,7 @@ When finding a parity issue, document it as:
 | Timestamp-based progress derivation | ✅ | Required | P0 | Core innovation |
 | Execution state machine (draft→executing→closed) | ✅ | Required | P0 | |
 | ExecutionSnapshot capture | ✅ | Required | P0 | |
-| 24-hour undo windows | ✅ | Required | P1 | |
+| Configurable no-undo/24h/48h/7d windows | ✅ | Required | P1 | |
 | CompletedExecution history | ✅ | Required | P1 | |
 | **Dashboard** | | | | |
 | Portfolio overview | ✅ | Required | P0 | |
@@ -1900,7 +1900,7 @@ class ExchangeRateRepositoryImpl @Inject constructor(
 | MonthlyExecutionRecord management | State transitions work correctly |
 | ExecutionSnapshot capture | Snapshot frozen at execution start |
 | Timestamp-based progress derivation | Progress derived from transactions + allocations |
-| 24-hour undo windows | Undo available within window, disabled after |
+| Configurable undo windows | Undo available within the selected window and disabled after it expires |
 | CompletedExecution history | History persisted and viewable |
 | Execution UI | All states displayed correctly |
 

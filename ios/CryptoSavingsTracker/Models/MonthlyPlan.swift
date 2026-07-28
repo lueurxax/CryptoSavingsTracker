@@ -156,6 +156,9 @@ final class MonthlyPlan {
     /// Toggle protection status
     func toggleProtection() {
         self.isProtected.toggle()
+        if isProtected {
+            self.isSkipped = false
+        }
         self.flexState = isProtected ? .protected : .flexible
         self.lastModifiedDate = Date()
     }
@@ -163,6 +166,9 @@ final class MonthlyPlan {
     /// Skip this month's payment
     func skipThisMonth(_ skip: Bool = true) {
         self.isSkipped = skip
+        if skip {
+            self.isProtected = false
+        }
         self.flexState = skip ? .skipped : .flexible
         self.lastModifiedDate = Date()
     }
@@ -363,10 +369,20 @@ extension MonthlyPlan {
         currentTotal: Double,
         deadline: Date,
         currency: String,
-        monthLabel: String? = nil
+        monthLabel: String? = nil,
+        now: Date = Date(),
+        paymentDay: Int = 1
     ) -> MonthlyPlan {
         let remaining = max(0, targetAmount - currentTotal)
-        let monthsLeft = max(1, Calendar.current.dateComponents([.month], from: Date(), to: deadline).month ?? 1)
+        let label = monthLabel ?? PlanningMonthContract.storageLabel(for: now)
+        let monthsLeft = (
+            try? PlanningMonthContract.paymentPeriodsRemaining(
+                in: label,
+                paymentDay: paymentDay,
+                deadline: deadline,
+                now: now
+            )
+        ) ?? 1
         let required = remaining / Double(monthsLeft)
 
         let status: RequirementStatus
@@ -379,11 +395,6 @@ extension MonthlyPlan {
         } else {
             status = .onTrack
         }
-
-        // Use provided monthLabel or generate current month
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        let label = monthLabel ?? formatter.string(from: Date())
 
         return MonthlyPlan(
             goalId: goalId,

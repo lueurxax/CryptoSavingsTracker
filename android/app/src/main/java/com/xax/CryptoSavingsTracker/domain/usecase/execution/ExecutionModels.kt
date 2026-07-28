@@ -1,6 +1,7 @@
 package com.xax.CryptoSavingsTracker.domain.usecase.execution
 
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionRecord
+import com.xax.CryptoSavingsTracker.domain.model.ExecutionAssetRate
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionSnapshot
 
 /**
@@ -28,25 +29,58 @@ data class ExecutionGoalProgress(
  */
 data class ExecutionSession(
     val record: ExecutionRecord,
-    val goals: List<ExecutionGoalProgress>
+    val goals: List<ExecutionGoalProgress>,
+    val assetRates: List<ExecutionAssetRate> = emptyList(),
+    val isProgressAvailable: Boolean = true
 ) {
-    /** Total planned amount across all goals */
-    val totalPlanned: Double
-        get() = goals.sumOf { it.plannedAmount }
+    /** Shared currency for directly comparable totals, or null for mixed-currency sessions. */
+    val totalsCurrency: String?
+        get() = goals
+            .asSequence()
+            .filter { !it.snapshot.isSkipped }
+            .map { it.snapshot.currency.uppercase() }
+            .distinct()
+            .toList()
+            .singleOrNull()
 
-    /** Total contributed amount across all goals */
-    val totalContributed: Double
-        get() = goals.sumOf { it.contributed }
+    /** Total planned amount only when every included goal uses one real currency. */
+    val totalPlanned: Double?
+        get() = totalsCurrency?.let {
+            goals.filter { !it.snapshot.isSkipped }.sumOf { goal -> goal.plannedAmount }
+        }
+
+    /** Total contributed amount only when every included goal uses one real currency. */
+    val totalContributed: Double?
+        get() = totalsCurrency?.let {
+            goals.filter { !it.snapshot.isSkipped }.sumOf { goal -> goal.contributed }
+        }
 
     /** Number of goals that are fulfilled */
     val fulfilledCount: Int
         get() = goals.count { it.isFulfilled }
 
-    /** Overall progress percentage */
+    /**
+     * Overall progress percentage as an equal-weighted mean of dimensionless
+     * per-goal completion ratios. Monetary values in different currencies are
+     * never added together.
+     */
     val overallProgress: Double
-        get() = if (totalPlanned > 0) {
-            (totalContributed / totalPlanned) * 100
-        } else 0.0
+        get() {
+            val comparableGoals = goals.filter {
+                !it.snapshot.isSkipped &&
+                    it.plannedAmount.isFinite() &&
+                    it.plannedAmount > 0.0
+            }
+            if (comparableGoals.isEmpty()) return 0.0
+            return comparableGoals
+                .map { goal ->
+                    (goal.contributed / goal.plannedAmount)
+                        .takeIf { it.isFinite() }
+                        ?.coerceIn(0.0, 1.0)
+                        ?: 0.0
+                }
+                .average() * 100.0
+        }
 
     /** Goals that are not yet fulfilled (active) */
     val activeGoals: List<ExecutionGoalProgress>

@@ -54,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -162,7 +163,7 @@ fun MonthlyExecutionScreen(
 }
 
 @Composable
-private fun MonthlyExecutionContent(
+internal fun MonthlyExecutionContent(
     uiState: MonthlyExecutionUiState,
     onUndoStart: () -> Unit,
     onComplete: () -> Unit,
@@ -175,110 +176,122 @@ private fun MonthlyExecutionContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Undo Banner
-        if (uiState.showUndoBanner && uiState.undoTimeRemaining.isNotEmpty()) {
+        if (uiState.showUndoBanner) {
             item {
                 UndoBanner(
                     timeRemaining = uiState.undoTimeRemaining,
+                    isRecoveryRequired = uiState.recoveryRequired,
                     onUndo = onUndoStart
                 )
             }
         }
 
-        // Progress Header
-        item {
-            ProgressHeader(
-                overallProgress = uiState.overallProgress,
-                totalPlanned = uiState.totalPlanned,
-                totalContributed = uiState.totalContributed,
-                fulfilledCount = uiState.fulfilledCount,
-                totalGoals = uiState.totalGoals
-            )
-        }
-
-        // Active Goals Section
-        if (uiState.activeGoals.isNotEmpty()) {
+        if (uiState.recoveryRequired) {
             item {
-                Text(
-                    text = "Active Goals (${uiState.activeGoals.size})",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+                MonthlyExecutionProgressUnavailableCard()
             }
-
-            items(
-                items = uiState.activeGoals,
-                key = { it.snapshot.goalId }
-            ) { goal ->
-                GoalProgressCard(
-                    goal = goal,
-                    onClick = { onGoalClick(goal.snapshot.goalId) }
-                )
-            }
-        }
-
-        // Skipped Goals Section
-        if (uiState.skippedGoals.isNotEmpty()) {
+        } else {
+            // Progress Header
             item {
-                Text(
-                    text = "Skipped (${uiState.skippedGoals.size})",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp)
+                ProgressHeader(
+                    overallProgress = uiState.overallProgress,
+                    totalPlanned = uiState.totalPlanned,
+                    totalContributed = uiState.totalContributed,
+                    totalsCurrency = uiState.totalsCurrency,
+                    fulfilledCount = uiState.fulfilledCount,
+                    totalGoals = uiState.totalGoals
                 )
             }
 
-            items(
-                items = uiState.skippedGoals,
-                key = { it.snapshot.goalId }
-            ) { goal ->
-                SkippedGoalCard(
-                    goal = goal,
-                    onClick = { onGoalClick(goal.snapshot.goalId) }
-                )
-            }
-        }
-
-        // Completed Goals Section (Collapsible)
-        if (uiState.completedGoals.isNotEmpty()) {
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            // Active Goals Section
+            if (uiState.activeGoals.isNotEmpty()) {
+                item {
                     Text(
-                        text = "Completed (${uiState.completedGoals.size})",
+                        text = "Active Goals (${uiState.activeGoals.size})",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = AccessibleGreen
+                        modifier = Modifier.padding(top = 8.dp)
                     )
-                    IconButton(onClick = { showCompleted = !showCompleted }) {
-                        Icon(
-                            imageVector = if (showCompleted) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = if (showCompleted) "Collapse" else "Expand"
-                        )
-                    }
+                }
+
+                items(
+                    items = uiState.activeGoals,
+                    key = { it.snapshot.goalId }
+                ) { goal ->
+                    GoalProgressCard(
+                        goal = goal,
+                        onClick = { onGoalClick(goal.snapshot.goalId) }
+                    )
                 }
             }
 
-            if (showCompleted) {
+            // Skipped Goals Section
+            if (uiState.skippedGoals.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "Skipped (${uiState.skippedGoals.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+
                 items(
-                    items = uiState.completedGoals,
+                    items = uiState.skippedGoals,
                     key = { it.snapshot.goalId }
                 ) { goal ->
-                    AnimatedVisibility(
-                        visible = showCompleted,
-                        enter = expandVertically(),
-                        exit = shrinkVertically()
+                    SkippedGoalCard(
+                        goal = goal,
+                        onClick = { onGoalClick(goal.snapshot.goalId) }
+                    )
+                }
+            }
+
+            // Completed Goals Section (Collapsible)
+            if (uiState.completedGoals.isNotEmpty()) {
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        CompletedGoalCard(
-                            goal = goal,
-                            onClick = { onGoalClick(goal.snapshot.goalId) }
+                        Text(
+                            text = "Completed (${uiState.completedGoals.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AccessibleGreen
                         )
+                        IconButton(onClick = { showCompleted = !showCompleted }) {
+                            Icon(
+                                imageVector = if (showCompleted) {
+                                    Icons.Default.ExpandLess
+                                } else {
+                                    Icons.Default.ExpandMore
+                                },
+                                contentDescription = if (showCompleted) "Collapse" else "Expand"
+                            )
+                        }
+                    }
+                }
+
+                if (showCompleted) {
+                    items(
+                        items = uiState.completedGoals,
+                        key = { it.snapshot.goalId }
+                    ) { goal ->
+                        AnimatedVisibility(
+                            visible = showCompleted,
+                            enter = expandVertically(),
+                            exit = shrinkVertically()
+                        ) {
+                            CompletedGoalCard(
+                                goal = goal,
+                                onClick = { onGoalClick(goal.snapshot.goalId) }
+                            )
+                        }
                     }
                 }
             }
@@ -290,7 +303,7 @@ private fun MonthlyExecutionContent(
             Button(
                 onClick = onComplete,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isProcessing
+                enabled = uiState.canComplete && !uiState.isProcessing
             ) {
                 Icon(
                     imageVector = Icons.Default.Done,
@@ -307,6 +320,7 @@ private fun MonthlyExecutionContent(
 @Composable
 private fun UndoBanner(
     timeRemaining: String,
+    isRecoveryRequired: Boolean,
     onUndo: () -> Unit
 ) {
     Card(
@@ -332,21 +346,57 @@ private fun UndoBanner(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Tracking started",
+                        text = if (isRecoveryRequired) {
+                            "Tracking cannot continue"
+                        } else {
+                            "Tracking started"
+                        },
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Undo expires in $timeRemaining",
+                    text = if (isRecoveryRequired) {
+                        "Cancel tracking to return to planning."
+                    } else {
+                        "Undo expires in $timeRemaining"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             OutlinedButton(onClick = onUndo) {
-                Text("Undo")
+                Text(if (isRecoveryRequired) "Cancel tracking" else "Undo")
             }
+        }
+    }
+}
+
+@Composable
+private fun MonthlyExecutionProgressUnavailableCard() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("monthly_execution_progress_unavailable"),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Execution progress unavailable",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "The transaction ledger or frozen rates cannot prove contribution progress. " +
+                    "Completion is disabled until tracking is cancelled and restarted safely.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
         }
     }
 }
@@ -354,8 +404,9 @@ private fun UndoBanner(
 @Composable
 private fun ProgressHeader(
     overallProgress: Double,
-    totalPlanned: Double,
-    totalContributed: Double,
+    totalPlanned: Double?,
+    totalContributed: Double?,
+    totalsCurrency: String?,
     fulfilledCount: Int,
     totalGoals: Int
 ) {
@@ -412,7 +463,16 @@ private fun ProgressHeader(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "${formatAmount(totalContributed)} / ${formatAmount(totalPlanned)}",
+                        text = if (
+                            totalsCurrency != null &&
+                            totalContributed != null &&
+                            totalPlanned != null
+                        ) {
+                            "$totalsCurrency ${formatAmount(totalContributed)} / " +
+                                "$totalsCurrency ${formatAmount(totalPlanned)}"
+                        } else {
+                            "Mixed currencies"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer

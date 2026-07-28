@@ -19,10 +19,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,15 +33,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -67,7 +62,6 @@ fun TransactionHistoryScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
 
     LaunchedEffect(state.error) {
         state.error?.let { error ->
@@ -136,47 +130,18 @@ fun TransactionHistoryScreen(
                         currency = state.assetCurrency,
                         isCryptoAsset = state.isCryptoAsset,
                         totalBalance = state.totalBalance,
+                        balanceIssue = state.balanceIssue,
                         depositCount = state.depositCount,
                         withdrawalCount = state.withdrawalCount,
                         onEditTransaction = { tx ->
                             if (tx.source == TransactionSource.MANUAL) {
                                 navController.navigate(Screen.EditTransaction.createRoute(tx.id))
                             }
-                        },
-                        onDeleteTransaction = { transactionToDelete = it }
+                        }
                     )
                 }
             }
         }
-    }
-
-    // Delete confirmation dialog
-    transactionToDelete?.let { transaction ->
-        AlertDialog(
-            onDismissRequest = { transactionToDelete = null },
-            title = { Text("Delete Transaction") },
-            text = {
-                Text(
-                    "Are you sure you want to delete this ${if (transaction.isDeposit) "deposit" else "withdrawal"} " +
-                        "of ${formatAmount(transaction.absoluteAmount, state.assetCurrency, state.isCryptoAsset)}?"
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteTransaction(transaction)
-                        transactionToDelete = null
-                    }
-                ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { transactionToDelete = null }) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 }
 
@@ -185,11 +150,11 @@ private fun TransactionList(
     transactions: List<Transaction>,
     currency: String,
     isCryptoAsset: Boolean,
-    totalBalance: Double,
+    totalBalance: Double?,
+    balanceIssue: String?,
     depositCount: Int,
     withdrawalCount: Int,
-    onEditTransaction: (Transaction) -> Unit,
-    onDeleteTransaction: (Transaction) -> Unit
+    onEditTransaction: (Transaction) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -201,6 +166,7 @@ private fun TransactionList(
         item {
             SummaryCard(
                 totalBalance = totalBalance,
+                balanceIssue = balanceIssue,
                 currency = currency,
                 isCryptoAsset = isCryptoAsset,
                 depositCount = depositCount,
@@ -217,8 +183,7 @@ private fun TransactionList(
                 transaction = transaction,
                 currency = currency,
                 isCryptoAsset = isCryptoAsset,
-                onEdit = { onEditTransaction(transaction) },
-                onDelete = { onDeleteTransaction(transaction) }
+                onEdit = { onEditTransaction(transaction) }
             )
         }
     }
@@ -226,7 +191,8 @@ private fun TransactionList(
 
 @Composable
 private fun SummaryCard(
-    totalBalance: Double,
+    totalBalance: Double?,
+    balanceIssue: String?,
     currency: String,
     isCryptoAsset: Boolean,
     depositCount: Int,
@@ -249,11 +215,25 @@ private fun SummaryCard(
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Text(
-                text = formatAmount(totalBalance, currency, isCryptoAsset),
+                text = totalBalance?.let {
+                    formatAmount(it, currency, isCryptoAsset)
+                } ?: "Balance unavailable",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (totalBalance >= 0) DepositGreen else WithdrawalRed
+                color = when {
+                    totalBalance == null -> MaterialTheme.colorScheme.error
+                    totalBalance >= 0 -> DepositGreen
+                    else -> WithdrawalRed
+                }
             )
+            balanceIssue?.let { issue ->
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = issue,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -293,8 +273,7 @@ private fun TransactionCard(
     transaction: Transaction,
     currency: String,
     isCryptoAsset: Boolean,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onEdit: () -> Unit
 ) {
     val isDeposit = transaction.isDeposit
     val amountColor = if (isDeposit) DepositGreen else WithdrawalRed
@@ -368,13 +347,6 @@ private fun TransactionCard(
                         Icons.Default.Edit,
                         contentDescription = "Edit",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.error
                     )
                 }
             }

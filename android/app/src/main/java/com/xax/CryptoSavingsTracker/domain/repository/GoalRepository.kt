@@ -60,6 +60,18 @@ interface GoalRepository {
     suspend fun updateGoalStatus(id: String, status: GoalLifecycleStatus)
 
     /**
+     * Atomically disables a reminder only if the goal was not edited after it was read.
+     *
+     * The fail-closed default keeps test doubles source-compatible without pretending that a
+     * read-then-write fallback provides compare-and-set semantics.
+     */
+    suspend fun disableReminderIfUnchanged(
+        goalId: String,
+        expectedUpdatedAt: Long,
+        modifiedAt: Long
+    ): Boolean = false
+
+    /**
      * Get count of active goals
      */
     fun getActiveGoalCount(): Flow<Int>

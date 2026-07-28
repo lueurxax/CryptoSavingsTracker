@@ -765,6 +765,19 @@ struct AddAssetView: View {
         
         // Validate address format if provided
         if let addr = finalAddress, let chainId = finalChainId {
+            do {
+                try BalanceRouteResolver.validateTrackedAsset(
+                    chainId: chainId,
+                    symbol: currency,
+                    chainService: ChainService.shared
+                )
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    isLoading = false
+                }
+                return
+            }
             if !isValidAddress(addr, for: chainId) {
                 await MainActor.run {
                     errorMessage = "Invalid address format for selected blockchain network. Please check the address and try again."
@@ -789,7 +802,7 @@ struct AddAssetView: View {
             dismiss()
         } catch {
             await MainActor.run {
-                errorMessage = "Unable to save your asset right now. Please check your connection and try again."
+                errorMessage = error.localizedDescription
                 isLoading = false
             }
         }

@@ -90,12 +90,21 @@ struct AddGoalView: View {
             return nil
         }
     }
+
+    private var parsedTargetAmount: Double? {
+        guard !currency.isEmpty else { return nil }
+        return MoneyInputParser.parse(
+            rawText: targetAmount,
+            currency: currency,
+            locale: .current
+        ).amount?.doubleValue
+    }
     
     // Computed validation properties
     private var isFormValid: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !currency.isEmpty &&
-        (Double(targetAmount) ?? 0) > 0 &&
+        (parsedTargetAmount ?? 0) > 0 &&
         deadline > Date() &&
         startDate <= deadline
     }
@@ -111,7 +120,7 @@ struct AddGoalView: View {
             issues.append("Currency selection is required")
         }
         
-        let amount = Double(targetAmount) ?? 0
+        let amount = parsedTargetAmount ?? 0
         if amount <= 0 {
             issues.append("Target amount must be greater than 0")
         }
@@ -142,7 +151,7 @@ struct AddGoalView: View {
 
     private var amountValidationMessage: String? {
         guard shouldShowValidationFeedback else { return nil }
-        let amount = Double(targetAmount) ?? 0
+        let amount = parsedTargetAmount ?? 0
         guard amount <= 0 else { return nil }
         return "Target amount must be greater than 0"
     }
@@ -158,7 +167,7 @@ struct AddGoalView: View {
     }
     
     private var goalGuidance: String? {
-        let amount = Double(targetAmount) ?? 0
+        let amount = parsedTargetAmount ?? 0
         let daysUntilDeadline = Calendar.current.dateComponents([.day], from: Date(), to: deadline).day ?? 0
         
         if amount > 0 && daysUntilDeadline > 0 {
@@ -548,7 +557,7 @@ struct AddGoalView: View {
         showValidationWarnings = true
         saveErrorMessage = nil
         
-        guard isFormValid, let amount = Double(targetAmount) else { 
+        guard isFormValid, let amount = parsedTargetAmount else {
             focusFirstInvalidField()
             DIContainer.shared.navigationTelemetryTracker.recoveryCompleted(
                 journeyID: NavigationJourney.goalCreateEdit,
@@ -574,8 +583,6 @@ struct AddGoalView: View {
         #endif
         
         let newGoal = Goal(name: name, currency: currency.uppercased(), targetAmount: amount, deadline: deadline, startDate: startDate)
-        newGoal.clearRetiredReminderState()
-        
         do {
             try await DIContainer.shared.makeGoalMutationService(modelContext: modelContext).createGoal(newGoal)
             DIContainer.shared.navigationTelemetryTracker.flowCompleted(
@@ -584,7 +591,10 @@ struct AddGoalView: View {
             )
             dismiss()
         } catch {
-            saveErrorMessage = "Unable to save this goal right now. Please try again."
+            saveErrorMessage = PersistenceMutationErrorPresentation.message(
+                for: error,
+                fallback: "Unable to save this goal right now. Please try again."
+            )
             DIContainer.shared.navigationTelemetryTracker.recoveryCompleted(
                 journeyID: NavigationJourney.goalCreateEdit,
                 recoveryPath: "save_error",
@@ -609,7 +619,7 @@ struct AddGoalView: View {
             return
         }
 
-        let amount = Double(targetAmount) ?? 0
+        let amount = parsedTargetAmount ?? 0
         if amount <= 0 {
             focusedField = .targetAmount
         }

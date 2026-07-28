@@ -146,6 +146,7 @@ fun AssetDetailScreen(
                         asset = uiState.asset!!,
                         manualBalance = uiState.manualBalance,
                         currentBalance = uiState.currentBalance,
+                        balanceIssue = uiState.balanceIssue,
                         currentBalanceUsd = uiState.currentBalanceUsd,
                         isUsdLoading = uiState.isUsdLoading,
                         usdError = uiState.usdError,
@@ -201,7 +202,8 @@ fun AssetDetailScreen(
 internal fun AssetDetailContent(
     asset: Asset,
     manualBalance: Double,
-    currentBalance: Double,
+    currentBalance: Double?,
+    balanceIssue: String?,
     currentBalanceUsd: Double?,
     isUsdLoading: Boolean,
     usdError: String?,
@@ -299,11 +301,39 @@ internal fun AssetDetailContent(
                     }
                 } else {
                     Text(
-                        text = AmountFormatters.formatDisplayCurrencyAmount(currentBalance, asset.currency, isCrypto = asset.isCryptoAsset),
+                        text = currentBalance?.let {
+                            AmountFormatters.formatDisplayCurrencyAmount(
+                                it,
+                                asset.currency,
+                                isCrypto = asset.isCryptoAsset
+                            )
+                        } ?: "Balance unavailable",
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.testTag("assetDetailCurrentBalance"),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = if (currentBalance == null) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+                    )
+                }
+                if (currentBalance == null && balanceIssue != null) {
+                    Text(
+                        text = balanceIssue,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        text = "Manual entries: ${
+                            AmountFormatters.formatDisplayCurrencyAmount(
+                                manualBalance,
+                                asset.currency,
+                                isCrypto = asset.isCryptoAsset
+                            )
+                        }",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 

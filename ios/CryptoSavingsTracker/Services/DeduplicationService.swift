@@ -11,6 +11,75 @@ import Foundation
 import SwiftData
 import os
 
+enum DeduplicationError: LocalizedError {
+    case unsafeAllocationMerge(
+        assetID: UUID,
+        requested: Double,
+        available: Double
+    )
+    case conflictingExecutionEvidence(
+        monthLabel: String,
+        recordIDs: [UUID]
+    )
+    case conflictingTransactionAllocationProvenance(
+        externalID: String,
+        transactionIDs: [UUID],
+        linkedTransactionIDs: [UUID]
+    )
+
+    var errorDescription: String? {
+        switch self {
+        case .unsafeAllocationMerge(_, let requested, let available):
+            return "Deduplication would allocate \(requested) from an asset with only \(available) available."
+        case .conflictingExecutionEvidence(let monthLabel, let recordIDs):
+            return "Execution \(monthLabel) has conflicting durable evidence in records "
+                + recordIDs.map(\.uuidString).sorted().joined(separator: ", ")
+                + ". Automatic deduplication stopped without changing the store."
+        case .conflictingTransactionAllocationProvenance(
+            let externalID,
+            let transactionIDs,
+            let linkedTransactionIDs
+        ):
+            let records = transactionIDs.map(\.uuidString).sorted().joined(
+                separator: ", "
+            )
+            let linkedRecords = linkedTransactionIDs.map(\.uuidString).sorted()
+                .joined(separator: ", ")
+            return "Transaction \(externalID) has conflicting duplicate financial data "
+                + "or allocation-history provenance across records \(records). "
+                + "Linked allocation sources: \(linkedRecords). "
+                + "Automatic deduplication stopped without changing the store."
+        }
+    }
+}
+
+private struct TransactionDeduplicationKey: Hashable {
+    let assetID: UUID?
+    let externalID: String
+
+    var sortKey: String {
+        "\(assetID?.uuidString ?? "")|\(externalID)"
+    }
+}
+
+private struct TransactionAllocationFingerprint: Hashable {
+    let amountBits: UInt64
+    let date: Date
+    let sourceRawValue: String
+
+    init(_ transaction: Transaction) {
+        amountBits = transaction.amount.bitPattern
+        date = transaction.date
+        sourceRawValue = transaction.sourceRawValue
+    }
+}
+
+private struct TransactionDeduplicationPlan {
+    let survivor: Transaction
+    let duplicates: [Transaction]
+    let historiesToRekey: [AllocationHistory]
+}
+
 @MainActor
 final class DeduplicationService {
 
@@ -20,23 +89,37 @@ final class DeduplicationService {
 
     func runFullDeduplication(in context: ModelContext) async throws {
         logger.info("Starting full deduplication pass")
-        var totalRemoved = 0
+        // CloudKit monitoring calls this service from the shared main context,
+        // which can also contain unsaved UI drafts. Perform the repair against
+        // the same durable store in an operation-owned context so neither
+        // save nor rollback can commit or discard caller-owned changes.
+        let operationContext = ModelContext(context.container)
+        operationContext.autosaveEnabled = false
 
-        totalRemoved += try deduplicateGoals(in: context)
-        totalRemoved += try deduplicateMonthlyPlans(in: context)
-        totalRemoved += try deduplicateExecutionRecords(in: context)
-        totalRemoved += try deduplicateCompletedExecutions(in: context)
-        totalRemoved += try deduplicateAssets(in: context)
-        totalRemoved += try deduplicateAssetAllocations(in: context)
-        totalRemoved += try deduplicateAllocationHistory(in: context)
-        totalRemoved += try deduplicateTransactions(in: context)
+        do {
+            var totalRemoved = 0
 
-        if totalRemoved > 0 {
-            try context.save()
-            postSharedGoalRepairIfNeeded(in: context)
-            logger.info("Deduplication complete: removed \(totalRemoved) duplicate(s)")
-        } else {
-            logger.info("Deduplication complete: no duplicates found")
+            totalRemoved += try deduplicateGoals(in: operationContext)
+            totalRemoved += try deduplicateMonthlyPlans(in: operationContext)
+            totalRemoved += try deduplicateExecutionRecords(in: operationContext)
+            totalRemoved += try deduplicateCompletedExecutions(in: operationContext)
+            totalRemoved += try deduplicateAssets(in: operationContext)
+            totalRemoved += try deduplicateAssetAllocations(in: operationContext)
+            totalRemoved += try deduplicateTransactions(in: operationContext)
+            totalRemoved += try deduplicateAllocationHistory(in: operationContext)
+
+            if totalRemoved > 0 {
+                try operationContext.save()
+                postSharedGoalRepairIfNeeded(in: operationContext)
+                logger.info("Deduplication complete: removed \(totalRemoved) duplicate(s)")
+            } else {
+                logger.info("Deduplication complete: no duplicates found")
+            }
+        } catch {
+            // This rollback is limited to the operation-owned context. The
+            // caller's pending edits remain intact.
+            operationContext.rollback()
+            throw error
         }
     }
 
@@ -76,6 +159,7 @@ final class DeduplicationService {
                 }
                 for history in (duplicate.allocationHistory ?? []) {
                     history.goal = survivor
+                    history.goalId = survivor.id
                 }
 
                 // Rewrite UUID-based references: MonthlyPlan.goalId
@@ -112,26 +196,91 @@ final class DeduplicationService {
     /// Manual transactions without externalId are never considered duplicates.
     @discardableResult
     func deduplicateTransactions(in context: ModelContext) throws -> Int {
-        let descriptor = FetchDescriptor<Transaction>(
-            sortBy: [SortDescriptor(\.date, order: .reverse)]
-        )
-        let transactions = try context.fetch(descriptor)
+        let transactions = try context.fetch(FetchDescriptor<Transaction>())
+        let histories = try context.fetch(FetchDescriptor<AllocationHistory>())
+        var groups: [TransactionDeduplicationKey: [Transaction]] = [:]
+        for transaction in transactions {
+            guard let externalID = transaction.externalId,
+                  !externalID.isEmpty
+            else {
+                continue
+            }
+            let key = TransactionDeduplicationKey(
+                assetID: transaction.asset?.id,
+                externalID: externalID
+            )
+            groups[key, default: []].append(transaction)
+        }
 
-        var seen = Set<String>()
-        var removed = 0
+        var plans: [TransactionDeduplicationPlan] = []
+        for (key, group) in groups
+            .filter({ $0.value.count > 1 })
+            .sorted(by: { $0.key.sortKey < $1.key.sortKey })
+        {
+            let ordered = group.sorted { lhs, rhs in
+                if lhs.date != rhs.date {
+                    return lhs.date > rhs.date
+                }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+            guard let survivor = ordered.first else { continue }
+            let transactionIDs = Set(ordered.map(\.id))
+            let linkedHistories = histories.filter { history in
+                guard let sourceTransactionID = history.sourceTransactionId
+                else {
+                    return false
+                }
+                return transactionIDs.contains(sourceTransactionID)
+            }
+            let linkedTransactionIDs = Set(
+                linkedHistories.compactMap(\.sourceTransactionId)
+            )
 
-        for tx in transactions {
-            guard let externalId = tx.externalId, !externalId.isEmpty else { continue }
-            let assetId = tx.asset?.id.uuidString ?? "nil"
-            let key = "\(assetId)|\(externalId)"
-            if seen.contains(key) {
-                context.delete(tx)
-                removed += 1
-            } else {
-                seen.insert(key)
+            guard linkedTransactionIDs.count <= 1 else {
+                throw DeduplicationError
+                    .conflictingTransactionAllocationProvenance(
+                        externalID: key.externalID,
+                        transactionIDs: Array(transactionIDs),
+                        linkedTransactionIDs: Array(linkedTransactionIDs)
+                    )
+            }
+            if !linkedHistories.isEmpty {
+                let financialFingerprints = Set(
+                    ordered.map(TransactionAllocationFingerprint.init)
+                )
+                guard financialFingerprints.count == 1 else {
+                    throw DeduplicationError
+                        .conflictingTransactionAllocationProvenance(
+                            externalID: key.externalID,
+                            transactionIDs: Array(transactionIDs),
+                            linkedTransactionIDs: Array(linkedTransactionIDs)
+                        )
+                }
+            }
+
+            plans.append(
+                TransactionDeduplicationPlan(
+                    survivor: survivor,
+                    duplicates: Array(ordered.dropFirst()),
+                    historiesToRekey: linkedHistories.filter {
+                        $0.sourceTransactionId != survivor.id
+                    }
+                )
+            )
+        }
+
+        // Every group is validated before this point. Apply the complete plan
+        // only after no conflicting financial/provenance evidence remains.
+        for plan in plans {
+            for history in plan.historiesToRekey {
+                history.sourceTransactionId = plan.survivor.id
+            }
+            for duplicate in plan.duplicates {
+                context.delete(duplicate)
             }
         }
 
+        let removed = plans.reduce(0) { $0 + $1.duplicates.count }
         if removed > 0 {
             logger.debug("Transaction: removed \(removed) duplicate(s)")
         }
@@ -180,56 +329,73 @@ final class DeduplicationService {
         return removed
     }
 
-    /// Deduplicate MonthlyExecutionRecord by monthLabel. Keep the most recently created.
+    /// Deduplicate only provably redundant MonthlyExecutionRecords.
+    ///
+    /// A newer empty CloudKit draft must never replace an executing/closed
+    /// record that owns immutable snapshots or completion history. Multiple
+    /// evidence-bearing records are ambiguous and require an explicit repair,
+    /// so the full deduplication transaction fails closed.
     @discardableResult
     func deduplicateExecutionRecords(in context: ModelContext) throws -> Int {
-        let descriptor = FetchDescriptor<MonthlyExecutionRecord>(
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        let records = try context.fetch(descriptor)
+        let records = try context.fetch(FetchDescriptor<MonthlyExecutionRecord>())
+        let groups = Dictionary(grouping: records, by: \.monthLabel)
+        var recordsToDelete: [MonthlyExecutionRecord] = []
 
-        var seen = Set<String>()
-        var removed = 0
+        // Build the complete repair plan before mutating the context so direct
+        // callers also get fail-closed behavior, not just runFullDeduplication.
+        for (monthLabel, group) in groups where group.count > 1 {
+            let evidenceBearing = group.filter { !isEvidenceFreeDraft($0) }
 
-        for record in records {
-            if seen.contains(record.monthLabel) {
-                context.delete(record)
-                removed += 1
-            } else {
-                seen.insert(record.monthLabel)
+            if evidenceBearing.count > 1 {
+                throw DeduplicationError.conflictingExecutionEvidence(
+                    monthLabel: monthLabel,
+                    recordIDs: evidenceBearing.map(\.id)
+                )
             }
+
+            if let authoritative = evidenceBearing.first {
+                recordsToDelete.append(contentsOf: group.filter {
+                    $0.id != authoritative.id && isEvidenceFreeDraft($0)
+                })
+                continue
+            }
+
+            let fingerprints = Set(group.map(evidenceFreeFingerprint))
+            guard fingerprints.count == 1 else {
+                throw DeduplicationError.conflictingExecutionEvidence(
+                    monthLabel: monthLabel,
+                    recordIDs: group.map(\.id)
+                )
+            }
+
+            let sorted = group.sorted { lhs, rhs in
+                if lhs.createdAt == rhs.createdAt {
+                    return lhs.id.uuidString < rhs.id.uuidString
+                }
+                return lhs.createdAt > rhs.createdAt
+            }
+            recordsToDelete.append(contentsOf: sorted.dropFirst())
         }
 
-        if removed > 0 {
-            logger.debug("MonthlyExecutionRecord: removed \(removed) duplicate(s)")
+        for record in recordsToDelete {
+            context.delete(record)
         }
-        return removed
+
+        if !recordsToDelete.isEmpty {
+            logger.debug(
+                "MonthlyExecutionRecord: removed \(recordsToDelete.count) evidence-free duplicate(s)"
+            )
+        }
+        return recordsToDelete.count
     }
 
-    /// Deduplicate CompletedExecution by monthLabel. Keep the most recently completed.
+    /// CompletedExecution is append-only lifecycle evidence. A month can have
+    /// multiple legitimate snapshots after completion, undo, and re-completion,
+    /// so monthLabel is not a deduplication identity.
     @discardableResult
     func deduplicateCompletedExecutions(in context: ModelContext) throws -> Int {
-        let descriptor = FetchDescriptor<CompletedExecution>(
-            sortBy: [SortDescriptor(\.completedAt, order: .reverse)]
-        )
-        let records = try context.fetch(descriptor)
-
-        var seen = Set<String>()
-        var removed = 0
-
-        for record in records {
-            if seen.contains(record.monthLabel) {
-                context.delete(record)
-                removed += 1
-            } else {
-                seen.insert(record.monthLabel)
-            }
-        }
-
-        if removed > 0 {
-            logger.debug("CompletedExecution: removed \(removed) duplicate(s)")
-        }
-        return removed
+        _ = try context.fetch(FetchDescriptor<CompletedExecution>())
+        return 0
     }
 
     /// Deduplicate Asset by (currency, chainId, address). Keep the one with more transactions.
@@ -240,13 +406,14 @@ final class DeduplicationService {
         let assets = try context.fetch(descriptor)
 
         // Group by logical key
-        var groups: [String: [Asset]] = [:]
+        var groups: [AddressedAssetPersistenceIdentity: [Asset]] = [:]
         for asset in assets {
-            let currency = asset.currency.uppercased()
-            let chain = (asset.chainId ?? "").lowercased()
-            let addr = (asset.address ?? "").lowercased()
-            let key = "\(currency)|\(chain)|\(addr)"
-            groups[key, default: []].append(asset)
+            // Addressless rows are independent user accounts. They have no
+            // provider identity and must never be coalesced by currency alone.
+            guard let identity = AssetPersistenceIdentityPolicy.addressedIdentity(for: asset) else {
+                continue
+            }
+            groups[identity, default: []].append(asset)
         }
 
         var removed = 0
@@ -269,7 +436,11 @@ final class DeduplicationService {
                 // Migrate allocation history to survivor
                 for history in (duplicate.allocationHistory ?? []) {
                     history.asset = survivor
+                    history.assetId = survivor.id
                 }
+                // Materialize inverse-relationship moves before applying the
+                // duplicate asset's cascade delete.
+                context.processPendingChanges()
                 context.delete(duplicate)
                 removed += 1
             }
@@ -281,7 +452,9 @@ final class DeduplicationService {
         return removed
     }
 
-    /// Deduplicate AssetAllocation by (asset.id, goal.id). Keep the one with higher amount.
+    /// Deduplicate AssetAllocation by (asset.id, goal.id). Allocation records
+    /// from distinct duplicate assets are additive; dropping all but the max
+    /// silently loses financial state.
     @discardableResult
     func deduplicateAssetAllocations(in context: ModelContext) throws -> Int {
         let descriptor = FetchDescriptor<AssetAllocation>()
@@ -295,10 +468,48 @@ final class DeduplicationService {
             groups[key, default: []].append(allocation)
         }
 
-        var removed = 0
+        let duplicateGroups = groups.values.filter { $0.count > 1 }
 
-        for (_, group) in groups where group.count > 1 {
-            let sorted = group.sorted { $0.amount > $1.amount }
+        // Preflight the complete post-merge allocation total per asset before
+        // touching any record. If the available balance cannot cover it, the
+        // only safe repair is to stop and preserve every original record.
+        let affectedAssetIDs = Set(
+            duplicateGroups.compactMap { $0.first?.asset?.id }
+        )
+        var assetsByID: [UUID: Asset] = [:]
+        for allocation in allocations {
+            if let asset = allocation.asset {
+                assetsByID[asset.id] = asset
+            }
+        }
+        for assetID in affectedAssetIDs {
+            let plannedTotal = groups
+                .filter { $0.key.hasPrefix("\(assetID)|") }
+                .values
+                .flatMap { $0 }
+                .reduce(0) { $0 + max(0, $1.amountValue) }
+            guard let asset = assetsByID[assetID] else { continue }
+            let available = max(0, asset.currentAmount)
+            if plannedTotal > available + 0.000_000_1 {
+                throw DeduplicationError.unsafeAllocationMerge(
+                    assetID: assetID,
+                    requested: plannedTotal,
+                    available: available
+                )
+            }
+        }
+
+        var removed = 0
+        for group in duplicateGroups {
+            let sorted = group.sorted { lhs, rhs in
+                if lhs.createdDate == rhs.createdDate {
+                    return lhs.id.uuidString < rhs.id.uuidString
+                }
+                return lhs.createdDate < rhs.createdDate
+            }
+            let survivor = sorted[0]
+            let mergedAmount = sorted.reduce(0) { $0 + max(0, $1.amountValue) }
+            survivor.updateAmount(mergedAmount)
             for duplicate in sorted.dropFirst() {
                 context.delete(duplicate)
                 removed += 1
@@ -342,4 +553,31 @@ final class DeduplicationService {
         }
         return removed
     }
+
+    private func isEvidenceFreeDraft(
+        _ record: MonthlyExecutionRecord
+    ) -> Bool {
+        record.statusRawValue == MonthlyExecutionRecord.ExecutionStatus.draft.rawValue
+            && record.startedAt == nil
+            && record.completedAt == nil
+            && record.canUndoUntil == nil
+            && record.snapshot == nil
+            && record.completedExecution == nil
+            && (record.completionEvents ?? []).isEmpty
+            && (record.plans ?? []).isEmpty
+    }
+
+    private func evidenceFreeFingerprint(
+        _ record: MonthlyExecutionRecord
+    ) -> EvidenceFreeExecutionFingerprint {
+        EvidenceFreeExecutionFingerprint(
+            monthLabel: record.monthLabel,
+            trackedGoalIds: record.trackedGoalIds
+        )
+    }
+}
+
+private struct EvidenceFreeExecutionFingerprint: Hashable {
+    let monthLabel: String
+    let trackedGoalIds: Data
 }

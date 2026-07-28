@@ -49,6 +49,9 @@ data class MonthlyExecutionRecordEntity(
     @ColumnInfo(name = "can_undo_until_utc_millis")
     val canUndoUntilUtcMillis: Long? = null,
 
+    @ColumnInfo(name = "legacy_rate_snapshot_pending", defaultValue = "0")
+    val legacyRateSnapshotPending: Boolean = false,
+
     @ColumnInfo(name = "created_at_utc_millis")
     val createdAtUtcMillis: Long = System.currentTimeMillis(),
 

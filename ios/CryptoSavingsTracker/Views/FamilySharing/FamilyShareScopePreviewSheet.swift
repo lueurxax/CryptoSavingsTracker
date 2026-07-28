@@ -20,9 +20,9 @@ struct FamilyShareScopePreviewSheet: View {
                 }
                 .padding(16)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(AccessibleColors.surfaceSubtle)
             .navigationTitle("Share with Family")
-            .navigationBarTitleDisplayMode(.inline)
+            .platformInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancel)
@@ -126,7 +126,7 @@ struct FamilyShareScopePreviewSheet: View {
     }
 
     private var actionBarBackground: some View {
-        Color(.secondarySystemBackground)
+        AccessibleColors.surfaceSubtle
             .overlay(alignment: .top) {
                 Divider()
             }

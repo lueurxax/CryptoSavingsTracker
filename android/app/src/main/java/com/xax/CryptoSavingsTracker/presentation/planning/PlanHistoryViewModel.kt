@@ -5,10 +5,16 @@ import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.domain.repository.CompletedExecutionRepository
 import com.xax.CryptoSavingsTracker.domain.repository.CompletionEventRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.UndoExecutionUseCase
+import com.xax.CryptoSavingsTracker.presentation.common.DeadlineTimeSource
+import com.xax.CryptoSavingsTracker.presentation.common.deadlineInvalidationFlow
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -43,23 +49,46 @@ data class PlanHistoryUiState(
 )
 
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class PlanHistoryViewModel @Inject constructor(
     completionEventRepository: CompletionEventRepository,
     completedExecutionRepository: CompletedExecutionRepository,
-    private val undoExecutionUseCase: UndoExecutionUseCase
+    private val undoExecutionUseCase: UndoExecutionUseCase,
+    private val deadlineTimeSource: DeadlineTimeSource
 ) : ViewModel() {
 
     private val _isUndoing = kotlinx.coroutines.flow.MutableStateFlow(false)
     private val _error = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     private val _showUndoConfirmationForRecordId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
-    val uiState: StateFlow<PlanHistoryUiState> = combine(
+    private val historyDataFlow = combine(
         completionEventRepository.getAll(),
-        completedExecutionRepository.getAll(),
-        _isUndoing,
-        _error,
-        _showUndoConfirmationForRecordId
-    ) { events, completed, isUndoing, error, undoConfirmId ->
+        completedExecutionRepository.getAll()
+    ) { events, completed ->
+        events to completed
+    }
+
+    private val timedHistoryDataFlow = historyDataFlow
+        .flatMapLatest { (events, completed) ->
+            deadlineInvalidationFlow(
+                deadlinesMillis = completed
+                    .filter { item -> item.undoneAtMillis == null }
+                    .map { item -> item.canUndoUntilMillis },
+                timeSource = deadlineTimeSource
+            ).map { now -> Triple(events, completed, now) }
+        }
+        .distinctUntilChanged()
+
+    val uiState: StateFlow<PlanHistoryUiState> = combine(
+        timedHistoryDataFlow,
+        combine(
+            _isUndoing,
+            _error,
+            _showUndoConfirmationForRecordId
+        ) { isUndoing, error, undoConfirmId ->
+            Triple(isUndoing, error, undoConfirmId)
+        }
+    ) { (events, completed, now), (isUndoing, error, undoConfirmId) ->
         val completedByEventId = completed
             .filter { !it.completionEventId.isNullOrBlank() }
             .groupBy { it.completionEventId!! }
@@ -67,8 +96,6 @@ class PlanHistoryViewModel @Inject constructor(
             .filter { it.undoneAtMillis == null }
             .groupBy { it.executionRecordId }
             .mapValues { (_, value) -> value.maxByOrNull { it.sequence } }
-        val now = System.currentTimeMillis()
-
         val rows = events.mapNotNull { event ->
             val items = completedByEventId[event.id].orEmpty()
             if (items.isEmpty()) return@mapNotNull null

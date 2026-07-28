@@ -69,6 +69,90 @@ struct FamilySharePublicationResult: Codable, Equatable, Sendable {
     let projectionServerTimestamp: Date?
 }
 
+enum FamilyShareProjectionBuildError: LocalizedError, Equatable {
+    case incompleteExchangeRates([String])
+    case missingGoalProgress(UUID)
+    case orphanedAllocation(UUID)
+
+    var errorDescription: String? {
+        switch self {
+        case .incompleteExchangeRates(let pairs):
+            let pairList = pairs.joined(separator: ", ")
+            return "Family progress was not published because exchange rates are unavailable for \(pairList)."
+        case .missingGoalProgress:
+            return "Family progress was not published because a goal calculation could not be completed."
+        case .orphanedAllocation:
+            return "Family progress was not published because one or more allocations no longer reference an asset."
+        }
+    }
+}
+
+private struct FamilyShareGoalProjectionSnapshot: Sendable {
+    let id: UUID
+    let name: String
+    let emoji: String?
+    let currency: String
+    let targetAmount: Decimal
+    let targetAmountValue: Double
+    let deadline: Date
+    let lastModifiedAt: Date
+    let progressInput: GoalProgressInput
+}
+
+private struct FamilyShareExplicitIntentFingerprint: Equatable, Sendable {
+    private struct GoalValue: Equatable, Sendable {
+        struct AllocationValue: Equatable, Sendable {
+            let assetCurrency: String
+            let allocatedAmount: Decimal
+        }
+
+        let id: UUID
+        let name: String
+        let emoji: String?
+        let currency: String
+        let targetAmount: Decimal
+        let targetAmountValue: Double
+        let deadline: Date
+        let lastModifiedAt: Date
+        let allocations: [AllocationValue]
+
+        init(snapshot: FamilyShareGoalProjectionSnapshot) {
+            id = snapshot.id
+            name = snapshot.name
+            emoji = snapshot.emoji
+            currency = snapshot.currency
+            targetAmount = snapshot.targetAmount
+            targetAmountValue = snapshot.targetAmountValue
+            deadline = snapshot.deadline
+            lastModifiedAt = snapshot.lastModifiedAt
+            allocations = snapshot.progressInput.allocations.map {
+                AllocationValue(
+                    assetCurrency: $0.assetCurrency,
+                    allocatedAmount: $0.allocatedAmount
+                )
+            }
+        }
+    }
+
+    private let goals: [GoalValue]
+
+    init(goalSnapshots: [FamilyShareGoalProjectionSnapshot]) {
+        goals = goalSnapshots.map(GoalValue.init(snapshot:))
+    }
+}
+
+private struct FamilyShareProjectionBuildResult: Sendable {
+    let payload: FamilyShareProjectionPayload
+    let rateSnapshot: RateSnapshot
+    let goalInputs: [GoalProgressInput]
+}
+
+private struct FamilySharePublicationInvalidatedByRevocationError: LocalizedError {
+    var errorDescription: String? {
+        "Family access revocation is still pending."
+    }
+}
+
 struct FamilyShareProjectionOutboxItem: Identifiable, Equatable, Sendable {
     let id: UUID
     let namespaceID: FamilyShareNamespaceID
@@ -357,15 +441,18 @@ final class DefaultFamilyShareProjectionPublisher: FamilyShareProjectionPublishi
     private let registry: FamilyShareNamespaceRegistry
     private let cloudSync: FamilyShareCloudSyncing?
     private let telemetry: FamilyShareTelemetryTracking
+    private let revocationTombstoneStore: FamilyShareRevocationTombstoneStore
 
     init(
         registry: FamilyShareNamespaceRegistry? = nil,
         cloudSync: FamilyShareCloudSyncing? = nil,
-        telemetry: FamilyShareTelemetryTracking = FamilyShareTelemetryTracker()
+        telemetry: FamilyShareTelemetryTracking = FamilyShareTelemetryTracker(),
+        revocationTombstoneStore: FamilyShareRevocationTombstoneStore = FamilyShareRevocationTombstoneStore()
     ) {
         self.registry = registry ?? FamilyShareNamespaceRegistry()
         self.cloudSync = cloudSync
         self.telemetry = telemetry
+        self.revocationTombstoneStore = revocationTombstoneStore
     }
 
     func publish(_ payload: FamilyShareProjectionPayload) async throws -> FamilySharePublicationResult {
@@ -398,17 +485,20 @@ final class DefaultFamilyShareProjectionPublisher: FamilyShareProjectionPublishi
             isReadOnly: true
         )
 
-        try registry.seed(
-            FamilyShareSeededNamespaceState(
-                ownerDisplayName: payload.ownerDisplayName,
-                ownerState: ownerState,
-                inviteeState: inviteeState,
-                projectionPayload: payload
+        guard let cloudSync else {
+            let error = FamilyShareCloudKitError.accountUnavailable
+            telemetry.track(
+                .sharePublishFailed,
+                payload: [
+                    "namespace": payload.namespaceID.namespaceKey,
+                    "reason": error.localizedDescription
+                ]
             )
-        )
+            throw error
+        }
 
         do {
-            try await cloudSync?.publishProjection(payload)
+            try await cloudSync.publishProjection(payload)
         } catch {
             telemetry.track(
                 .sharePublishFailed,
@@ -420,8 +510,27 @@ final class DefaultFamilyShareProjectionPublisher: FamilyShareProjectionPublishi
             throw error
         }
 
+        guard revocationTombstoneStore.isPending(namespaceKey: payload.namespaceID.namespaceKey) == false else {
+            // The remote write may have committed after revoke. Keep the local
+            // last-known-good revoked state and route through compensating delete.
+            throw FamilySharePublicationInvalidatedByRevocationError()
+        }
+
         // Capture server-assigned timestamp from CloudKit after publish
         let serverTimestamp = (cloudSync as? DefaultFamilyShareCloudKitStore)?.lastPublishServerTimestamp
+        var acknowledgedPayload = payload
+        acknowledgedPayload.projectionServerTimestamp = serverTimestamp ?? payload.projectionServerTimestamp
+
+        // The registry is the authoritative last-known-good projection. Advance it
+        // only after the remote transport has acknowledged the same payload.
+        try registry.seed(
+            FamilyShareSeededNamespaceState(
+                ownerDisplayName: payload.ownerDisplayName,
+                ownerState: ownerState,
+                inviteeState: inviteeState,
+                projectionPayload: acknowledgedPayload
+            )
+        )
 
         return FamilySharePublicationResult(
             namespaceID: payload.namespaceID,
@@ -493,9 +602,10 @@ final class DefaultFamilyShareOwnerSharingService: FamilyShareOwnerSharingServic
     }
 
     func revoke(namespaceID: FamilyShareNamespaceID) async throws {
-        guard let currentState = try await stateProvider.seededState(for: namespaceID) else { return }
+        let currentState = try await stateProvider.seededState(for: namespaceID)
         try await cloudSync?.revoke(namespaceID: namespaceID)
         telemetry.track(.revoked, payload: ["namespace": namespaceID.namespaceKey])
+        guard let currentState else { return }
 
         let revokedOwnerState = FamilyShareOwnerViewState(
             namespaceID: namespaceID,
@@ -888,8 +998,20 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     private let telemetry: FamilyShareTelemetryTracking
     private let namespaceExecutionHub: FamilyShareNamespaceExecutionHub
     private let activeGoalsProvider: () throws -> [Goal]
+    private let exchangeRateService: ExchangeRateServiceProtocol
+    private let revocationTombstoneStore: FamilyShareRevocationTombstoneStore
+    private let revocationRetryScheduler: any FamilyShareScheduler
+    private let revocationRetryPolicy: FamilyShareFreshnessPolicy
     private var trackedInviteeTelemetryKeys: Set<String> = []
-    private var refreshGeneration: Int = 0
+    private struct RefreshWaiter {
+        let requestID: Int
+        let continuation: CheckedContinuation<Void, Never>
+    }
+    private var refreshRequestID = 0
+    private var completedRefreshRequestID = 0
+    private var refreshDrainRunning = false
+    private var refreshWaiters: [RefreshWaiter] = []
+    private var ownerLifecycleAuthorityGeneration = 0
 
     // MARK: - Freshness Pipeline Components
 
@@ -899,9 +1021,56 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     private let rateRefreshDriver: FamilyShareForegroundRateRefreshDriver?
     private let rateDriftEvaluator: FamilyShareRateDriftEvaluator
     private var freshnessPipelineActive = false
+    private var ownerFreshnessPipelineActive = false
+    private var ownerAutoRepublishConfigured = false
+    private var ownerPublicationEpoch = 0
+    private var explicitShareInProgress = false
+    private var explicitShareRevocationGeneration = 0
+    private struct ExplicitShareIntent {
+        let id: Int
+        let goalSnapshots: [FamilyShareGoalProjectionSnapshot]
+        let fingerprint: FamilyShareExplicitIntentFingerprint
+        let revocationGeneration: Int
+    }
+    private struct PendingExplicitCatchUp {
+        let explicitIntent: ExplicitShareIntent
+        var explicitDidComplete: Bool
+        var isDurablyMarked: Bool
+    }
+    private var nextExplicitShareIntentID = 0
+    private var explicitShareIntentQueue: [ExplicitShareIntent] = []
+    private var activeExplicitShareIntent: ExplicitShareIntent?
+    private var pendingExplicitCatchUp: PendingExplicitCatchUp?
+    private var explicitShareIntentWaiters: [Int: [CheckedContinuation<Void, Never>]] = [:]
+    private var isDrainingExplicitShareIntents = false
+    private var ownerPublicationsInFlight = 0
+    private var ownerPublicationWaiters: [CheckedContinuation<Void, Never>] = []
+    private enum OwnerRevocationOperationOutcome: Sendable {
+        case completed
+        case acknowledgedAwaitingPublicationSettlement
+        case failed(message: String)
+    }
+    private var ownerRevocationOperationGeneration = 0
+    private var ownerRevocationOperation: Task<OwnerRevocationOperationOutcome, Never>?
+    private var revocationRetryHandle: (any FamilyShareCancellable)?
+    private var revocationRetryFailureCount = 0
+    private var initialRefreshTask: Task<Void, Never>?
 
     var sharedSections: [FamilyShareInviteeSectionProjection] {
         inviteeProjection.sections
+    }
+
+    var refreshRequestCountForTesting: Int {
+        refreshRequestID
+    }
+
+    func waitForInitialRefreshForTesting() async {
+        await initialRefreshTask?.value
+    }
+
+    func autoRepublishDebugSnapshotForTesting() async
+        -> FamilyShareAutoRepublishDebugSnapshot {
+        await autoRepublishCoordinator.debugSnapshotForTesting()
     }
 
     init(
@@ -916,15 +1085,24 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         cloudSync: FamilyShareCloudSyncing? = nil,
         rollout: FamilyShareRollout = .shared,
         telemetry: FamilyShareTelemetryTracking = FamilyShareTelemetryTracker(),
-        activeGoalsProvider: (() throws -> [Goal])? = nil
+        activeGoalsProvider: (() throws -> [Goal])? = nil,
+        exchangeRateService: ExchangeRateServiceProtocol? = nil,
+        revocationTombstoneStore: FamilyShareRevocationTombstoneStore = FamilyShareRevocationTombstoneStore(),
+        revocationRetryScheduler: any FamilyShareScheduler = GCDScheduler(),
+        revocationRetryPolicy: FamilyShareFreshnessPolicy = FamilyShareFreshnessPolicy(),
+        autoRepublishScheduler: any FamilyShareScheduler = GCDScheduler(),
+        autoRepublishDirtyStateStore: FamilyShareDirtyStateStore = FamilyShareDirtyStateStore(),
+        startsInitialRefreshTask: Bool = true
     ) {
         let resolvedRegistry = registry ?? FamilyShareNamespaceRegistry()
         let resolvedStateProvider = stateProvider ?? DefaultFamilyShareStateProvider(registry: resolvedRegistry)
         let resolvedInviteeProvider = inviteeStateProvider ?? DefaultFamilyShareStateProvider(registry: resolvedRegistry)
+        let resolvedExchangeRateService = exchangeRateService ?? ExchangeRateService.shared
         let resolvedPublisher = DefaultFamilyShareProjectionPublisher(
             registry: resolvedRegistry,
             cloudSync: cloudSync,
-            telemetry: telemetry
+            telemetry: telemetry,
+            revocationTombstoneStore: revocationTombstoneStore
         )
         let resolvedIdentityStore = identityStore ?? FamilyShareOwnerIdentityStore()
         self.registry = resolvedRegistry
@@ -945,6 +1123,10 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         self.rollout = rollout
         self.telemetry = telemetry
         self.namespaceExecutionHub = FamilyShareNamespaceExecutionHub()
+        self.exchangeRateService = resolvedExchangeRateService
+        self.revocationTombstoneStore = revocationTombstoneStore
+        self.revocationRetryScheduler = revocationRetryScheduler
+        self.revocationRetryPolicy = revocationRetryPolicy
         self.activeGoalsProvider = activeGoalsProvider ?? {
             try PersistenceController.shared.activeMainContext.fetch(SwiftDataQueries.activeGoals())
         }
@@ -965,6 +1147,8 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         let nsKey = resolvedIdentityStore.ownerNamespaceID().namespaceKey
         self.autoRepublishCoordinator = FamilyShareProjectionAutoRepublishCoordinator(
             namespaceKey: nsKey,
+            scheduler: autoRepublishScheduler,
+            dirtyStateStore: autoRepublishDirtyStateStore,
             rollout: rollout
         )
         self.mutationObserver = FamilyShareProjectionMutationObserver(rollout: rollout)
@@ -974,7 +1158,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         // Rate refresh driver needs ExchangeRateService — use DIContainer if available
         if rollout.isFreshnessPipelineEnabled() {
             self.rateRefreshDriver = FamilyShareForegroundRateRefreshDriver(
-                exchangeRateService: ExchangeRateService.shared,
+                exchangeRateService: resolvedExchangeRateService,
                 rollout: rollout
             )
         } else {
@@ -983,17 +1167,20 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
 
         FamilyShareSceneBridgeHub.shared.acceptanceSink = self
 
-        Task { [weak self] in
-            await self?.refreshAllState()
+        if startsInitialRefreshTask {
+            initialRefreshTask = Task { [weak self] in
+                guard let self else { return }
+                _ = await self.retryPendingOwnerRevocationIfNeeded()
+                await self.refreshAllState()
+            }
         }
     }
 
     /// Wire the freshness pipeline into production lifecycle.
     private func startFreshnessPipeline() async {
         guard rollout.isFreshnessPipelineEnabled() else { return }
+        guard freshnessPipelineActive == false else { return }
         freshnessPipelineActive = true
-
-        await configureAutoRepublishCoordinator()
 
         inviteeRefreshScheduler.setRefreshAction { [weak self] namespaceKey in
             guard let self else { return .failure(FamilyShareCloudKitError.sharedProjectionMissing) }
@@ -1004,6 +1191,78 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             await self.refreshAllState()
             return result
         }
+    }
+
+    private func reconcileOwnerFreshnessPipeline(
+        for ownerState: FamilyShareOwnerViewState
+    ) async {
+        guard rollout.isFreshnessPipelineEnabled() else {
+            await teardownOwnerFreshnessPipelineIfNeeded(
+                preservingAutomaticDirtyState: false,
+                forceCoordinatorTeardown: true,
+                cause: "rolloutDisabled"
+            )
+            return
+        }
+        guard explicitShareInProgress == false else {
+            return
+        }
+
+        if ownerState.lifecycleState == .revoked {
+            // A confirmed remote revoke terminates every unpublished catch-up.
+            // Force teardown because a prior inactive lifecycle may already have
+            // stopped the in-memory pipeline while leaving durable dirty state.
+            let preservesFreshReshare =
+                hasCurrentActiveExplicitIntentCatchUp
+            if preservesFreshReshare == false {
+                pendingExplicitCatchUp = nil
+            }
+            await teardownOwnerFreshnessPipelineIfNeeded(
+                preservingAutomaticDirtyState: preservesFreshReshare,
+                forceCoordinatorTeardown: true,
+                cause: "remoteRevoked"
+            )
+            return
+        }
+
+        if shouldRunOwnerRateRefreshDriver(for: ownerState) {
+            await startOwnerFreshnessPipelineIfNeeded()
+            await retryPendingExplicitCatchUpIfPossible(
+                attemptImmediately: false
+            )
+        } else {
+            // `.notShared` and `.shareFailed` can be transient/stale remote
+            // observations. Preserve any durable publication obligation until
+            // sharing becomes active again or a definitive revoke is observed.
+            await teardownOwnerFreshnessPipelineIfNeeded(
+                preservingAutomaticDirtyState: true,
+                forceCoordinatorTeardown: true,
+                cause: "remoteInactive"
+            )
+        }
+    }
+
+    private func startOwnerFreshnessPipelineIfNeeded() async {
+        guard ownerFreshnessPipelineActive == false else {
+            rateRefreshDriver?.start()
+            return
+        }
+        let startEpoch = ownerPublicationEpoch
+        ownerFreshnessPipelineActive = true
+
+        await configureAutoRepublishCoordinator()
+        guard ownerFreshnessPipelineActive,
+              isOwnerPublicationAuthorized(
+                epoch: startEpoch,
+                allowsInactiveLifecycle: false
+              )
+        else {
+            if explicitShareInProgress == false {
+                await teardownOwnerFreshnessPipelineIfNeeded()
+            }
+            return
+        }
+        await autoRepublishCoordinator.activateAutomaticPublishing()
 
         // Start mutation observer — routes dirty events to coordinator
         mutationObserver.start { [weak self] reason in
@@ -1018,13 +1277,33 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
 
         // Start rate-drift evaluator — listens for rate refresh events and emits dirty events
         let initialGoals = (try? fetchActiveGoals()) ?? []
-        let initialPublishedAmounts = (try? registry.seededState(for: ownerNamespaceID)?.projectionPayload?.goals.reduce(into: [UUID: Decimal]()) { partialResult, goal in
+        let initialProjection = (try? registry.seededState(for: ownerNamespaceID))?.projectionPayload
+        let initialPublishedAmounts = initialProjection?.goals.reduce(into: [UUID: Decimal]()) { partialResult, goal in
             guard let goalID = UUID(uuidString: goal.goalID) else { return }
             partialResult[goalID] = goal.currentAmount
-        }) ?? [:]
+        } ?? [:]
+        let initialInputs = makeGoalProgressInputs(from: initialGoals)
+        let initialRateSnapshot: RateSnapshot?
+        if initialProjection != nil {
+            initialRateSnapshot = await fetchRateSnapshot(for: initialInputs)
+        } else {
+            initialRateSnapshot = nil
+        }
+        guard ownerFreshnessPipelineActive,
+              isOwnerPublicationAuthorized(
+                epoch: startEpoch,
+                allowsInactiveLifecycle: false
+              )
+        else {
+            if explicitShareInProgress == false {
+                await teardownOwnerFreshnessPipelineIfNeeded()
+            }
+            return
+        }
         await rateDriftEvaluator.start(
-            goalInputs: makeGoalProgressInputs(from: initialGoals),
+            goalInputs: initialInputs,
             lastPublished: initialPublishedAmounts,
+            initialRateSnapshot: initialRateSnapshot,
             handler: { [weak self] reason in
                 guard let self else { return }
                 Task {
@@ -1032,6 +1311,17 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 }
             }
         )
+        guard ownerFreshnessPipelineActive,
+              isOwnerPublicationAuthorized(
+                epoch: startEpoch,
+                allowsInactiveLifecycle: false
+              )
+        else {
+            if explicitShareInProgress == false {
+                await teardownOwnerFreshnessPipelineIfNeeded()
+            }
+            return
+        }
 
         if shouldRunOwnerRateRefreshDriver(for: ownerState) {
             rateRefreshDriver?.start()
@@ -1041,16 +1331,38 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     }
 
     private func configureAutoRepublishCoordinator() async {
-        let payloadBuilder = { [weak self] () async throws -> FamilySharePublishReceipt? in
-            guard let self else { return nil }
-            let goals = try self.fetchActiveGoals()
-            return try await self.publishProjectionImmediately(for: goals)
+        let payloadBuilder = {
+            [weak self] () async throws -> FamilyShareProjectionAutoPublishOutcome in
+            guard let self else { return .suppressed }
+            let publicationEpoch = self.ownerPublicationEpoch
+            let allowsInactiveLifecycle = self.explicitShareInProgress
+            guard self.isOwnerPublicationAuthorized(
+                epoch: publicationEpoch,
+                allowsInactiveLifecycle: allowsInactiveLifecycle
+            ) else {
+                return .suppressed
+            }
+            let goals = try self.fetchAuthoritativeGoalsForPublication()
+            let outcome = try await self.publishProjectionImmediately(
+                for: goals,
+                publicationEpoch: publicationEpoch,
+                allowsInactiveLifecycle: allowsInactiveLifecycle
+            )
+            if case .suppressed = outcome {
+                return outcome
+            }
+            await self.completePendingExplicitCatchUpAfterAutomaticPublication(
+                publicationEpoch: publicationEpoch,
+                allowsInactiveLifecycle: allowsInactiveLifecycle
+            )
+            return outcome
         }
         await autoRepublishCoordinator.setPublishAction(payloadBuilder)
         await autoRepublishCoordinator.setRemoteChangeDateProvider { [weak self] in
             guard let self else { return nil }
             return self.lastKnownOwnerProjectionServerTimestamp()
         }
+        ownerAutoRepublishConfigured = true
     }
 
     /// Last known goals passed to shareAllGoals — cached for auto-republish rebuilds.
@@ -1074,6 +1386,14 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         }
     }
 
+    /// Automatic publication must never substitute a stale explicit-intent cache
+    /// when the authoritative SwiftData fetch fails.
+    private func fetchAuthoritativeGoalsForPublication() throws -> [Goal] {
+        let goals = try activeGoalsProvider()
+        lastSharedGoals = goals
+        return goals
+    }
+
     /// Update the shared goals cache with fresh goal references.
     /// Called from shareAllGoals and when goals change via mutation observer.
     func updateSharedGoalsCache(_ goals: [Goal]) {
@@ -1081,11 +1401,60 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     }
 
     func refreshAllState() async {
-        refreshGeneration += 1
-        let generation = refreshGeneration
+        refreshRequestID &+= 1
+        let requestID = refreshRequestID
+        await withCheckedContinuation { continuation in
+            refreshWaiters.append(
+                RefreshWaiter(
+                    requestID: requestID,
+                    continuation: continuation
+                )
+            )
+            guard refreshDrainRunning == false else {
+                return
+            }
+            refreshDrainRunning = true
+            Task { @MainActor in
+                await self.drainRefreshRequests()
+            }
+        }
+    }
 
+    private func drainRefreshRequests() async {
+        while completedRefreshRequestID < refreshRequestID {
+            let batchRequestID = refreshRequestID
+            let lifecycleAuthorityGeneration =
+                ownerLifecycleAuthorityGeneration
+            await performRefreshPass(
+                lifecycleAuthorityGeneration: lifecycleAuthorityGeneration
+            )
+            completedRefreshRequestID = batchRequestID
+            resumeCompletedRefreshWaiters()
+        }
+        refreshDrainRunning = false
+    }
+
+    private func resumeCompletedRefreshWaiters() {
+        let completedWaiters = refreshWaiters.filter {
+            $0.requestID <= completedRefreshRequestID
+        }
+        refreshWaiters.removeAll {
+            $0.requestID <= completedRefreshRequestID
+        }
+        completedWaiters.forEach {
+            $0.continuation.resume()
+        }
+    }
+
+    private func performRefreshPass(
+        lifecycleAuthorityGeneration: Int
+    ) async {
         guard rollout.isEnabled() else {
             await teardownFreshnessPipelineIfNeeded()
+            return
+        }
+        guard revocationTombstoneStore.isPending(namespaceKey: ownerNamespaceID.namespaceKey) == false else {
+            await holdOwnerLifecycleInactiveWhileRevocationIsPending()
             return
         }
         if rollout.isFreshnessPipelineEnabled(), freshnessPipelineActive == false {
@@ -1148,16 +1517,22 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 }
             }
 
-            guard generation == refreshGeneration else { return }
+            guard lifecycleAuthorityGeneration
+                    == ownerLifecycleAuthorityGeneration,
+                  revocationTombstoneStore.isPending(
+                      namespaceKey: ownerNamespaceID.namespaceKey
+                  ) == false
+            else {
+                if revocationTombstoneStore.isPending(
+                    namespaceKey: ownerNamespaceID.namespaceKey
+                ) {
+                    await holdOwnerLifecycleInactiveWhileRevocationIsPending()
+                }
+                return
+            }
             ownerState = resolvedOwnerState
             ownerParticipants = resolvedOwnerParticipants
-            if rollout.isFreshnessPipelineEnabled() {
-                if shouldRunOwnerRateRefreshDriver(for: resolvedOwnerState) {
-                    rateRefreshDriver?.start()
-                } else {
-                    rateRefreshDriver?.suspend()
-                }
-            }
+            await reconcileOwnerFreshnessPipeline(for: resolvedOwnerState)
             inviteeStates = try await inviteeStateProvider.inviteeStates()
                 .filter { $0.namespaceID != ownerNamespaceID }
             let projection = try await inviteeStateProvider.sharedInviteeProjection()
@@ -1171,12 +1546,25 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             trackInviteeViewTelemetry()
             latestErrorMessage = ownerShareErrorMessage
         } catch {
-            guard generation == refreshGeneration else { return }
+            guard lifecycleAuthorityGeneration
+                    == ownerLifecycleAuthorityGeneration,
+                  revocationTombstoneStore.isPending(
+                      namespaceKey: ownerNamespaceID.namespaceKey
+                  ) == false
+            else {
+                if revocationTombstoneStore.isPending(
+                    namespaceKey: ownerNamespaceID.namespaceKey
+                ) {
+                    await holdOwnerLifecycleInactiveWhileRevocationIsPending()
+                }
+                return
+            }
             latestErrorMessage = error.localizedDescription
             inviteeStates = []
             inviteeProjection = .empty
             ownerState = defaultOwnerState(for: ownerNamespaceID)
             ownerParticipants = []
+            await reconcileOwnerFreshnessPipeline(for: ownerState)
         }
     }
 
@@ -1244,35 +1632,456 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     }
 
     func shareAllGoals(_ goals: [Goal]) async {
-        guard rollout.isEnabled() else {
-            latestErrorMessage = FamilyShareCloudKitError.rolloutDisabled.localizedDescription
-            return
-        }
-        guard goals.isEmpty == false else {
-            latestErrorMessage = "Add at least one goal before sharing with family."
+        let goalSnapshots: [FamilyShareGoalProjectionSnapshot]
+        do {
+            goalSnapshots = try makeGoalProjectionSnapshots(from: goals)
+        } catch {
+            latestErrorMessage = error.localizedDescription
             return
         }
 
-        // Cache goals for auto-republish rebuilds
+        // Keep only a best-effort live cache for automatic rebuilds. Explicit
+        // publication below consumes the immutable call-time snapshots instead.
         lastSharedGoals = goals
+
+        let fingerprint = FamilyShareExplicitIntentFingerprint(
+            goalSnapshots: goalSnapshots
+        )
+        let revocationGeneration = explicitShareRevocationGeneration
+        await withCheckedContinuation { continuation in
+            let intentID: Int
+            if let queuedIntent = explicitShareIntentQueue.last,
+               queuedIntent.fingerprint == fingerprint,
+               queuedIntent.revocationGeneration == revocationGeneration {
+                intentID = queuedIntent.id
+            } else if explicitShareIntentQueue.isEmpty,
+                      let activeIntent = activeExplicitShareIntent,
+                      activeIntent.fingerprint == fingerprint,
+                      activeIntent.revocationGeneration == revocationGeneration {
+                intentID = activeIntent.id
+            } else {
+                nextExplicitShareIntentID &+= 1
+                intentID = nextExplicitShareIntentID
+                explicitShareIntentQueue.append(
+                    ExplicitShareIntent(
+                        id: intentID,
+                        goalSnapshots: goalSnapshots,
+                        fingerprint: fingerprint,
+                        revocationGeneration: revocationGeneration
+                    )
+                )
+            }
+            explicitShareIntentWaiters[intentID, default: []].append(continuation)
+            guard isDrainingExplicitShareIntents == false else {
+                return
+            }
+            isDrainingExplicitShareIntents = true
+            Task { @MainActor in
+                await self.drainExplicitShareIntents()
+            }
+        }
+    }
+
+    private func drainExplicitShareIntents() async {
+        var completedWaiters: [CheckedContinuation<Void, Never>] = []
+
+        while true {
+            while explicitShareIntentQueue.isEmpty == false {
+                let intent = explicitShareIntentQueue.removeFirst()
+                activeExplicitShareIntent = intent
+                let didComplete: Bool
+                if intent.revocationGeneration == explicitShareRevocationGeneration {
+                    let inheritedDurableMarker: Bool
+                    if let superseded = pendingExplicitCatchUp,
+                       superseded.isDurablyMarked,
+                       superseded.explicitIntent.id != intent.id {
+                        await autoRepublishCoordinator.supersedeExplicitCatchUp(
+                            oldToken: superseded.explicitIntent.id,
+                            newToken: intent.id,
+                            reason: catchUpReason(
+                                affectedGoalIDs: Set(intent.goalSnapshots.map(\.id))
+                            )
+                        )
+                        inheritedDurableMarker = true
+                    } else {
+                        inheritedDurableMarker = false
+                    }
+                    pendingExplicitCatchUp = PendingExplicitCatchUp(
+                        explicitIntent: intent,
+                        explicitDidComplete: false,
+                        isDurablyMarked: inheritedDurableMarker
+                    )
+                    didComplete = await performShareAllGoals(
+                        intent.goalSnapshots,
+                        revocationGeneration: intent.revocationGeneration
+                    )
+                } else {
+                    didComplete = false
+                }
+                if var currentPending = pendingExplicitCatchUp,
+                   currentPending.explicitIntent.id == intent.id,
+                   currentPending.explicitIntent.revocationGeneration
+                    == intent.revocationGeneration,
+                   intent.revocationGeneration == explicitShareRevocationGeneration {
+                    currentPending.explicitDidComplete = didComplete
+                    pendingExplicitCatchUp = currentPending
+                }
+                activeExplicitShareIntent = nil
+                completedWaiters.append(
+                    contentsOf: explicitShareIntentWaiters.removeValue(forKey: intent.id) ?? []
+                )
+            }
+
+            await retryPendingExplicitCatchUpIfPossible(
+                attemptImmediately: true
+            )
+            if explicitShareIntentQueue.isEmpty {
+                break
+            }
+        }
+
+        isDrainingExplicitShareIntents = false
+        completedWaiters.forEach { $0.resume() }
+    }
+
+    private func retryPendingExplicitCatchUpIfPossible(
+        attemptImmediately: Bool
+    ) async {
+        guard let pending = pendingExplicitCatchUp else {
+            return
+        }
+        let explicitIntent = pending.explicitIntent
+        let revocationGeneration = explicitIntent.revocationGeneration
+        guard revocationGeneration == explicitShareRevocationGeneration,
+              revocationTombstoneStore.isPending(
+                  namespaceKey: ownerNamespaceID.namespaceKey
+              ) == false
+        else {
+            pendingExplicitCatchUp = nil
+            return
+        }
+
+        let explicitGoalIDs = Set(explicitIntent.goalSnapshots.map(\.id))
+        guard explicitShareInProgress == false,
+              ownerFreshnessPipelineActive,
+              ownerAutoRepublishConfigured
+        else {
+            await retainPendingExplicitCatchUp(
+                pending,
+                affectedGoalIDs: explicitGoalIDs
+            )
+            return
+        }
+
+        let publicationEpoch = ownerPublicationEpoch
+        guard isOwnerPublicationAuthorized(
+                  epoch: publicationEpoch,
+                  allowsInactiveLifecycle: false
+              )
+        else {
+            await retainPendingExplicitCatchUp(
+                pending,
+                affectedGoalIDs: explicitGoalIDs
+            )
+            return
+        }
+
+        let authoritativeGoals: [Goal]
+        let authoritativeSnapshots: [FamilyShareGoalProjectionSnapshot]
+        do {
+            authoritativeGoals = try fetchAuthoritativeGoalsForPublication()
+            authoritativeSnapshots = try makeGoalProjectionSnapshots(
+                from: authoritativeGoals
+            )
+        } catch {
+            latestErrorMessage = error.localizedDescription
+            await retainPendingExplicitCatchUp(
+                pending,
+                affectedGoalIDs: explicitGoalIDs
+            )
+            guard attemptImmediately else {
+                return
+            }
+            do {
+                _ = try await autoRepublishCoordinator.publishNow(
+                    reason: catchUpReason(affectedGoalIDs: explicitGoalIDs)
+                )
+            } catch {
+                guard revocationGeneration == explicitShareRevocationGeneration else {
+                    return
+                }
+                latestErrorMessage = error.localizedDescription
+            }
+            return
+        }
+
+        let affectedGoalIDs = explicitGoalIDs.union(authoritativeGoals.map(\.id))
+        let fingerprintsMatch = FamilyShareExplicitIntentFingerprint(
+            goalSnapshots: authoritativeSnapshots
+        ) == explicitIntent.fingerprint
+        if pending.explicitDidComplete,
+           fingerprintsMatch {
+            await autoRepublishCoordinator.acknowledgeExplicitCatchUp(
+                token: explicitIntent.id
+            )
+            pendingExplicitCatchUp = nil
+            return
+        }
+
+        await retainPendingExplicitCatchUp(
+            pending,
+            affectedGoalIDs: affectedGoalIDs
+        )
+        guard attemptImmediately,
+              revocationGeneration == explicitShareRevocationGeneration,
+              ownerPublicationEpoch == publicationEpoch,
+              isOwnerPublicationAuthorized(
+                  epoch: publicationEpoch,
+                  allowsInactiveLifecycle: false
+              )
+        else {
+            return
+        }
+
+        do {
+            _ = try await autoRepublishCoordinator.publishNow(
+                reason: catchUpReason(affectedGoalIDs: affectedGoalIDs)
+            )
+            guard revocationGeneration == explicitShareRevocationGeneration else {
+                pendingExplicitCatchUp = nil
+                return
+            }
+            guard ownerPublicationEpoch == publicationEpoch,
+                  isOwnerPublicationAuthorized(
+                      epoch: publicationEpoch,
+                      allowsInactiveLifecycle: false
+                  )
+            else {
+                if let currentPending = pendingExplicitCatchUp {
+                    await retainPendingExplicitCatchUp(
+                        currentPending,
+                        affectedGoalIDs: affectedGoalIDs
+                    )
+                }
+                return
+            }
+        } catch {
+            guard revocationGeneration == explicitShareRevocationGeneration,
+                  ownerPublicationEpoch == publicationEpoch
+            else {
+                return
+            }
+            latestErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func retainPendingExplicitCatchUp(
+        _ pending: PendingExplicitCatchUp,
+        affectedGoalIDs: Set<UUID>
+    ) async {
+        guard let currentPending = pendingExplicitCatchUp,
+              currentPending.explicitIntent.id == pending.explicitIntent.id,
+              currentPending.explicitIntent.revocationGeneration
+                == pending.explicitIntent.revocationGeneration,
+              pending.explicitIntent.revocationGeneration
+                == explicitShareRevocationGeneration,
+              revocationTombstoneStore.isPending(
+                  namespaceKey: ownerNamespaceID.namespaceKey
+              ) == false
+        else {
+            return
+        }
+
+        var durablyMarked = currentPending
+        durablyMarked.isDurablyMarked = true
+        pendingExplicitCatchUp = durablyMarked
+        await autoRepublishCoordinator.retainDirtyForLater(
+            reason: catchUpReason(affectedGoalIDs: affectedGoalIDs)
+        )
+    }
+
+    private func durablyMarkPendingExplicitCatchUp(
+        goalSnapshots: [FamilyShareGoalProjectionSnapshot],
+        revocationGeneration: Int
+    ) async -> Bool {
+        guard let activeIntent = activeExplicitShareIntent,
+              var pending = pendingExplicitCatchUp,
+              pending.explicitIntent.id == activeIntent.id,
+              pending.explicitIntent.revocationGeneration == revocationGeneration,
+              revocationGeneration == explicitShareRevocationGeneration,
+              revocationTombstoneStore.isPending(
+                  namespaceKey: ownerNamespaceID.namespaceKey
+              ) == false
+        else {
+            return false
+        }
+
+        await autoRepublishCoordinator.durablyMarkExplicitCatchUp(
+            token: activeIntent.id,
+            reason: catchUpReason(
+                affectedGoalIDs: Set(goalSnapshots.map(\.id))
+            )
+        )
+
+        guard let currentPending = pendingExplicitCatchUp,
+              currentPending.explicitIntent.id == activeIntent.id,
+              currentPending.explicitIntent.revocationGeneration
+                == revocationGeneration,
+              revocationGeneration == explicitShareRevocationGeneration,
+              revocationTombstoneStore.isPending(
+                  namespaceKey: ownerNamespaceID.namespaceKey
+              ) == false
+        else {
+            return false
+        }
+        pending = currentPending
+        pending.isDurablyMarked = true
+        pendingExplicitCatchUp = pending
+        return true
+    }
+
+    private func catchUpReason(
+        affectedGoalIDs: Set<UUID>
+    ) -> FamilyShareProjectionDirtyReason {
+        affectedGoalIDs.isEmpty
+            ? .manualRefresh
+            : .goalMutation(goalIDs: affectedGoalIDs)
+    }
+
+    private var hasCurrentActiveExplicitIntentCatchUp: Bool {
+        guard let activeIntent = activeExplicitShareIntent,
+              let pending = pendingExplicitCatchUp else {
+            return false
+        }
+        return pending.explicitIntent.id == activeIntent.id
+            && pending.explicitIntent.revocationGeneration
+                == explicitShareRevocationGeneration
+            && activeIntent.revocationGeneration
+                == explicitShareRevocationGeneration
+    }
+
+    private func completePendingExplicitCatchUpAfterAutomaticPublication(
+        publicationEpoch: Int,
+        allowsInactiveLifecycle: Bool
+    ) async {
+        guard let pending = pendingExplicitCatchUp,
+              pending.explicitIntent.revocationGeneration
+                == explicitShareRevocationGeneration,
+              ownerPublicationEpoch == publicationEpoch,
+              isOwnerPublicationAuthorized(
+                  epoch: publicationEpoch,
+                  allowsInactiveLifecycle: allowsInactiveLifecycle
+              )
+        else {
+            return
+        }
+        await autoRepublishCoordinator.acknowledgeExplicitCatchUp(
+            token: pending.explicitIntent.id
+        )
+        pendingExplicitCatchUp = nil
+    }
+
+    private func performShareAllGoals(
+        _ goalSnapshots: [FamilyShareGoalProjectionSnapshot],
+        revocationGeneration: Int
+    ) async -> Bool {
+        guard revocationGeneration == explicitShareRevocationGeneration else {
+            return false
+        }
+        guard rollout.isEnabled() else {
+            latestErrorMessage = FamilyShareCloudKitError.rolloutDisabled.localizedDescription
+            return false
+        }
+        guard goalSnapshots.isEmpty == false else {
+            latestErrorMessage = "Add at least one goal before sharing with family."
+            return false
+        }
+        guard let cloudSync else {
+            telemetry.track(.createStarted, payload: ["namespace": ownerNamespaceID.namespaceKey])
+            telemetry.track(.shareRequested, payload: ["goal_count": "\(goalSnapshots.count)"])
+            telemetry.track(
+                .createFailed,
+                payload: [
+                    "namespace": ownerNamespaceID.namespaceKey,
+                    "reason": "family sharing cloud sync unavailable"
+                ]
+            )
+            latestErrorMessage = "Family sync is currently unavailable."
+            return false
+        }
+
+        // Invalidate only after all synchronous, side-effect-free preflight
+        // checks pass. Joined waiters share this one distinct FIFO intent.
+        ownerLifecycleAuthorityGeneration &+= 1
+        if revocationTombstoneStore.isPending(namespaceKey: ownerNamespaceID.namespaceKey) {
+            await waitForOwnerPublicationsToSettle()
+        }
+        guard revocationGeneration == explicitShareRevocationGeneration else {
+            return false
+        }
+        guard await retryPendingOwnerRevocationIfNeeded() else {
+            latestErrorMessage = FamilySharePublicationInvalidatedByRevocationError().localizedDescription
+            return false
+        }
+        guard revocationGeneration == explicitShareRevocationGeneration else {
+            return false
+        }
 
         do {
             telemetry.track(.createStarted, payload: ["namespace": ownerNamespaceID.namespaceKey])
-            telemetry.track(.shareRequested, payload: ["goal_count": "\(goals.count)"])
-            guard let cloudSync else {
-                telemetry.track(
-                    .createFailed,
-                    payload: [
-                        "namespace": ownerNamespaceID.namespaceKey,
-                        "reason": "family sharing cloud sync unavailable"
-                    ]
-                )
-                latestErrorMessage = "Family sync is currently unavailable."
-                return
-            }
+            telemetry.track(.shareRequested, payload: ["goal_count": "\(goalSnapshots.count)"])
 
+            explicitShareInProgress = true
+            await teardownOwnerFreshnessPipelineIfNeeded(
+                preservingAutomaticDirtyState: true
+            )
+            guard revocationGeneration == explicitShareRevocationGeneration,
+                  explicitShareInProgress else {
+                explicitShareInProgress = false
+                return false
+            }
+            ownerPublicationEpoch &+= 1
+            let explicitShareEpoch = ownerPublicationEpoch
             await configureAutoRepublishCoordinator()
-            _ = try await autoRepublishCoordinator.publishNow(reason: .participantChange)
+            guard explicitShareInProgress,
+                  revocationGeneration == explicitShareRevocationGeneration,
+                  ownerPublicationEpoch == explicitShareEpoch else {
+                explicitShareInProgress = false
+                return false
+            }
+            guard await durablyMarkPendingExplicitCatchUp(
+                goalSnapshots: goalSnapshots,
+                revocationGeneration: revocationGeneration
+            ) else {
+                explicitShareInProgress = false
+                return false
+            }
+            _ = try await autoRepublishCoordinator.publishExplicitIntent(
+                reason: .participantChange
+            ) { [weak self] in
+                guard let self else {
+                    throw CancellationError()
+                }
+                let outcome = try await self.publishProjectionImmediately(
+                    for: goalSnapshots,
+                    publicationEpoch: explicitShareEpoch,
+                    allowsInactiveLifecycle: true
+                )
+                switch outcome {
+                case .published(let receipt):
+                    return receipt
+                case .deduplicated:
+                    return nil
+                case .suppressed:
+                    throw CancellationError()
+                }
+            }
+            guard explicitShareInProgress,
+                  revocationGeneration == explicitShareRevocationGeneration,
+                  ownerPublicationEpoch == explicitShareEpoch else {
+                explicitShareInProgress = false
+                return false
+            }
 
             let prepared = try await cloudSync.prepareShare(
                 for: FamilyShareCloudSharingPreparationRequest(
@@ -1281,6 +2090,13 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                     shareTitle: "\(normalizedOwnerDisplayName())'s Shared Goals"
                 )
             )
+            guard explicitShareInProgress,
+                  revocationGeneration == explicitShareRevocationGeneration,
+                  ownerPublicationEpoch == explicitShareEpoch else {
+                explicitShareInProgress = false
+                _ = try? await compensateInvalidatedOwnerPublicationIfNeeded()
+                return false
+            }
             pendingCloudSharingRequest = FamilyShareCloudSharingRequest(
                 namespaceID: ownerNamespaceID,
                 ownerDisplayName: normalizedOwnerDisplayName(),
@@ -1292,8 +2108,23 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             if let seededState = try? registry.seededState(for: ownerNamespaceID) {
                 await namespaceExecutionHub.bootstrap(with: seededState)
             }
+            if var currentPending = pendingExplicitCatchUp,
+               let activeIntent = activeExplicitShareIntent,
+               currentPending.explicitIntent.id == activeIntent.id,
+               activeIntent.revocationGeneration == revocationGeneration,
+               revocationGeneration == explicitShareRevocationGeneration {
+                // Mark completion before reactivating the observer. The
+                // refresh pass performs the final authoritative fingerprint
+                // check only after automatic observation is live again.
+                currentPending.explicitDidComplete = true
+                pendingExplicitCatchUp = currentPending
+            }
+            explicitShareInProgress = false
             await refreshAllState()
+            return true
         } catch {
+            explicitShareInProgress = false
+            let errorMessage = error.localizedDescription
             telemetry.track(
                 .createFailed,
                 payload: [
@@ -1301,8 +2132,25 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                     "reason": (error as NSError).localizedDescription
                 ]
             )
-            latestErrorMessage = error.localizedDescription
+            await refreshAllState()
+            latestErrorMessage = errorMessage
+            return false
         }
+    }
+
+    private func waitForOwnerPublicationsToSettle() async {
+        guard ownerPublicationsInFlight > 0 else { return }
+        await withCheckedContinuation { continuation in
+            ownerPublicationWaiters.append(continuation)
+        }
+    }
+
+    private func ownerPublicationDidFinish() {
+        ownerPublicationsInFlight -= 1
+        guard ownerPublicationsInFlight == 0 else { return }
+        let waiters = ownerPublicationWaiters
+        ownerPublicationWaiters.removeAll()
+        waiters.forEach { $0.resume() }
     }
 
     func manageParticipants() async {
@@ -1346,6 +2194,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         }
 
         updateSharedGoalsCache(currentGoals)
+        await refreshAllState()
 
         if rollout.isFreshnessPipelineEnabled(),
            currentGoals.isEmpty == false,
@@ -1366,6 +2215,10 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             await refreshAllState()
             return
         }
+        await refreshAllState()
+        guard shouldRunOwnerRateRefreshDriver(for: ownerState) else {
+            return
+        }
 
         do {
             await configureAutoRepublishCoordinator()
@@ -1378,12 +2231,137 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     }
 
     func revokeOwnerShare() async {
-        do {
-            try await ownerSharingService.revoke(namespaceID: ownerNamespaceID)
-            await refreshAllState()
-        } catch {
-            latestErrorMessage = error.localizedDescription
+        ownerLifecycleAuthorityGeneration &+= 1
+        pendingExplicitCatchUp = nil
+        revocationTombstoneStore.markPending(namespaceKey: ownerNamespaceID.namespaceKey)
+        explicitShareRevocationGeneration &+= 1
+        _ = await runSerializedOwnerRevocationOperation(
+            maximumAuthorizedPublicationsInFlight: 0
+        )
+    }
+
+    /// Retries a durable revocation left by a failed compensating delete.
+    /// Called during bootstrap before remote owner state can reactivate publishing.
+    @discardableResult
+    func retryPendingOwnerRevocationIfNeeded() async -> Bool {
+        let namespaceKey = ownerNamespaceID.namespaceKey
+        if ownerRevocationOperation != nil {
+            let outcome = await runSerializedOwnerRevocationOperation(
+                maximumAuthorizedPublicationsInFlight: 0
+            )
+            return ownerRevocationDidComplete(outcome)
         }
+        guard revocationTombstoneStore.isPending(namespaceKey: namespaceKey) else {
+            resetOwnerRevocationRetryState()
+            return true
+        }
+        let outcome = await runSerializedOwnerRevocationOperation(
+            maximumAuthorizedPublicationsInFlight: 0
+        )
+        return ownerRevocationDidComplete(outcome)
+    }
+
+    private func runSerializedOwnerRevocationOperation(
+        maximumAuthorizedPublicationsInFlight: Int
+    ) async -> OwnerRevocationOperationOutcome {
+        if let ownerRevocationOperation {
+            return await ownerRevocationOperation.value
+        }
+
+        ownerRevocationOperationGeneration &+= 1
+        let operationGeneration = ownerRevocationOperationGeneration
+        let operation = Task { @MainActor [weak self] in
+            guard let self else {
+                return OwnerRevocationOperationOutcome.failed(
+                    message: FamilyShareCloudKitError.accountUnavailable.localizedDescription
+                )
+            }
+            let outcome = await self.performOwnerRevocationOperation(
+                maximumAuthorizedPublicationsInFlight: maximumAuthorizedPublicationsInFlight
+            )
+            if self.ownerRevocationOperationGeneration == operationGeneration {
+                self.ownerRevocationOperation = nil
+            }
+            return outcome
+        }
+        ownerRevocationOperation = operation
+        return await operation.value
+    }
+
+    private func performOwnerRevocationOperation(
+        maximumAuthorizedPublicationsInFlight: Int
+    ) async -> OwnerRevocationOperationOutcome {
+        ownerPublicationEpoch &+= 1
+        explicitShareInProgress = false
+        if hasCurrentActiveExplicitIntentCatchUp == false {
+            pendingExplicitCatchUp = nil
+        }
+        await holdOwnerLifecycleInactiveWhileRevocationIsPending()
+
+        do {
+            guard cloudSync != nil else {
+                throw FamilyShareCloudKitError.accountUnavailable
+            }
+            try await ownerSharingService.revoke(namespaceID: ownerNamespaceID)
+            guard ownerPublicationsInFlight <= maximumAuthorizedPublicationsInFlight else {
+                return .acknowledgedAwaitingPublicationSettlement
+            }
+            completeOwnerRevocationAfterAcknowledgement()
+            latestErrorMessage = nil
+            if ownerPublicationsInFlight == 0 {
+                await refreshAllState()
+            }
+            return .completed
+        } catch {
+            await holdOwnerLifecycleInactiveWhileRevocationIsPending()
+            schedulePendingOwnerRevocationRetry()
+            latestErrorMessage = error.localizedDescription
+            return .failed(message: error.localizedDescription)
+        }
+    }
+
+    private func ownerRevocationDidComplete(
+        _ outcome: OwnerRevocationOperationOutcome
+    ) -> Bool {
+        if case .completed = outcome {
+            return true
+        }
+        return false
+    }
+
+    private func schedulePendingOwnerRevocationRetry() {
+        guard revocationTombstoneStore.isPending(namespaceKey: ownerNamespaceID.namespaceKey) else {
+            resetOwnerRevocationRetryState()
+            return
+        }
+
+        revocationRetryFailureCount += 1
+        let delay = revocationRetryPolicy.backoffDelay(
+            forFailureCount: revocationRetryFailureCount
+        )
+        revocationRetryHandle?.cancel()
+        revocationRetryHandle = revocationRetryScheduler.scheduleDebounce(delay: delay) { [weak self] in
+            await self?.performScheduledOwnerRevocationRetry()
+        }
+    }
+
+    private func performScheduledOwnerRevocationRetry() async {
+        revocationRetryHandle = nil
+        guard await retryPendingOwnerRevocationIfNeeded() else {
+            return
+        }
+        await refreshAllState()
+    }
+
+    private func completeOwnerRevocationAfterAcknowledgement() {
+        resetOwnerRevocationRetryState()
+        revocationTombstoneStore.clear(namespaceKey: ownerNamespaceID.namespaceKey)
+    }
+
+    private func resetOwnerRevocationRetryState() {
+        revocationRetryHandle?.cancel()
+        revocationRetryHandle = nil
+        revocationRetryFailureCount = 0
     }
 
     func handlePrimaryAction(for section: FamilyShareInviteeSectionProjection) async {
@@ -1402,6 +2380,18 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     }
 
     func handleScenePhaseChange(_ scenePhase: ScenePhase) {
+        if scenePhase == .active,
+           revocationTombstoneStore.isPending(namespaceKey: ownerNamespaceID.namespaceKey) {
+            Task { [weak self] in
+                guard let self else { return }
+                guard await self.retryPendingOwnerRevocationIfNeeded() else {
+                    return
+                }
+                await self.refreshAllState()
+            }
+            return
+        }
+
         guard rollout.isFreshnessPipelineEnabled() else { return }
 
         switch scenePhase {
@@ -1620,16 +2610,56 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         }
     }
 
-    private func publishProjectionImmediately(for goals: [Goal]) async throws -> FamilySharePublishReceipt? {
-        let payload = try await makeProjectionPayload(for: goals)
+    private func publishProjectionImmediately(
+        for goals: [Goal],
+        publicationEpoch: Int,
+        allowsInactiveLifecycle: Bool
+    ) async throws -> FamilyShareProjectionAutoPublishOutcome {
+        guard isOwnerPublicationAuthorized(
+            epoch: publicationEpoch,
+            allowsInactiveLifecycle: allowsInactiveLifecycle
+        ) else {
+            return .suppressed
+        }
+
+        // The automatic path receives authoritative live goals. Freeze every
+        // projected value synchronously before this function's first await.
+        let goalSnapshots = try makeGoalProjectionSnapshots(from: goals)
+        return try await publishProjectionImmediately(
+            for: goalSnapshots,
+            publicationEpoch: publicationEpoch,
+            allowsInactiveLifecycle: allowsInactiveLifecycle
+        )
+    }
+
+    private func publishProjectionImmediately(
+        for goalSnapshots: [FamilyShareGoalProjectionSnapshot],
+        publicationEpoch: Int,
+        allowsInactiveLifecycle: Bool
+    ) async throws -> FamilyShareProjectionAutoPublishOutcome {
+        guard isOwnerPublicationAuthorized(
+            epoch: publicationEpoch,
+            allowsInactiveLifecycle: allowsInactiveLifecycle
+        ) else {
+            return .suppressed
+        }
+        let buildResult = try await makeProjectionPayload(for: goalSnapshots)
+        guard isOwnerPublicationAuthorized(
+            epoch: publicationEpoch,
+            allowsInactiveLifecycle: allowsInactiveLifecycle
+        ) else {
+            return .suppressed
+        }
+        let payload = buildResult.payload
         if let cachedPayload = try registry.seededState(for: ownerNamespaceID)?.projectionPayload,
            let incomingHash = payload.contentHash,
            let cachedHash = cachedPayload.contentHash,
            incomingHash == cachedHash {
             telemetry.track(.contentHashDedup, payload: ["namespace": ownerNamespaceID.namespaceKey])
             await recordPublishedProjection(
-                goals: goals,
                 payload: payload,
+                rateSnapshot: buildResult.rateSnapshot,
+                goalInputs: buildResult.goalInputs,
                 result: FamilySharePublicationResult(
                     namespaceID: cachedPayload.namespaceID,
                     projectionVersion: cachedPayload.projectionVersion,
@@ -1640,19 +2670,86 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                     projectionServerTimestamp: cachedPayload.projectionServerTimestamp
                 )
             )
-            return nil
+            return .deduplicated
         }
-        let result = try await publishCoordinator.publish(payload)
-        await recordPublishedProjection(goals: goals, payload: payload, result: result)
-        return FamilySharePublishReceipt(
-            serverTimestamp: result.projectionServerTimestamp ?? result.publishedAt,
-            recordCount: result.goalCount + result.ownerSectionCount + 1
+        ownerPublicationsInFlight += 1
+        defer { ownerPublicationDidFinish() }
+        let result: FamilySharePublicationResult
+        do {
+            result = try await publishCoordinator.publish(payload)
+        } catch {
+            if isOwnerPublicationAuthorized(
+                epoch: publicationEpoch,
+                allowsInactiveLifecycle: allowsInactiveLifecycle
+            ) == false,
+               try await compensateInvalidatedOwnerPublicationIfNeeded() {
+                return .suppressed
+            }
+            throw error
+        }
+        guard isOwnerPublicationAuthorized(
+            epoch: publicationEpoch,
+            allowsInactiveLifecycle: allowsInactiveLifecycle
+        ) else {
+            _ = try await compensateInvalidatedOwnerPublicationIfNeeded()
+            return .suppressed
+        }
+        await recordPublishedProjection(
+            payload: payload,
+            rateSnapshot: buildResult.rateSnapshot,
+            goalInputs: buildResult.goalInputs,
+            result: result
+        )
+        return .published(
+            FamilySharePublishReceipt(
+                serverTimestamp: result.projectionServerTimestamp ?? result.publishedAt,
+                recordCount: result.goalCount + result.ownerSectionCount + 1
+            )
         )
     }
 
+    /// A revoke can finish while a previously-started remote publish is suspended.
+    /// If that late publish subsequently commits, issue an idempotent second revoke
+    /// so both the CloudKit projection and the local lifecycle end revoked.
+    private func compensateInvalidatedOwnerPublicationIfNeeded() async throws -> Bool {
+        let hasDefinitiveRevocation =
+            revocationTombstoneStore.isPending(
+                namespaceKey: ownerNamespaceID.namespaceKey
+            )
+            || ownerState.lifecycleState == .revoked
+        guard explicitShareInProgress == false,
+              hasDefinitiveRevocation else {
+            return false
+        }
+        ownerLifecycleAuthorityGeneration &+= 1
+        revocationTombstoneStore.markPending(namespaceKey: ownerNamespaceID.namespaceKey)
+        var outcome = await runSerializedOwnerRevocationOperation(
+            maximumAuthorizedPublicationsInFlight: 1
+        )
+        if case .acknowledgedAwaitingPublicationSettlement = outcome,
+           ownerPublicationsInFlight <= 1 {
+            outcome = await runSerializedOwnerRevocationOperation(
+                maximumAuthorizedPublicationsInFlight: 1
+            )
+        }
+        switch outcome {
+        case .completed:
+            return true
+        case .acknowledgedAwaitingPublicationSettlement:
+            return false
+        case .failed(let message):
+            throw NSError(
+                domain: "FamilyShareOwnerRevocation",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: message]
+            )
+        }
+    }
+
     private func recordPublishedProjection(
-        goals: [Goal],
         payload: FamilyShareProjectionPayload,
+        rateSnapshot: RateSnapshot,
+        goalInputs: [GoalProgressInput],
         result: FamilySharePublicationResult
     ) async {
         var updatedPayload = payload
@@ -1669,24 +2766,28 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
             )
         }
 
-        lastSharedGoals = goals
         let publishedAmounts: [UUID: Decimal] = Dictionary(uniqueKeysWithValues: updatedPayload.goals.compactMap { projectedGoal in
             guard let goalID = UUID(uuidString: projectedGoal.goalID) else { return nil }
             return (goalID, projectedGoal.currentAmount)
         })
         await rateDriftEvaluator.updateTrackedGoals(
-            makeGoalProgressInputs(from: goals),
-            lastPublished: publishedAmounts
+            goalInputs,
+            lastPublished: publishedAmounts,
+            rateSnapshot: rateSnapshot
         )
     }
 
     private func makeGoalProgressInputs(from goals: [Goal]) -> [GoalProgressInput] {
-        goals.map { goal in
-            GoalProgressInput(
+        goals.compactMap { goal in
+            let allocations = goal.allocations ?? []
+            guard allocations.allSatisfy({ $0.asset != nil }) else {
+                return nil
+            }
+            return GoalProgressInput(
                 goalID: goal.id,
                 currency: goal.currency,
                 targetAmount: Decimal(goal.targetAmount),
-                allocations: (goal.allocations ?? []).compactMap { alloc in
+                allocations: allocations.compactMap { alloc in
                     guard let asset = alloc.asset else { return nil }
                     return AllocationInput(
                         assetCurrency: asset.currency,
@@ -1695,6 +2796,29 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 }
             )
         }
+    }
+
+    private func fetchRateSnapshot(for inputs: [GoalProgressInput]) async -> RateSnapshot {
+        let requirements = FamilyShareRateRequirements(goalInputs: inputs)
+        var rates: [String: Decimal] = [:]
+
+        for pair in requirements.allPairs.sorted() {
+            let currencies = pair.split(separator: "→", maxSplits: 1).map(String.init)
+            guard currencies.count == 2 else { continue }
+            if let rate = try? await exchangeRateService.fetchRate(
+                from: currencies[0],
+                to: currencies[1]
+            ),
+               rate.isFinite,
+               rate > 0 {
+                rates[pair] = Decimal(rate)
+            }
+        }
+
+        let timestamp = exchangeRateService.rateSnapshotTimestamp(
+            for: requirements.allPairs
+        ) ?? Date()
+        return RateSnapshot(rates: rates, timestamp: timestamp)
     }
 
     private func resolveNamespaceID(for namespaceKey: String) -> FamilyShareNamespaceID? {
@@ -1710,6 +2834,58 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         }
     }
 
+    private func isOwnerPublicationAuthorized(
+        epoch: Int,
+        allowsInactiveLifecycle: Bool
+    ) -> Bool {
+        guard epoch == ownerPublicationEpoch else {
+            return false
+        }
+        guard revocationTombstoneStore.isPending(namespaceKey: ownerNamespaceID.namespaceKey) == false else {
+            return false
+        }
+        return allowsInactiveLifecycle || shouldRunOwnerRateRefreshDriver(for: ownerState)
+    }
+
+    private func holdOwnerLifecycleInactiveWhileRevocationIsPending() async {
+        await teardownOwnerFreshnessPipelineIfNeeded(
+            preservingAutomaticDirtyState: false,
+            forceCoordinatorTeardown: true,
+            cause: "pendingRevocation"
+        )
+        let pendingOwnerState: FamilyShareOwnerViewState
+        if let storedOwnerState = try? await stateProvider.ownerState(for: ownerNamespaceID),
+           shouldRunOwnerRateRefreshDriver(for: storedOwnerState) == false {
+            pendingOwnerState = storedOwnerState
+        } else {
+            pendingOwnerState = FamilyShareOwnerViewState(
+                namespaceID: ownerNamespaceID,
+                lifecycleState: .revoked,
+                participantCount: 0,
+                pendingParticipantCount: 0,
+                activeParticipantCount: 0,
+                revokedParticipantCount: 1,
+                failedParticipantCount: 0,
+                summaryCopy: "Finishing access revocation.",
+                primaryActionCopy: "Share with Family"
+            )
+        }
+        ownerState = pendingOwnerState
+        if let seededState = try? registry.seededState(for: ownerNamespaceID) {
+            try? registry.seed(
+                FamilyShareSeededNamespaceState(
+                    ownerDisplayName: seededState.ownerDisplayName,
+                    ownerState: pendingOwnerState,
+                    inviteeState: seededState.inviteeState,
+                    projectionPayload: seededState.projectionPayload?.updatingLifecycleState(
+                        FamilyShareOwnerLifecycleState.revoked.rawValue
+                    )
+                )
+            )
+        }
+        ownerParticipants = []
+    }
+
     private func lastKnownOwnerProjectionServerTimestamp() -> Date? {
         guard let payload = try? registry.seededState(for: ownerNamespaceID)?.projectionPayload else {
             return nil
@@ -1717,13 +2893,48 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         return payload.projectionServerTimestamp ?? payload.publishedAt
     }
 
-    private func teardownFreshnessPipelineIfNeeded() async {
-        guard freshnessPipelineActive else { return }
+    private func teardownOwnerFreshnessPipelineIfNeeded(
+        preservingAutomaticDirtyState: Bool? = nil,
+        forceCoordinatorTeardown: Bool = false,
+        cause: String = "lifecycleGuard"
+    ) async {
+        guard ownerFreshnessPipelineActive
+                || ownerAutoRepublishConfigured
+                || forceCoordinatorTeardown else {
+            return
+        }
+
+        let shouldPreserveAutomaticDirtyState =
+            preservingAutomaticDirtyState
+            ?? (
+                revocationTombstoneStore.isPending(
+                    namespaceKey: ownerNamespaceID.namespaceKey
+                ) == false
+            )
+        ownerPublicationEpoch &+= 1
+        // Fence the coordinator before yielding to any other actor. Otherwise
+        // a late CloudKit acknowledgement can complete in this suspension
+        // window and clear the durable dirty marker before a preserving
+        // lifecycle teardown records its generation.
+        await autoRepublishCoordinator.teardown(
+            preservingDirtyState: shouldPreserveAutomaticDirtyState,
+            cause: cause
+        )
         mutationObserver.teardown()
-        inviteeRefreshScheduler.teardown()
         await rateDriftEvaluator.teardown()
         rateRefreshDriver?.teardown()
-        await autoRepublishCoordinator.teardown()
+        ownerFreshnessPipelineActive = false
+        ownerAutoRepublishConfigured = false
+    }
+
+    private func teardownFreshnessPipelineIfNeeded() async {
+        await teardownOwnerFreshnessPipelineIfNeeded(
+            preservingAutomaticDirtyState: false,
+            forceCoordinatorTeardown: true,
+            cause: "fullPipelineTeardown"
+        )
+        guard freshnessPipelineActive else { return }
+        inviteeRefreshScheduler.teardown()
         freshnessPipelineActive = false
     }
 
@@ -2072,111 +3283,123 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
         await namespaceExecutionHub.markFailed(with: quarantinedState, reason: "quarantined")
     }
 
-    private func makeProjectionPayload(for goals: [Goal]) async throws -> FamilyShareProjectionPayload {
-        let ownerName = normalizedOwnerDisplayName()
-        let sortedGoals = goals.sorted {
+    private func makeGoalProjectionSnapshots(
+        from goals: [Goal]
+    ) throws -> [FamilyShareGoalProjectionSnapshot] {
+        var goalSnapshots = try goals.map { goal in
+            var allocations = try (goal.allocations ?? []).map { allocation in
+                guard let asset = allocation.asset else {
+                    throw FamilyShareProjectionBuildError.orphanedAllocation(goal.id)
+                }
+                return AllocationInput(
+                    assetCurrency: asset.currency,
+                    allocatedAmount: Decimal(allocation.amountValue)
+                )
+            }
+            allocations.sort {
+                if $0.assetCurrency != $1.assetCurrency {
+                    return $0.assetCurrency < $1.assetCurrency
+                }
+                return $0.allocatedAmount < $1.allocatedAmount
+            }
+
+            let targetAmount = Decimal(goal.targetAmount)
+            return FamilyShareGoalProjectionSnapshot(
+                id: goal.id,
+                name: goal.name,
+                emoji: goal.emoji,
+                currency: goal.currency,
+                targetAmount: targetAmount,
+                targetAmountValue: goal.targetAmount,
+                deadline: goal.deadline,
+                lastModifiedAt: goal.lastModifiedDate,
+                progressInput: GoalProgressInput(
+                    goalID: goal.id,
+                    currency: goal.currency,
+                    targetAmount: targetAmount,
+                    allocations: allocations
+                )
+            )
+        }
+        goalSnapshots.sort {
             if $0.deadline != $1.deadline {
                 return $0.deadline < $1.deadline
             }
-            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            let caseInsensitiveNameOrder = $0.name.localizedCaseInsensitiveCompare($1.name)
+            if caseInsensitiveNameOrder != .orderedSame {
+                return caseInsensitiveNameOrder == .orderedAscending
+            }
+            if $0.name != $1.name {
+                return $0.name < $1.name
+            }
+            return $0.id.uuidString < $1.id.uuidString
         }
+        return goalSnapshots
+    }
+
+    private func makeProjectionPayload(
+        for goalSnapshots: [FamilyShareGoalProjectionSnapshot]
+    ) async throws -> FamilyShareProjectionBuildResult {
+        let ownerName = normalizedOwnerDisplayName()
         let existingVersion = try registry.seededState(for: ownerNamespaceID)?.projectionPayload?.projectionVersion ?? 0
         let projectionVersion = max(existingVersion + 1, 1)
         let participantCount = ownerState.participantCount
         let pendingCount = ownerState.pendingParticipantCount
+        let revokedCount = ownerState.revokedParticipantCount
+        let participantSnapshots = ownerParticipants
         let publishedAt = Date()
-        let exchangeRateService = ExchangeRateService.shared
 
-        // Build GoalProgressInput value types for the pure calculator
         let calculator = GoalProgressCalculator()
-        let inputs = sortedGoals.map { goal in
-            GoalProgressInput(
-                goalID: goal.id,
-                currency: goal.currency,
-                targetAmount: Decimal(goal.targetAmount),
-                allocations: (goal.allocations ?? []).compactMap { allocation in
-                    guard let asset = allocation.asset else { return nil }
-                    return AllocationInput(
-                        assetCurrency: asset.currency,
-                        allocatedAmount: Decimal(allocation.amountValue)
-                    )
-                }
+        let inputs = goalSnapshots.map(\.progressInput)
+
+        let rateSnapshot = await fetchRateSnapshot(for: inputs)
+        let rateTimestamp = rateSnapshot.timestamp
+        let progressResults = calculator.calculateProgress(for: inputs, rates: rateSnapshot)
+        let missingRatePairs = Set(
+            progressResults.values.flatMap(\.missingRatePairs)
+        )
+        guard missingRatePairs.isEmpty else {
+            throw FamilyShareProjectionBuildError.incompleteExchangeRates(
+                missingRatePairs.sorted()
             )
         }
 
-        // Build rate snapshot from currently cached exchange rates
-        var rateMap: [String: Decimal] = [:]
-        var ratePairs: Set<String> = []
-        for input in inputs {
-            for alloc in input.allocations {
-                let from = alloc.assetCurrency.uppercased()
-                let to = input.currency.uppercased()
-                if from != to {
-                    let pairKey = CurrencyPair.canonicalKey(from: from, to: to)
-                    ratePairs.insert(pairKey)
-                    if rateMap[pairKey] == nil {
-                        if let rate = try? await exchangeRateService.fetchRate(from: from, to: to) {
-                            rateMap[pairKey] = Decimal(rate)
-                        }
-                    }
-                }
-            }
-        }
-        let rateTimestamp = exchangeRateService.rateSnapshotTimestamp(for: ratePairs) ?? publishedAt
-        let rateSnapshot = RateSnapshot(rates: rateMap, timestamp: rateTimestamp)
-        let progressResults = calculator.calculateProgress(for: inputs, rates: rateSnapshot)
-
-        let goalPayloads = sortedGoals.enumerated().map { index, goal in
-            let result = progressResults[goal.id]
-            // Use calculator result; only fall back to manualTotal when rate conversion fails
-            let currentAmount: Decimal
-            let progressRatio: Double
-            if let calcResult = result, calcResult.currentAmount > 0 || (goal.allocations ?? []).isEmpty {
-                currentAmount = calcResult.currentAmount
-                progressRatio = calcResult.progressRatio
-            } else {
-                // Fallback for goals where all rate conversions failed
-                currentAmount = Decimal(goal.manualTotal)
-                progressRatio = goal.targetAmount > 0 ? min(max(goal.manualTotal / goal.targetAmount, 0), 1) : 0
+        let goalPayloads = try goalSnapshots.enumerated().map { index, goalSnapshot in
+            guard let result = progressResults[goalSnapshot.id] else {
+                throw FamilyShareProjectionBuildError.missingGoalProgress(goalSnapshot.id)
             }
 
             return FamilyShareProjectedGoalPayload(
-                id: "\(ownerNamespaceID.namespaceKey)|\(goal.id.uuidString)",
+                id: "\(ownerNamespaceID.namespaceKey)|\(goalSnapshot.id.uuidString)",
                 namespaceID: ownerNamespaceID,
                 ownerID: ownerNamespaceID.ownerID,
                 ownerDisplayName: ownerName,
-                goalID: goal.id.uuidString,
-                goalName: goal.name,
-                goalEmoji: goal.emoji,
-                currency: goal.currency,
-                targetAmount: Decimal(goal.targetAmount),
-                currentAmount: currentAmount,
-                progressRatio: progressRatio,
-                deadline: goal.deadline,
-                goalStatusRawValue: goal.status,
+                goalID: goalSnapshot.id.uuidString,
+                goalName: goalSnapshot.name,
+                goalEmoji: goalSnapshot.emoji,
+                currency: goalSnapshot.currency,
+                targetAmount: goalSnapshot.targetAmount,
+                currentAmount: result.currentAmount,
+                progressRatio: result.progressRatio,
+                deadline: goalSnapshot.deadline,
+                goalStatusRawValue: projectedGoalStatus(
+                    currentAmount: result.currentAmount,
+                    targetAmount: goalSnapshot.targetAmount,
+                    progressRatio: result.progressRatio,
+                    deadline: goalSnapshot.deadline,
+                    at: publishedAt
+                ),
                 forecastStateRawValue: nil,
                 freshnessStateRawValue: FamilyShareLifecycleState.active.rawValue,
-                lastUpdatedAt: goal.lastModifiedDate,
+                lastUpdatedAt: goalSnapshot.lastModifiedAt,
                 summaryCopy: FamilyShareOwnerIdentityResolver.canonicalGoalContributionSummary(
-                    currency: goal.currency,
-                    currentAmount: NSDecimalNumber(decimal: currentAmount).doubleValue,
-                    targetAmount: goal.targetAmount
+                    currency: goalSnapshot.currency,
+                    currentAmount: NSDecimalNumber(decimal: result.currentAmount).doubleValue,
+                    targetAmount: goalSnapshot.targetAmountValue
                 ),
                 sortIndex: index
             )
         }
-
-        // Compute contentHash over all invitee-visible state
-        let hasher = FamilyShareContentHasher()
-        let goalData = goalPayloads.map { g in
-            (goalID: UUID(uuidString: g.goalID) ?? UUID(), currentAmount: g.currentAmount, targetAmount: g.targetAmount)
-        }
-        let contentHash = hasher.hash(
-            goalData: goalData,
-            rateSnapshotTimestamp: rateTimestamp,
-            ownerDisplayName: ownerName,
-            participantIDs: ownerParticipants.map { $0.id }
-        )
 
         let ownerSections = [
             FamilyShareOwnerSectionPayload(
@@ -2190,34 +3413,92 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 inlineChipCopy: ownerName
             )
         ]
+        let freshnessStateRawValue = FamilyShareLifecycleState.active.rawValue
+        let lifecycleStateRawValue = FamilyShareOwnerLifecycleState.sharedActive.rawValue
+        let summaryTitle = FamilyShareOwnerIdentityResolver.inviteeEntryTitle
+        let summaryCopy = FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
+            lifecycleState: .active,
+            fallback: "All current goals are shared in read-only mode."
+        )
 
-        return FamilyShareProjectionPayload(
+        // Compute contentHash over all semantic invitee-visible state.
+        let contentHash = FamilyShareContentHasher().hash(
+            FamilyShareContentHashInput(
+                namespaceID: ownerNamespaceID,
+                ownerDisplayName: ownerName,
+                freshnessStateRawValue: freshnessStateRawValue,
+                lifecycleStateRawValue: lifecycleStateRawValue,
+                summaryTitle: summaryTitle,
+                summaryCopy: summaryCopy,
+                participantCount: participantCount,
+                pendingParticipantCount: pendingCount,
+                revokedParticipantCount: revokedCount,
+                goals: goalPayloads,
+                ownerSections: ownerSections,
+                participants: participantSnapshots,
+                rateSnapshotTimestamp: rateTimestamp
+            )
+        )
+
+        let payload = FamilyShareProjectionPayload(
             namespaceID: ownerNamespaceID,
             ownerDisplayName: ownerName,
             schemaVersion: FamilyShareCacheSchema.currentVersion,
             projectionVersion: projectionVersion,
             activeProjectionVersion: projectionVersion,
-            freshnessStateRawValue: FamilyShareLifecycleState.active.rawValue,
-            lifecycleStateRawValue: FamilyShareOwnerLifecycleState.sharedActive.rawValue,
+            freshnessStateRawValue: freshnessStateRawValue,
+            lifecycleStateRawValue: lifecycleStateRawValue,
             publishedAt: publishedAt,
             lastReconciledAt: publishedAt,
             lastRefreshAttemptAt: publishedAt,
             lastRefreshErrorCode: nil,
             lastRefreshErrorMessage: nil,
-            summaryTitle: FamilyShareOwnerIdentityResolver.inviteeEntryTitle,
-            summaryCopy: FamilyShareOwnerIdentityResolver.canonicalInviteeSummary(
-                lifecycleState: .active,
-                fallback: "All current goals are shared in read-only mode."
-            ),
+            summaryTitle: summaryTitle,
+            summaryCopy: summaryCopy,
             participantCount: participantCount,
             pendingParticipantCount: pendingCount,
-            revokedParticipantCount: ownerState.revokedParticipantCount,
+            revokedParticipantCount: revokedCount,
             goals: goalPayloads,
             ownerSections: ownerSections,
             rateSnapshotTimestamp: rateTimestamp,
             projectionServerTimestamp: nil, // Set from CKRecord.modificationDate after publish
             contentHash: contentHash
         )
+        return FamilyShareProjectionBuildResult(
+            payload: payload,
+            rateSnapshot: rateSnapshot,
+            goalInputs: inputs
+        )
+    }
+
+    private func projectedGoalStatus(
+        currentAmount: Decimal,
+        targetAmount: Decimal,
+        progressRatio: Double,
+        deadline: Date,
+        at date: Date
+    ) -> String {
+        if currentAmount >= targetAmount {
+            return "Achieved"
+        }
+        if deadline < date {
+            return "Expired"
+        }
+
+        let daysRemaining = max(
+            Calendar.current.dateComponents([.day], from: date, to: deadline).day ?? 0,
+            0
+        )
+        if daysRemaining < 7 {
+            return "Urgent"
+        }
+        if progressRatio > 0.7 {
+            return "On Track"
+        }
+        if progressRatio > 0.3 {
+            return "In Progress"
+        }
+        return "Just Started"
     }
 
     private func normalizedOwnerDisplayName() -> String {
@@ -2371,8 +3652,6 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
 }
 
 #if canImport(UIKit)
-import CloudKit
-
 @MainActor
 final class FamilyShareSceneDelegateBridge: NSObject, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
@@ -2384,7 +3663,9 @@ final class FamilyShareSceneDelegateBridge: NSObject, UIWindowSceneDelegate {
         FamilyShareSceneBridgeHub.shared.acceptanceSink?.acceptInvitation(cloudKitShareMetadata)
     }
 }
+#endif
 
+#if canImport(CloudKit)
 extension FamilyShareInvitationMetadataSnapshot {
     init(metadata: CKShare.Metadata) {
         let rootRecordID = metadata.rootRecord?.recordID

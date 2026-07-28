@@ -73,7 +73,7 @@ fun AssetSharingScreen(
                 actions = {
                     IconButton(
                         onClick = viewModel::showAddAllocation,
-                        enabled = !uiState.isLoading
+                        enabled = !uiState.isLoading && uiState.unallocatedAmount != null
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "Add Allocation")
                     }
@@ -179,18 +179,45 @@ private fun AssetSharingContent(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = AmountFormatters.formatDisplayCurrencyAmount(uiState.unallocatedAmount, asset.currency, isCrypto = isCrypto),
+                        text = uiState.unallocatedAmount?.let {
+                            AmountFormatters.formatDisplayCurrencyAmount(
+                                it,
+                                asset.currency,
+                                isCrypto = isCrypto
+                            )
+                        } ?: "Balance unavailable",
                         style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = if (uiState.unallocatedAmount == null) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Total: ${AmountFormatters.formatDisplayCurrencyAmount(uiState.totalBalance, asset.currency, isCrypto = isCrypto)} • " +
+                        text = uiState.totalBalance?.let {
+                            "Total: ${
+                                AmountFormatters.formatDisplayCurrencyAmount(
+                                    it,
+                                    asset.currency,
+                                    isCrypto = isCrypto
+                                )
+                            } • "
+                        }.orEmpty() +
                             "Allocated: ${AmountFormatters.formatDisplayCurrencyAmount(uiState.totalAllocated, asset.currency, isCrypto = isCrypto)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (uiState.isOverAllocated) {
+                    uiState.balanceIssue?.let { issue ->
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = issue,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    if (uiState.isOverAllocated == true) {
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = "Warning: allocations exceed balance.",
@@ -236,8 +263,8 @@ private fun AssetSharingContent(
             }
             items(suggestedGoals, key = { it.id }) { goal ->
                 val suggestion = uiState.closeMonthSuggestions[goal.id] ?: 0.0
-                val appliedAmount = min(suggestion, uiState.unallocatedAmount)
-                if (appliedAmount > 0) {
+                val appliedAmount = uiState.unallocatedAmount?.let { min(suggestion, it) }
+                if (appliedAmount != null && appliedAmount > 0) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -312,7 +339,9 @@ private fun AssetSharingContent(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             val suggestion = uiState.closeMonthSuggestions[row.goalId]
-                            val appliedAmount = suggestion?.let { min(it, uiState.unallocatedAmount) }
+                            val appliedAmount = suggestion?.let { suggested ->
+                                uiState.unallocatedAmount?.let { min(suggested, it) }
+                            }
                             if (appliedAmount != null && appliedAmount > 0) {
                                 Spacer(modifier = Modifier.height(6.dp))
                                 TextButton(
@@ -405,7 +434,12 @@ private fun AddAllocationDialog(
                         singleLine = true
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    TextButton(onClick = onMax, enabled = !uiState.isSaving) { Text("MAX") }
+                    TextButton(
+                        onClick = onMax,
+                        enabled = !uiState.isSaving && uiState.unallocatedAmount != null
+                    ) {
+                        Text("MAX")
+                    }
                 }
 
                 if (uiState.amountError != null) {
@@ -418,7 +452,12 @@ private fun AddAllocationDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onSave, enabled = !uiState.isSaving) { Text("Save") }
+            TextButton(
+                onClick = onSave,
+                enabled = !uiState.isSaving && uiState.unallocatedAmount != null
+            ) {
+                Text("Save")
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !uiState.isSaving) { Text("Cancel") }

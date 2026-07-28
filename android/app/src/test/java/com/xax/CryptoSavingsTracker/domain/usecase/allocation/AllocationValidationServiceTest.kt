@@ -12,6 +12,7 @@ import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import java.time.Instant
 import java.util.Locale
 
 class AllocationValidationServiceTest {
@@ -90,8 +91,8 @@ class AllocationValidationServiceTest {
                 address = asset.address!!,
                 currency = asset.currency,
                 balance = 10.0,
-                fetchedAtMillis = 1L,
-                isStale = true
+                fetchedAtMillis = Instant.now().toEpochMilli(),
+                isStale = false
             )
         )
 
@@ -147,8 +148,8 @@ class AllocationValidationServiceTest {
                     address = asset.address!!,
                     currency = asset.currency,
                     balance = 0.004106,
-                    fetchedAtMillis = 1L,
-                    isStale = true
+                    fetchedAtMillis = Instant.now().toEpochMilli(),
+                    isStale = false
                 )
             )
 
@@ -170,5 +171,87 @@ class AllocationValidationServiceTest {
         } finally {
             Locale.setDefault(previousLocale)
         }
+    }
+
+    @Test
+    fun validateAllocation_failsClosedWithActionableMessageWhenAddressedBalanceIsUnavailable() = runTest {
+        val asset = Asset(
+            id = "asset-1",
+            currency = "BTC",
+            address = "bc1qexample",
+            chainId = "bitcoin",
+            createdAt = 1L,
+            updatedAt = 1L
+        )
+        val allocationRepository = mockk<AllocationRepository>()
+        val transactionRepository = mockk<TransactionRepository>()
+        val assetRepository = mockk<AssetRepository>()
+        val onChainBalanceRepository = mockk<OnChainBalanceRepository>()
+
+        coEvery { assetRepository.getAssetById(asset.id) } returns asset
+        coEvery { transactionRepository.getManualBalanceForAsset(asset.id) } returns 100.0
+        coEvery { onChainBalanceRepository.getBalance(asset, any()) } returns
+            Result.failure(IllegalStateException("provider offline"))
+
+        val service = AllocationValidationService(
+            allocationRepository = allocationRepository,
+            transactionRepository = transactionRepository,
+            assetRepository = assetRepository,
+            onChainBalanceRepository = onChainBalanceRepository
+        )
+
+        val message = service.validateAllocation(
+            assetId = asset.id,
+            goalId = "g1",
+            amount = 1.0
+        )
+
+        assertThat(message).contains("On-chain balance for BTC")
+        assertThat(message).contains("Refresh")
+    }
+
+    @Test
+    fun validateAllocation_failsClosedWhenAddressedBalanceIsStale() = runTest {
+        val asset = Asset(
+            id = "asset-1",
+            currency = "BTC",
+            address = "bc1qexample",
+            chainId = "bitcoin",
+            createdAt = 1L,
+            updatedAt = 1L
+        )
+        val allocationRepository = mockk<AllocationRepository>()
+        val transactionRepository = mockk<TransactionRepository>()
+        val assetRepository = mockk<AssetRepository>()
+        val onChainBalanceRepository = mockk<OnChainBalanceRepository>()
+
+        coEvery { assetRepository.getAssetById(asset.id) } returns asset
+        coEvery { transactionRepository.getManualBalanceForAsset(asset.id) } returns 100.0
+        coEvery { onChainBalanceRepository.getBalance(asset, any()) } returns Result.success(
+            OnChainBalance(
+                assetId = asset.id,
+                chainId = asset.chainId!!,
+                address = asset.address!!,
+                currency = asset.currency,
+                balance = 10.0,
+                fetchedAtMillis = Instant.now().toEpochMilli(),
+                isStale = true
+            )
+        )
+
+        val service = AllocationValidationService(
+            allocationRepository = allocationRepository,
+            transactionRepository = transactionRepository,
+            assetRepository = assetRepository,
+            onChainBalanceRepository = onChainBalanceRepository
+        )
+
+        val message = service.validateAllocation(
+            assetId = asset.id,
+            goalId = "g1",
+            amount = 1.0
+        )
+
+        assertThat(message).contains("stale")
     }
 }

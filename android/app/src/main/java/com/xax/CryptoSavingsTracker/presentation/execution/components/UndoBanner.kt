@@ -16,28 +16,33 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import java.util.concurrent.TimeUnit
 
 @Composable
 internal fun UndoBanner(
-    startedAtMillis: Long?,
+    undoDeadlineMillis: Long?,
     onUndo: () -> Unit,
-    isBusy: Boolean
+    isBusy: Boolean,
+    isRecoveryRequired: Boolean = false
 ) {
-    val timeRemaining = remember(startedAtMillis) {
-        if (startedAtMillis == null) return@remember "—"
-        val undoDeadline = startedAtMillis + TimeUnit.HOURS.toMillis(24)
-        val remainingMillis = undoDeadline - System.currentTimeMillis()
-        if (remainingMillis <= 0) return@remember "Expired"
-        val hours = TimeUnit.MILLISECONDS.toHours(remainingMillis)
-        val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingMillis) % 60
-        if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+    val nowMillis by produceState(
+        initialValue = System.currentTimeMillis(),
+        key1 = undoDeadlineMillis
+    ) {
+        val deadline = undoDeadlineMillis ?: return@produceState
+        while (value < deadline) {
+            delay(minOf(TimeUnit.MINUTES.toMillis(1), deadline - value))
+            value = System.currentTimeMillis()
+        }
     }
+    val timeRemaining = formatUndoTimeRemaining(undoDeadlineMillis, nowMillis)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -61,12 +66,20 @@ internal fun UndoBanner(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Execution started",
+                        text = if (isRecoveryRequired) {
+                            "Tracking cannot continue"
+                        } else {
+                            "Execution started"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "Undo expires in $timeRemaining",
+                        text = if (isRecoveryRequired) {
+                            "Cancel tracking to return to planning."
+                        } else {
+                            "Undo expires in $timeRemaining"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -76,8 +89,20 @@ internal fun UndoBanner(
                 onClick = onUndo,
                 enabled = !isBusy
             ) {
-                Text("Undo")
+                Text(if (isRecoveryRequired) "Cancel tracking" else "Undo")
             }
         }
     }
+}
+
+internal fun formatUndoTimeRemaining(
+    undoDeadlineMillis: Long?,
+    nowMillis: Long
+): String {
+    val deadline = undoDeadlineMillis ?: return "—"
+    val remainingMillis = deadline - nowMillis
+    if (remainingMillis <= 0L) return "Expired"
+    val hours = TimeUnit.MILLISECONDS.toHours(remainingMillis)
+    val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingMillis) % 60
+    return if (hours > 0L) "${hours}h ${minutes}m" else "${minutes}m"
 }

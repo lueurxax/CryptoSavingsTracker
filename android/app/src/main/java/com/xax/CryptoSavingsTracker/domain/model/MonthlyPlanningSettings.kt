@@ -2,6 +2,8 @@ package com.xax.CryptoSavingsTracker.domain.model
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.xax.CryptoSavingsTracker.domain.util.MonthLabelUtils
+import com.xax.CryptoSavingsTracker.domain.util.PlanningCalendarUtc
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,7 +13,6 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.min
 
 /**
  * User preferences for monthly planning display and calculations.
@@ -122,11 +123,20 @@ class MonthlyPlanningSettings @Inject constructor(
      */
     var monthlyBudget: Double?
         get() = if (prefs.contains(Keys.MONTHLY_BUDGET)) {
-            prefs.getFloat(Keys.MONTHLY_BUDGET, 0f).toDouble()
+            prefs.getFloat(Keys.MONTHLY_BUDGET, 0f)
+                .takeIf { it.isFinite() && it > 0f }
+                ?.toDouble()
         } else null
         set(value) {
             if (value != null) {
-                prefs.edit().putFloat(Keys.MONTHLY_BUDGET, value.toFloat()).apply()
+                require(value.isFinite() && value > 0.0) {
+                    "Monthly budget must be finite and greater than 0"
+                }
+                val persisted = value.toFloat()
+                require(persisted.isFinite() && persisted > 0f) {
+                    "Monthly budget is outside the supported persisted range"
+                }
+                prefs.edit().putFloat(Keys.MONTHLY_BUDGET, persisted).apply()
             } else {
                 prefs.edit().remove(Keys.MONTHLY_BUDGET).apply()
             }
@@ -188,24 +198,20 @@ class MonthlyPlanningSettings @Inject constructor(
      */
     val nextPaymentDate: LocalDate
         get() {
-            val now = LocalDate.now()
-            val thisMonthPaymentDay = min(paymentDay, now.lengthOfMonth())
-            val thisMonthDate = now.withDayOfMonth(thisMonthPaymentDay)
-
-            return if (thisMonthDate.isAfter(now)) {
-                thisMonthDate
-            } else {
-                val nextMonth = now.plusMonths(1)
-                val nextMonthPaymentDay = min(paymentDay, nextMonth.lengthOfMonth())
-                nextMonth.withDayOfMonth(nextMonthPaymentDay)
-            }
+            return PlanningCalendarUtc.nextPaymentDate(
+                today = PlanningCalendarUtc.today(),
+                paymentDay = paymentDay
+            )
         }
 
     /**
      * Days remaining until next payment
      */
     val daysUntilPayment: Int
-        get() = ChronoUnit.DAYS.between(LocalDate.now(), nextPaymentDate).toInt().coerceAtLeast(0)
+        get() = ChronoUnit.DAYS.between(
+            PlanningCalendarUtc.today(),
+            nextPaymentDate
+        ).toInt().coerceAtLeast(0)
 
     /**
      * Formatted display of next payment date
@@ -217,7 +223,7 @@ class MonthlyPlanningSettings @Inject constructor(
      * Current month label (format: "2025-12")
      */
     val currentMonthLabel: String
-        get() = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM"))
+        get() = MonthLabelUtils.nowUtc()
 
     // MARK: - Public Methods
 

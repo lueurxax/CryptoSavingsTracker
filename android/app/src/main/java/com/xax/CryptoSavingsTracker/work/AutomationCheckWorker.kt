@@ -12,11 +12,11 @@ import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.repository.MonthlyGoalPlanRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.StartExecutionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.CompleteExecutionUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.execution.GetExecutionSessionUseCase
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 /**
  * Worker that checks if any automated transitions should occur.
@@ -29,12 +29,13 @@ class AutomationCheckWorker @AssistedInject constructor(
     private val settings: MonthlyPlanningSettings,
     private val executionRecordRepository: ExecutionRecordRepository,
     private val startExecutionUseCase: StartExecutionUseCase,
-    private val completeExecutionUseCase: CompleteExecutionUseCase
+    private val completeExecutionUseCase: CompleteExecutionUseCase,
+    private val getExecutionSessionUseCase: GetExecutionSessionUseCase
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         return try {
-            val today = LocalDate.now()
+            val today = AutomationWorkerPolicy.utcDate()
             val dayOfMonth = today.dayOfMonth
 
             // Check for auto-start on 1st of month
@@ -49,7 +50,9 @@ class AutomationCheckWorker @AssistedInject constructor(
 
             Result.success()
         } catch (e: Exception) {
-            if (runAttemptCount < 3) {
+            if (AutomationWorkerPolicy.isTerminalExecutionUnavailable(e)) {
+                Result.success()
+            } else if (runAttemptCount < 3) {
                 Result.retry()
             } else {
                 Result.failure()
@@ -68,16 +71,9 @@ class AutomationCheckWorker @AssistedInject constructor(
         }
 
         // Start execution
-        val result = startExecutionUseCase(monthLabel)
-        if (result.isSuccess) {
-            // Apply grace period if configured
-            val record = result.getOrNull()
-            if (record != null && settings.undoGracePeriodHours > 0) {
-                val gracePeriodMillis = settings.undoGracePeriodHours * 3600L * 1000L
-                val canUndoUntil = System.currentTimeMillis() + gracePeriodMillis
-                executionRecordRepository.updateCanUndoUntil(record.id, canUndoUntil)
-            }
-        }
+        AutomationWorkerPolicy.requireSuccess(
+            startExecutionUseCase(monthLabel)
+        )
     }
 
     private suspend fun attemptAutoComplete() {
@@ -89,18 +85,19 @@ class AutomationCheckWorker @AssistedInject constructor(
             // No active execution, skip
             return
         }
+        val session = getExecutionSessionUseCase.currentExecuting().first()
+        if (!AutomationWorkerPolicy.shouldAutoComplete(existingRecord, session)) {
+            return
+        }
 
         // Complete execution
-        val result = completeExecutionUseCase(existingRecord.id)
-        if (result.isSuccess && settings.undoGracePeriodHours > 0) {
-            val gracePeriodMillis = settings.undoGracePeriodHours * 3600L * 1000L
-            val canUndoUntil = System.currentTimeMillis() + gracePeriodMillis
-            executionRecordRepository.updateCanUndoUntil(existingRecord.id, canUndoUntil)
-        }
+        AutomationWorkerPolicy.requireSuccess(
+            completeExecutionUseCase(existingRecord.id)
+        )
     }
 
     private fun currentMonthLabel(): String {
-        return LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM"))
+        return AutomationWorkerPolicy.monthLabel()
     }
 
     private fun isLastDayOfMonth(date: LocalDate): Boolean {
@@ -127,7 +124,7 @@ class AutoStartWorker @AssistedInject constructor(
         }
 
         return try {
-            val monthLabel = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM"))
+            val monthLabel = AutomationWorkerPolicy.monthLabel()
 
             // Check if already started
             val existingRecord = executionRecordRepository.getRecordForMonth(monthLabel).first()
@@ -136,15 +133,9 @@ class AutoStartWorker @AssistedInject constructor(
             }
 
             // Start execution
-            val result = startExecutionUseCase(monthLabel)
-            if (result.isSuccess) {
-                val record = result.getOrNull()
-                if (record != null && settings.undoGracePeriodHours > 0) {
-                    val gracePeriodMillis = settings.undoGracePeriodHours * 3600L * 1000L
-                    val canUndoUntil = System.currentTimeMillis() + gracePeriodMillis
-                    executionRecordRepository.updateCanUndoUntil(record.id, canUndoUntil)
-                }
-            }
+            AutomationWorkerPolicy.requireSuccess(
+                startExecutionUseCase(monthLabel)
+            )
 
             Result.success()
         } catch (e: Exception) {
@@ -163,7 +154,8 @@ class AutoCompleteWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val settings: MonthlyPlanningSettings,
     private val executionRecordRepository: ExecutionRecordRepository,
-    private val completeExecutionUseCase: CompleteExecutionUseCase
+    private val completeExecutionUseCase: CompleteExecutionUseCase,
+    private val getExecutionSessionUseCase: GetExecutionSessionUseCase
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
@@ -172,25 +164,32 @@ class AutoCompleteWorker @AssistedInject constructor(
         }
 
         return try {
-            val monthLabel = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM"))
+            val monthLabel = AutomationWorkerPolicy.monthLabel()
 
             // Check if there's an active execution
             val existingRecord = executionRecordRepository.getRecordForMonth(monthLabel).first()
             if (existingRecord == null || existingRecord.status != ExecutionStatus.EXECUTING) {
                 return Result.success()
             }
+            val session = getExecutionSessionUseCase.currentExecuting().first()
+            if (!AutomationWorkerPolicy.shouldAutoComplete(existingRecord, session)) {
+                return Result.success()
+            }
 
             // Complete execution
-            val result = completeExecutionUseCase(existingRecord.id)
-            if (result.isSuccess && settings.undoGracePeriodHours > 0) {
-                val gracePeriodMillis = settings.undoGracePeriodHours * 3600L * 1000L
-                val canUndoUntil = System.currentTimeMillis() + gracePeriodMillis
-                executionRecordRepository.updateCanUndoUntil(existingRecord.id, canUndoUntil)
-            }
+            AutomationWorkerPolicy.requireSuccess(
+                completeExecutionUseCase(existingRecord.id)
+            )
 
             Result.success()
         } catch (e: Exception) {
-            if (runAttemptCount < 3) Result.retry() else Result.failure()
+            if (AutomationWorkerPolicy.isTerminalExecutionUnavailable(e)) {
+                Result.success()
+            } else if (runAttemptCount < 3) {
+                Result.retry()
+            } else {
+                Result.failure()
+            }
         }
     }
 }

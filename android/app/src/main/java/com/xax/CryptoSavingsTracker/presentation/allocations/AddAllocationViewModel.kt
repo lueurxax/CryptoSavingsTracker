@@ -11,6 +11,7 @@ import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.allocation.AddAllocationUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.balance.AssetBalanceCompletenessResolver
 import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,10 +28,11 @@ import javax.inject.Inject
  */
 data class AssetForAllocation(
     val asset: Asset,
-    val totalBalance: Double,       // Total manual balance
+    val totalBalance: Double?,
     val alreadyAllocated: Double,   // Amount already allocated to other goals
-    val availableBalance: Double,   // Balance available for new allocations
-    val isAlreadyAllocatedToThisGoal: Boolean
+    val availableBalance: Double?,
+    val isAlreadyAllocatedToThisGoal: Boolean,
+    val balanceIssue: String?
 )
 
 /**
@@ -113,14 +115,13 @@ class AddAllocationViewModel @Inject constructor(
                 val assets = assetRepository.getAllAssets().first()
                 val assetsForAllocation = assets.map { asset ->
                     val manualBalance = transactionRepository.getManualBalanceForAsset(asset.id)
-                    val onChainBalance = runCatching {
-                        if (!asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()) {
-                            onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0
-                        } else {
-                            0.0
-                        }
-                    }.getOrElse { 0.0 }
-                    val totalBalance = manualBalance + onChainBalance
+                    val balance = AssetBalanceCompletenessResolver.resolve(
+                        asset = asset,
+                        manualBalance = manualBalance,
+                        repository = onChainBalanceRepository,
+                        forceRefresh = false
+                    )
+                    val totalBalance = balance.totalBalanceOrNull
                     val allocations = allocationRepository.getAllocationsForAsset(asset.id)
                     val alreadyAllocated = allocations.sumOf { it.amount }
                     val isAllocatedToThisGoal = allocations.any { it.goalId == goalId }
@@ -129,8 +130,9 @@ class AddAllocationViewModel @Inject constructor(
                         asset = asset,
                         totalBalance = totalBalance,
                         alreadyAllocated = alreadyAllocated,
-                        availableBalance = totalBalance - alreadyAllocated,
-                        isAlreadyAllocatedToThisGoal = isAllocatedToThisGoal
+                        availableBalance = totalBalance?.minus(alreadyAllocated),
+                        isAlreadyAllocatedToThisGoal = isAllocatedToThisGoal,
+                        balanceIssue = balance.issueOrNull
                     )
                 }.filter { !it.isAlreadyAllocatedToThisGoal }
 
@@ -144,6 +146,11 @@ class AddAllocationViewModel @Inject constructor(
     }
 
     fun selectAsset(asset: AssetForAllocation) {
+        if (asset.availableBalance == null) {
+            _error.value = asset.balanceIssue
+                ?: "Asset balance is unavailable. Refresh the wallet balance and retry."
+            return
+        }
         _selectedAsset.value = asset
         _amountError.value = null
     }
@@ -155,7 +162,12 @@ class AddAllocationViewModel @Inject constructor(
 
     fun setMaxAmount() {
         _selectedAsset.value?.let { asset ->
-            val max = kotlin.math.max(0.0, asset.availableBalance)
+            val availableBalance = asset.availableBalance ?: run {
+                _amountError.value = asset.balanceIssue
+                    ?: "Asset balance is unavailable. Refresh the wallet balance and retry."
+                return
+            }
+            val max = kotlin.math.max(0.0, availableBalance)
             _amount.value = AmountFormatters.formatInputAmount(max, isCrypto = asset.asset.isCryptoAsset)
             _amountError.value = null
         }
@@ -173,8 +185,14 @@ class AddAllocationViewModel @Inject constructor(
             _amountError.value = "Please enter a valid amount"
             return
         }
-        if (amountValue > asset.availableBalance + 0.0000001) {
-            _amountError.value = "Amount exceeds available balance (${AmountFormatters.formatDisplayAmount(asset.availableBalance, isCrypto = asset.asset.isCryptoAsset)})"
+        val availableBalance = asset.availableBalance
+        if (availableBalance == null) {
+            _amountError.value = asset.balanceIssue
+                ?: "Asset balance is unavailable. Refresh the wallet balance and retry."
+            return
+        }
+        if (amountValue > availableBalance + 0.0000001) {
+            _amountError.value = "Amount exceeds available balance (${AmountFormatters.formatDisplayAmount(availableBalance, isCrypto = asset.asset.isCryptoAsset)})"
             return
         }
 

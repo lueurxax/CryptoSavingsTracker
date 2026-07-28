@@ -176,6 +176,10 @@ struct UnifiedGoalRowView: View {
                                     value: viewModel.shimmerOffset
                                 )
                         )
+                } else if viewModel.hasError {
+                    RoundedRectangle(cornerRadius: style == .compact ? 1 : 2)
+                        .fill(AccessibleColors.warning.opacity(0.35))
+                        .frame(height: style.progressBarHeight)
                 } else {
                     // Background track
                     RoundedRectangle(cornerRadius: style == .compact ? 1 : 2)
@@ -236,6 +240,9 @@ struct UnifiedGoalRowView: View {
     }
 
     private var accessibilityValue: String {
+        if viewModel.hasError {
+            return "Financial progress unavailable, \(viewModel.timeRemainingText)"
+        }
         let progress = Int(viewModel.asyncProgress * 100)
         var value = "\(progress) percent complete, \(viewModel.timeRemainingText)"
         if let badge = viewModel.statusBadge {

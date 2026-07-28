@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.domain.model.Asset
 import com.xax.CryptoSavingsTracker.domain.model.ChainIds
 import com.xax.CryptoSavingsTracker.domain.model.Cryptocurrencies
+import com.xax.CryptoSavingsTracker.domain.model.ExchangeRateCurrencyCatalog
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.AddAssetUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.GetAssetByIdUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.UpdateAssetUseCase
@@ -183,6 +184,7 @@ class AddEditAssetViewModel @Inject constructor(
 
     companion object {
         val availableCurrencies = Cryptocurrencies.common.map { it.first }
+        val availableFiatCurrencies = ExchangeRateCurrencyCatalog.goalCurrencies
         val availableChains = ChainIds.allChains
     }
 }

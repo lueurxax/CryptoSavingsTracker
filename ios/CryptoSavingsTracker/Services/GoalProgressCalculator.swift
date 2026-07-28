@@ -23,15 +23,19 @@ struct GoalProgressCalculator: Sendable {
     /// - Returns: Calculated `currentAmount` and `progressRatio`.
     nonisolated func calculateProgress(for input: GoalProgressInput, rates: RateSnapshot) -> GoalProgressResult {
         var totalAmount: Decimal = 0
+        var missingRatePairs: Set<String> = []
 
         for allocation in input.allocations {
-            let convertedAmount = convert(
+            let conversion = convert(
                 amount: allocation.allocatedAmount,
                 from: allocation.assetCurrency,
                 to: input.currency,
                 rates: rates
             )
-            totalAmount += convertedAmount
+            totalAmount += conversion.amount
+            if let missingRatePair = conversion.missingRatePair {
+                missingRatePairs.insert(missingRatePair)
+            }
         }
 
         let progressRatio: Double
@@ -44,7 +48,9 @@ struct GoalProgressCalculator: Sendable {
 
         return GoalProgressResult(
             currentAmount: totalAmount,
-            progressRatio: progressRatio
+            progressRatio: progressRatio,
+            isComplete: missingRatePairs.isEmpty,
+            missingRatePairs: missingRatePairs
         )
     }
 
@@ -62,36 +68,43 @@ struct GoalProgressCalculator: Sendable {
     /// Convert an amount from one currency to another using the rate snapshot.
     ///
     /// Tries direct rate first, then reciprocal, then cross-rate via USD.
-    private nonisolated func convert(amount: Decimal, from: String, to: String, rates: RateSnapshot) -> Decimal {
+    private nonisolated func convert(
+        amount: Decimal,
+        from: String,
+        to: String,
+        rates: RateSnapshot
+    ) -> (amount: Decimal, missingRatePair: String?) {
         let fromNorm = from.uppercased()
         let toNorm = to.uppercased()
 
-        guard fromNorm != toNorm else { return amount }
-        guard amount > 0 else { return 0 }
+        guard fromNorm != toNorm else { return (amount, nil) }
+        guard amount > 0 else { return (0, nil) }
 
         // Direct rate
         if let rate = rates.rate(from: fromNorm, to: toNorm), rate > 0 {
-            return amount * rate
+            return (amount * rate, nil)
         }
 
         // Reciprocal rate
         if let rate = rates.rate(from: toNorm, to: fromNorm), rate > 0 {
-            return amount / rate
+            return (amount / rate, nil)
         }
 
         // Cross-rate via USD
         if let rateToUSD = rates.rate(from: fromNorm, to: "USD"), rateToUSD > 0,
            let rateFromUSD = rates.rate(from: "USD", to: toNorm), rateFromUSD > 0 {
-            return amount * rateToUSD * rateFromUSD
+            return (amount * rateToUSD * rateFromUSD, nil)
         }
 
         // Reciprocal cross-rate via USD
         if let rateUsdToFrom = rates.rate(from: "USD", to: fromNorm), rateUsdToFrom > 0,
            let rateUsdToTo = rates.rate(from: toNorm, to: "USD"), rateUsdToTo > 0 {
-            return amount / rateUsdToFrom * (1 / rateUsdToTo)
+            return (amount / rateUsdToFrom * (1 / rateUsdToTo), nil)
         }
 
-        // Rate unavailable — return 0 (safe default for financial calculations)
-        return 0
+        return (
+            0,
+            CurrencyPair.canonicalKey(from: fromNorm, to: toNorm)
+        )
     }
 }

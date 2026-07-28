@@ -10,6 +10,17 @@ import SwiftData
 
 @MainActor
 final class ExecutionProgressCalculator {
+    enum CalculationError: LocalizedError {
+        case exchangeRateUnavailable(from: String, to: String)
+
+        var errorDescription: String? {
+            switch self {
+            case .exchangeRateUnavailable(let from, let to):
+                return "A required execution exchange rate is unavailable: \(from.uppercased())->\(to.uppercased())."
+            }
+        }
+    }
+
     struct DerivedEvent {
         let timestamp: Date
         let source: ContributionSource
@@ -35,7 +46,9 @@ final class ExecutionProgressCalculator {
         let trackedGoalIds = Set(record.goalIds)
         guard !trackedGoalIds.isEmpty else { return [] }
 
-        let goals = try modelContext.fetch(FetchDescriptor<Goal>()).filter { trackedGoalIds.contains($0.id) }
+        let goals = try modelContext.fetch(FetchDescriptor<Goal>()).filter {
+            trackedGoalIds.contains($0.id) && $0.lifecycleStatus == .active
+        }
         let goalCurrencyById = Dictionary(uniqueKeysWithValues: goals.map { ($0.id, $0.currency) })
 
         let assets = try modelContext.fetch(FetchDescriptor<Asset>())
@@ -67,12 +80,14 @@ final class ExecutionProgressCalculator {
             guard hasTrackedAllocation || historiesByAssetId[asset.id] != nil else { continue }
 
             let histories = historiesByAssetId[asset.id] ?? []
+            let eligibleTransactions = (asset.transactions ?? [])
+                .filter(\.isEligibleForExecutionContribution)
 
             // Compute balance at start by reversing from the best-known balance at `end`.
             // This keeps the calculator usable even when we don't have a full pre-start transaction ledger
             // (e.g., on-chain assets where we only persist a rolling window of chain history).
             let endBalance = max(0, asset.currentAmount)
-            let deltaDuringWindow = (asset.transactions ?? [])
+            let deltaDuringWindow = eligibleTransactions
                 .filter { $0.date >= startedAt && $0.date <= end }
                 .reduce(0.0) { $0 + $1.amount }
             let startBalance = max(0, endBalance - deltaDuringWindow)
@@ -117,7 +132,7 @@ final class ExecutionProgressCalculator {
 
             // Group transactions and allocation updates by timestamp within the window.
             var txAmountByTimestamp: [Date: Double] = [:]
-            for tx in (asset.transactions ?? []) where tx.date >= startedAt && tx.date <= end {
+            for tx in eligibleTransactions where tx.date >= startedAt && tx.date <= end {
                 txAmountByTimestamp[tx.date, default: 0] += tx.amount
             }
 
@@ -214,12 +229,27 @@ final class ExecutionProgressCalculator {
                     rate = cached
                 } else {
                     do {
-                        rate = try await exchangeRateService.fetchRate(from: assetCurrency, to: goalCurrency)
-                        rateCache[key] = rate
+                        rate = try await exchangeRateService.fetchRate(
+                            from: assetCurrency,
+                            to: goalCurrency
+                        )
                     } catch {
-                        AppLog.warning("Exchange rate failed for \(key) during execution calculation: \(error)", category: .exchangeRate)
-                        continue
+                        AppLog.warning(
+                            "Exchange rate failed for \(key) during execution calculation: \(error)",
+                            category: .exchangeRate
+                        )
+                        throw CalculationError.exchangeRateUnavailable(
+                            from: assetCurrency,
+                            to: goalCurrency
+                        )
                     }
+                    guard rate.isFinite, rate > 0 else {
+                        throw CalculationError.exchangeRateUnavailable(
+                            from: assetCurrency,
+                            to: goalCurrency
+                        )
+                    }
+                    rateCache[key] = rate
                 }
 
                 total += assetDelta * rate

@@ -66,7 +66,7 @@ private func makeMonthlyExecutionPreviewContainer() -> ModelContainer {
 
     let record = MonthlyExecutionRecord(monthLabel: currentMonth, goalIds: [piano.id, birthday.id])
     record.startTracking()
-    let snapshot = ExecutionSnapshot.create(from: [pianoPlan, birthdayPlan], goals: [piano, birthday])
+    let snapshot = try! ExecutionSnapshot.create(from: [pianoPlan, birthdayPlan], goals: [piano, birthday])
     snapshot.executionRecord = record
     record.snapshot = snapshot
     pianoPlan.executionRecord = record

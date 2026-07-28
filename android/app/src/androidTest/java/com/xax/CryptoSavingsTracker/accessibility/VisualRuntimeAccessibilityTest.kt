@@ -12,18 +12,28 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.xax.CryptoSavingsTracker.MainActivity
+import com.xax.CryptoSavingsTracker.data.local.database.dao.GoalDao
+import com.xax.CryptoSavingsTracker.data.local.database.entity.GoalEntity
 import com.xax.CryptoSavingsTracker.presentation.onboarding.ONBOARDING_COMPLETED_KEY
 import com.xax.CryptoSavingsTracker.presentation.onboarding.ONBOARDING_PREFS_NAME
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.LocalDate
+import javax.inject.Inject
 
+@HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
 class VisualRuntimeAccessibilityTest {
 
@@ -39,8 +49,20 @@ class VisualRuntimeAccessibilityTest {
         }
     }
 
-    @get:Rule
+    @get:Rule(order = 0)
+    val hiltRule = HiltAndroidRule(this)
+
+    @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
+
+    @Inject
+    lateinit var goalDao: GoalDao
+
+    @Before
+    fun setUp() {
+        hiltRule.inject()
+        seedActiveGoal()
+    }
 
     @Test
     fun planning_dashboard_settings_cover_runtime_accessibility_contract() {
@@ -51,7 +73,9 @@ class VisualRuntimeAccessibilityTest {
 
     private fun assertPlanningFlowContract() {
         composeRule.onNode(hasText("Planning") and hasClickAction()).performClick()
-        composeRule.onNodeWithTag("planning.header_card").assertIsDisplayed()
+        waitForTag("planning.header_card")
+        composeRule.onNodeWithTag("planning.header_card").performScrollTo().assertIsDisplayed()
+        waitForTag("planning.goal_row")
         val goalRows = composeRule.onAllNodesWithTag("planning.goal_row").fetchSemanticsNodes()
         assertTrue("Expected at least one planning.goal_row node.", goalRows.isNotEmpty())
 
@@ -127,5 +151,26 @@ class VisualRuntimeAccessibilityTest {
             firstNode.config[SemanticsProperties.Text].isNotEmpty()
         }.getOrDefault(false)
         assertTrue("Expected text semantics for non-color cue.", hasText)
+    }
+
+    private fun waitForTag(tag: String) {
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun seedActiveGoal() = runBlocking {
+        val today = LocalDate.now()
+        goalDao.insert(
+            GoalEntity(
+                id = "accessibility-goal",
+                name = "Accessibility Goal",
+                currency = "USD",
+                targetAmount = 1_200.0,
+                deadlineEpochDay = today.plusMonths(12).toEpochDay().toInt(),
+                startDateEpochDay = today.toEpochDay().toInt(),
+                lifecycleStatus = "active"
+            )
+        )
     }
 }

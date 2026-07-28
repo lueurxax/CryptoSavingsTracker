@@ -45,7 +45,7 @@ struct FamilySharingCard<Content: View>: View {
             RoundedRectangle(cornerRadius: VisualComponentTokens.dashboardCardCornerRadius)
                 .fill(
                     reduceTransparency
-                        ? AnyShapeStyle(Color(.secondarySystemBackground))
+                        ? AnyShapeStyle(AccessibleColors.surfaceSubtle)
                         : VisualComponentTokens.dashboardCardPrimaryFill
                 )
         )
@@ -73,7 +73,7 @@ struct FamilySharingBadge: View {
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
-        .background(reduceTransparency ? Color(.secondarySystemBackground) : tint.opacity(0.10))
+        .background(reduceTransparency ? AccessibleColors.surfaceSubtle : tint.opacity(0.10))
         .foregroundStyle(tint)
         .clipShape(Capsule())
         .accessibilityElement(children: .combine)
@@ -106,7 +106,7 @@ struct FamilySharingStateBanner: View {
             Spacer(minLength: 0)
         }
         .padding(14)
-        .background(reduceTransparency ? Color(.secondarySystemBackground) : tint.opacity(0.10))
+        .background(reduceTransparency ? AccessibleColors.surfaceSubtle : tint.opacity(0.10))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
                 .stroke(tint.opacity(0.22), lineWidth: 1)
@@ -194,7 +194,7 @@ struct FamilyShareMetricPill: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(reduceTransparency ? Color(.secondarySystemBackground) : tint.opacity(0.08))
+        .background(reduceTransparency ? AccessibleColors.surfaceSubtle : tint.opacity(0.08))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .stroke(tint.opacity(0.14), lineWidth: 1)
@@ -231,7 +231,7 @@ struct FamilySharingStatusChip: View {
             .font(.caption.weight(.semibold))
             .padding(.horizontal, mode == .full ? 10 : 8)
             .padding(.vertical, 6)
-            .background(reduceTransparency ? Color(.secondarySystemBackground) : tint.opacity(0.12))
+            .background(reduceTransparency ? AccessibleColors.surfaceSubtle : tint.opacity(0.12))
             .foregroundStyle(tint)
             .clipShape(Capsule())
             .fixedSize(horizontal: true, vertical: true)

@@ -92,6 +92,7 @@ final class FlexAdjustmentService: FlexAdjustmentServiceProtocol {
     
     private let exchangeRateService: ExchangeRateServiceProtocol
     private let modelContext: ModelContext
+    private let now: () -> Date
     
     // MARK: - Cache
     
@@ -101,9 +102,14 @@ final class FlexAdjustmentService: FlexAdjustmentServiceProtocol {
     
     // MARK: - Initialization
     
-    init(exchangeRateService: ExchangeRateServiceProtocol, modelContext: ModelContext) {
+    init(
+        exchangeRateService: ExchangeRateServiceProtocol,
+        modelContext: ModelContext,
+        now: @escaping () -> Date = Date.init
+    ) {
         self.exchangeRateService = exchangeRateService
         self.modelContext = modelContext
+        self.now = now
     }
     
     // MARK: - Public Methods
@@ -646,7 +652,15 @@ final class FlexAdjustmentService: FlexAdjustmentServiceProtocol {
         var estimatedDelay = 0
         if changeAmount < 0 {
             let reduction = abs(changeAmount)
-            let monthsToDeadline = max(1, Calendar.current.dateComponents([.month], from: Date(), to: deadline).month ?? 1)
+            let reference = now()
+            let monthsToDeadline = (
+                try? PlanningMonthContract.paymentPeriodsRemaining(
+                    in: PlanningMonthContract.storageLabel(for: reference),
+                    paymentDay: MonthlyPlanningSettings.shared.paymentDay,
+                    deadline: deadline,
+                    now: reference
+                )
+            ) ?? 1
             estimatedDelay = Int(ceil(reduction / max(1, adjusted) * Double(monthsToDeadline)))
         }
         

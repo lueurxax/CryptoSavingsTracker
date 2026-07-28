@@ -191,6 +191,7 @@ fun GoalDetailScreen(
                         fundedAmount = uiState.fundedAmount,  // Use fundedAmount to match iOS
                         progress = uiState.progress,
                         progressPercent = uiState.progressPercent,
+                        financialDataIssue = uiState.financialDataIssue,
                         onOpenDashboard = {
                             navController.navigate(Screen.GoalDashboard.createRoute(uiState.goal!!.id))
                         },
@@ -393,9 +394,10 @@ private fun GoalLifecycleStatus.displayName(): String = when (this) {
 @Composable
 private fun GoalDetailContent(
     goal: Goal,
-    fundedAmount: Double,  // Actual funded amount (min of allocation vs balance, matches iOS)
-    progress: Double,
-    progressPercent: Int,
+    fundedAmount: Double?,
+    progress: Double?,
+    progressPercent: Int?,
+    financialDataIssue: String?,
     onOpenDashboard: () -> Unit = {},
     onManageAllocations: () -> Unit = {}
 ) {
@@ -482,35 +484,59 @@ private fun GoalDetailContent(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "$progressPercent%",
+                        text = progressPercent?.let { "$it%" } ?: "Unavailable",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = statusColor
+                        color = if (progressPercent == null) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            statusColor
+                        }
                     )
                 }
-                Spacer(modifier = Modifier.height(Spacing.xs))
-                LinearProgressIndicator(
-                    progress = { progress.toFloat().coerceIn(0f, 1f) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics { contentDescription = "${goal.name} progress: $progressPercent percent complete" },
-                    color = statusColor,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-                Spacer(modifier = Modifier.height(Spacing.xs))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = AmountFormatters.formatDisplayCurrencyAmount(fundedAmount, goal.currency, isCrypto = false),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                if (progress != null && fundedAmount != null && progressPercent != null) {
+                    Spacer(modifier = Modifier.height(Spacing.xs))
+                    LinearProgressIndicator(
+                        progress = { progress.toFloat().coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics {
+                                contentDescription =
+                                    "${goal.name} progress: $progressPercent percent complete"
+                            },
+                        color = statusColor,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
+                    Spacer(modifier = Modifier.height(Spacing.xs))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = AmountFormatters.formatDisplayCurrencyAmount(
+                                fundedAmount,
+                                goal.currency,
+                                isCrypto = false
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = AmountFormatters.formatDisplayCurrencyAmount(
+                                goal.targetAmount,
+                                goal.currency,
+                                isCrypto = false
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(Spacing.xs))
                     Text(
-                        text = AmountFormatters.formatDisplayCurrencyAmount(goal.targetAmount, goal.currency, isCrypto = false),
+                        text = financialDataIssue ?: "Goal progress is unavailable.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.error
                     )
                 }
             }

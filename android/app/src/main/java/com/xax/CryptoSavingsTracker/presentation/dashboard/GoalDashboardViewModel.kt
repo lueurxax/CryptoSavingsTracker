@@ -3,16 +3,24 @@ package com.xax.CryptoSavingsTracker.presentation.dashboard
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xax.CryptoSavingsTracker.domain.model.Allocation
+import com.xax.CryptoSavingsTracker.domain.model.AllocationHistory
+import com.xax.CryptoSavingsTracker.domain.model.Asset
 import com.xax.CryptoSavingsTracker.domain.model.Goal
 import com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus
 import com.xax.CryptoSavingsTracker.domain.model.Transaction
+import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
 import com.xax.CryptoSavingsTracker.domain.navigation.NavigationTelemetryTracker
+import com.xax.CryptoSavingsTracker.domain.repository.AllocationHistoryRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.allocation.AllocationValidationService
+import com.xax.CryptoSavingsTracker.domain.usecase.execution.FundedDeltaAttribution
+import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionAttributionScopeValidator
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.GetGoalProgressUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.goal.GoalContributionAttributionCalculator
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.GoalWithProgress
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.math.BigDecimal
@@ -22,12 +30,17 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import kotlin.math.max
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -37,15 +50,37 @@ data class GoalDashboardUiState(
     val sceneModel: GoalDashboardSceneModel? = null
 )
 
+private data class GoalDashboardInputs(
+    val goalProgress: GoalWithProgress?,
+    val allocations: List<Allocation>,
+    val transactions: List<Transaction>,
+    val allocationHistory: List<AllocationHistory>,
+    val sourceFailureReason: String?
+)
+
+private data class GoalDashboardSource<T>(
+    val value: T,
+    val failureReason: String? = null
+)
+
+private data class ConvertedGoalContribution(
+    val attribution: FundedDeltaAttribution,
+    val assetCurrency: String,
+    val amountInGoalCurrency: Double?
+)
+
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class GoalDashboardViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getGoalProgressUseCase: GetGoalProgressUseCase,
     private val allocationRepository: AllocationRepository,
+    private val allocationHistoryRepository: AllocationHistoryRepository,
     private val assetRepository: AssetRepository,
     private val transactionRepository: TransactionRepository,
     private val exchangeRateRepository: ExchangeRateRepository,
     private val allocationValidationService: AllocationValidationService,
+    private val contributionAttributionCalculator: GoalContributionAttributionCalculator,
     private val sceneAssembler: GoalDashboardSceneAssembler,
     private val telemetryTracker: NavigationTelemetryTracker
 ) : ViewModel() {
@@ -86,44 +121,107 @@ class GoalDashboardViewModel @Inject constructor(
 
     private fun observeDashboard() {
         viewModelScope.launch {
-            combine(
-                getGoalProgressUseCase.getProgressFlow(goalId),
-                allocationRepository.getAllocationsForGoalListFlow(goalId),
-                transactionRepository.getAllTransactions().catch { emit(emptyList()) },
-                refreshSignal
-            ) { goalProgress, allocations, transactions, _ ->
-                Triple(goalProgress, allocations.map { it.assetId }, transactions)
-            }.collectLatest { (goalProgress, allocationAssetIds, transactions) ->
-                _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-                val scene = buildSceneOrHardError(
-                    goalProgress = goalProgress,
-                    allocationAssetIds = allocationAssetIds,
-                    transactions = transactions
-                )
-                if (scene != null && scene.freshness != DataFreshnessState.HARD_ERROR) {
-                    lastSuccessfulRefreshAt = scene.generatedAt
+            refreshSignal
+                .flatMapLatest { dashboardInputs() }
+                .collectLatest { inputs ->
+                    _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+                    val scene = buildSceneOrHardError(
+                        goalProgress = inputs.goalProgress,
+                        allocations = inputs.allocations,
+                        transactions = inputs.transactions,
+                        allocationHistory = inputs.allocationHistory,
+                        sourceFailureReason = inputs.sourceFailureReason
+                    )
+                    if (scene != null && scene.freshness != DataFreshnessState.HARD_ERROR) {
+                        lastSuccessfulRefreshAt = scene.generatedAt
+                    }
+                    _uiState.value = GoalDashboardUiState(
+                        isLoading = false,
+                        errorMessage = if (inputs.goalProgress == null) "Goal not found" else null,
+                        sceneModel = scene
+                    )
                 }
-                _uiState.value = GoalDashboardUiState(
-                    isLoading = false,
-                    errorMessage = if (goalProgress == null) "Goal not found" else null,
-                    sceneModel = scene
+        }
+    }
+
+    private fun dashboardInputs(): Flow<GoalDashboardInputs> {
+        return combine(
+            getGoalProgressUseCase.getProgressFlow(goalId).withDashboardFailure(
+                fallback = null,
+                reason = "goal_progress_source_unavailable"
+            ),
+            allocationRepository.getAllAllocationsFlow().withDashboardFailure(
+                fallback = emptyList(),
+                reason = "allocations_source_unavailable"
+            ),
+            transactionRepository.getAllTransactions().withDashboardFailure(
+                fallback = emptyList(),
+                reason = "transactions_source_unavailable"
+            ),
+            allocationHistoryRepository.getAll().withDashboardFailure(
+                fallback = emptyList(),
+                reason = "allocation_history_source_unavailable"
+            )
+        ) { goalProgress, allocations, transactions, allocationHistory ->
+            GoalDashboardInputs(
+                goalProgress = goalProgress.value,
+                allocations = allocations.value,
+                transactions = transactions.value,
+                allocationHistory = allocationHistory.value,
+                sourceFailureReason = goalProgress.failureReason
+                    ?: allocations.failureReason
+                    ?: transactions.failureReason
+                    ?: allocationHistory.failureReason
+            )
+        }
+    }
+
+    private fun <T> Flow<T>.withDashboardFailure(
+        fallback: T,
+        reason: String
+    ): Flow<GoalDashboardSource<T>> {
+        return map { GoalDashboardSource(value = it) }
+            .catch { error ->
+                if (error is CancellationException) throw error
+                emit(
+                    GoalDashboardSource(
+                        value = fallback,
+                        failureReason = reason
+                    )
                 )
             }
-        }
     }
 
     private suspend fun buildSceneOrHardError(
         goalProgress: GoalWithProgress?,
-        allocationAssetIds: List<String>,
-        transactions: List<Transaction>
+        allocations: List<Allocation>,
+        transactions: List<Transaction>,
+        allocationHistory: List<AllocationHistory>,
+        sourceFailureReason: String?
     ): GoalDashboardSceneModel? {
         if (goalProgress == null) return null
+        if (sourceFailureReason != null) {
+            return buildHardErrorScene(goalProgress.goal, sourceFailureReason)
+        }
+        if (
+            goalProgress.financialDataIssue != null ||
+            goalProgress.fundedAmount == null ||
+            goalProgress.progress == null
+        ) {
+            return buildHardErrorScene(
+                goalProgress.goal,
+                sanitizeReason(goalProgress.financialDataIssue ?: "goal_financial_data_unavailable")
+            )
+        }
         return try {
             buildScene(
                 goalProgress = goalProgress,
-                allocationAssetIds = allocationAssetIds,
-                transactions = transactions
+                allocations = allocations,
+                transactions = transactions,
+                allocationHistory = allocationHistory
             )
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             buildHardErrorScene(goalProgress.goal, sanitizeReason(error.message))
         }
@@ -131,10 +229,13 @@ class GoalDashboardViewModel @Inject constructor(
 
     private suspend fun buildScene(
         goalProgress: GoalWithProgress,
-        allocationAssetIds: List<String>,
-        transactions: List<Transaction>
+        allocations: List<Allocation>,
+        transactions: List<Transaction>,
+        allocationHistory: List<AllocationHistory>
     ): GoalDashboardSceneModel {
         val goal = goalProgress.goal
+        val fundedAmount = checkNotNull(goalProgress.fundedAmount)
+        val progress = checkNotNull(goalProgress.progress)
         val now = Instant.now()
         val zoneId = ZoneId.systemDefault()
         val nowDate = LocalDate.now(zoneId)
@@ -146,17 +247,42 @@ class GoalDashboardViewModel @Inject constructor(
         val rateCache = mutableMapOf<Pair<String, String>, Double?>()
         var missingRateCount = 0
 
-        val assetIds = allocationAssetIds.toSet()
-        val assetMap = assetIds.associateWith { assetId ->
-            runCatching { assetRepository.getAssetById(assetId) }.getOrNull()
+        val goalAllocations = allocations.filter { it.goalId == goal.id }
+        val allocationAssetIds = goalAllocations.map { it.assetId }
+        val goalRelatedAssetIds = buildSet {
+            goalAllocations.mapTo(this) { it.assetId }
+            allocationHistory
+                .filterTo(mutableListOf()) { it.goalId == goal.id }
+                .mapTo(this) { it.assetId }
         }
-
-        val goalTransactions = transactions
-            .asSequence()
-            .filter { it.assetId in assetIds }
-            .filter { it.amount > 0 }
-            .sortedByDescending { it.dateMillis }
-            .toList()
+        val assetMap = mutableMapOf<String, Asset>()
+        for (assetId in goalRelatedAssetIds) {
+            assetMap[assetId] = sourceValueOrNull {
+                assetRepository.getAssetById(assetId)
+            }
+                ?: throw IllegalStateException(
+                    "Goal contribution attribution asset is unavailable: $assetId"
+                )
+        }
+        ExecutionAttributionScopeValidator.requireProvableTransactionLedger(
+            requiredAssetIds = goalRelatedAssetIds,
+            knownAssetIds = assetMap.keys,
+            addressedAssetIds = assetMap.values
+                .asSequence()
+                .filter { !it.address.isNullOrBlank() }
+                .mapTo(hashSetOf()) { it.id },
+            onChainTransactionAssetIds = transactions
+                .asSequence()
+                .filter { it.source == TransactionSource.ON_CHAIN }
+                .mapTo(hashSetOf()) { it.assetId }
+        )
+        val attributedContributions = contributionAttributionCalculator.calculate(
+            goalId = goal.id,
+            currentAllocations = allocations,
+            transactions = transactions,
+            allocationHistory = allocationHistory,
+            nowMillis = now.toEpochMilli()
+        )
 
         suspend fun convertToGoalCurrency(amount: Double, fromCurrency: String): Double? {
             if (fromCurrency.equals(goal.currency, ignoreCase = true)) {
@@ -166,46 +292,46 @@ class GoalDashboardViewModel @Inject constructor(
             val rate = if (rateCache.containsKey(key)) {
                 rateCache[key]
             } else {
-                val fetched = runCatching {
+                val fetched = sourceValueOrNull {
                     exchangeRateRepository.fetchRate(fromCurrency, goal.currency)
-                }.getOrNull()
+                }
                 rateCache[key] = fetched
                 fetched
             }
             return rate?.let { amount * it }
         }
 
-        val monthContributionSum = goalTransactions
-            .filter { it.dateMillis >= monthStartMillis }
-            .sumOf { tx ->
-                val currency = assetMap[tx.assetId]?.currency ?: goal.currency
-                val converted = convertToGoalCurrency(tx.amount, currency)
-                if (converted == null) {
-                    missingRateCount += 1
-                    0.0
-                } else {
-                    converted
-                }
+        val convertedContributions = attributedContributions.map { attribution ->
+            val currency = checkNotNull(assetMap[attribution.assetId]).currency
+            val converted = convertToGoalCurrency(attribution.amount, currency)
+            if (converted == null) {
+                missingRateCount += 1
             }
+            ConvertedGoalContribution(
+                attribution = attribution,
+                assetCurrency = currency,
+                amountInGoalCurrency = converted
+            )
+        }
+        val monthContributionSum = convertedContributions
+            .filter { it.attribution.timestampMillis >= monthStartMillis }
+            .sumOf { it.amountInGoalCurrency ?: 0.0 }
 
-        val recentRows = goalTransactions
+        val recentRows = convertedContributions
+            .sortedByDescending { it.attribution.timestampMillis }
             .take(5)
-            .map { tx ->
-                val currency = assetMap[tx.assetId]?.currency ?: goal.currency
-                val converted = convertToGoalCurrency(tx.amount, currency)
-                if (converted == null) {
-                    missingRateCount += 1
-                }
+            .map { contribution ->
                 ActivityRow(
-                    id = tx.id,
-                    assetCurrency = currency,
-                    amount = decimalOf(converted ?: 0.0),
-                    date = Instant.ofEpochMilli(tx.dateMillis),
-                    note = tx.comment
+                    id = "${contribution.attribution.source.name.lowercase()}:" +
+                        contribution.attribution.sourceId,
+                    assetCurrency = contribution.assetCurrency,
+                    amount = decimalOf(contribution.amountInGoalCurrency ?: 0.0),
+                    date = Instant.ofEpochMilli(contribution.attribution.timestampMillis),
+                    note = contribution.attribution.comment
                 )
             }
 
-        val allocationPairs = allocationRepository.getAllocationsForGoal(goal.id).map { allocation ->
+        val allocationPairs = goalAllocations.map { allocation ->
             allocation.assetId to max(0.0, allocation.amount)
         }
 
@@ -235,9 +361,10 @@ class GoalDashboardViewModel @Inject constructor(
             }
 
         val concentrationRatio = topAssets.maxOfOrNull { it.weightRatio }
-        val overAllocatedAssetIds = runCatching {
-            allocationValidationService.getOverAllocatedAssets().map { it.asset.id }.toSet()
-        }.getOrElse { emptySet() }
+        val overAllocatedAssetIds = allocationValidationService
+            .getOverAllocatedAssets()
+            .map { it.asset.id }
+            .toSet()
         val overAllocated = allocationAssetIds.any { it in overAllocatedAssetIds }
 
         val assumptionWindowDays = 90
@@ -245,32 +372,40 @@ class GoalDashboardViewModel @Inject constructor(
             .atStartOfDay(zoneId)
             .toInstant()
             .toEpochMilli()
-        val windowContributions = goalTransactions.filter { it.dateMillis >= windowStartMillis }
-        val windowContributionSum = windowContributions.sumOf { tx ->
-            val currency = assetMap[tx.assetId]?.currency ?: goal.currency
-            val converted = convertToGoalCurrency(tx.amount, currency)
-            if (converted == null) {
-                missingRateCount += 1
-                0.0
-            } else {
-                converted
-            }
+        val windowContributions = convertedContributions.filter {
+            it.attribution.timestampMillis >= windowStartMillis
+        }
+        val hasIncompleteForecastInputs = windowContributions.any {
+            it.amountInGoalCurrency == null
+        }
+        val windowContributionSum = windowContributions.sumOf {
+            it.amountInGoalCurrency ?: 0.0
         }
 
         val monthsInWindow = assumptionWindowDays / 30.0
         val monthlyPace = if (monthsInWindow > 0) windowContributionSum / monthsInWindow else 0.0
         val daysRemaining = max(0L, ChronoUnit.DAYS.between(nowDate, goal.deadline))
-        val projectedAmount = goalProgress.fundedAmount + (monthlyPace * (daysRemaining / 30.0))
-
-        val forecastStatus = when {
-            projectedAmount >= goal.targetAmount -> GoalDashboardRiskStatus.ON_TRACK
-            projectedAmount >= goal.targetAmount * 0.85 -> GoalDashboardRiskStatus.AT_RISK
-            else -> GoalDashboardRiskStatus.OFF_TRACK
+        val projectedAmount = if (hasIncompleteForecastInputs) {
+            null
+        } else {
+            fundedAmount + (monthlyPace * (daysRemaining / 30.0))
         }
-        val confidence = when {
-            windowContributions.size >= 6 -> GoalDashboardForecastConfidence.HIGH
-            windowContributions.size >= 2 -> GoalDashboardForecastConfidence.MEDIUM
-            else -> GoalDashboardForecastConfidence.LOW
+
+        val forecastStatus = projectedAmount?.let { amount ->
+            when {
+                amount >= goal.targetAmount -> GoalDashboardRiskStatus.ON_TRACK
+                amount >= goal.targetAmount * 0.85 -> GoalDashboardRiskStatus.AT_RISK
+                else -> GoalDashboardRiskStatus.OFF_TRACK
+            }
+        }
+        val confidence = if (hasIncompleteForecastInputs) {
+            null
+        } else {
+            when {
+                windowContributions.size >= 6 -> GoalDashboardForecastConfidence.HIGH
+                windowContributions.size >= 2 -> GoalDashboardForecastConfidence.MEDIUM
+                else -> GoalDashboardForecastConfidence.LOW
+            }
         }
 
         val freshness = if (missingRateCount > 0) DataFreshnessState.STALE else DataFreshnessState.FRESH
@@ -280,10 +415,10 @@ class GoalDashboardViewModel @Inject constructor(
             GoalDashboardSceneInput(
                 goal = goal,
                 generatedAt = now,
-                currentAmount = decimalOf(goalProgress.fundedAmount),
+                currentAmount = decimalOf(fundedAmount),
                 targetAmount = decimalOf(goal.targetAmount),
-                remainingAmount = decimalOf(max(0.0, goal.targetAmount - goalProgress.fundedAmount)),
-                progressRatio = goalProgress.progress,
+                remainingAmount = decimalOf(max(0.0, goal.targetAmount - fundedAmount)),
+                progressRatio = progress,
                 daysRemaining = daysRemaining.toInt(),
                 freshness = freshness,
                 freshnessUpdatedAt = now,
@@ -293,9 +428,15 @@ class GoalDashboardViewModel @Inject constructor(
                 forecastConfidence = confidence,
                 forecastStatus = forecastStatus,
                 forecastUpdatedAt = now,
-                projectedAmount = decimalOf(projectedAmount),
-                forecastWhyCopyKey = "dashboard.forecast.why.${forecastStatus.wireId}",
-                forecastErrorReasonCode = null,
+                projectedAmount = projectedAmount?.let { decimalOf(it) },
+                forecastWhyCopyKey = forecastStatus?.let {
+                    "dashboard.forecast.why.${it.wireId}"
+                },
+                forecastErrorReasonCode = if (hasIncompleteForecastInputs) {
+                    "missing_exchange_rate"
+                } else {
+                    null
+                },
                 monthContributionSum = decimalOf(monthContributionSum),
                 recentRows = recentRows,
                 lastContributionAt = recentRows.firstOrNull()?.date,
@@ -353,6 +494,16 @@ class GoalDashboardViewModel @Inject constructor(
     }
 
     private fun decimalOf(value: Double): BigDecimal = BigDecimal.valueOf(value)
+
+    private suspend fun <T> sourceValueOrNull(block: suspend () -> T): T? {
+        return try {
+            block()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     private fun sanitizeReason(message: String?): String {
         return message

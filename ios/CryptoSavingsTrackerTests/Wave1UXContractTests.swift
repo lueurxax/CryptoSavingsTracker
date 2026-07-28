@@ -282,6 +282,33 @@ struct Wave1UXContractTests {
         )
     }
 
+    @Test("Budget amount and currency controls are disabled while Apply is in flight")
+    func budgetCalculatorInputsAreDisabledWhileApplying() throws {
+        let root = repositoryRoot()
+        let budgetCalculatorSheet = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Views/Planning/BudgetCalculatorSheet.swift"
+        )
+
+        #expect(
+            budgetCalculatorSheet.components(separatedBy: ".disabled(isApplying)").count - 1 >= 2
+        )
+        #expect(
+            budgetCalculatorSheet.contains(
+                ".interactiveDismissDisabled(isDirty || isApplying)"
+            )
+        )
+        #expect(
+            budgetCalculatorSheet.contains(
+                """
+                .onChange(of: budgetText) { _, _ in
+                            viewModel.invalidateBudgetPreviewForInputChange()
+                            lastSubmittedMinorValue = nil
+                """
+            )
+        )
+    }
+
     @Test("Planning presentation helpers use autoupdating locale for display copy")
     func planningPresentationHelpersUseAutoupdatingLocaleForDisplayCopy() throws {
         let root = repositoryRoot()

@@ -216,7 +216,7 @@ private fun CurrencyDropdown(
             val currencies = if (isCrypto) {
                 AddEditAssetViewModel.availableCurrencies
             } else {
-                listOf("USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD")
+                AddEditAssetViewModel.availableFiatCurrencies
             }
             currencies.forEach { currency ->
                 DropdownMenuItem(

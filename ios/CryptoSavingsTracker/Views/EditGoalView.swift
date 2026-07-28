@@ -19,6 +19,7 @@ struct EditGoalView: View {
     @State private var hasStartedTelemetryFlow = false
     @State private var hasAttemptedSubmit = false
     @State private var saveErrorMessage: String?
+    @State private var archiveErrorMessage: String?
     @State private var accessErrorMessage: String?
     @FocusState private var focusedField: GoalValidationField?
 
@@ -404,14 +405,29 @@ struct EditGoalView: View {
             titleVisibility: .visible
         ) {
             Button("Archive", role: .destructive) {
-                Task {
-                    try? await viewModel.archiveGoal()
-                    dismiss()
-                }
+                Task { await attemptArchive() }
             }
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This goal will be moved to your archived goals. You can restore it anytime from the archived goals list.")
+        }
+        .alert(
+            "Unable to Archive Goal",
+            isPresented: Binding(
+                get: { archiveErrorMessage != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        archiveErrorMessage = nil
+                    }
+                }
+            )
+        ) {
+            Button("Retry Archive") {
+                Task { await attemptArchive() }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text(archiveErrorMessage ?? "")
         }
             }
         }
@@ -428,6 +444,17 @@ struct EditGoalView: View {
     private func handleFormChange() {
         saveErrorMessage = nil
         viewModel.triggerChangeDetection()
+    }
+
+    @MainActor
+    private func attemptArchive() async {
+        archiveErrorMessage = nil
+        do {
+            try await viewModel.archiveGoal()
+            dismiss()
+        } catch {
+            archiveErrorMessage = "Unable to archive this goal right now. Please try again."
+        }
     }
 
     @MainActor
@@ -466,7 +493,10 @@ struct EditGoalView: View {
                 success: false
             )
         } catch {
-            saveErrorMessage = "Unable to save this goal right now. Please try again."
+            saveErrorMessage = PersistenceMutationErrorPresentation.message(
+                for: error,
+                fallback: "Unable to save this goal right now. Please try again."
+            )
             DIContainer.shared.navigationTelemetryTracker.recoveryCompleted(
                 journeyID: NavigationJourney.goalCreateEdit,
                 recoveryPath: "save_error",

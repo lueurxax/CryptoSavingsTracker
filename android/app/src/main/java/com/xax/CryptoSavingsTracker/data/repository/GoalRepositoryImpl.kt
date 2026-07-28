@@ -69,6 +69,18 @@ class GoalRepositoryImpl @Inject constructor(
         goalDao.updateLifecycleStatus(id, status.name.lowercase(), now, now)
     }
 
+    override suspend fun disableReminderIfUnchanged(
+        goalId: String,
+        expectedUpdatedAt: Long,
+        modifiedAt: Long
+    ): Boolean {
+        return goalDao.disableReminderIfUnchanged(
+            goalId = goalId,
+            expectedUpdatedAt = expectedUpdatedAt,
+            modifiedAt = modifiedAt
+        ) > 0
+    }
+
     override fun getActiveGoalCount(): Flow<Int> {
         // Since DAO returns suspend Int, we need to wrap it in a flow
         return goalDao.getActiveGoals().map { it.size }

@@ -12,7 +12,9 @@ data class ExecutionRecord(
     val closedAtMillis: Long?,
     val canUndoUntilMillis: Long?,
     val createdAtMillis: Long,
-    val updatedAtMillis: Long
+    val updatedAtMillis: Long,
+    /** True for a schema-v5 record that may still be resumed but has no rate rows. */
+    val legacyRateSnapshotPending: Boolean = false
 ) {
     /**
      * Check if the execution can still be undone (within grace period).
@@ -22,4 +24,3 @@ data class ExecutionRecord(
         return nowMillis < undoDeadline
     }
 }
-

@@ -23,6 +23,9 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
+internal val GOAL_REMINDER_REPLACEMENT_POLICY =
+    ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE
+
 @Singleton
 class GoalReminderSchedulerImpl @Inject constructor(
     @ApplicationContext private val context: Context
@@ -57,13 +60,17 @@ class GoalReminderSchedulerImpl @Inject constructor(
 
         workManager.enqueueUniquePeriodicWork(
             workName(goal.id),
-            ExistingPeriodicWorkPolicy.UPDATE,
+            GOAL_REMINDER_REPLACEMENT_POLICY,
             request
         )
     }
 
     override fun cancel(goalId: String) {
         workManager.cancelUniqueWork(workName(goalId))
+    }
+
+    override fun cancelRequest(workRequestId: java.util.UUID) {
+        workManager.cancelWorkById(workRequestId)
     }
 
     private fun computeInitialDelayMillis(goal: Goal, periodDays: Int): Long {
@@ -107,4 +114,3 @@ class GoalReminderSchedulerImpl @Inject constructor(
         const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
     }
 }
-

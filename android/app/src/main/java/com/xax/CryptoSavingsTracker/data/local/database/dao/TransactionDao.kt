@@ -18,6 +18,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE asset_id = :assetId ORDER BY date_utc_millis DESC")
     fun getTransactionsByAssetId(assetId: String): Flow<List<TransactionEntity>>
 
+    @Query("SELECT * FROM transactions WHERE asset_id = :assetId ORDER BY date_utc_millis DESC")
+    suspend fun getTransactionsByAssetIdOnce(assetId: String): List<TransactionEntity>
+
     @Query("SELECT * FROM transactions WHERE id = :id")
     fun getTransactionById(id: String): Flow<TransactionEntity?>
 
@@ -26,6 +29,9 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions WHERE external_id = :externalId")
     suspend fun getTransactionByExternalId(externalId: String): TransactionEntity?
+
+    @Query("SELECT * FROM transactions WHERE external_id = :externalId ORDER BY id ASC")
+    suspend fun getTransactionsByExternalId(externalId: String): List<TransactionEntity>
 
     @Query("SELECT * FROM transactions WHERE asset_id = :assetId AND date_utc_millis >= :startMillis AND date_utc_millis < :endMillis ORDER BY date_utc_millis ASC")
     fun getTransactionsInRange(assetId: String, startMillis: Long, endMillis: Long): Flow<List<TransactionEntity>>

@@ -81,6 +81,9 @@ final class MonthlyPlanningSettings: ObservableObject {
             } else {
                 UserDefaults.standard.removeObject(forKey: Keys.monthlyBudget)
             }
+            if monthlyBudget != oldValue {
+                budgetAppliedSignature = nil
+            }
         }
     }
 
@@ -88,6 +91,9 @@ final class MonthlyPlanningSettings: ObservableObject {
     @Published var budgetCurrency: String {
         didSet {
             UserDefaults.standard.set(budgetCurrency, forKey: Keys.budgetCurrency)
+            if budgetCurrency.uppercased() != oldValue.uppercased() {
+                budgetAppliedSignature = nil
+            }
         }
     }
 
@@ -146,44 +152,54 @@ final class MonthlyPlanningSettings: ObservableObject {
     
     /// Next payment deadline based on current date and payment day
     var nextPaymentDate: Date {
-        let calendar = Calendar.current
-        let now = Date()
-        let currentComponents = calendar.dateComponents([.year, .month], from: now)
-        
-        // Try this month first
-        var components = DateComponents()
-        components.year = currentComponents.year
-        components.month = currentComponents.month
-        components.day = paymentDay
-        
-        if let thisMonthDate = calendar.date(from: components),
-           thisMonthDate > now {
-            return thisMonthDate
-        }
-        
-        // If this month's date has passed, use next month
-        components.month = (currentComponents.month ?? 1) + 1
-        if components.month! > 12 {
-            components.month = 1
-            components.year = (currentComponents.year ?? 2024) + 1
-        }
-        
-        return calendar.date(from: components) ?? now
+        nextPaymentDate(relativeTo: Date())
+    }
+
+    func nextPaymentDate(relativeTo now: Date) -> Date {
+        (
+            try? PlanningMonthContract.nextPaymentDate(
+                in: PlanningMonthContract.storageLabel(for: now),
+                paymentDay: paymentDay,
+                now: now
+            )
+        ) ?? now
     }
     
     /// Days remaining until next payment
     var daysUntilPayment: Int {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.day], from: Date(), to: nextPaymentDate)
+        daysUntilPayment(relativeTo: Date())
+    }
+
+    func daysUntilPayment(relativeTo now: Date) -> Int {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = PlanningMonthContract.storageTimeZone
+        let currentStorageDay = calendar.startOfDay(for: now)
+        let paymentStorageDay = calendar.startOfDay(
+            for: nextPaymentDate(relativeTo: now)
+        )
+        let components = calendar.dateComponents(
+            [.day],
+            from: currentStorageDay,
+            to: paymentStorageDay
+        )
         return max(0, components.day ?? 0)
     }
     
     /// Formatted display of next payment date
     var nextPaymentFormatted: String {
+        nextPaymentFormatted(relativeTo: Date())
+    }
+
+    func nextPaymentFormatted(
+        relativeTo now: Date,
+        locale: Locale = .current
+    ) -> String {
         let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.timeZone = PlanningMonthContract.storageTimeZone
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
-        return formatter.string(from: nextPaymentDate)
+        return formatter.string(from: nextPaymentDate(relativeTo: now))
     }
     
     // MARK: - Initialization
