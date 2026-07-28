@@ -1,0 +1,121 @@
+/* ================================================================
+   _glass.css — Banner-aligned preview-card theming
+   Midnight surface + amber spill + cool rim, lifted from the brand banner.
+   Shared by every component card. Requires _card.css to be loaded first.
+   ================================================================ */
+
+/* Banner backdrop — midnight base with the same warm/cool radial spills
+   as assets/banner.png + assets/banner-light.png */
+body.glass {
+  color: #fff;
+  background:
+    radial-gradient(38% 55% at 16% 78%, rgba(245,166,35,0.30), transparent 65%),
+    radial-gradient(30% 48% at 84% 16%, rgba(120,175,255,0.20), transparent 70%),
+    radial-gradient(50% 60% at 50% 50%, rgba(20,28,52,0.45), transparent 75%),
+    linear-gradient(180deg, #05080F 0%, #0A0F1F 60%, #050810 100%);
+  background-attachment: fixed;
+}
+
+/* Optional thin amber sweep that all glass cards can pin under their content */
+body.glass::after {
+  content:'';
+  position: fixed;
+  left: 0; right: 0; top: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(245,166,35,0.20) 30%, rgba(245,166,35,0.10) 60%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Core midnight glass surface — translucent dark with cool rim + warm inner spill */
+.glass-surface {
+  position: relative;
+  isolation: isolate;
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  background:
+    radial-gradient(120% 80% at 0% 100%, rgba(245,166,35,0.10), transparent 60%),
+    linear-gradient(180deg, rgba(20,28,52,0.78) 0%, rgba(10,15,31,0.88) 100%);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 8px 24px rgba(0,0,0,0.45),
+    0 1px 2px rgba(0,0,0,0.35);
+  color: #fff;
+}
+.glass-surface::after {
+  content:'';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -1px 0 rgba(0,0,0,0.28);
+  border: 0.5px solid rgba(120,175,255,0.18);
+  pointer-events: none;
+  z-index: 1;
+}
+.glass-surface > * { position: relative; z-index: 2; }
+
+/* Light-mode variant — the cream/white banner surface (apply alongside .glass-surface) */
+.glass-surface.glass-light {
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+  background:
+    radial-gradient(120% 80% at 0% 100%, rgba(245,166,35,0.14), transparent 60%),
+    linear-gradient(180deg, #FFFFFF 0%, #F2F5FA 100%);
+  color: #0A0F1F;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.7) inset,
+    0 10px 28px rgba(15,30,70,0.14),
+    0 1px 2px rgba(15,30,70,0.08);
+}
+.glass-surface.glass-light::after {
+  border: 0.5px solid rgba(245,166,35,0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.9),
+    inset 0 -1px 0 rgba(15,30,70,0.06);
+}
+
+/* Tinted variants — carry semantic color through the glass.
+   Primary = amber (banner liquid). Status colors are AA-corrected. */
+.glass-tint-primary { background: linear-gradient(180deg, #FFD884 0%, #F5A623 60%, #C7821A 100%); color:#1A0F00; box-shadow: 0 4px 14px rgba(245,166,35,0.32); }
+.glass-tint-success { background: linear-gradient(180deg, rgba(0,135,90,0.30), rgba(0,110,70,0.42)); color:#9BE7BD; }
+.glass-tint-warning { background: linear-gradient(180deg, rgba(245,166,35,0.30), rgba(184,77,0,0.42));  color:#FFD49A; }
+.glass-tint-error   { background: linear-gradient(180deg, rgba(220,60,60,0.30), rgba(180,20,20,0.42)); color:#FFB3B3; }
+.glass-tint-info    { background: linear-gradient(180deg, rgba(120,175,255,0.28), rgba(60,110,200,0.40)); color:#C7E0FF; }
+.glass-tint-neutral { background: linear-gradient(180deg, rgba(120,175,255,0.10), rgba(120,175,255,0.06)); color:rgba(255,255,255,0.85); }
+
+/* Caption pill — frosted dark strip for annotation text */
+.caption-pill {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(20,28,52,0.55);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 0.5px solid rgba(120,175,255,0.20);
+  color: rgba(255,255,255,0.75);
+  font: 500 12px var(--font-sans);
+  line-height: 1.45;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+}
+
+/* Bicolor wordmark + tagline lockup, lifted from the banner */
+.banner-wordmark {
+  font: 700 14px var(--font-sans);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: #FFFFFF;
+}
+.banner-wordmark .gold { color: #F5A623; }
+.banner-tagline {
+  font: 500 10px var(--font-sans);
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  margin-top: 4px;
+}
+.banner-tagline .gold { color: #F5A623; }
+
+/* Light-on-glass-light overrides for wordmark */
+.glass-light .banner-wordmark { color: #0A0F1F; }
+.glass-light .banner-tagline  { color: #3D7BD9; }

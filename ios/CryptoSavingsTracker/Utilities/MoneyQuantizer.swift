@@ -13,20 +13,27 @@ enum MoneyRoundingMode {
 }
 
 enum MoneyQuantizer {
-    private static let threeDecimalCurrencies: Set<String> = ["KWD", "BHD", "OMR"]
-    private static let zeroDecimalCurrencies: Set<String> = ["JPY", "KRW"]
-    private static let twoDecimalCurrencies: Set<String> = ["USD", "EUR", "GBP"]
+    private static let isoCurrencyCodes = Set(
+        Locale.commonISOCurrencyCodes.map { $0.uppercased() }
+    )
+    private static let tokenMinorUnitOverrides: [String: Int] = [
+        "USDT": 6,
+        "USDC": 6
+    ]
 
     static func minorUnits(for currency: String) -> Int {
         let upperCurrency = currency.uppercased()
-        if threeDecimalCurrencies.contains(upperCurrency) {
-            return 3
+        guard !upperCurrency.isEmpty else { return 2 }
+
+        if let tokenUnits = tokenMinorUnitOverrides[upperCurrency] {
+            return tokenUnits
         }
-        if zeroDecimalCurrencies.contains(upperCurrency) {
-            return 0
-        }
-        if twoDecimalCurrencies.contains(upperCurrency) {
-            return 2
+
+        // Goal currencies are ISO 4217 fiat codes. Asset symbols are open-ended,
+        // so any non-ISO symbol must retain crypto-appropriate input precision
+        // instead of silently falling back to a fiat formatter's two decimals.
+        guard isoCurrencyCodes.contains(upperCurrency) else {
+            return 8
         }
 
         let formatter = NumberFormatter()

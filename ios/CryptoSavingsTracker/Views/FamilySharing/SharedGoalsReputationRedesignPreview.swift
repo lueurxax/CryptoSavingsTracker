@@ -31,7 +31,7 @@ private struct SharedGoalsReputationRedesignEvidenceView: View {
                                     .font(.caption.weight(.semibold))
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 5)
-                                    .background(Color(.secondarySystemBackground))
+                                    .background(AccessibleColors.surfaceSubtle)
                                     .clipShape(Capsule())
                             }
                             Spacer(minLength: 0)
@@ -50,7 +50,7 @@ private struct SharedGoalsReputationRedesignEvidenceView: View {
                     .padding(16)
                     .background(
                         RoundedRectangle(cornerRadius: 18)
-                            .fill(Color(.secondarySystemBackground))
+                            .fill(AccessibleColors.surfaceSubtle)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 18)
@@ -60,7 +60,7 @@ private struct SharedGoalsReputationRedesignEvidenceView: View {
             }
             .padding(16)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(AccessibleColors.surfaceSubtle)
     }
 
     private func evidenceBanner(_ banner: RedesignEvidenceBanner) -> some View {
@@ -134,7 +134,7 @@ private struct SharedGoalsReputationRedesignEvidenceView: View {
             }
         }
         .padding(14)
-        .background(Color(.systemBackground))
+        .background(AccessibleColors.surfaceBase)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
                 .stroke(Color.secondary.opacity(0.12), lineWidth: 1)

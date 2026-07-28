@@ -9,6 +9,10 @@ import SwiftUI
 import SwiftData
 
 struct TransactionHistoryView: View {
+    private enum MutationAction {
+        case delete(Transaction)
+    }
+
     let asset: Asset
     @Environment(\.modelContext) private var modelContext
     
@@ -16,6 +20,7 @@ struct TransactionHistoryView: View {
     @State private var sortOrder: SortOrder = .dateDescending
     @State private var filterType: FilterType = .all
     @State private var showingAddTransaction = false
+    @State private var mutationRetryState = PersistenceMutationRetryPresentationState<MutationAction>()
     
     enum SortOrder: String, CaseIterable {
         case dateDescending = "Newest First"
@@ -107,6 +112,26 @@ struct TransactionHistoryView: View {
                     Image(systemName: "plus")
                 }
             }
+        }
+        .alert(
+            "Transaction Not Deleted",
+            isPresented: Binding(
+                get: { mutationRetryState.isPresented },
+                set: { isPresented in
+                    if !isPresented {
+                        mutationRetryState.presentationDismissed()
+                    }
+                }
+            )
+        ) {
+            Button("Retry") {
+                retryFailedMutation()
+            }
+            Button("Cancel", role: .cancel) {
+                mutationRetryState.cancel()
+            }
+        } message: {
+            Text(mutationRetryState.errorMessage ?? "Please try again.")
         }
     }
     
@@ -242,8 +267,30 @@ struct TransactionHistoryView: View {
     }
     
     private func deleteTransaction(_ transaction: Transaction) {
-        withAnimation {
-            try? DIContainer.shared.makeTransactionMutationService(modelContext: modelContext).deleteTransaction(transaction)
+        var retryState = mutationRetryState
+        _ = retryState.perform(.delete(transaction)) {
+            try executeMutation(.delete(transaction))
+        }
+        mutationRetryState = retryState
+    }
+
+    private func retryFailedMutation() {
+        Task { @MainActor in
+            var retryState = mutationRetryState
+            _ = await retryState.retryAfterDismissal { action in
+                try executeMutation(action)
+            }
+            mutationRetryState = retryState
+        }
+    }
+
+    private func executeMutation(_ action: MutationAction) throws {
+        switch action {
+        case .delete(let transaction):
+            try withAnimation {
+                try DIContainer.shared.makeTransactionMutationService(modelContext: modelContext)
+                    .deleteTransaction(transaction)
+            }
         }
     }
 }

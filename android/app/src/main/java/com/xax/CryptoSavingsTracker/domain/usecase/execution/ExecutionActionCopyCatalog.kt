@@ -13,6 +13,10 @@ object ExecutionActionCopyCatalog {
     fun finishBlockedNoExecuting(): String =
         "No active month is being tracked."
 
+    fun progressUnavailable(): String =
+        "Execution progress is unavailable because contribution attribution cannot be proven. " +
+            "Cancel tracking to return to planning."
+
     fun undoStartExpired(month: String): String =
         "Undo period ended for $month."
 

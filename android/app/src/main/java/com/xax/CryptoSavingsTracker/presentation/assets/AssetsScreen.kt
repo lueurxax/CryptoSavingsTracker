@@ -72,8 +72,9 @@ fun AssetsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Show error in snackbar
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let { error ->
+    val transientError = uiState.error.takeIf { uiState.sourceFailure == null }
+    LaunchedEffect(transientError) {
+        transientError?.let { error ->
             snackbarHostState.showSnackbar(error)
             viewModel.clearError()
         }
@@ -108,6 +109,15 @@ fun AssetsScreen(
                 uiState.isLoading -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+                uiState.sourceFailure != null -> {
+                    EmptyState(
+                        icon = Icons.Default.AccountBalance,
+                        title = "Asset data unavailable",
+                        message = checkNotNull(uiState.sourceFailure),
+                        actionLabel = "Retry",
+                        onAction = viewModel::retry
                     )
                 }
                 uiState.assets.isEmpty() -> {
@@ -262,11 +272,43 @@ private fun AssetCard(
 
             Spacer(modifier = Modifier.height(Spacing.xs))
 
-            Text(
-                text = "Balance: ${AmountFormatters.formatDisplayCurrencyAmount(item.totalBalance, asset.currency, isCrypto = asset.isCryptoAsset)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (item.totalBalance != null) {
+                Text(
+                    text = "Balance: ${
+                        AmountFormatters.formatDisplayCurrencyAmount(
+                            item.totalBalance,
+                            asset.currency,
+                            isCrypto = asset.isCryptoAsset
+                        )
+                    }",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Text(
+                    text = "Balance unavailable",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = "Manual entries: ${
+                        AmountFormatters.formatDisplayCurrencyAmount(
+                            item.manualBalance,
+                            asset.currency,
+                            isCrypto = asset.isCryptoAsset
+                        )
+                    }",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                item.balanceIssue?.let { issue ->
+                    Text(
+                        text = issue,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
             item.usdValue?.let { usd ->
                 Text(
                     text = "≈ $${AmountFormatters.formatDisplayAmount(usd, isCrypto = false)} USD",

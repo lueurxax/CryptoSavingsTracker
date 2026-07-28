@@ -48,10 +48,15 @@ class GoalEditViewModel: ObservableObject {
     }
     
     // MARK: - Initialization
-    init(goal: Goal, modelContext: ModelContext) {
+    init(
+        goal: Goal,
+        modelContext: ModelContext,
+        goalMutationService: GoalMutationServiceProtocol? = nil
+    ) {
         self.goal = goal
         self.originalSnapshot = goal.createSnapshot()
-        self.goalMutationService = DIContainer.shared.makeGoalMutationService(modelContext: modelContext)
+        self.goalMutationService = goalMutationService
+            ?? DIContainer.shared.makeGoalMutationService(modelContext: modelContext)
         
         setupChangeDetection()
         validateImmediately()
@@ -126,11 +131,6 @@ class GoalEditViewModel: ObservableObject {
             }
             #endif
 
-            clearReminderState()
-
-            // Update modification timestamp
-            goal.lastModifiedDate = Date()
-
             // Log goal save attempt with detailed field values
 
             try await goalMutationService.saveGoal(goal)
@@ -190,6 +190,12 @@ class GoalEditViewModel: ObservableObject {
         defer { isSaving = false }
         
         do {
+            #if DEBUG
+            if UITestFlags.consumeSimulatedGoalArchiveFailureIfNeeded() {
+                throw GoalEditError.archiveFailed("Simulated UI test archive failure")
+            }
+            #endif
+
             try await goalMutationService.archiveGoal(goal)
             
             AppLog.info("Goal '\(goal.name)' archived successfully", category: .goalEdit)
@@ -217,9 +223,6 @@ class GoalEditViewModel: ObservableObject {
         }
     }
     
-    private func clearReminderState() {
-        goal.clearRetiredReminderState()
-    }
 }
 
 // MARK: - Goal Edit Errors

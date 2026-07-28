@@ -1,5 +1,28 @@
 import Foundation
 
+struct FamilyShareAutoRepublishDebugSnapshot: Sendable {
+    let isDirty: Bool
+    let hasPersistedDirtyState: Bool
+    let acceptsAutomaticEvents: Bool
+    let teardownGeneration: Int
+    let lastTeardownPreservedDirtyState: Bool?
+    let lastTeardownCause: String?
+    let lastDirtyClearCause: String?
+}
+
+enum FamilyShareProjectionAutoPublishOutcome: Sendable {
+    case published(FamilySharePublishReceipt)
+    case deduplicated
+    case suppressed
+
+    nonisolated var receipt: FamilySharePublishReceipt? {
+        guard case .published(let receipt) = self else {
+            return nil
+        }
+        return receipt
+    }
+}
+
 /// Per-namespace debounced republish coordinator.
 ///
 /// Lives inside `FamilyShareNamespaceActor` and owns:
@@ -34,10 +57,27 @@ actor FamilyShareProjectionAutoRepublishCoordinator {
     private var coalescedGoalIDs: Set<UUID> = []
     private var debounceHandle: (any FamilyShareCancellable)?
     private var isPublishInFlight = false
+    private var publishIdleWaiters: [CheckedContinuation<Void, Never>] = []
     private var trailingPublishNeeded = false
     private var failureCount = 0
-    private var lastPublishedSnapshot: FamilyShareLastPublishedSnapshot?
+    private var lastLocallyAcknowledgedServerTimestamp: Date?
     private var remoteChangeDateProvider: (() async -> Date?)?
+    private var acceptsAutomaticEvents = true
+    private var teardownGeneration = 0
+    private var lastTeardownPreservedDirtyState: Bool?
+    private var lastTeardownCause: String?
+    private var lastDirtyClearCause: String?
+    private var provisionalExplicitCatchUpTokens: Set<Int> = []
+    private var provisionalCatchUpPreservesAutomaticDirtyState = false
+
+    private struct SuspendedAutomaticDirtyState {
+        let isDirty: Bool
+        let pendingReasons: [FamilyShareProjectionDirtyReason]
+        let coalescedGoalIDs: Set<UUID>
+        let trailingPublishNeeded: Bool
+        let failureCount: Int
+        let wasPersisted: Bool
+    }
 
     // MARK: - Init
 
@@ -66,6 +106,7 @@ actor FamilyShareProjectionAutoRepublishCoordinator {
     /// Receive a dirty event and start the debounce/publish pipeline.
     func markDirty(reason: FamilyShareProjectionDirtyReason) {
         guard rollout.isFreshnessPipelineEnabled() else { return }
+        guard acceptsAutomaticEvents else { return }
         guard !reason.isEmptyScopedMutation else { return }
 
         isDirty = true
@@ -91,10 +132,46 @@ actor FamilyShareProjectionAutoRepublishCoordinator {
         }
     }
 
+    /// Persist an automatic publication obligation even while lifecycle teardown
+    /// temporarily rejects observer events. Activation/rehydration will schedule it.
+    func retainDirtyForLater(reason: FamilyShareProjectionDirtyReason) {
+        guard rollout.isFreshnessPipelineEnabled() else { return }
+        guard !reason.isEmptyScopedMutation else { return }
+
+        isDirty = true
+        pendingReasons.append(reason)
+        coalescedGoalIDs.formUnion(reason.affectedGoalIDs)
+        dirtyStateStore.markDirty(namespaceKey: namespaceKey, reason: reason)
+
+        guard acceptsAutomaticEvents else { return }
+        if isPublishInFlight {
+            trailingPublishNeeded = true
+            return
+        }
+        scheduleAutomaticRetry(
+            delay: failureCount > 0
+                ? policy.backoffDelay(forFailureCount: failureCount)
+                : FamilyShareFreshnessPolicy.mutationDebounce
+        )
+    }
+
     /// Rehydrate dirty state from persistent store (called on launch).
     func rehydrateIfNeeded() {
+        guard acceptsAutomaticEvents else { return }
         let entries = dirtyStateStore.dirtyNamespaces()
         guard entries.contains(where: { $0.namespaceKey == namespaceKey }) else { return }
+        guard provisionalExplicitCatchUpTokens.isEmpty
+                || provisionalCatchUpPreservesAutomaticDirtyState
+                || isDirty
+                || pendingReasons.isEmpty == false
+                || trailingPublishNeeded else {
+            // The durable namespace entry belongs only to an explicit action
+            // that is still live in this process. Promoting it here would
+            // schedule a redundant automatic publish after the explicit ACK.
+            // After a process restart the token set is empty, so the same entry
+            // is conservatively rehydrated as an automatic catch-up.
+            return
+        }
 
         isDirty = true
         debounceHandle = scheduler.scheduleDebounce(delay: FamilyShareFreshnessPolicy.mutationDebounce) { [weak self] in
@@ -102,22 +179,44 @@ actor FamilyShareProjectionAutoRepublishCoordinator {
         }
     }
 
-    /// Teardown for rollback. Cancels all timers, discards pending events.
-    func teardown() {
+    /// Teardown for rollback. Explicit sharing may temporarily preserve automatic
+    /// dirty state so a failed user action can restore the older obligation.
+    func teardown(
+        preservingDirtyState: Bool = false,
+        cause: String = "direct"
+    ) {
+        teardownGeneration &+= 1
+        lastTeardownPreservedDirtyState = preservingDirtyState
+        lastTeardownCause = cause
         let discardedDirtyEventCount = pendingReasons.count
         let activeTimerCount = debounceHandle == nil ? 0 : 1
         debounceHandle?.cancel()
         debounceHandle = nil
-        isDirty = false
-        pendingReasons.removeAll()
-        coalescedGoalIDs.removeAll()
-        trailingPublishNeeded = false
-        dirtyStateStore.clearDirty(namespaceKey: namespaceKey)
+        if preservingDirtyState == false {
+            isDirty = false
+            pendingReasons.removeAll()
+            coalescedGoalIDs.removeAll()
+            trailingPublishNeeded = false
+            failureCount = 0
+            provisionalExplicitCatchUpTokens.removeAll()
+            provisionalCatchUpPreservesAutomaticDirtyState = false
+            lastLocallyAcknowledgedServerTimestamp = nil
+            dirtyStateStore.clearDirty(namespaceKey: namespaceKey)
+            lastDirtyClearCause = "teardown"
+        }
+        acceptsAutomaticEvents = false
+        publishAction = nil
+        remoteChangeDateProvider = nil
         FamilyShareTelemetryTracker().track(.freshnessRollback, payload: [
             "namespace": namespaceKey,
             "discardedDirtyEventCount": "\(discardedDirtyEventCount)",
             "activeTimerCount": "\(activeTimerCount)"
         ])
+    }
+
+    /// Re-enable automatic events after an owner enters an active sharing lifecycle.
+    func activateAutomaticPublishing() {
+        acceptsAutomaticEvents = true
     }
 
     // MARK: - Publish Pipeline
@@ -133,11 +232,99 @@ actor FamilyShareProjectionAutoRepublishCoordinator {
 
     /// The external publish action injected by the namespace actor.
     /// Executes the actual projection rebuild + CloudKit publish.
-    private var publishAction: (() async throws -> FamilySharePublishReceipt?)?
+    private var publishAction: (() async throws -> FamilyShareProjectionAutoPublishOutcome)?
 
     /// Configure the external publish action. Called once during namespace actor setup.
-    func setPublishAction(_ action: @escaping () async throws -> FamilySharePublishReceipt?) {
+    func setPublishAction(
+        _ action: @escaping () async throws -> FamilyShareProjectionAutoPublishOutcome
+    ) {
         self.publishAction = action
+    }
+
+    func setPublishAction(
+        _ action: @escaping () async throws -> FamilySharePublishReceipt?
+    ) {
+        self.publishAction = {
+            if let receipt = try await action() {
+                return .published(receipt)
+            }
+            return .deduplicated
+        }
+    }
+
+    /// Persist a crash-safe explicit-intent marker without adding it to the
+    /// automatic batch. A matching explicit success can acknowledge only this
+    /// marker while unrelated automatic obligations remain durable.
+    func durablyMarkExplicitCatchUp(
+        token: Int,
+        reason: FamilyShareProjectionDirtyReason
+    ) {
+        guard provisionalExplicitCatchUpTokens.contains(token) == false else {
+            return
+        }
+        let hasPersistedDirtyState = dirtyStateStore.dirtyNamespaces().contains {
+            $0.namespaceKey == namespaceKey
+        }
+        let hasPreexistingAutomaticDirtyState =
+            isDirty
+            || pendingReasons.isEmpty == false
+            || trailingPublishNeeded
+            || (
+                hasPersistedDirtyState
+                && provisionalExplicitCatchUpTokens.isEmpty
+            )
+        provisionalCatchUpPreservesAutomaticDirtyState =
+            provisionalCatchUpPreservesAutomaticDirtyState
+            || hasPreexistingAutomaticDirtyState
+        provisionalExplicitCatchUpTokens.insert(token)
+        dirtyStateStore.markDirty(namespaceKey: namespaceKey, reason: reason)
+    }
+
+    /// Atomically transfer a still-live explicit obligation to a newer FIFO
+    /// intent. The namespace marker remains present for crash safety throughout
+    /// the handoff, and acknowledgements for superseded tokens become no-ops.
+    func supersedeExplicitCatchUp(
+        oldToken: Int,
+        newToken: Int,
+        reason: FamilyShareProjectionDirtyReason
+    ) {
+        guard oldToken != newToken else {
+            durablyMarkExplicitCatchUp(token: newToken, reason: reason)
+            return
+        }
+        guard provisionalExplicitCatchUpTokens.remove(oldToken) != nil else {
+            durablyMarkExplicitCatchUp(token: newToken, reason: reason)
+            return
+        }
+        provisionalExplicitCatchUpTokens.insert(newToken)
+        dirtyStateStore.markDirty(namespaceKey: namespaceKey, reason: reason)
+    }
+
+    /// Remove one satisfied explicit marker. Clear the durable namespace marker
+    /// only when no automatic or other explicit obligation remains.
+    func acknowledgeExplicitCatchUp(token: Int) {
+        guard provisionalExplicitCatchUpTokens.remove(token) != nil else {
+            return
+        }
+        guard provisionalExplicitCatchUpTokens.isEmpty else {
+            return
+        }
+
+        let mustPreserveAutomaticDirtyState =
+            provisionalCatchUpPreservesAutomaticDirtyState
+            || isDirty
+            || pendingReasons.isEmpty == false
+            || trailingPublishNeeded
+        provisionalCatchUpPreservesAutomaticDirtyState = false
+        if mustPreserveAutomaticDirtyState {
+            dirtyStateStore.markDirty(
+                namespaceKey: namespaceKey,
+                reason: pendingReasons.first ?? .manualRefresh
+            )
+        } else {
+            dirtyStateStore.clearDirty(namespaceKey: namespaceKey)
+            lastDirtyClearCause = "explicitCatchUpAcknowledged"
+        }
     }
 
     /// Configure the last-known remote change date provider used by the
@@ -172,8 +359,85 @@ actor FamilyShareProjectionAutoRepublishCoordinator {
         return try await executePublishSynchronously()
     }
 
+    /// Executes a user-authored share intent after every older publish settles.
+    ///
+    /// Explicit intents are already serialized by the acceptance coordinator and
+    /// carry their own immutable goal snapshot. They must not be coalesced with
+    /// automatic dirty events or rejected by the remote-import reconciliation
+    /// fence, which protects background auto-publishing rather than direct user
+    /// actions.
+    func publishExplicitIntent(
+        reason: FamilyShareProjectionDirtyReason,
+        action: @escaping () async throws -> FamilySharePublishReceipt?
+    ) async throws -> FamilySharePublishReceipt? {
+        guard rollout.isFreshnessPipelineEnabled() else { return nil }
+        guard !reason.isEmptyScopedMutation else { return nil }
+
+        await waitUntilPublishIsIdle()
+        let executionTeardownGeneration = teardownGeneration
+        let suspendedAutomaticState = SuspendedAutomaticDirtyState(
+            isDirty: isDirty,
+            pendingReasons: pendingReasons,
+            coalescedGoalIDs: coalescedGoalIDs,
+            trailingPublishNeeded: trailingPublishNeeded,
+            failureCount: failureCount,
+            wasPersisted: dirtyStateStore.dirtyNamespaces().contains(where: {
+                $0.namespaceKey == namespaceKey
+            })
+        )
+        debounceHandle?.cancel()
+        debounceHandle = nil
+        isDirty = false
+        pendingReasons.removeAll()
+        coalescedGoalIDs.removeAll()
+        trailingPublishNeeded = false
+        failureCount = 0
+        if suspendedAutomaticState.wasPersisted == false {
+            dirtyStateStore.clearDirty(namespaceKey: namespaceKey)
+            lastDirtyClearCause = "explicitIsolation"
+        }
+        isPublishInFlight = true
+
+        FamilyShareTelemetryTracker().track(.autoPublishRequested, payload: [
+            "namespace": namespaceKey,
+            "reason": describeReason(reason),
+            "goalCount": "\(reason.affectedGoalIDs.count)"
+        ])
+
+        do {
+            let receipt = try await action()
+            if executionTeardownGeneration == teardownGeneration {
+                if let receipt {
+                    recordLocallyAcknowledgedServerTimestamp(
+                        receipt.serverTimestamp
+                    )
+                }
+                FamilyShareTelemetryTracker().track(.autoPublishSucceeded, payload: [
+                    "namespace": namespaceKey
+                ])
+            }
+            finishPublish()
+            await executeTrailingAutomaticPublishIfNeeded()
+            return receipt
+        } catch {
+            finishPublish()
+            if executionTeardownGeneration == teardownGeneration {
+                restoreAutomaticDirtyState(suspendedAutomaticState)
+                if acceptsAutomaticEvents, isDirty {
+                    scheduleAutomaticRetry(
+                        delay: failureCount > 0
+                            ? policy.backoffDelay(forFailureCount: failureCount)
+                            : FamilyShareFreshnessPolicy.mutationDebounce
+                    )
+                }
+            }
+            throw error
+        }
+    }
+
     private enum PublishError: Error {
         case reconciliationTimeout
+        case missingPublishAction
     }
 
     private func onPublishSuccess() {
@@ -183,9 +447,18 @@ actor FamilyShareProjectionAutoRepublishCoordinator {
                 "failureCount": "\(failureCount)"
             ])
         }
-        isDirty = false
+        let hasTrailingDirtyState = pendingReasons.isEmpty == false
+        isDirty = hasTrailingDirtyState
         failureCount = 0
-        dirtyStateStore.clearDirty(namespaceKey: namespaceKey)
+        if let trailingReason = pendingReasons.first {
+            dirtyStateStore.markDirty(
+                namespaceKey: namespaceKey,
+                reason: trailingReason
+            )
+        } else {
+            dirtyStateStore.clearDirty(namespaceKey: namespaceKey)
+            lastDirtyClearCause = "publishSuccess"
+        }
 
         FamilyShareTelemetryTracker().track(.autoPublishSucceeded, payload: [
             "namespace": namespaceKey
@@ -217,6 +490,18 @@ actor FamilyShareProjectionAutoRepublishCoordinator {
         }
     }
 
+    private func onPublishSuppressed(reason: FamilyShareProjectionDirtyReason) {
+        isDirty = true
+        failureCount += 1
+        dirtyStateStore.markDirty(namespaceKey: namespaceKey, reason: reason)
+        guard acceptsAutomaticEvents else {
+            return
+        }
+        scheduleAutomaticRetry(
+            delay: policy.backoffDelay(forFailureCount: failureCount)
+        )
+    }
+
     // MARK: - Helpers
 
     private func describeReason(_ reason: FamilyShareProjectionDirtyReason) -> String {
@@ -241,6 +526,7 @@ actor FamilyShareProjectionAutoRepublishCoordinator {
             return nil
         }
 
+        let executionTeardownGeneration = teardownGeneration
         isPublishInFlight = true
         let reasons = pendingReasons
         let goalIDs = coalescedGoalIDs
@@ -261,32 +547,135 @@ actor FamilyShareProjectionAutoRepublishCoordinator {
         ])
 
         do {
-            let receipt = try await performPublishWithReceipt()
-            onPublishSuccess()
-            isPublishInFlight = false
-            if trailingPublishNeeded {
-                trailingPublishNeeded = false
-                if isDirty {
-                    await executePublish()
+            let outcome = try await performPublish()
+            if executionTeardownGeneration == teardownGeneration {
+                if let receipt = outcome.receipt {
+                    recordLocallyAcknowledgedServerTimestamp(
+                        receipt.serverTimestamp
+                    )
+                }
+                switch outcome {
+                case .published, .deduplicated:
+                    onPublishSuccess()
+                case .suppressed:
+                    onPublishSuppressed(
+                        reason: reasons.first ?? .manualRefresh
+                    )
                 }
             }
-            return receipt
+            finishPublish()
+            await executeTrailingAutomaticPublishIfNeeded()
+            return outcome.receipt
         } catch {
-            onPublishFailure(error: error)
-            isPublishInFlight = false
-            if trailingPublishNeeded {
-                trailingPublishNeeded = false
-                if isDirty {
-                    await executePublish()
-                }
+            if executionTeardownGeneration == teardownGeneration {
+                onPublishFailure(error: error)
             }
+            // A generation mismatch means teardown already chose whether this
+            // obligation must be cleared (revoke/rollback) or retained
+            // (temporary inactive lifecycle). A late result from the old
+            // generation must not override that decision in either direction.
+            finishPublish()
+            await executeTrailingAutomaticPublishIfNeeded()
             throw error
         }
     }
 
-    private func performPublishWithReceipt() async throws -> FamilySharePublishReceipt? {
+    private func waitUntilPublishIsIdle() async {
+        while isPublishInFlight {
+            await withCheckedContinuation { continuation in
+                publishIdleWaiters.append(continuation)
+            }
+        }
+    }
+
+    private func finishPublish() {
+        isPublishInFlight = false
+        let waiters = publishIdleWaiters
+        publishIdleWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+    }
+
+    private func executeTrailingAutomaticPublishIfNeeded() async {
+        guard trailingPublishNeeded else {
+            return
+        }
+        trailingPublishNeeded = false
+        guard acceptsAutomaticEvents, isDirty else {
+            return
+        }
+        await executePublish()
+    }
+
+    private func restoreAutomaticDirtyState(
+        _ state: SuspendedAutomaticDirtyState
+    ) {
+        let dirtyAddedDuringExplicit = isDirty
+        let reasonsAddedDuringExplicit = pendingReasons
+        let goalIDsAddedDuringExplicit = coalescedGoalIDs
+        let trailingAddedDuringExplicit = trailingPublishNeeded
+        let failureCountDuringExplicit = failureCount
+
+        isDirty = state.isDirty || state.wasPersisted || dirtyAddedDuringExplicit
+        pendingReasons = state.pendingReasons + reasonsAddedDuringExplicit
+        coalescedGoalIDs = state.coalescedGoalIDs.union(goalIDsAddedDuringExplicit)
+        trailingPublishNeeded = state.trailingPublishNeeded
+            || trailingAddedDuringExplicit
+            || dirtyAddedDuringExplicit
+        failureCount = max(state.failureCount, failureCountDuringExplicit)
+
+        guard isDirty else { return }
+        let persistenceReason = pendingReasons.first
+            ?? (coalescedGoalIDs.isEmpty
+                ? .manualRefresh
+                : .goalMutation(goalIDs: coalescedGoalIDs))
+        dirtyStateStore.markDirty(
+            namespaceKey: namespaceKey,
+            reason: persistenceReason
+        )
+    }
+
+    private func scheduleAutomaticRetry(delay: TimeInterval) {
+        debounceHandle?.cancel()
+        debounceHandle = scheduler.scheduleDebounce(delay: delay) { [weak self] in
+            await self?.executePublish()
+        }
+    }
+
+    private func recordLocallyAcknowledgedServerTimestamp(_ timestamp: Date) {
+        lastLocallyAcknowledgedServerTimestamp = max(
+            lastLocallyAcknowledgedServerTimestamp ?? .distantPast,
+            timestamp
+        )
+    }
+
+    func debugSnapshotForTesting() -> FamilyShareAutoRepublishDebugSnapshot {
+        FamilyShareAutoRepublishDebugSnapshot(
+            isDirty: isDirty,
+            hasPersistedDirtyState: dirtyStateStore.dirtyNamespaces().contains(where: {
+                $0.namespaceKey == namespaceKey
+            }),
+            acceptsAutomaticEvents: acceptsAutomaticEvents,
+            teardownGeneration: teardownGeneration,
+            lastTeardownPreservedDirtyState: lastTeardownPreservedDirtyState,
+            lastTeardownCause: lastTeardownCause,
+            lastDirtyClearCause: lastDirtyClearCause
+        )
+    }
+
+    private func performPublish() async throws -> FamilyShareProjectionAutoPublishOutcome {
         let barrier = FamilyShareReconciliationBarrier(policy: policy, clock: clock, scheduler: scheduler)
-        let barrierResult = await barrier.checkBarrier(lastKnownRemoteChangeDate: await remoteChangeDateProvider?())
+        let lastKnownRemoteChangeDate = await remoteChangeDateProvider?()
+        let unresolvedRemoteChangeDate: Date?
+        if let lastKnownRemoteChangeDate,
+           let lastLocallyAcknowledgedServerTimestamp,
+           lastKnownRemoteChangeDate <= lastLocallyAcknowledgedServerTimestamp {
+            unresolvedRemoteChangeDate = nil
+        } else {
+            unresolvedRemoteChangeDate = lastKnownRemoteChangeDate
+        }
+        let barrierResult = await barrier.checkBarrier(
+            lastKnownRemoteChangeDate: unresolvedRemoteChangeDate
+        )
 
         switch barrierResult {
         case .satisfied(let waitDurationMs, let importCompleted):
@@ -312,16 +701,16 @@ actor FamilyShareProjectionAutoRepublishCoordinator {
 
         guard let publishAction else {
             AppLog.warning("Auto-republish coordinator has no publish action configured", category: .api)
-            return nil
+            throw PublishError.missingPublishAction
         }
 
-        let receipt = try await publishAction()
-        if let receipt {
+        let outcome = try await publishAction()
+        if let receipt = outcome.receipt {
             FamilyShareTelemetryTracker().track(.rateSnapshotAgeAtPublish, payload: [
                 "namespace": namespaceKey,
                 "recordCount": "\(receipt.recordCount)"
             ])
         }
-        return receipt
+        return outcome
     }
 }

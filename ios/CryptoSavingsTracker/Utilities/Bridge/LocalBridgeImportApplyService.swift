@@ -260,6 +260,11 @@ final class LocalBridgeImportApplyService {
         _ incoming: SnapshotEnvelope,
         currentSnapshot: SnapshotEnvelope
     ) throws -> SnapshotEnvelope {
+        try validateNoAssetIdentifierRekey(
+            incoming: incoming,
+            currentSnapshot: currentSnapshot
+        )
+
         let goals = overlay(currentSnapshot.goals, with: incoming.goals, id: \.id)
         let assets = overlay(currentSnapshot.assets, with: incoming.assets, id: \.id)
         var transactions = overlay(currentSnapshot.transactions, with: incoming.transactions, id: \.id)
@@ -312,7 +317,9 @@ final class LocalBridgeImportApplyService {
                     amount: snapshot.amount,
                     timestamp: snapshot.timestamp,
                     createdAt: snapshot.createdAt,
-                    monthLabel: snapshot.monthLabel
+                    monthLabel: snapshot.monthLabel,
+                    sourceTransactionId: snapshot.sourceTransactionId,
+                    sourcePreviousAmount: snapshot.sourcePreviousAmount
                 )
             )
         })
@@ -462,6 +469,93 @@ final class LocalBridgeImportApplyService {
         ).withComputedFingerprint()
     }
 
+    private func validateNoAssetIdentifierRekey(
+        incoming: SnapshotEnvelope,
+        currentSnapshot: SnapshotEnvelope
+    ) throws {
+        let currentAssetIDs = Set(
+            currentSnapshot.assets
+                .filter { $0.recordState == .active }
+                .map(\.id)
+        )
+        let newlyIntroducedAssetIDs = Set(
+            incoming.assets
+                .filter { $0.recordState == .active && !currentAssetIDs.contains($0.id) }
+                .map(\.id)
+        )
+        guard !newlyIntroducedAssetIDs.isEmpty else { return }
+
+        let currentTransactions = Dictionary(
+            uniqueKeysWithValues: currentSnapshot.transactions
+                .filter { $0.recordState == .active }
+                .map { ($0.id, $0) }
+        )
+        let currentAllocations = Dictionary(
+            uniqueKeysWithValues: currentSnapshot.assetAllocations
+                .filter { $0.recordState == .active }
+                .map { ($0.id, $0) }
+        )
+        let currentHistories = Dictionary(
+            uniqueKeysWithValues: currentSnapshot.allocationHistories
+                .filter { $0.recordState == .active }
+                .map { ($0.id, $0) }
+        )
+
+        var issues: [String] = []
+
+        for transaction in incoming.transactions where transaction.recordState == .active {
+            guard
+                let incomingAssetID = transaction.assetId,
+                newlyIntroducedAssetIDs.contains(incomingAssetID),
+                let currentAssetID = currentTransactions[transaction.id]?.assetId,
+                currentAssetID != incomingAssetID,
+                currentAssetIDs.contains(currentAssetID)
+            else {
+                continue
+            }
+            issues.append(
+                "Transaction \(transaction.id.uuidString) attempts to re-key asset "
+                    + "\(currentAssetID.uuidString) as \(incomingAssetID.uuidString)."
+            )
+        }
+
+        for allocation in incoming.assetAllocations where allocation.recordState == .active {
+            guard
+                let incomingAssetID = allocation.assetId,
+                newlyIntroducedAssetIDs.contains(incomingAssetID),
+                let currentAssetID = currentAllocations[allocation.id]?.assetId,
+                currentAssetID != incomingAssetID,
+                currentAssetIDs.contains(currentAssetID)
+            else {
+                continue
+            }
+            issues.append(
+                "AssetAllocation \(allocation.id.uuidString) attempts to re-key asset "
+                    + "\(currentAssetID.uuidString) as \(incomingAssetID.uuidString)."
+            )
+        }
+
+        for history in incoming.allocationHistories where history.recordState == .active {
+            guard
+                let incomingAssetID = history.assetId,
+                newlyIntroducedAssetIDs.contains(incomingAssetID),
+                let currentAssetID = currentHistories[history.id]?.assetId,
+                currentAssetID != incomingAssetID,
+                currentAssetIDs.contains(currentAssetID)
+            else {
+                continue
+            }
+            issues.append(
+                "AllocationHistory \(history.id.uuidString) attempts to re-key asset "
+                    + "\(currentAssetID.uuidString) as \(incomingAssetID.uuidString)."
+            )
+        }
+
+        if !issues.isEmpty {
+            throw LocalBridgeImportApplyError.validationFailed(issues.sorted())
+        }
+    }
+
     private func authoritativeEnvelopeAfterApply(_ envelope: SnapshotEnvelope) throws -> SnapshotEnvelope {
         let authoritativeManifest = SnapshotManifest(
             snapshotID: envelope.manifest.snapshotID,
@@ -536,6 +630,12 @@ final class LocalBridgeImportApplyService {
         issues.append(contentsOf: duplicateLogicalKeyIssues(for: envelope.completedExecutions, entityName: "CompletedExecution", logicalKey: completedExecutionLogicalKey))
         issues.append(contentsOf: duplicateLogicalKeyIssues(for: envelope.executionSnapshots, entityName: "ExecutionSnapshot", logicalKey: executionSnapshotLogicalKey))
         issues.append(contentsOf: duplicateLogicalKeyIssues(for: envelope.completionEvents, entityName: "CompletionEvent", logicalKey: completionEventLogicalKey))
+        issues.append(
+            contentsOf: BridgeAllocationHistoryProvenanceValidator.issues(
+                histories: envelope.allocationHistories,
+                transactions: envelope.transactions
+            )
+        )
 
         let activeGoals = envelope.goals.filter { $0.recordState == .active }
         let activeAssets = envelope.assets.filter { $0.recordState == .active }
@@ -1091,6 +1191,8 @@ final class LocalBridgeImportApplyService {
             history.monthLabel = snapshot.monthLabel
             history.assetId = asset?.id
             history.goalId = goal?.id
+            history.sourceTransactionId = snapshot.sourceTransactionId
+            history.sourcePreviousAmount = snapshot.sourcePreviousAmount
             history.asset = asset
             history.goal = goal
             keptHistoryIDs.insert(history.id)
@@ -1697,18 +1799,30 @@ private func goalLogicalKey(name: String, currency: String, targetAmount: Double
 }
 
 private func assetLogicalKey(_ snapshot: BridgeAssetSnapshot) -> String {
-    assetLogicalKey(currency: snapshot.currency, chainID: snapshot.chainId, address: snapshot.address)
+    if let identity = AssetPersistenceIdentityPolicy.addressedIdentity(
+        currency: snapshot.currency,
+        address: snapshot.address,
+        chainId: snapshot.chainId
+    ) {
+        return assetLogicalKey(identity)
+    }
+    // Addressless assets are independent accounts and have no provider
+    // identity. Their stable record ID is the only safe logical key.
+    return "addressless|\(snapshot.id.uuidString.lowercased())"
 }
 
 private func assetLogicalKey(_ asset: Asset) -> String {
-    assetLogicalKey(currency: asset.currency, chainID: asset.chainId, address: asset.address)
+    if let identity = AssetPersistenceIdentityPolicy.addressedIdentity(for: asset) {
+        return assetLogicalKey(identity)
+    }
+    return "addressless|\(asset.id.uuidString.lowercased())"
 }
 
-private func assetLogicalKey(currency: String, chainID: String?, address: String?) -> String {
+private func assetLogicalKey(_ identity: AddressedAssetPersistenceIdentity) -> String {
     [
-        normalizedCurrency(currency),
-        normalizedChainOrAddress(chainID),
-        normalizedChainOrAddress(address)
+        identity.currency,
+        identity.chainId,
+        identity.address
     ].joined(separator: "|")
 }
 
@@ -1872,10 +1986,6 @@ private func normalizedText(_ value: String?) -> String {
 
 private func normalizedCurrency(_ value: String) -> String {
     value.uppercased()
-}
-
-private func normalizedChainOrAddress(_ value: String?) -> String {
-    normalizedText(value).lowercased()
 }
 
 private func normalizedNumber(_ value: Double) -> String {

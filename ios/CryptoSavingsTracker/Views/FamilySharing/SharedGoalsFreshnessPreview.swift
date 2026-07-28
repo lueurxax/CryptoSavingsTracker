@@ -48,7 +48,7 @@ private struct SharedGoalsFreshnessPreviewGallery: View {
             }
             .padding()
         }
-        .background(Color(.systemGroupedBackground))
+        .background(AccessibleColors.surfaceSubtle)
     }
 }
 

@@ -3,19 +3,26 @@ package com.xax.CryptoSavingsTracker.presentation.assets
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.domain.model.Asset
+import com.xax.CryptoSavingsTracker.domain.model.OnChainAssetRouteCatalog
 import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.DeleteAssetUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.GetAssetsUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.balance.AssetBalanceCompleteness
+import com.xax.CryptoSavingsTracker.domain.usecase.balance.AssetBalanceCompletenessResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
@@ -28,14 +35,17 @@ import javax.inject.Inject
  */
 data class AssetListItem(
     val asset: Asset,
-    val totalBalance: Double,
-    val usdValue: Double?
+    val manualBalance: Double,
+    val totalBalance: Double?,
+    val usdValue: Double?,
+    val balanceIssue: String?
 )
 
 data class AssetListUiState(
     val assets: List<AssetListItem> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
+    val sourceFailure: String? = null,
     val showDeleteConfirmation: Asset? = null
 )
 
@@ -43,6 +53,7 @@ data class AssetListUiState(
  * ViewModel for the Assets List screen
  */
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class AssetListViewModel @Inject constructor(
     private val getAssetsUseCase: GetAssetsUseCase,
     private val transactionRepository: TransactionRepository,
@@ -51,8 +62,20 @@ class AssetListViewModel @Inject constructor(
     private val deleteAssetUseCase: DeleteAssetUseCase
 ) : ViewModel() {
 
+    private data class SourceRead<T>(
+        val value: T? = null,
+        val failure: String? = null
+    )
+
+    private data class AssetSourceUpdate(
+        val assets: List<Asset>? = null,
+        val transactions: List<com.xax.CryptoSavingsTracker.domain.model.Transaction>? = null,
+        val failure: String? = null
+    )
+
     private val _error = MutableStateFlow<String?>(null)
     private val _showDeleteConfirmation = MutableStateFlow<Asset?>(null)
+    private val sourceRetryGeneration = MutableStateFlow(0L)
 
     private val _uiState = MutableStateFlow(AssetListUiState())
     val uiState: StateFlow<AssetListUiState> = _uiState.asStateFlow()
@@ -60,19 +83,48 @@ class AssetListViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             combine(
-                getAssetsUseCase().catch { emit(emptyList()) },
-                transactionRepository.getAllTransactions().catch { emit(emptyList()) },
+                sourceRetryGeneration.flatMapLatest { observeAssetSources() },
                 _showDeleteConfirmation,
                 _error
-            ) { assets, transactions, deleteConfirmation, error ->
-                Quadruple(assets, transactions, deleteConfirmation, error)
-            }.collectLatest { (assets, transactions, deleteConfirmation, error) ->
+            ) { sources, deleteConfirmation, error ->
+                Triple(sources, deleteConfirmation, error)
+            }.collectLatest { (sources, deleteConfirmation, error) ->
+                val sourceFailure = sources.failure
+                if (sourceFailure != null) {
+                    _uiState.value = AssetListUiState(
+                        assets = emptyList(),
+                        isLoading = false,
+                        error = sourceFailure,
+                        sourceFailure = sourceFailure,
+                        showDeleteConfirmation = deleteConfirmation
+                    )
+                    return@collectLatest
+                }
+
+                val assets = checkNotNull(sources.assets)
+                val transactions = checkNotNull(sources.transactions)
                 val manualBalanceByAssetId = transactions
                     .filter { it.source == TransactionSource.MANUAL }
                     .groupBy { it.assetId }
                     .mapValues { (_, txs) -> txs.sumOf { it.amount } }
 
-                val currencies = assets.map { it.currency.uppercase() }.distinct()
+                val legacyQuickAssetIds = assets
+                    .filter { asset ->
+                        OnChainAssetRouteCatalog.isLegacyQuick(
+                            chainId = asset.chainId,
+                            currencyOrContract = asset.currency
+                        )
+                    }
+                    .mapTo(mutableSetOf()) { it.id }
+                val addressedLegacyQuickAssetIds = assets
+                    .filter { asset ->
+                        asset.id in legacyQuickAssetIds && !asset.address.isNullOrBlank()
+                    }
+                    .mapTo(mutableSetOf()) { it.id }
+                val currencies = assets
+                    .filterNot { it.id in legacyQuickAssetIds }
+                    .map { it.currency.uppercase() }
+                    .distinct()
                 val ratesByCurrency = coroutineScope {
                     currencies.map { currency ->
                         async {
@@ -81,14 +133,24 @@ class AssetListViewModel @Inject constructor(
                     }.awaitAll().toMap()
                 }
 
-                val onChainBalanceByAssetId = coroutineScope {
+                val balanceByAssetId = coroutineScope {
                     assets.map { asset ->
                         async {
-                            if (!asset.chainId.isNullOrBlank() && !asset.address.isNullOrBlank()) {
-                                asset.id to onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance
+                            val manualBalance = manualBalanceByAssetId[asset.id] ?: 0.0
+                            val completeness = if (asset.id in addressedLegacyQuickAssetIds) {
+                                AssetBalanceCompleteness.Unavailable(
+                                    manualBalance = manualBalance,
+                                    issue = LEGACY_QUICK_UNAVAILABLE_MESSAGE
+                                )
                             } else {
-                                asset.id to null
+                                AssetBalanceCompletenessResolver.resolve(
+                                    asset = asset,
+                                    manualBalance = manualBalance,
+                                    repository = onChainBalanceRepository,
+                                    forceRefresh = false
+                                )
                             }
+                            asset.id to completeness
                         }
                     }.awaitAll().toMap()
                 }
@@ -97,26 +159,70 @@ class AssetListViewModel @Inject constructor(
                     .sortedBy { it.currency }
                     .map { asset ->
                         val manualBalance = manualBalanceByAssetId[asset.id] ?: 0.0
-                        val onChainBalance = onChainBalanceByAssetId[asset.id] ?: 0.0
-                        val totalBalance = AssetBalanceCalculator.totalBalance(
+                        val balance = checkNotNull(balanceByAssetId[asset.id])
+                        val totalBalance = balance.totalBalanceOrNull
+                        val rate = if (asset.id in legacyQuickAssetIds) {
+                            null
+                        } else {
+                            ratesByCurrency[asset.currency.uppercase()]
+                        }
+                        val usdValue = totalBalance?.let { total ->
+                            rate
+                                ?.takeIf { it.isFinite() && it > 0.0 }
+                                ?.let { total * it }
+                                ?.takeIf(Double::isFinite)
+                        }
+                        AssetListItem(
+                            asset = asset,
                             manualBalance = manualBalance,
-                            onChainBalance = onChainBalance,
-                            hasOnChain = !asset.chainId.isNullOrBlank() && !asset.address.isNullOrBlank()
+                            totalBalance = totalBalance,
+                            usdValue = usdValue,
+                            balanceIssue = balance.issueOrNull
                         )
-                        val rate = ratesByCurrency[asset.currency.uppercase()]
-                        val usdValue = rate?.let { totalBalance * it }
-                        AssetListItem(asset = asset, totalBalance = totalBalance, usdValue = usdValue)
                     }
 
                 _uiState.value = AssetListUiState(
                     assets = items,
                     isLoading = false,
-                    error = error,
+                    error = error ?: if (addressedLegacyQuickAssetIds.isNotEmpty()) {
+                        LEGACY_QUICK_UNAVAILABLE_MESSAGE
+                    } else {
+                        null
+                    },
+                    sourceFailure = null,
                     showDeleteConfirmation = deleteConfirmation
                 )
             }
         }
     }
+
+    private fun observeAssetSources(): Flow<AssetSourceUpdate> = combine(
+        getAssetsUseCase().asSourceRead("Asset"),
+        transactionRepository.getAllTransactions().asSourceRead("Transaction")
+    ) { assets, transactions ->
+        val failure = listOfNotNull(assets.failure, transactions.failure)
+            .joinToString(" ")
+            .takeIf { it.isNotEmpty() }
+        if (failure != null) {
+            AssetSourceUpdate(failure = failure)
+        } else {
+            AssetSourceUpdate(
+                assets = checkNotNull(assets.value),
+                transactions = checkNotNull(transactions.value)
+            )
+        }
+    }
+
+    private fun <T> Flow<T>.asSourceRead(label: String): Flow<SourceRead<T>> =
+        map<T, SourceRead<T>> { value -> SourceRead(value = value) }
+            .catch { error ->
+                emit(
+                    SourceRead(
+                        failure = "$label data source unavailable: " +
+                            (error.message ?: error::class.simpleName.orEmpty())
+                    )
+                )
+            }
 
     fun requestDeleteAsset(asset: Asset) {
         _showDeleteConfirmation.value = asset
@@ -144,6 +250,14 @@ class AssetListViewModel @Inject constructor(
     fun clearError() {
         _error.value = null
     }
-}
 
-private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+    fun retry() {
+        _uiState.update { it.copy(isLoading = true, error = null, sourceFailure = null) }
+        sourceRetryGeneration.update { it + 1L }
+    }
+
+    private companion object {
+        const val LEGACY_QUICK_UNAVAILABLE_MESSAGE =
+            "Legacy QUICK automatic balance is unavailable; the total balance is hidden."
+    }
+}

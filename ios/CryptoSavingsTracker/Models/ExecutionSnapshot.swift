@@ -54,6 +54,20 @@ final class ExecutionSnapshot {
     var activeGoalCount: Int {
         return goalSnapshots.filter { !$0.isSkipped }.count
     }
+
+    func replaceGoalSnapshots(with snapshots: [ExecutionGoalSnapshot]) throws {
+        snapshotData = try JSONEncoder().encode(snapshots)
+        totalPlanned = Self.compatibleCurrencyTotal(for: snapshots)
+    }
+
+    fileprivate static func compatibleCurrencyTotal(
+        for snapshots: [ExecutionGoalSnapshot]
+    ) -> Double {
+        let included = snapshots.filter { !$0.isSkipped }
+        let currencies = Set(included.map { $0.currency.uppercased() })
+        guard currencies.count <= 1 else { return 0 }
+        return included.reduce(0) { $0 + $1.plannedAmount }
+    }
 }
 
 // MARK: - ExecutionGoalSnapshot Struct
@@ -94,10 +108,13 @@ struct ExecutionGoalSnapshot: Codable, Sendable, Identifiable, Equatable {
 // MARK: - Factory Method
 
 extension ExecutionSnapshot {
+    enum CreationError: Error {
+        case duplicateGoal(UUID)
+    }
 
     /// Factory method to create properly initialized snapshot for SwiftData
     /// This ensures all properties are set before insertion into ModelContext
-    static func create(from plans: [MonthlyPlan], goals: [Goal]) -> ExecutionSnapshot {
+    static func create(from plans: [MonthlyPlan], goals: [Goal]) throws -> ExecutionSnapshot {
 
         let id = UUID()
         let capturedAt = Date()
@@ -106,7 +123,11 @@ extension ExecutionSnapshot {
         let goalDict = Dictionary(uniqueKeysWithValues: goals.map { ($0.id, $0) })
 
         // Create snapshots with goal names
-        let snapshots = plans.map { plan in
+        var seenGoalIDs: Set<UUID> = []
+        let snapshots = try plans.map { plan in
+            guard seenGoalIDs.insert(plan.goalId).inserted else {
+                throw CreationError.duplicateGoal(plan.goalId)
+            }
             let goalName = goalDict[plan.goalId]?.name ?? "Unknown Goal"
             let snapshot = ExecutionGoalSnapshot(
                 goalId: plan.goalId,
@@ -121,16 +142,10 @@ extension ExecutionSnapshot {
         }
 
 
-        let calculatedTotal = snapshots.reduce(0) { $0 + $1.plannedAmount }
+        let calculatedTotal = compatibleCurrencyTotal(for: snapshots)
 
         // Encode to Data for SwiftData storage
-        let encodedData: Data
-        if let encoded = try? JSONEncoder().encode(snapshots) {
-            encodedData = encoded
-        } else {
-            encodedData = Data()
-            AppLog.error("Failed to encode snapshots!", category: .executionTracking)
-        }
+        let encodedData = try JSONEncoder().encode(snapshots)
 
         // Create using memberwise init with ALL properties set
         let snapshot = ExecutionSnapshot(
@@ -196,7 +211,53 @@ extension ExecutionSnapshot {
 
     /// Overall completion percentage
     func overallCompletion(with contributions: [UUID: Double]) -> Double {
-        let totalContributed = contributions.values.reduce(0, +)
-        return totalPlanned > 0 ? (totalContributed / totalPlanned) * 100 : 0
+        ExecutionProgressAggregation.percentage(
+            targets: goalSnapshots.map {
+                ExecutionProgressTarget(
+                    goalId: $0.goalId,
+                    plannedAmount: $0.plannedAmount,
+                    isSkipped: $0.isSkipped
+                )
+            },
+            contributions: contributions
+        )
+    }
+}
+
+struct ExecutionProgressTarget: Equatable {
+    let goalId: UUID
+    let plannedAmount: Double
+    let isSkipped: Bool
+}
+
+enum ExecutionProgressAggregation {
+    static func percentage(
+        targets: [ExecutionProgressTarget],
+        contributions: [UUID: Double]
+    ) -> Double {
+        let included = targets.filter {
+            !$0.isSkipped && $0.plannedAmount.isFinite && $0.plannedAmount > 0
+        }
+        guard !included.isEmpty else { return 0 }
+
+        let completedFractions = included.reduce(0.0) { total, target in
+            let contributed = contributions[target.goalId] ?? 0
+            let fraction = contributed.isFinite
+                ? contributed / target.plannedAmount
+                : 0
+            return total + min(max(fraction, 0), 1)
+        }
+        return (completedFractions / Double(included.count)) * 100
+    }
+}
+
+enum ExecutionAmountFormatter {
+    static func string(amount: Double, currency: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = currency.uppercased()
+        formatter.maximumFractionDigits = 8
+        return formatter.string(from: NSNumber(value: amount))
+            ?? "\(currency.uppercased()) \(amount)"
     }
 }

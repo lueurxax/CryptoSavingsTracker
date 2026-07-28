@@ -1,0 +1,100 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Voice</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  body { padding: 0; background: #050810; color: #fff; }
+  .stage { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+
+  .tagline {
+    font: 700 28px var(--font-sans);
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+  }
+  .tagline .gold { color: #F5A623; }
+  .tagline .dim  { color: rgba(255,255,255,0.45); }
+  .sub {
+    font: 500 12px var(--font-sans);
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .col {
+    border-radius: 12px;
+    padding: 14px 16px;
+    border: 0.5px solid rgba(120, 175, 255, 0.14);
+    background: linear-gradient(180deg, #0E1426 0%, #07091A 100%);
+  }
+  .col h4 {
+    margin: 0 0 6px;
+    font: 600 11px var(--font-sans);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .yes h4 { color: #F5A623; }
+  .no  h4 { color: #FF6B6B; }
+  .col p { margin: 6px 0; font: 500 13px var(--font-sans); line-height: 1.45; }
+  .yes p { color: #fff; }
+  .no  p { color: rgba(255,255,255,0.55); text-decoration: line-through; text-decoration-color: rgba(255,107,107,0.45); }
+
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .principle {
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: rgba(245,166,35,0.06);
+    border: 0.5px solid rgba(245,166,35,0.22);
+  }
+  .principle .k {
+    font: 600 11px var(--font-sans);
+    color: #F5A623;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .principle .v {
+    font: 500 12px var(--font-sans);
+    color: rgba(255,255,255,0.75);
+    line-height: 1.35;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div>
+    <div class="sub">Brand voice</div>
+    <div class="tagline">Track. <span class="gold">Save.</span> Grow.</div>
+  </div>
+
+  <div class="principles">
+    <div class="principle"><div class="k">Calm</div><div class="v">Numbers do the talking; we don't shout.</div></div>
+    <div class="principle"><div class="k">Specific</div><div class="v">Exact amounts &amp; dates over vague reassurance.</div></div>
+    <div class="principle"><div class="k">Honest</div><div class="v">Off-track is off-track. We say it plainly.</div></div>
+  </div>
+
+  <div class="pair">
+    <div class="col yes">
+      <h4>Do</h4>
+      <p>"Save $240 by Mar 15 to stay on track."</p>
+      <p>"You're $48 ahead of plan."</p>
+      <p>"BTC is down 4.2% this week."</p>
+    </div>
+    <div class="col no">
+      <h4>Don't</h4>
+      <p>"You're crushing it! 🚀🔥"</p>
+      <p>"Diamond hands forever, fam."</p>
+      <p>"Don't worry, the dip is temporary."</p>
+    </div>
+  </div>
+
+</div>
+</body></html>

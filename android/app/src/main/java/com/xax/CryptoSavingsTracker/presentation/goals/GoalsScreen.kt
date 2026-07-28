@@ -263,24 +263,48 @@ private fun GoalCard(
 
             Spacer(modifier = Modifier.height(Spacing.sm))
 
-            // Progress and target amount (uses fundedAmount to match iOS)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            val fundedAmount = goalWithProgress.fundedAmount
+            val progress = goalWithProgress.progress
+            val progressPercent = goalWithProgress.progressPercent
+
+            if (fundedAmount != null && progress != null && progressPercent != null) {
+                // Progress and target amount (uses fundedAmount to match iOS)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = AmountFormatters.formatDisplayCurrencyAmount(
+                            fundedAmount,
+                            goal.currency,
+                            isCrypto = false
+                        ),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "$progressPercent%",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = statusColor
+                    )
+                }
+            } else {
                 Text(
-                    text = AmountFormatters.formatDisplayCurrencyAmount(goalWithProgress.fundedAmount, goal.currency, isCrypto = false),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "${goalWithProgress.progressPercent}%",
+                    text = "Progress unavailable",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = statusColor
+                    color = MaterialTheme.colorScheme.error
                 )
+                goalWithProgress.financialDataIssue?.let { issue ->
+                    Text(
+                        text = issue,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
 
             Text(
@@ -292,14 +316,19 @@ private fun GoalCard(
             Spacer(modifier = Modifier.height(Spacing.xs))
 
             // Progress bar with real progress
-            LinearProgressIndicator(
-                progress = { goalWithProgress.progress.toFloat().coerceIn(0f, 1f) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = "${goal.name} progress: ${goalWithProgress.progressPercent} percent complete" },
-                color = statusColor,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
+            if (progress != null && progressPercent != null) {
+                LinearProgressIndicator(
+                    progress = { progress.toFloat().coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics {
+                            contentDescription =
+                                "${goal.name} progress: $progressPercent percent complete"
+                        },
+                    color = statusColor,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            }
 
             Spacer(modifier = Modifier.height(Spacing.xs))
 

@@ -15,6 +15,7 @@ final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableOb
     
     // MARK: - Dependencies
     private let exchangeRateService: ExchangeRateServiceProtocol
+    private let now: () -> Date
     
     // MARK: - Performance Cache
     private var planCache: [UUID: CachedPlan] = [:]
@@ -26,8 +27,12 @@ final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableOb
     @Published var lastCalculationError: Error?
     
     // MARK: - Initialization
-    init(exchangeRateService: ExchangeRateServiceProtocol) {
+    init(
+        exchangeRateService: ExchangeRateServiceProtocol,
+        now: @escaping () -> Date = Date.init
+    ) {
         self.exchangeRateService = exchangeRateService
+        self.now = now
     }
     
     // MARK: - Public API
@@ -42,8 +47,13 @@ final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableOb
         var requirements: [MonthlyRequirement] = []
         
         for goal in goals {
-            let requirement = await calculateRequirementForGoal(goal)
-            requirements.append(requirement)
+            do {
+                let requirement = try await calculateRequirementForGoal(goal)
+                requirements.append(requirement)
+            } catch {
+                lastCalculationError = error
+                return []
+            }
         }
         
         lastCalculationError = nil
@@ -53,24 +63,45 @@ final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableOb
     /// Calculate total monthly requirement in display currency
     func calculateTotalRequired(for goals: [Goal], displayCurrency: String) async -> Double {
         let requirements = await calculateMonthlyRequirements(for: goals)
-        
-        var total: Double = 0
-        
-        for requirement in requirements {
-            if requirement.currency == displayCurrency {
-                total += requirement.requiredMonthly
-            } else {
-                do {
-                    let rate = try await exchangeRateService.fetchRate(from: requirement.currency, to: displayCurrency)
-                    total += requirement.requiredMonthly * rate
-                } catch {
-                    AppLog.warning("Currency conversion failed for \(requirement.currency) to \(displayCurrency): \(error.localizedDescription)", category: .exchangeRate)
-                    total += requirement.requiredMonthly // Fallback to 1:1
-                }
-            }
+        guard lastCalculationError == nil else {
+            return 0
         }
         
-        return total
+        let targetCurrency = displayCurrency.uppercased()
+        let sourceCurrencies = Set(
+            requirements
+                .map { $0.currency.uppercased() }
+                .filter { $0 != targetCurrency }
+        )
+        var ratesBySource: [String: Double] = [:]
+
+        for sourceCurrency in sourceCurrencies.sorted() {
+            do {
+                ratesBySource[sourceCurrency] = try await exchangeRateService.fetchRate(
+                    from: sourceCurrency,
+                    to: targetCurrency
+                )
+            } catch {
+                AppLog.warning(
+                    "Currency conversion failed for \(sourceCurrency) to \(targetCurrency): \(error.localizedDescription)",
+                    category: .exchangeRate
+                )
+                lastCalculationError = MonthlyPlanningError.currencyConversionFailed(
+                    "\(sourceCurrency) to \(targetCurrency)"
+                )
+                return 0
+            }
+        }
+
+        lastCalculationError = nil
+        return requirements.reduce(into: 0) { total, requirement in
+            let sourceCurrency = requirement.currency.uppercased()
+            if sourceCurrency == targetCurrency {
+                total += requirement.requiredMonthly
+            } else if let rate = ratesBySource[sourceCurrency] {
+                total += requirement.requiredMonthly * rate
+            }
+        }
     }
     
     /// Get monthly requirement for a single goal
@@ -86,11 +117,23 @@ final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableOb
     }
     
     /// Calculate requirement for a single goal
-    private func calculateRequirementForGoal(_ goal: Goal) async -> MonthlyRequirement {
+    private func calculateRequirementForGoal(_ goal: Goal) async throws -> MonthlyRequirement {
         // Calculate current total
-        let currentTotal = await GoalCalculationService.getCurrentTotal(for: goal)
+        let currentTotalResult = await GoalCalculationService.getCurrentTotalResult(for: goal)
+        guard currentTotalResult.isComplete else {
+            throw MonthlyPlanningError.calculationFailed(
+                "Current balance is unavailable for \(goal.name). Refresh balances and retry."
+            )
+        }
+        let currentTotal = currentTotalResult.total
         let remaining = max(0, goal.targetAmount - currentTotal)
-        let monthsRemaining = max(1, calculateMonthsRemaining(from: Date(), to: goal.deadline))
+        let reference = now()
+        let monthsRemaining = try PlanningMonthContract.paymentPeriodsRemaining(
+            in: PlanningMonthContract.storageLabel(for: reference),
+            paymentDay: MonthlyPlanningSettings.shared.paymentDay,
+            deadline: goal.deadline,
+            now: reference
+        )
         let requiredMonthly = remaining / Double(monthsRemaining)
         let progress = goal.targetAmount > 0 ? min(currentTotal / goal.targetAmount, 1.0) : 0
         
@@ -122,40 +165,6 @@ final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableOb
     
     // MARK: - Private Implementation
 
-    /// Calculate how many payment periods remain until the deadline
-    /// Uses the payment day from MonthlyPlanningSettings
-    ///
-    /// Example: Today Dec 18, payment day 25th, deadline March 1
-    /// Payment dates: Dec 25, Jan 25, Feb 25 = 3 periods
-    private func calculateMonthsRemaining(from startDate: Date, to endDate: Date) -> Int {
-        let settings = MonthlyPlanningSettings.shared
-        let paymentDay = settings.paymentDay
-        let calendar = Calendar.current
-
-        // Find the next payment date from startDate
-        var components = calendar.dateComponents([.year, .month], from: startDate)
-        components.day = paymentDay
-        guard var paymentDate = calendar.date(from: components) else {
-            // Fallback to simple month calculation
-            return max(1, calendar.dateComponents([.month], from: startDate, to: endDate).month ?? 1)
-        }
-
-        // If payment date this month has passed, start from next month
-        if paymentDate <= startDate {
-            paymentDate = calendar.date(byAdding: .month, value: 1, to: paymentDate) ?? paymentDate
-        }
-
-        // Count payment dates until we pass the deadline
-        var count = 0
-        while paymentDate < endDate {
-            count += 1
-            paymentDate = calendar.date(byAdding: .month, value: 1, to: paymentDate) ?? paymentDate
-        }
-
-        // Ensure at least 1 payment period
-        return max(1, count)
-    }
-    
     /// Determine the status based on requirement calculations
     private func determineRequirementStatus(
         remaining: Double,

@@ -12,6 +12,7 @@ enum UITestFlags {
     private static let args = ProcessInfo.processInfo.arguments
     private static let environment = ProcessInfo.processInfo.environment
     private static var remainingSimulatedGoalSaveFailures = shouldSimulateGoalSaveFailure ? 1 : 0
+    private static var remainingSimulatedGoalArchiveFailures = shouldSimulateGoalArchiveFailure ? 1 : 0
     private static var remainingSimulatedTransactionSaveFailures = shouldSimulateTransactionSaveFailure ? 1 : 0
 
     enum FamilyShareScenario: String {
@@ -65,12 +66,20 @@ enum UITestFlags {
         args.contains("UITEST_SEED_STALE_DRAFTS")
     }
 
+    static var shouldSeedPublicCurrencyCatalog: Bool {
+        args.contains("UITEST_SEED_PUBLIC_CURRENCY_CATALOG")
+    }
+
     static var shouldForceOnboarding: Bool {
         args.contains("UITEST_FORCE_ONBOARDING")
     }
 
     static var shouldSimulateGoalSaveFailure: Bool {
         args.contains("UITEST_SIMULATE_GOAL_SAVE_FAILURE")
+    }
+
+    static var shouldSimulateGoalArchiveFailure: Bool {
+        args.contains("UITEST_SIMULATE_GOAL_ARCHIVE_FAILURE")
     }
 
     static var shouldSimulateTransactionSaveFailure: Bool {
@@ -97,6 +106,15 @@ enum UITestFlags {
             return false
         }
         remainingSimulatedGoalSaveFailures -= 1
+        return true
+    }
+
+    @MainActor
+    static func consumeSimulatedGoalArchiveFailureIfNeeded() -> Bool {
+        guard shouldSimulateGoalArchiveFailure, remainingSimulatedGoalArchiveFailures > 0 else {
+            return false
+        }
+        remainingSimulatedGoalArchiveFailures -= 1
         return true
     }
 

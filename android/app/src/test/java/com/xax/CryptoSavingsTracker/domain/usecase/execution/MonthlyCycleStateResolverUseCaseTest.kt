@@ -7,13 +7,18 @@ import com.xax.CryptoSavingsTracker.domain.model.ExecutionStatus
 import com.xax.CryptoSavingsTracker.domain.model.PlanningSource
 import com.xax.CryptoSavingsTracker.domain.model.UiCycleState
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionRecordRepository
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
 class MonthlyCycleStateResolverUseCaseTest {
 
     private val recordRepository = mockk<ExecutionRecordRepository>(relaxed = true)
-    private val resolver = MonthlyCycleStateResolverUseCase(recordRepository)
+    private val sessionUseCase = mockk<GetExecutionSessionUseCase>(relaxed = true)
+    private val resolver = MonthlyCycleStateResolverUseCase(recordRepository, sessionUseCase)
 
     @Test
     fun resolve_returnsExecuting_whenActiveRecordExists() {
@@ -35,6 +40,36 @@ class MonthlyCycleStateResolverUseCaseTest {
             UiCycleState.Executing(
                 monthLabel = "2026-03",
                 canFinish = true,
+                canUndoStart = true
+            )
+        )
+    }
+
+    @Test
+    fun `observed unavailable execution disables finish and exposes recovery undo after grace`() = runTest {
+        val now = System.currentTimeMillis()
+        val month = com.xax.CryptoSavingsTracker.domain.util.MonthLabelUtils.nowUtc()
+        val active = record(
+            month = month,
+            status = ExecutionStatus.EXECUTING,
+            startedAtMillis = now - 72L * 60L * 60L * 1000L,
+            canUndoUntilMillis = now - 1L
+        )
+        every { recordRepository.getAllRecords() } returns flowOf(listOf(active))
+        every { sessionUseCase.currentExecuting() } returns flowOf(
+            ExecutionSession(
+                record = active,
+                goals = emptyList(),
+                isProgressAvailable = false
+            )
+        )
+
+        val state = resolver.observeState().first()
+
+        assertThat(state).isEqualTo(
+            UiCycleState.Executing(
+                monthLabel = month,
+                canFinish = false,
                 canUndoStart = true
             )
         )

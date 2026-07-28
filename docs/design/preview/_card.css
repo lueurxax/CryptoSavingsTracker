@@ -1,0 +1,39 @@
+/* Preview-card base — shared by every card in preview/. */
+@import url("../colors_and_type.css");
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  padding: 20px 24px;
+  box-sizing: border-box;
+  min-height: 100vh;
+}
+
+.row { display: flex; align-items: center; }
+.col { display: flex; flex-direction: column; }
+.gap-1 { gap: 4px; } .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; } .gap-5 { gap: 20px; } .gap-6 { gap: 24px; }
+.wrap { flex-wrap: wrap; }
+.grow { flex: 1; }
+.center { align-items: center; justify-content: center; }
+
+.swatch {
+  width: 56px; height: 56px;
+  border-radius: 10px;
+  border: 1px solid var(--surface-stroke);
+  box-shadow: var(--elev-card);
+  flex-shrink: 0;
+}
+.swatch.sm { width: 40px; height: 40px; border-radius: 8px; }
+.swatch.xs { width: 28px; height: 28px; border-radius: 6px; }
+
+.mono { font-family: var(--font-mono); font-size: 11px; color: var(--fg-3); letter-spacing: 0; }
+
+.muted { color: var(--fg-3); }
+.sub { color: var(--fg-2); }

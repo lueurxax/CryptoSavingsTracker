@@ -10,6 +10,11 @@ import XCTest
 final class ExecutionUserFlowUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
+#if os(iOS)
+        // Launch screenshot configurations can leave the shared simulator in
+        // landscape. Every execution flow starts from the portrait app shell.
+        XCUIDevice.shared.orientation = .portrait
+#endif
     }
 
     /// Verifies that a forced transaction save failure keeps the sheet open with entered data preserved.

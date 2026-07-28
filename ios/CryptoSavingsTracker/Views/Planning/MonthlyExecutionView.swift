@@ -201,11 +201,20 @@ struct MonthlyExecutionView: View {
                 }
             }
 
-            // Progress bar
-            let pct = min(max(viewModel.overallProgress, 0), 100)
-            ProgressView(value: pct, total: 100)
-                .tint(AccessibleColors.success)
-                .scaleEffect(y: 1.5)
+            if viewModel.isProgressAvailable {
+                let pct = min(max(viewModel.overallProgress, 0), 100)
+                ProgressView(value: pct, total: 100)
+                    .tint(AccessibleColors.success)
+                    .scaleEffect(y: 1.5)
+            } else {
+                Label(
+                    "Progress unavailable. Refresh exchange rates and try again.",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(AccessibleColors.warning)
+                .accessibilityIdentifier("executionProgressUnavailable")
+            }
 
             HStack {
                 Text("Display Currency")
@@ -248,17 +257,23 @@ struct MonthlyExecutionView: View {
             // Stats row
             HStack {
                 let stats = MonthlyExecutionStatistics(
-                    totalPlanned: viewModel.displayTotalPlanned,
-                    totals: viewModel.contributedTotals,
                     fulfillment: viewModel.fulfillmentStatus,
                     goalsCount: viewModel.displayGoalCount
                 )
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(Int(viewModel.overallProgress))%")
+                    Text(
+                        viewModel.isProgressAvailable
+                            ? "\(Int(viewModel.overallProgress))%"
+                            : "Unavailable"
+                    )
                         .font(.title)
                         .fontWeight(.bold)
-                        .foregroundStyle(viewModel.overallProgress >= 100 ? AccessibleColors.success : .primary)
+                        .foregroundStyle(
+                            viewModel.isProgressAvailable && viewModel.overallProgress >= 100
+                                ? AccessibleColors.success
+                                : .primary
+                        )
                     Text("complete")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -267,7 +282,11 @@ struct MonthlyExecutionView: View {
                 Spacer()
 
                 VStack(alignment: .center, spacing: 2) {
-                    Text("\(stats.fulfilledCount)/\(stats.goalsCount)")
+                    Text(
+                        viewModel.isProgressAvailable
+                            ? "\(stats.fulfilledCount)/\(stats.goalsCount)"
+                            : "—/\(stats.goalsCount)"
+                    )
                         .font(.title)
                         .fontWeight(.bold)
                     Text("goals funded")
@@ -278,9 +297,20 @@ struct MonthlyExecutionView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(formatCurrency(viewModel.displayTotalPlanned))
-                        .font(.title3)
-                        .fontWeight(.semibold)
+                    Group {
+                        if let totalPlanned = viewModel.displayTotalPlanned {
+                            Text(
+                                formatCurrency(
+                                    totalPlanned,
+                                    currency: viewModel.displayCurrency
+                                )
+                            )
+                        } else {
+                            Text("Unavailable")
+                        }
+                    }
+                    .font(.title3)
+                    .fontWeight(.semibold)
                     Text("planned")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -289,6 +319,10 @@ struct MonthlyExecutionView: View {
 
             if let totalRemaining = viewModel.displayTotalRemaining {
                 Text("Remaining this month: \(formatCurrency(totalRemaining, currency: viewModel.displayCurrency))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if !viewModel.isProgressAvailable {
+                Text("Remaining this month: unavailable (rate missing)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else if viewModel.hasRateConversionWarning {
@@ -382,16 +416,23 @@ struct MonthlyExecutionView: View {
                 }
             } else {
                 ForEach(viewModel.activeGoals, id: \.goalId) { goalSnapshot in
-                    let remainingToClose = viewModel.remainingToClose(for: goalSnapshot)
+                    let remainingToClose = viewModel.isProgressAvailable
+                        ? viewModel.remainingToClose(for: goalSnapshot)
+                        : 0
                     GoalProgressCard(
                         goalSnapshot: goalSnapshot,
                         contributed: viewModel.contributedTotals[goalSnapshot.goalId] ?? 0,
                         isFulfilled: false,
-                        isClosedForGoal: remainingToClose <= 0,
+                        isClosedForGoal: viewModel.isProgressAvailable && remainingToClose <= 0,
+                        progressAvailable: viewModel.isProgressAvailable,
                         remainingDisplayAmount: viewModel.remainingDisplayAmount(for: goalSnapshot),
                         displayCurrency: viewModel.remainingDisplayCurrency(for: goalSnapshot),
                         viewModel: viewModel,
-                        onAddContribution: (viewModel.isActive && remainingToClose > 0) ? {
+                        onAddContribution: (
+                            viewModel.isProgressAvailable
+                                && viewModel.isActive
+                                && remainingToClose > 0
+                        ) ? {
                             selectedGoalSnapshot = goalSnapshot
                         } : nil
                     )
@@ -433,6 +474,7 @@ struct MonthlyExecutionView: View {
                                 contributed: viewModel.contributedTotals[goalSnapshot.goalId] ?? 0,
                                 isFulfilled: true,
                                 isClosedForGoal: true,
+                                progressAvailable: viewModel.isProgressAvailable,
                                 remainingDisplayAmount: viewModel.remainingDisplayAmount(for: goalSnapshot),
                                 displayCurrency: viewModel.remainingDisplayCurrency(for: goalSnapshot),
                                 viewModel: viewModel,
@@ -479,19 +521,8 @@ struct MonthlyExecutionView: View {
         return label
     }
 
-    private func formatCurrency(_ amount: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        return formatter.string(from: NSNumber(value: amount)) ?? "$\(amount)"
-    }
-
     private func formatCurrency(_ amount: Double, currency: String) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = currency
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: NSNumber(value: amount)) ?? "\(currency) \(amount)"
+        ExecutionAmountFormatter.string(amount: amount, currency: currency)
     }
 
     private func rateUpdateLabel(_ date: Date) -> String {
@@ -527,6 +558,7 @@ struct GoalProgressCard: View {
     let contributed: Double
     let isFulfilled: Bool
     let isClosedForGoal: Bool
+    let progressAvailable: Bool
     let remainingDisplayAmount: Double?
     let displayCurrency: String
     let viewModel: MonthlyExecutionViewModel
@@ -550,42 +582,54 @@ struct GoalProgressCard: View {
 
                 Spacer()
 
-                if isFulfilled {
+                if isFulfilled && progressAvailable {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(AccessibleColors.success)
-                } else {
+                } else if progressAvailable {
                     Text("\(progressPercentage)%")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Unavailable")
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundStyle(.secondary)
                 }
             }
 
-            // Progress bar
-            let total = max(goalSnapshot.plannedAmount, 0.0001)
-            let safeContributed = min(max(contributed, 0), total)
-            ProgressView(value: safeContributed, total: total)
-                .tint(isFulfilled ? AccessibleColors.success : AccessibleColors.primaryInteractive)
+            if progressAvailable {
+                let total = max(goalSnapshot.plannedAmount, 0.0001)
+                let safeContributed = min(max(contributed, 0), total)
+                ProgressView(value: safeContributed, total: total)
+                    .tint(isFulfilled ? AccessibleColors.success : AccessibleColors.primaryInteractive)
 
-            // Amount row - simplified, no redundant "remaining"
-            Text("\(formatCurrency(contributed, currency: goalSnapshot.currency)) / \(formatCurrency(goalSnapshot.plannedAmount, currency: goalSnapshot.currency))")
+                Text(
+                    "\(formatCurrency(contributed, currency: goalSnapshot.currency)) / "
+                        + "\(formatCurrency(goalSnapshot.plannedAmount, currency: goalSnapshot.currency))"
+                )
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            if let remainingDisplayAmount, remainingDisplayAmount > 0 {
-                Text("Remaining to close: \(formatCurrency(remainingDisplayAmount, currency: displayCurrency))")
-                    .font(.caption2)
+                if let remainingDisplayAmount, remainingDisplayAmount > 0 {
+                    Text("Remaining to close: \(formatCurrency(remainingDisplayAmount, currency: displayCurrency))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                if isClosedForGoal && !isFulfilled {
+                    Text("Month already closed for this goal")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("goalClosedMessage-\(goalSnapshot.goalId.uuidString)")
+                }
+            } else {
+                Text("Contribution totals are unavailable until exchange rates can be refreshed.")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            if isClosedForGoal && !isFulfilled {
-                Text("Month already closed for this goal")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("goalClosedMessage-\(goalSnapshot.goalId.uuidString)")
-            }
-
-            if let onAddContribution, !isFulfilled {
+            if progressAvailable, let onAddContribution, !isFulfilled {
                 Button {
                     onAddContribution()
                 } label: {

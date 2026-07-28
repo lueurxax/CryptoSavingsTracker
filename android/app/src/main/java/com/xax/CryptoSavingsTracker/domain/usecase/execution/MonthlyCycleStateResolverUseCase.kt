@@ -8,20 +8,44 @@ import com.xax.CryptoSavingsTracker.domain.model.UiCycleState
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionRecordRepository
 import com.xax.CryptoSavingsTracker.domain.util.MonthLabelUtils
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import java.time.YearMonth
 import javax.inject.Inject
 
 class MonthlyCycleStateResolverUseCase @Inject constructor(
-    private val executionRecordRepository: ExecutionRecordRepository
+    private val executionRecordRepository: ExecutionRecordRepository,
+    private val getExecutionSessionUseCase: GetExecutionSessionUseCase
 ) {
     fun observeState(): Flow<UiCycleState> {
-        return executionRecordRepository.getAllRecords().map { records ->
-            resolve(
+        return combine(
+            executionRecordRepository.getAllRecords(),
+            getExecutionSessionUseCase.currentExecuting()
+        ) { records, session ->
+            val state = resolve(
                 records = records,
                 currentStorageMonthLabelUtc = MonthLabelUtils.nowUtc(),
                 nowUtcMillis = System.currentTimeMillis()
             )
+            applyExecutionAvailability(state, session)
+        }
+    }
+
+    private fun applyExecutionAvailability(
+        state: UiCycleState,
+        session: ExecutionSession?
+    ): UiCycleState {
+        if (state !is UiCycleState.Executing) return state
+        val matchingSession = session?.takeIf {
+            it.record.status == ExecutionStatus.EXECUTING &&
+                it.record.monthLabel == state.monthLabel
+        }
+        if (matchingSession == null) {
+            return state.copy(canFinish = false)
+        }
+        return if (matchingSession.isProgressAvailable) {
+            state
+        } else {
+            state.copy(canFinish = false, canUndoStart = true)
         }
     }
 
@@ -72,8 +96,11 @@ class MonthlyCycleStateResolverUseCase @Inject constructor(
             return if (canUndo) {
                 UiCycleState.Closed(monthLabel = latestClosed.monthLabel, canUndoCompletion = true)
             } else {
+                val nextMonthAfterClosed = checkNotNull(parseMonth(latestClosed.monthLabel))
+                    .plusMonths(1)
+                val planningMonth = maxOf(currentMonth, nextMonthAfterClosed)
                 UiCycleState.Planning(
-                    monthLabel = currentStorageMonthLabelUtc,
+                    monthLabel = planningMonth.toString(),
                     source = PlanningSource.NEXT_MONTH_AFTER_CLOSED
                 )
             }

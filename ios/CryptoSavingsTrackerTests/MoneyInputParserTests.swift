@@ -20,6 +20,22 @@ struct MoneyInputParserTests {
         #expect(result.amount?.value == Decimal(string: "2500.50"))
     }
 
+    @Test("Retains eight decimal places for localized crypto input")
+    func parseLocalizedCryptoPrecision() {
+        let locale = Locale(identifier: "de_DE")
+        let result = MoneyInputParser.parse(rawText: "1,12345678", currency: "BTC", locale: locale)
+        #expect(result.failure == nil)
+        #expect(result.amount?.value == Decimal(string: "1.12345678"))
+    }
+
+    @Test("Unknown non-ISO token retains eight localized decimal places")
+    func parseUnknownTokenPrecision() {
+        let locale = Locale(identifier: "de_DE")
+        let result = MoneyInputParser.parse(rawText: "1,12345678", currency: "LINK", locale: locale)
+        #expect(result.failure == nil)
+        #expect(result.amount?.value == Decimal(string: "1.12345678"))
+    }
+
     @Test("Handles currency symbols and non-breaking spaces")
     func parseWithSymbolAndNBSP() {
         let locale = Locale(identifier: "en_US")

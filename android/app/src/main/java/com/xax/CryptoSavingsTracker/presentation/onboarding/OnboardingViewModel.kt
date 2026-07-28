@@ -9,17 +9,26 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.R
+import com.xax.CryptoSavingsTracker.domain.model.ChainIds
+import com.xax.CryptoSavingsTracker.domain.model.OnChainAssetRouteCatalog
+import com.xax.CryptoSavingsTracker.domain.usecase.asset.AddAssetUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.asset.GetAssetsUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.AddGoalUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.goal.ExistingGoalRetryPolicy
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.nio.charset.StandardCharsets
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 /**
@@ -133,10 +142,11 @@ data class OnboardingUiState(
     val selectedAssets: Set<String> = emptySet(),
     val isComplete: Boolean = false,
     val isLoading: Boolean = false,
-    val availableAssets: List<OnboardingAsset> = emptyList()
+    val availableAssets: List<OnboardingAsset> = emptyList(),
+    val error: String? = null
 ) {
     val canProceed: Boolean
-        get() = when (currentStep) {
+        get() = !isLoading && when (currentStep) {
             0 -> true // Welcome
             1 -> true // Profile (has defaults)
             2 -> selectedTemplate != null // Goal template
@@ -159,7 +169,9 @@ internal const val ONBOARDING_COMPLETED_KEY = "onboarding_completed"
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val addGoalUseCase: AddGoalUseCase
+    private val addGoalUseCase: AddGoalUseCase,
+    private val addAssetUseCase: AddAssetUseCase,
+    private val getAssetsUseCase: GetAssetsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(OnboardingUiState())
@@ -169,6 +181,7 @@ class OnboardingViewModel @Inject constructor(
     val events = _events.receiveAsFlow()
 
     private val prefs = context.getSharedPreferences(ONBOARDING_PREFS_NAME, Context.MODE_PRIVATE)
+    private val completionInFlight = AtomicBoolean(false)
 
     init {
         // Load available assets
@@ -178,7 +191,7 @@ class OnboardingViewModel @Inject constructor(
             OnboardingAsset("USDT", "Tether"),
             OnboardingAsset("USDC", "USD Coin"),
             OnboardingAsset("SOL", "Solana"),
-            OnboardingAsset("MATIC", "Polygon")
+            OnboardingAsset("POL", "Polygon")
         )
         _uiState.update { it.copy(availableAssets = assets) }
 
@@ -213,11 +226,7 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun skip() {
-        markOnboardingComplete()
-        _uiState.update { it.copy(isComplete = true) }
-        viewModelScope.launch {
-            _events.send(OnboardingEvent.NavigateToDashboard)
-        }
+        completeOnboarding(createGoal = false)
     }
 
     fun setExperienceLevel(level: ExperienceLevel) {
@@ -239,34 +248,81 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    private fun completeOnboarding() {
+    private fun completeOnboarding(createGoal: Boolean = true) {
+        if (_uiState.value.isComplete || !completionInFlight.compareAndSet(false, true)) {
+            return
+        }
+        _uiState.update { it.copy(isLoading = true, error = null) }
+
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            try {
+                runCatching {
+                    if (createGoal) {
+                        val existingCurrencies = getAssetsUseCase()
+                            .first()
+                            .mapTo(mutableSetOf()) { it.currency.uppercase() }
 
-            val template = _uiState.value.selectedTemplate
-            if (template != null) {
-                val deadline = LocalDate.now().plusMonths(template.durationMonths.toLong())
+                        _uiState.value.selectedAssets.sorted().forEach { symbol ->
+                            val normalizedSymbol = symbol.uppercase()
+                            val chainId = ChainIds.predictChain(normalizedSymbol)
+                            val canonicalCurrency =
+                                OnChainAssetRouteCatalog.canonicalPersistenceCurrency(
+                                    chainId = chainId,
+                                    currencyOrContract = normalizedSymbol
+                                )
+                            if (canonicalCurrency !in existingCurrencies) {
+                                val addedAsset = addAssetUseCase(
+                                    currency = normalizedSymbol,
+                                    chainId = chainId
+                                ).getOrThrow()
+                                existingCurrencies += addedAsset.currency.uppercase()
+                            }
+                        }
+                    }
 
-                // We still need the strings here to save the goal. 
-                // In a perfect world, we'd have a StringProvider, but for now we use context.
-                addGoalUseCase(
-                    name = context.getString(template.titleResId),
-                    currency = template.currency,
-                    targetAmount = template.suggestedAmount,
-                    deadline = deadline,
-                    startDate = LocalDate.now(),
-                    emoji = template.emoji,
-                    description = context.getString(template.descriptionResId)
-                )
+                    val template = _uiState.value.selectedTemplate.takeIf { createGoal }
+                    if (template != null) {
+                        val deadline = LocalDate.now().plusMonths(template.durationMonths.toLong())
+
+                        // We still need the strings here to save the goal.
+                        // In a perfect world, we'd have a StringProvider, but for now we use context.
+                        addGoalUseCase(
+                            name = context.getString(template.titleResId),
+                            currency = template.currency,
+                            targetAmount = template.suggestedAmount,
+                            deadline = deadline,
+                            startDate = LocalDate.now(),
+                            emoji = template.emoji,
+                            description = context.getString(template.descriptionResId),
+                            goalId = onboardingGoalId(),
+                            existingGoalRetryPolicy = ExistingGoalRetryPolicy.KEEP_PERSISTED
+                        ).getOrThrow()
+                    }
+                }.onSuccess {
+                    markOnboardingComplete()
+                    _uiState.update { it.copy(isLoading = false, isComplete = true, error = null) }
+                    _events.send(OnboardingEvent.NavigateToDashboard)
+                }.onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isComplete = false,
+                            error = error.message ?: "Failed to complete onboarding"
+                        )
+                    }
+                }
+            } finally {
+                completionInFlight.set(false)
             }
-
-            markOnboardingComplete()
-            _uiState.update { it.copy(isLoading = false, isComplete = true) }
-            _events.send(OnboardingEvent.NavigateToDashboard)
         }
     }
 
     private fun markOnboardingComplete() {
         prefs.edit().putBoolean(ONBOARDING_COMPLETED_KEY, true).apply()
     }
+}
+
+internal fun onboardingGoalId(): String {
+    val stableKey = "onboarding-setup-goal"
+    return UUID.nameUUIDFromBytes(stableKey.toByteArray(StandardCharsets.UTF_8)).toString()
 }

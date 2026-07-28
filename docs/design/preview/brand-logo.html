@@ -1,0 +1,234 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Logo</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  body { padding: 0; background: #050810; }
+  .stage { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* Hero banners — paired dark + light */
+  .banner {
+    width: 100%;
+    aspect-ratio: 1774 / 887;
+    border-radius: 16px;
+    background: center/cover no-repeat;
+    position: relative;
+  }
+  .banner.dark {
+    background-image: url('../assets/banner.png');
+    background-color: #000;
+    box-shadow:
+      inset 0 0 0 1px rgba(120, 175, 255, 0.12),
+      0 6px 22px rgba(0, 0, 0, 0.55);
+  }
+  .banner.light {
+    background-image: url('../assets/banner-light.png');
+    background-color: #FFFFFF;
+    box-shadow:
+      inset 0 0 0 1px rgba(15, 30, 70, 0.06),
+      0 6px 22px rgba(15, 30, 70, 0.18);
+  }
+  .banner-tag {
+    position: absolute;
+    left: 12px; top: 12px;
+    font: 600 10px var(--font-sans);
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 999px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .banner.dark .banner-tag {
+    color: rgba(255,255,255,0.85);
+    background: rgba(10,15,31,0.45);
+    border: 0.5px solid rgba(120,175,255,0.22);
+  }
+  .banner.light .banner-tag {
+    color: #0A0F1F;
+    background: rgba(255,255,255,0.7);
+    border: 0.5px solid rgba(15,30,70,0.10);
+  }
+
+  /* App icon row — single hero icon per tile */
+  .icons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .icon-tile {
+    border-radius: 14px;
+    padding: 22px 22px 18px;
+    border: 0.5px solid rgba(120, 175, 255, 0.14);
+    background: linear-gradient(180deg, #0E1426 0%, #07091A 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    position: relative;
+    overflow: hidden;
+  }
+  .icon-tile.light-bg {
+    background: linear-gradient(180deg, #FAFAFC 0%, #ECEEF3 100%);
+    border-color: rgba(0,0,0,0.06);
+  }
+  .icon-tile::after {
+    content:''; position:absolute; left:50%; top:50%; transform:translate(-50%,-30%);
+    width: 70%; height: 70%;
+    background: radial-gradient(closest-side, rgba(245,166,35,0.16), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .icon-tile.light-bg::after { display: none; }
+
+  .icon-img {
+    width: 168px;
+    height: 168px;
+    border-radius: 22%;
+    box-shadow:
+      0 18px 40px rgba(0,0,0,0.55),
+      0 0 0 0.5px rgba(255,255,255,0.06);
+    position: relative;
+    z-index: 1;
+  }
+  .icon-tile.light-bg .icon-img {
+    box-shadow:
+      0 12px 32px rgba(20,40,80,0.16),
+      0 0 0 0.5px rgba(0,0,0,0.06);
+  }
+
+  .icon-caption {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .icon-caption .label {
+    font: 600 11px var(--font-sans);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .icon-caption .meta {
+    font: 500 11px var(--font-mono);
+    letter-spacing: 0.02em;
+  }
+  .light-bg .label { color: #1A1A1A; }
+  .light-bg .meta  { color: #6E6E73; }
+  .icon-tile:not(.light-bg) .label { color: #fff; }
+  .icon-tile:not(.light-bg) .meta  { color: rgba(255,255,255,0.5); }
+
+  /* Wordmark lockups */
+  .lockup-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 10px;
+  }
+  .lockup-tile {
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: linear-gradient(180deg, #0E1426 0%, #07091A 100%);
+    border: 0.5px solid rgba(120, 175, 255, 0.14);
+    position: relative;
+    overflow: hidden;
+    min-height: 72px;
+  }
+  .lockup-tile::before {
+    content:''; position:absolute; left:-30%; bottom:-60%;
+    width:140%; height:140%;
+    background: radial-gradient(closest-side, rgba(245,166,35,0.12), transparent 70%);
+    pointer-events: none;
+  }
+  .lockup-tile > * { position: relative; z-index: 1; }
+
+  .wm-icon {
+    width: 48px; height: 48px;
+    border-radius: 22%;
+    flex-shrink: 0;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.06);
+  }
+  .wm {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: #fff;
+    line-height: 1;
+  }
+  .wm .gold { color: #F5A623; }
+  .wm-lg { font-size: 22px; }
+  .wm-md { font-size: 17px; }
+  .tagline {
+    color: rgba(255,255,255,0.55);
+    font: 500 11px var(--font-sans);
+    letter-spacing: 0.02em;
+    margin-top: 5px;
+  }
+
+  .caption-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill-dark {
+    background: rgba(120, 175, 255, 0.08);
+    color: rgba(255,255,255,0.7);
+    border: 0.5px solid rgba(120, 175, 255, 0.18);
+    padding: 5px 10px;
+    border-radius: 999px;
+    font: 500 11px var(--font-sans);
+    letter-spacing: 0.01em;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="banner dark" role="img" aria-label="CryptoSavingsTracker banner — dark">
+    <span class="banner-tag">Dark · primary</span>
+  </div>
+
+  <div class="banner light" role="img" aria-label="CryptoSavingsTracker banner — light">
+    <span class="banner-tag">Light · alt</span>
+  </div>
+
+  <div class="icons">
+    <div class="icon-tile">
+      <img class="icon-img" src="../assets/icon-dark.png" alt="App icon, dark mode"/>
+      <div class="icon-caption">
+        <div class="label">App icon · dark</div>
+        <div class="meta">1024 × 1024 · master</div>
+      </div>
+    </div>
+    <div class="icon-tile light-bg">
+      <img class="icon-img" src="../assets/icon-light.png" alt="App icon, light mode"/>
+      <div class="icon-caption">
+        <div class="label">App icon · light</div>
+        <div class="meta">1024 × 1024 · master</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lockup-row">
+    <div class="lockup-tile">
+      <img class="wm-icon" src="../assets/icon-dark.png" alt=""/>
+      <div>
+        <div class="wm wm-lg">Crypto<span class="gold">Savings</span>Tracker</div>
+        <div class="tagline">Track. Save. Grow.</div>
+      </div>
+    </div>
+    <div class="lockup-tile">
+      <div>
+        <div class="wm wm-md">Crypto<span class="gold">Savings</span>Tracker</div>
+        <div class="tagline">Wordmark only</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption-row">
+    <span class="pill-dark">Banner — 2:1, dark + light</span>
+    <span class="pill-dark">Wordmark · #FFFFFF + #F5A623</span>
+    <span class="pill-dark">Icon squircle — 22%</span>
+    <span class="pill-dark">Clear space ≥ 0.5× cap height</span>
+  </div>
+
+</div>
+</body></html>

@@ -9,20 +9,27 @@ import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.GetAssetsUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.balance.AssetBalanceCompleteness
+import com.xax.CryptoSavingsTracker.domain.usecase.balance.AssetBalanceCompletenessResolver
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.GetGoalProgressUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.GoalWithProgress
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -31,8 +38,9 @@ import javax.inject.Inject
 
 data class DashboardAssetSummary(
     val asset: Asset,
-    val currentBalance: Double,
-    val usdValue: Double?
+    val currentBalance: Double?,
+    val usdValue: Double?,
+    val balanceIssue: String? = null
 )
 
 data class PortfolioChartPoint(
@@ -45,12 +53,15 @@ data class DashboardUiState(
     val totalUsd: Double? = null,
     val portfolioLast30Days: List<PortfolioChartPoint> = emptyList(),
     val hasMissingUsdRates: Boolean = false,
+    val hasUnavailableBalances: Boolean = false,
+    val financialDataIssue: String? = null,
     val activeGoals: List<GoalWithProgress> = emptyList(),
     val assets: List<DashboardAssetSummary> = emptyList(),
     val error: String? = null
 )
 
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class DashboardViewModel @Inject constructor(
     private val getAssetsUseCase: GetAssetsUseCase,
     private val transactionRepository: TransactionRepository,
@@ -59,93 +70,221 @@ class DashboardViewModel @Inject constructor(
     private val getGoalProgressUseCase: GetGoalProgressUseCase
 ) : ViewModel() {
 
-    private val refreshSignal = MutableStateFlow(0)
+    private data class DashboardInputs(
+        val assets: List<Asset>,
+        val transactions: List<com.xax.CryptoSavingsTracker.domain.model.Transaction>,
+        val goalsWithProgress: List<GoalWithProgress>
+    )
+
+    private data class SourceRead<T>(
+        val value: T? = null,
+        val failure: String? = null
+    )
+
+    private data class DashboardSourceUpdate(
+        val inputs: DashboardInputs? = null,
+        val failure: String? = null
+    )
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
+    private val sourceRetryGeneration = MutableStateFlow(0L)
+    private var latestInputs: DashboardInputs? = null
+    private var loadJob: Job? = null
+    private var loadGeneration: Long = 0L
+    private var explicitRefreshInProgress: Boolean = false
+    private var pendingReactiveReload: Boolean = false
+    private var sourceFailureActive: Boolean = false
+
     init {
         viewModelScope.launch {
-            combine(
-                getAssetsUseCase().catch { emit(emptyList()) },
-                transactionRepository.getAllTransactions().catch { emit(emptyList()) },
-                getGoalProgressUseCase().catch { emit(emptyList()) },
-                refreshSignal
-            ) { assets, transactions, goalsWithProgress, _ ->
-                Triple(assets, transactions, goalsWithProgress)
-            }
-                .collectLatest { (assets, transactions, goalsWithProgress) ->
-                    loadDashboard(assets, transactions, goalsWithProgress)
+            sourceRetryGeneration
+                .flatMapLatest { observeDashboardSources() }
+                .collect { update ->
+                    val sourceFailure = update.failure
+                    if (sourceFailure != null) {
+                        sourceFailureActive = true
+                        latestInputs = null
+                        loadGeneration += 1
+                        loadJob?.cancel()
+                        explicitRefreshInProgress = false
+                        pendingReactiveReload = false
+                        _uiState.value = DashboardUiState(
+                            isLoading = false,
+                            totalUsd = null,
+                            portfolioLast30Days = emptyList(),
+                            financialDataIssue = sourceFailure,
+                            assets = emptyList(),
+                            error = sourceFailure
+                        )
+                        return@collect
+                    }
+
+                    val inputs = checkNotNull(update.inputs)
+                    sourceFailureActive = false
+                    latestInputs = inputs
+                    if (explicitRefreshInProgress) {
+                        pendingReactiveReload = true
+                    } else {
+                        startLoad(inputs = inputs, forceRefresh = false)
+                    }
                 }
         }
     }
 
     fun refresh() {
-        refreshSignal.value = refreshSignal.value + 1
+        if (sourceFailureActive) {
+            _uiState.value = DashboardUiState(isLoading = true)
+            sourceRetryGeneration.update { it + 1L }
+            return
+        }
+        val inputs = latestInputs ?: return
+        startLoad(inputs = inputs, forceRefresh = true)
     }
 
-    private suspend fun loadDashboard(
-        assets: List<Asset>,
-        transactions: List<com.xax.CryptoSavingsTracker.domain.model.Transaction>,
-        goalsWithProgress: List<GoalWithProgress>
-    ) {
-        _uiState.update { it.copy(isLoading = true, error = null) }
-        runCatching {
-            val summariesAndMeta = buildSummaries(assets, transactions)
-            val summaries = summariesAndMeta.summaries
-            val partialTotal = summaries.mapNotNull { it.usdValue }.sum()
-            val total = if (summariesAndMeta.hasMissingUsdRates && partialTotal == 0.0) null else partialTotal
-            val activeGoals = goalsWithProgress
-                .filter { it.goal.lifecycleStatus == GoalLifecycleStatus.ACTIVE }
-                .sortedBy { it.goal.deadline }
-                .take(3)
-            DashboardUiState(
-                isLoading = false,
-                totalUsd = total,
-                portfolioLast30Days = summariesAndMeta.last30Days,
-                hasMissingUsdRates = summariesAndMeta.hasMissingUsdRates,
-                activeGoals = activeGoals,
-                assets = summaries.sortedByDescending { it.usdValue ?: Double.NEGATIVE_INFINITY },
-                error = null
-            )
-        }.onSuccess { state ->
-            _uiState.value = state
-        }.onFailure { e ->
-            _uiState.value = DashboardUiState(
-                isLoading = false,
-                totalUsd = null,
-                assets = emptyList(),
-                error = e.message ?: "Failed to load dashboard"
+    private fun observeDashboardSources(): Flow<DashboardSourceUpdate> = combine(
+        getAssetsUseCase().asSourceRead("Asset"),
+        transactionRepository.getAllTransactions().asSourceRead("Transaction"),
+        getGoalProgressUseCase().asSourceRead("Goal")
+    ) { assets, transactions, goals ->
+        val failure = listOfNotNull(assets.failure, transactions.failure, goals.failure)
+            .joinToString(" ")
+            .takeIf { it.isNotEmpty() }
+        if (failure != null) {
+            DashboardSourceUpdate(failure = failure)
+        } else {
+            DashboardSourceUpdate(
+                inputs = DashboardInputs(
+                    assets = checkNotNull(assets.value),
+                    transactions = checkNotNull(transactions.value),
+                    goalsWithProgress = checkNotNull(goals.value)
+                )
             )
         }
+    }
+
+    private fun <T> Flow<T>.asSourceRead(label: String): Flow<SourceRead<T>> =
+        map<T, SourceRead<T>> { value -> SourceRead(value = value) }
+            .catch { error ->
+                emit(
+                    SourceRead(
+                        failure = "$label data source unavailable: " +
+                            (error.message ?: error::class.simpleName.orEmpty())
+                    )
+                )
+            }
+
+    private fun startLoad(
+        inputs: DashboardInputs,
+        forceRefresh: Boolean
+    ) {
+        val generation = ++loadGeneration
+        if (forceRefresh) {
+            explicitRefreshInProgress = true
+            pendingReactiveReload = false
+        }
+        loadJob?.cancel()
+        _uiState.update { it.copy(isLoading = true, error = null) }
+
+        loadJob = viewModelScope.launch {
+            try {
+                val state = runCatching {
+                    buildDashboardState(
+                        inputs = inputs,
+                        forceRefresh = forceRefresh
+                    )
+                }.getOrElse { error ->
+                    DashboardUiState(
+                        isLoading = false,
+                        totalUsd = null,
+                        assets = emptyList(),
+                        error = error.message ?: "Failed to load dashboard"
+                    )
+                }
+                if (generation == loadGeneration) {
+                    _uiState.value = state
+                }
+            } finally {
+                if (forceRefresh && generation == loadGeneration) {
+                    explicitRefreshInProgress = false
+                    if (pendingReactiveReload) {
+                        pendingReactiveReload = false
+                        latestInputs?.let { latest ->
+                            startLoad(inputs = latest, forceRefresh = false)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun buildDashboardState(
+        inputs: DashboardInputs,
+        forceRefresh: Boolean
+    ): DashboardUiState {
+        if (forceRefresh) {
+            exchangeRateRepository.clearCache()
+        }
+        val summariesAndMeta = buildSummaries(
+            assets = inputs.assets,
+            transactions = inputs.transactions,
+            forceRefresh = forceRefresh
+        )
+        val summaries = summariesAndMeta.summaries
+        val total = if (
+            summariesAndMeta.hasMissingUsdRates ||
+            summariesAndMeta.hasUnavailableBalances
+        ) {
+            null
+        } else {
+            summaries.sumOf { it.usdValue ?: 0.0 }
+        }
+        val activeGoals = inputs.goalsWithProgress
+            .filter { it.goal.lifecycleStatus == GoalLifecycleStatus.ACTIVE }
+            .sortedBy { it.goal.deadline }
+            .take(3)
+        return DashboardUiState(
+            isLoading = false,
+            totalUsd = total,
+            portfolioLast30Days = summariesAndMeta.last30Days,
+            hasMissingUsdRates = summariesAndMeta.hasMissingUsdRates,
+            hasUnavailableBalances = summariesAndMeta.hasUnavailableBalances,
+            financialDataIssue = summariesAndMeta.financialDataIssue,
+            activeGoals = activeGoals,
+            assets = summaries.sortedByDescending { it.usdValue ?: Double.NEGATIVE_INFINITY },
+            error = null
+        )
     }
 
     private data class SummariesResult(
         val summaries: List<DashboardAssetSummary>,
         val last30Days: List<PortfolioChartPoint>,
-        val hasMissingUsdRates: Boolean
+        val hasMissingUsdRates: Boolean,
+        val hasUnavailableBalances: Boolean,
+        val financialDataIssue: String?
     )
 
     private suspend fun buildSummaries(
         assets: List<Asset>,
-        transactions: List<com.xax.CryptoSavingsTracker.domain.model.Transaction>
+        transactions: List<com.xax.CryptoSavingsTracker.domain.model.Transaction>,
+        forceRefresh: Boolean
     ): SummariesResult = coroutineScope {
         val manualTransactions = transactions.filter { it.source == TransactionSource.MANUAL }
         val manualBalanceByAssetId = manualTransactions
             .groupBy { it.assetId }
             .mapValues { (_, txs) -> txs.sumOf { it.amount } }
 
-        val onChainByAssetId = assets
+        val balanceByAssetId = assets
             .map { asset ->
                 async {
-                    val hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
-                    val balance = if (!hasOnChain) {
-                        0.0
-                    } else {
-                        runCatching { onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0 }
-                            .getOrElse { 0.0 }
-                    }
-                    asset.id to balance
+                    val manualBalance = manualBalanceByAssetId[asset.id] ?: 0.0
+                    asset.id to AssetBalanceCompletenessResolver.resolve(
+                        asset = asset,
+                        manualBalance = manualBalance,
+                        repository = onChainBalanceRepository,
+                        forceRefresh = forceRefresh
+                    )
                 }
             }
             .awaitAll()
@@ -164,24 +303,58 @@ class DashboardViewModel @Inject constructor(
 
         val summaries = assets.map { asset ->
             async {
-                val manualBalance = manualBalanceByAssetId[asset.id] ?: 0.0
-                val onChainBalance = onChainByAssetId[asset.id] ?: 0.0
-                val currentBalance = manualBalance + onChainBalance
+                val balance = checkNotNull(balanceByAssetId[asset.id])
+                val currentBalance = balance.totalBalanceOrNull
                 val rate = ratesByCurrency[asset.currency.uppercase()]
-                val usdValue = rate?.let { currentBalance * it }
-                DashboardAssetSummary(asset = asset, currentBalance = currentBalance, usdValue = usdValue)
+                val usdValue = currentBalance?.let { total ->
+                    rate
+                        ?.takeIf { it.isFinite() && it > 0.0 }
+                        ?.let { total * it }
+                        ?.takeIf(Double::isFinite)
+                }
+                DashboardAssetSummary(
+                    asset = asset,
+                    currentBalance = currentBalance,
+                    usdValue = usdValue,
+                    balanceIssue = balance.issueOrNull
+                )
             }
         }.awaitAll()
 
-        val hasMissingUsdRates = summaries.any { it.currentBalance != 0.0 && it.usdValue == null }
-        val last30Days = buildLast30DaysChart(
-            assets = assets,
-            manualTransactions = manualTransactions,
-            ratesByCurrency = ratesByCurrency,
-            onChainByAssetId = onChainByAssetId
-        )
+        val hasUnavailableBalances = summaries.any { it.currentBalance == null }
+        val manualAssetIdsWithActivity = manualTransactions.mapTo(mutableSetOf()) { it.assetId }
+        val hasMissingUsdRates = summaries.any { summary ->
+            val needsRate =
+                summary.currentBalance?.let { it != 0.0 } == true ||
+                    summary.asset.id in manualAssetIdsWithActivity
+            needsRate && summary.usdValue == null
+        }
+        val last30Days = if (hasUnavailableBalances || hasMissingUsdRates) {
+            emptyList()
+        } else {
+            buildLast30DaysChart(
+                assets = assets,
+                manualTransactions = manualTransactions,
+                ratesByCurrency = ratesByCurrency,
+                onChainByAssetId = balanceByAssetId.mapValues { (_, completeness) ->
+                    (completeness as AssetBalanceCompleteness.Complete).onChainBalance ?: 0.0
+                }
+            )
+        }
+        val financialDataIssue = buildList {
+            summaries.mapNotNullTo(this) { it.balanceIssue }
+            if (hasMissingUsdRates) {
+                add("One or more USD exchange rates are unavailable. Refresh rates and retry.")
+            }
+        }.distinct().takeIf { it.isNotEmpty() }?.joinToString(" ")
 
-        SummariesResult(summaries = summaries, last30Days = last30Days, hasMissingUsdRates = hasMissingUsdRates)
+        SummariesResult(
+            summaries = summaries,
+            last30Days = last30Days,
+            hasMissingUsdRates = hasMissingUsdRates,
+            hasUnavailableBalances = hasUnavailableBalances,
+            financialDataIssue = financialDataIssue
+        )
     }
 
     private fun buildLast30DaysChart(

@@ -230,7 +230,8 @@ private struct PlanningStatsPresentationScreen: View {
     }
 }
 
-#Preview("Planning Adjust") {
+@MainActor
+private func makePlanningAdjustPresentationPreview() -> some View {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = (try? ModelContainer(
         for: Goal.self,
@@ -246,7 +247,8 @@ private struct PlanningStatsPresentationScreen: View {
     return PlanningAdjustPresentationScreen(container: container, viewModel: viewModel)
 }
 
-#Preview("Planning Stats") {
+@MainActor
+private func makePlanningStatsPresentationPreview() -> some View {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = (try? ModelContainer(
         for: Goal.self,
@@ -259,4 +261,12 @@ private struct PlanningStatsPresentationScreen: View {
 
     let viewModel = makePlanningPresentationPreviewViewModel(container: container)
     return PlanningStatsPresentationScreen(container: container, viewModel: viewModel)
+}
+
+#Preview("Planning Adjust") {
+    makePlanningAdjustPresentationPreview()
+}
+
+#Preview("Planning Stats") {
+    makePlanningStatsPresentationPreview()
 }

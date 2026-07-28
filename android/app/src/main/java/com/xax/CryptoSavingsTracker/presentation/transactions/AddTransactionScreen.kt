@@ -30,6 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -54,6 +55,7 @@ import com.xax.CryptoSavingsTracker.presentation.theme.WithdrawalRed
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -247,7 +249,8 @@ fun AddTransactionScreen(
             initialSelectedDateMillis = state.date
                 .atStartOfDay(ZoneId.systemDefault())
                 .toInstant()
-                .toEpochMilli()
+                .toEpochMilli(),
+            selectableDates = PastOrPresentTransactionDates
         )
 
         DatePickerDialog(
@@ -275,5 +278,15 @@ fun AddTransactionScreen(
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+private object PastOrPresentTransactionDates : SelectableDates {
+    override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+        val selectedDate = Instant.ofEpochMilli(utcTimeMillis)
+            .atZone(ZoneOffset.UTC)
+            .toLocalDate()
+        return !selectedDate.isAfter(LocalDate.now())
     }
 }

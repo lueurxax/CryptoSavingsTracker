@@ -11,16 +11,20 @@ import com.xax.CryptoSavingsTracker.domain.usecase.execution.CompleteExecutionUs
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionContributionCalculatorUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionGoalProgress
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionSession
+import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionActionCopyCatalog
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.GetExecutionSessionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.StartExecutionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.UndoExecutionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.UndoStartExecutionUseCase
+import com.xax.CryptoSavingsTracker.presentation.common.DeadlineTimeSource
+import com.xax.CryptoSavingsTracker.presentation.common.deadlineInvalidationFlow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -34,6 +38,10 @@ data class ExecutionUiState(
     val session: ExecutionSession? = null,
     val undoableRecordId: String? = null,
     val canUndoStart: Boolean = false,
+    val undoStartDeadlineMillis: Long? = null,
+    val isProgressAvailable: Boolean = false,
+    val canComplete: Boolean = false,
+    val recoveryRequired: Boolean = false,
     val isBusy: Boolean = false,
     val error: String? = null,
     val displayCurrency: String = "USD",
@@ -78,7 +86,8 @@ class ExecutionViewModel @Inject constructor(
     private val executionContributionCalculator: ExecutionContributionCalculatorUseCase,
     private val getAssetsUseCase: GetAssetsUseCase,
     private val allocationRepository: AllocationRepository,
-    private val goalRepository: GoalRepository
+    private val goalRepository: GoalRepository,
+    private val deadlineTimeSource: DeadlineTimeSource
 ) : ViewModel() {
 
     private val _isBusy = kotlinx.coroutines.flow.MutableStateFlow(false)
@@ -88,13 +97,14 @@ class ExecutionViewModel @Inject constructor(
     )
 
     private val sessionFlow = getExecutionSessionUseCase.currentExecuting()
+    private val completedExecutionsFlow = completedExecutionRepository.getAll()
     private val remainingDisplayFlow = sessionFlow.combine(_displayCurrency) { session, currency ->
         session to currency
     }.mapLatest { (session, currency) ->
         buildRemainingDisplay(session, currency)
     }
     private val focusGoalFlow = sessionFlow.combine(goalRepository.getActiveGoals()) { session, goals ->
-        if (session == null) return@combine null
+        if (session == null || !session.isProgressAvailable) return@combine null
         val goalById = goals.associateBy { it.id }
         val candidates = session.activeGoals.mapNotNull { progress ->
             val remaining = progress.plannedAmount - progress.contributed
@@ -105,10 +115,29 @@ class ExecutionViewModel @Inject constructor(
         candidates.minByOrNull { it.deadline }
     }
 
-    // Extract undoable record flow as a separate property
-    private val undoableRecordFlow = completedExecutionRepository.getAll()
-        .map { items ->
-            val now = System.currentTimeMillis()
+    private val deadlineClockFlow = combine(
+        sessionFlow,
+        completedExecutionsFlow
+    ) { session, completed ->
+        buildList {
+            session?.record?.canUndoUntilMillis?.let(::add)
+            completed
+                .filter { item -> item.undoneAtMillis == null }
+                .mapTo(this) { item -> item.canUndoUntilMillis }
+        }
+    }
+        .distinctUntilChanged()
+        .flatMapLatest { deadlines ->
+            deadlineInvalidationFlow(deadlines, deadlineTimeSource)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = deadlineTimeSource.nowMillis()
+        )
+
+    private val undoableRecordFlow = completedExecutionsFlow
+        .combine(deadlineClockFlow) { items, now ->
             items
                 .filter { it.undoneAtMillis == null && it.canUndoUntilMillis > now }
                 .map { it.executionRecordId }
@@ -119,24 +148,32 @@ class ExecutionViewModel @Inject constructor(
 
     // Use nested combine to stay within 5-parameter limit
     val uiState: StateFlow<ExecutionUiState> = combine(
-        combine(sessionFlow, undoableRecordFlow) { session, undoableRecordId ->
-            session to undoableRecordId
+        combine(
+            sessionFlow,
+            undoableRecordFlow,
+            deadlineClockFlow
+        ) { session, undoableRecordId, now ->
+            Triple(session, undoableRecordId, now)
         },
         combine(_isBusy, _error, _displayCurrency) { isBusy, error, displayCurrency ->
             Triple(isBusy, error, displayCurrency)
         },
         remainingDisplayFlow,
         focusGoalFlow
-    ) { (session, undoableRecordId), (isBusy, error, displayCurrency), remainingDisplay, focusGoal ->
-        val now = System.currentTimeMillis()
-        val canUndoStart = session?.record?.startedAtMillis?.let { startedAt ->
-            now < startedAt + UNDO_WINDOW_MILLIS
-        } ?: false
+    ) { sessionAndUndo, busyAndError, remainingDisplay, focusGoal ->
+        val (session, undoableRecordId, now) = sessionAndUndo
+        val (isBusy, error, displayCurrency) = busyAndError
+        val recoveryRequired = session != null && !session.isProgressAvailable
+        val canUndoStart = session?.record?.canUndo(now) == true || recoveryRequired
 
         ExecutionUiState(
             session = session,
             undoableRecordId = undoableRecordId,
             canUndoStart = canUndoStart,
+            undoStartDeadlineMillis = session?.record?.canUndoUntilMillis,
+            isProgressAvailable = session?.isProgressAvailable == true,
+            canComplete = session?.isProgressAvailable == true,
+            recoveryRequired = recoveryRequired,
             isBusy = isBusy,
             error = error,
             displayCurrency = displayCurrency,
@@ -168,6 +205,10 @@ class ExecutionViewModel @Inject constructor(
     }
 
     suspend fun loadAssetOptions(goalId: String): List<ExecutionAssetOption> {
+        if (uiState.value.session?.isProgressAvailable != true) {
+            _error.value = ExecutionActionCopyCatalog.progressUnavailable()
+            return emptyList()
+        }
         val assets = getAssetsUseCase().first()
         if (assets.isEmpty()) return emptyList()
 
@@ -190,15 +231,29 @@ class ExecutionViewModel @Inject constructor(
 
     suspend fun suggestedContributionAmount(
         goal: ExecutionGoalProgress,
-        assetCurrency: String
+        assetId: String
     ): Double? {
         val remaining = executionContributionCalculator.remainingToClose(goal)
         if (remaining <= 0.0) return null
-        return executionContributionCalculator.convertAmount(
-            amount = remaining,
-            from = goal.snapshot.currency,
-            to = assetCurrency
+        val session = uiState.value.session
+            ?.takeIf { it.record.id == goal.snapshot.executionRecordId }
+            ?: getExecutionSessionUseCase.currentExecuting().first()
+                ?.takeIf { it.record.id == goal.snapshot.executionRecordId }
+            ?: return null
+        if (!session.isProgressAvailable) {
+            _error.value = ExecutionActionCopyCatalog.progressUnavailable()
+            return null
+        }
+        val suggestion = executionContributionCalculator.remainingToCloseInAsset(
+            goalProgress = goal,
+            assetId = assetId,
+            assetRates = session.assetRates
         )
+        if (suggestion == null) {
+            _error.value =
+                "Frozen execution rate is unavailable for this asset. Restart the execution snapshot and retry."
+        }
+        return suggestion
     }
 
     fun startExecution(monthLabel: String? = null) {
@@ -218,7 +273,12 @@ class ExecutionViewModel @Inject constructor(
     }
 
     fun completeExecution() {
-        val recordId = uiState.value.session?.record?.id ?: return
+        val state = uiState.value
+        val recordId = state.session?.record?.id ?: return
+        if (!state.canComplete) {
+            _error.value = ExecutionActionCopyCatalog.progressUnavailable()
+            return
+        }
         viewModelScope.launch {
             _isBusy.value = true
             completeExecutionUseCase(recordId).fold(
@@ -254,7 +314,6 @@ class ExecutionViewModel @Inject constructor(
     }
 
     private companion object {
-        const val UNDO_WINDOW_MILLIS: Long = 24L * 60L * 60L * 1000L
     }
 
     private suspend fun buildRemainingDisplay(
@@ -270,12 +329,21 @@ class ExecutionViewModel @Inject constructor(
                 rateUpdateMillis = null
             )
         }
+        if (!session.isProgressAvailable) {
+            return RemainingDisplayState(
+                remainingByGoal = emptyMap(),
+                remainingCurrencyByGoal = emptyMap(),
+                totalRemaining = null,
+                hasWarning = true,
+                rateUpdateMillis = null
+            )
+        }
 
         val remainingByGoal = mutableMapOf<String, Double>()
         val currencyByGoal = mutableMapOf<String, String>()
-        val rateCache = mutableMapOf<String, Double>()
+        val rateCache = mutableMapOf<String, Double?>()
         var hasWarning = false
-        var didFetchRates = false
+        var didUseFrozenRates = false
 
         for (goal in session.goals) {
             val remaining = max(0.0, goal.plannedAmount - goal.contributed)
@@ -292,12 +360,21 @@ class ExecutionViewModel @Inject constructor(
             }
 
             val key = "${goal.snapshot.currency.uppercase()}->${displayCurrency.uppercase()}"
-            val rate = rateCache[key] ?: runCatching {
-                didFetchRates = true
-                executionContributionCalculator.convertAmount(1.0, goal.snapshot.currency, displayCurrency)
-            }.getOrNull()?.also { rateCache[key] = it } ?: 0.0
+            val rate = if (rateCache.containsKey(key)) {
+                rateCache[key]
+            } else {
+                executionContributionCalculator.convertSnapshotCurrencyAmount(
+                    amount = 1.0,
+                    fromSnapshotCurrency = goal.snapshot.currency,
+                    toSnapshotCurrency = displayCurrency,
+                    assetRates = session.assetRates
+                ).also {
+                    rateCache[key] = it
+                    didUseFrozenRates = didUseFrozenRates || it != null
+                }
+            }
 
-            if (rate > 0) {
+            if (rate != null && rate > 0.0) {
                 remainingByGoal[goal.snapshot.goalId] = remaining * rate
                 currencyByGoal[goal.snapshot.goalId] = displayCurrency
             } else {
@@ -318,7 +395,11 @@ class ExecutionViewModel @Inject constructor(
             remainingCurrencyByGoal = currencyByGoal,
             totalRemaining = totalRemaining,
             hasWarning = hasWarning,
-            rateUpdateMillis = if (didFetchRates || rateCache.isNotEmpty()) System.currentTimeMillis() else null
+            rateUpdateMillis = if (didUseFrozenRates) {
+                session.assetRates.maxOfOrNull { it.capturedAtMillis }
+            } else {
+                null
+            }
         )
     }
 

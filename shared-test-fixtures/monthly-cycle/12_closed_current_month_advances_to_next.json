@@ -1,0 +1,22 @@
+{
+  "displayTimeZone": "Asia/Nicosia",
+  "nowUtc": "2026-03-20T08:00:00Z",
+  "currentStorageMonthLabelUtc": "2026-03",
+  "undoWindowSeconds": 86400,
+  "records": [
+    {
+      "monthLabel": "2026-03",
+      "status": "closed",
+      "startedAt": "2026-03-01T08:00:00Z",
+      "completedAt": "2026-03-10T07:00:00Z",
+      "canUndoUntil": "2026-03-11T07:00:00Z"
+    }
+  ],
+  "expected": {
+    "state": "planning",
+    "planning": {
+      "month": "2026-04",
+      "source": "nextMonthAfterClosed"
+    }
+  }
+}

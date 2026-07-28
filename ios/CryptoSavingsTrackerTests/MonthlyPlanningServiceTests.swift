@@ -349,7 +349,7 @@ struct MonthlyPlanningServiceTests {
     
     // MARK: - Error Handling Tests
     
-    @Test("Handle currency conversion failure")
+    @Test("Currency conversion failure makes the total unavailable")
     func testCurrencyConversionFailure() async throws {
         // Given
         mockExchangeRateService.shouldFail = true
@@ -365,9 +365,9 @@ struct MonthlyPlanningServiceTests {
         // When
         let totalUSD = await monthlyPlanningService.calculateTotalRequired(for: [goal], displayCurrency: "USD")
 
-        // Then - should fallback to original EUR amount when conversion fails
-        // requiredMonthly = (2000-500)/3 = 500 EUR, fallback keeps it as 500
-        #expect(totalUSD == 500)
+        // Then - no EUR amount is mislabeled as USD.
+        #expect(totalUSD == 0)
+        #expect(monthlyPlanningService.lastCalculationError != nil)
     }
     
     @Test("Handle empty goals array")

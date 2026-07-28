@@ -12,6 +12,7 @@ import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainTransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.DeleteAssetUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.GetAssetByIdUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.balance.AssetBalanceCompletenessResolver
 import com.xax.CryptoSavingsTracker.domain.usecase.transaction.GetTransactionsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +29,8 @@ import javax.inject.Inject
 data class AssetDetailUiState(
     val asset: Asset? = null,
     val manualBalance: Double = 0.0,
-    val currentBalance: Double = 0.0,
+    val currentBalance: Double? = null,
+    val balanceIssue: String? = null,
     val currentBalanceUsd: Double? = null,
     val isUsdLoading: Boolean = false,
     val usdError: String? = null,
@@ -62,6 +64,12 @@ class AssetDetailViewModel @Inject constructor(
     private val deleteAssetUseCase: DeleteAssetUseCase
 ) : ViewModel() {
 
+    private data class UsdBalanceRequest(
+        val currency: String,
+        val balance: Double,
+        val key: String
+    )
+
     private val assetId: String = checkNotNull(savedStateHandle["assetId"])
 
     private val _showDeleteConfirmation = MutableStateFlow(false)
@@ -80,6 +88,13 @@ class AssetDetailViewModel @Inject constructor(
     private var latestManualBalance: Double = 0.0
     private var latestUsdKey: String? = null
     private var latestOnChainKey: String? = null
+    private var onChainBalanceGeneration: Long = 0L
+    private var onChainTransactionsGeneration: Long = 0L
+    private var usdBalanceGeneration: Long = 0L
+    private var isForcedOnChainBalanceLoadInProgress: Boolean = false
+    private var isForcedUsdBalanceLoadInProgress: Boolean = false
+    private var activeForcedUsdKey: String? = null
+    private var pendingUsdBalanceRequest: UsdBalanceRequest? = null
 
     private val assetAndTransactions = combine(
         getAssetByIdUseCase.asFlow(assetId),
@@ -101,9 +116,14 @@ class AssetDetailViewModel @Inject constructor(
                     if (latestOnChainKey != onChainKey) {
                         latestOnChainKey = onChainKey
                         refreshOnChainTransactions(asset = asset, forceRefresh = false)
+                        loadOnChainBalance(asset, forceRefresh = false)
+                    } else if (!isForcedOnChainBalanceLoadInProgress) {
+                        loadOnChainBalance(asset, forceRefresh = false)
                     }
-                    loadOnChainBalance(asset, forceRefresh = false)
                 } else {
+                    onChainBalanceGeneration += 1
+                    onChainTransactionsGeneration += 1
+                    isForcedOnChainBalanceLoadInProgress = false
                     _onChainBalance.value = null
                     _onChainError.value = null
                     _isOnChainLoading.value = false
@@ -112,10 +132,7 @@ class AssetDetailViewModel @Inject constructor(
                     latestOnChainKey = null
                 }
                 if (asset == null) {
-                    _currentBalanceUsd.value = null
-                    _usdError.value = null
-                    _isUsdLoading.value = false
-                    latestUsdKey = null
+                    invalidateUsdBalance()
                 }
             }
         }
@@ -131,12 +148,17 @@ class AssetDetailViewModel @Inject constructor(
                 val manualBalance = transactions
                     .filter { it.source == TransactionSource.MANUAL }
                     .sumOf { it.amount }
-                val currentBalance = AssetBalanceCalculator.totalBalance(
+                val balance = AssetBalanceCompletenessResolver.resolveSnapshot(
+                    asset = asset,
                     manualBalance = manualBalance,
-                    onChainBalance = onChainBalance?.balance,
-                    hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
+                    providerBalance = onChainBalance
                 )
-                loadUsdBalanceIfNeeded(currency = asset.currency, balance = currentBalance)
+                val currentBalance = balance.totalBalanceOrNull
+                if (currentBalance != null) {
+                    loadUsdBalanceIfNeeded(currency = asset.currency, balance = currentBalance)
+                } else {
+                    invalidateUsdBalance()
+                }
             }
         }
     }
@@ -184,19 +206,18 @@ class AssetDetailViewModel @Inject constructor(
         val manualSorted = manualTransactions.sortedByDescending { it.dateMillis }
         val onChainSorted = onChainTransactions.sortedByDescending { it.dateMillis }
         val manualBalance = manualTransactions.sumOf { it.amount }
-        val currentBalance = if (asset != null) {
-            AssetBalanceCalculator.totalBalance(
+        val balance = asset?.let {
+            AssetBalanceCompletenessResolver.resolveSnapshot(
+                asset = it,
                 manualBalance = manualBalance,
-                onChainBalance = onChainBalance?.balance,
-                hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
+                providerBalance = onChainBalance
             )
-        } else {
-            0.0
         }
         AssetDetailUiState(
             asset = asset,
             manualBalance = manualBalance,
-            currentBalance = currentBalance,
+            currentBalance = balance?.totalBalanceOrNull,
+            balanceIssue = balance?.issueOrNull,
             currentBalanceUsd = manualBalanceUsd,
             isUsdLoading = isUsdLoading,
             usdError = usdError,
@@ -230,37 +251,65 @@ class AssetDetailViewModel @Inject constructor(
 
     fun refreshUsdBalance() {
         val asset = latestAsset ?: return
-        val currentBalance = AssetBalanceCalculator.totalBalance(
+        val balance = AssetBalanceCompletenessResolver.resolveSnapshot(
+            asset = asset,
             manualBalance = latestManualBalance,
-            onChainBalance = _onChainBalance.value?.balance,
-            hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
+            providerBalance = _onChainBalance.value
         )
-        latestUsdKey = null
+        val currentBalance = balance.totalBalanceOrNull
+        if (currentBalance == null) {
+            invalidateUsdBalance(error = balance.issueOrNull)
+            return
+        }
         loadUsdBalance(currency = asset.currency, balance = currentBalance, forceRefresh = true)
     }
 
     private fun loadOnChainBalance(asset: Asset, forceRefresh: Boolean) {
+        val generation = ++onChainBalanceGeneration
+        isForcedOnChainBalanceLoadInProgress = forceRefresh
         viewModelScope.launch {
-            _isOnChainLoading.value = true
-            _onChainError.value = null
-            onChainBalanceRepository.getBalance(asset, forceRefresh = forceRefresh).fold(
-                onSuccess = { balance ->
-                    _onChainBalance.value = balance
-                    _isOnChainLoading.value = false
-                },
-                onFailure = { e ->
-                    _onChainError.value = e.message ?: "Failed to fetch on-chain balance"
-                    _isOnChainLoading.value = false
+            try {
+                _isOnChainLoading.value = true
+                _onChainError.value = null
+                onChainBalanceRepository.getBalance(asset, forceRefresh = forceRefresh).fold(
+                    onSuccess = { balance ->
+                        if (generation != onChainBalanceGeneration) return@fold
+                        _onChainBalance.value = balance
+                        _isOnChainLoading.value = false
+                    },
+                    onFailure = { e ->
+                        if (generation != onChainBalanceGeneration) return@fold
+                        val message = e.message ?: "Failed to fetch on-chain balance"
+                        // A failed latest-provider read invalidates the previous
+                        // snapshot. Keeping it visible would present stale data
+                        // as authoritative after an explicit refresh failed.
+                        _onChainBalance.value = null
+                        invalidateUsdBalance(error = message)
+                        _onChainError.value = message
+                        _isOnChainLoading.value = false
+                    }
+                )
+            } finally {
+                if (generation == onChainBalanceGeneration) {
+                    isForcedOnChainBalanceLoadInProgress = false
                 }
-            )
+            }
         }
     }
 
     private fun refreshOnChainTransactions(asset: Asset, forceRefresh: Boolean) {
+        val generation = ++onChainTransactionsGeneration
         viewModelScope.launch {
+            if (generation != onChainTransactionsGeneration) return@launch
             _isOnChainTransactionsLoading.value = true
             _onChainTransactionsError.value = null
-            onChainTransactionRepository.refresh(asset = asset, limit = 20, forceRefresh = forceRefresh).fold(
+            val result = onChainTransactionRepository.refresh(
+                asset = asset,
+                limit = 20,
+                forceRefresh = forceRefresh
+            )
+            if (generation != onChainTransactionsGeneration) return@launch
+            result.fold(
                 onSuccess = { _ ->
                     _isOnChainTransactionsLoading.value = false
                 },
@@ -273,37 +322,110 @@ class AssetDetailViewModel @Inject constructor(
     }
 
     private fun loadUsdBalanceIfNeeded(currency: String, balance: Double) {
-        val key = "${currency.uppercase()}:${String.format("%.8f", balance)}"
-        if (key == latestUsdKey) return
-        latestUsdKey = key
+        val request = usdBalanceRequest(currency = currency, balance = balance)
+        if (isForcedUsdBalanceLoadInProgress) {
+            if (request.key != latestUsdKey) {
+                latestUsdKey = request.key
+                _currentBalanceUsd.value = null
+                _usdError.value = null
+            }
+            pendingUsdBalanceRequest = request.takeUnless { it.key == activeForcedUsdKey }
+            return
+        }
+        if (request.key == latestUsdKey) return
         loadUsdBalance(currency = currency, balance = balance, forceRefresh = false)
     }
 
     private fun loadUsdBalance(currency: String, balance: Double, forceRefresh: Boolean) {
+        val request = usdBalanceRequest(currency = currency, balance = balance)
+        val inputChanged = request.key != latestUsdKey
+        latestUsdKey = request.key
+        if (inputChanged) {
+            _currentBalanceUsd.value = null
+        }
+        val generation = ++usdBalanceGeneration
+        if (forceRefresh) {
+            isForcedUsdBalanceLoadInProgress = true
+            activeForcedUsdKey = request.key
+            pendingUsdBalanceRequest = null
+        }
         if (balance == 0.0) {
             _currentBalanceUsd.value = 0.0
             _usdError.value = null
             _isUsdLoading.value = false
+            finishForcedUsdBalanceLoad(generation = generation, forceRefresh = forceRefresh)
             return
         }
 
         viewModelScope.launch {
-            _isUsdLoading.value = true
-            _usdError.value = null
-            runCatching {
-                if (forceRefresh) {
-                    exchangeRateRepository.clearCache()
+            try {
+                if (generation != usdBalanceGeneration) return@launch
+                _isUsdLoading.value = true
+                _usdError.value = null
+                runCatching {
+                    if (forceRefresh) {
+                        exchangeRateRepository.clearCache()
+                    }
+                    val rate = exchangeRateRepository.fetchRate(currency, "USD")
+                    balance * rate
+                }.onSuccess { usd ->
+                    if (
+                        generation != usdBalanceGeneration ||
+                        request.key != latestUsdKey
+                    ) {
+                        return@onSuccess
+                    }
+                    _currentBalanceUsd.value = usd
+                    _isUsdLoading.value = false
+                }.onFailure { e ->
+                    if (
+                        generation != usdBalanceGeneration ||
+                        request.key != latestUsdKey
+                    ) {
+                        return@onFailure
+                    }
+                    _currentBalanceUsd.value = null
+                    _usdError.value = e.message ?: "Failed to fetch USD rate"
+                    _isUsdLoading.value = false
                 }
-                val rate = exchangeRateRepository.fetchRate(currency, "USD")
-                balance * rate
-            }.onSuccess { usd ->
-                _currentBalanceUsd.value = usd
-                _isUsdLoading.value = false
-            }.onFailure { e ->
-                _usdError.value = e.message ?: "Failed to fetch USD rate"
-                _isUsdLoading.value = false
+            } finally {
+                finishForcedUsdBalanceLoad(generation = generation, forceRefresh = forceRefresh)
             }
         }
+    }
+
+    private fun usdBalanceRequest(currency: String, balance: Double): UsdBalanceRequest {
+        return UsdBalanceRequest(
+            currency = currency,
+            balance = balance,
+            key = "${currency.uppercase()}:${String.format("%.8f", balance)}"
+        )
+    }
+
+    private fun finishForcedUsdBalanceLoad(generation: Long, forceRefresh: Boolean) {
+        if (!forceRefresh || generation != usdBalanceGeneration) return
+        isForcedUsdBalanceLoadInProgress = false
+        activeForcedUsdKey = null
+        val pendingRequest = pendingUsdBalanceRequest
+        pendingUsdBalanceRequest = null
+        if (pendingRequest != null) {
+            loadUsdBalance(
+                currency = pendingRequest.currency,
+                balance = pendingRequest.balance,
+                forceRefresh = false
+            )
+        }
+    }
+
+    private fun invalidateUsdBalance(error: String? = null) {
+        usdBalanceGeneration += 1
+        latestUsdKey = null
+        isForcedUsdBalanceLoadInProgress = false
+        activeForcedUsdKey = null
+        pendingUsdBalanceRequest = null
+        _currentBalanceUsd.value = null
+        _usdError.value = error
+        _isUsdLoading.value = false
     }
 
     fun showDeleteConfirmation() {

@@ -5,6 +5,8 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import javax.inject.Singleton
 
 @Module
@@ -29,7 +31,8 @@ object TestExchangeRateModule {
             override fun hasValidConfiguration(): Boolean = true
 
             override suspend fun clearCache() = Unit
+
+            override fun observeRateInvalidations(): Flow<Long> = flowOf(0L)
         }
     }
 }
-

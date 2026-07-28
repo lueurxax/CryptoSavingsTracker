@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-01-04 |
+| Last Updated | 2026-07-28 |
 | Platform | Shared |
 | Audience | Developers |
 
@@ -70,6 +70,13 @@ Historical record of allocation **target snapshots** for a `(goal, asset)` pair.
 | `timestamp` | When this snapshot was recorded |
 | `createdAt` | Tie-breaker for same-timestamp records |
 | `monthLabel` | "yyyy-MM" for efficient queries |
+| `sourceTransactionId` | Optional durable transaction provenance for automatic allocation changes |
+| `sourcePreviousAmount` | Exact allocation target before that automatic change |
+
+Manual allocation edits leave the provenance fields empty. Automatic
+transaction-driven changes set both fields so deletion, provider correction,
+deduplication, and replay can reverse or reorder exactly one source movement.
+Missing or conflicting provenance is treated as ambiguous and blocks mutation.
 
 ### `MonthlyExecutionRecord`
 Defines the window of what "counts" for a month's execution.
@@ -92,7 +99,7 @@ flowchart TB
     subgraph Inputs
         TX[Transactions<br/>balance changes]
         AH[AllocationHistory<br/>target changes]
-        ER[ExchangeRateService<br/>current rates]
+        ER[Platform execution-rate policy]
     end
 
     subgraph Calculator["ExecutionProgressCalculator"]
@@ -337,8 +344,8 @@ sequenceDiagram
     ETS->>EPC: derivedEvents(record, end: Date())
     EPC-->>ETS: Final derived events
 
-    ETS->>ERS: Fetch current exchange rates
-    ERS-->>ETS: Rate snapshot
+    ETS->>ERS: Resolve platform-authoritative rates
+    ERS-->>ETS: Complete rate snapshot
 
     ETS->>CE: Create CompletedExecution
     Note over CE: Snapshot includes:<br/>- Goal totals<br/>- Exchange rates<br/>- Contribution details
@@ -354,7 +361,8 @@ sequenceDiagram
 
 **What happens:**
 - Derived events from `startedAt` to `completedAt` are calculated one final time
-- Exchange rates are snapshotted at completion time
+- Apple resolves complete current rates at close; Android reuses the immutable
+  execution-start rate matrix
 - Everything is frozen into `CompletedExecution` for immutable history
 - Record status transitions to `.closed`
 
@@ -364,7 +372,8 @@ sequenceDiagram
 
 ## Undo Operations
 
-Both start and completion support a 24-hour undo window:
+Both start and completion use the configured undo window: 24 hours by default,
+48 hours, seven days, or no undo.
 
 ```mermaid
 sequenceDiagram
@@ -377,7 +386,7 @@ sequenceDiagram
     alt Undo Start Tracking
         User->>VM: Tap "Undo Start"
         VM->>ETS: undoStartTracking(record)
-        ETS->>MER: Check canUndo (24hr window)
+        ETS->>MER: Check canUndo (configured window)
 
         alt Within window
             ETS->>MER: status = .draft
@@ -392,7 +401,7 @@ sequenceDiagram
     else Undo Completion
         User->>VM: Tap "Undo Complete"
         VM->>ETS: undoCompletion(record)
-        ETS->>MER: Check canUndo (24hr window)
+        ETS->>MER: Check canUndo (configured window)
 
         alt Within window
             ETS->>MER: status = .executing

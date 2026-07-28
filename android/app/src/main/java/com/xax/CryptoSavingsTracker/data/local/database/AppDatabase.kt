@@ -10,6 +10,7 @@ import com.xax.CryptoSavingsTracker.data.local.database.dao.AssetDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.CompletedExecutionDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.CompletionEventDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.ExecutionRecordDao
+import com.xax.CryptoSavingsTracker.data.local.database.dao.ExecutionAssetRateDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.ExecutionSnapshotDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.GoalDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.MonthlyGoalPlanDao
@@ -21,6 +22,7 @@ import com.xax.CryptoSavingsTracker.data.local.database.entity.AssetEntity
 import com.xax.CryptoSavingsTracker.data.local.database.entity.CompletedExecutionEntity
 import com.xax.CryptoSavingsTracker.data.local.database.entity.CompletionEventEntity
 import com.xax.CryptoSavingsTracker.data.local.database.entity.ExecutionSnapshotEntity
+import com.xax.CryptoSavingsTracker.data.local.database.entity.ExecutionAssetRateEntity
 import com.xax.CryptoSavingsTracker.data.local.database.entity.GoalEntity
 import com.xax.CryptoSavingsTracker.data.local.database.entity.MonthlyGoalPlanEntity
 import com.xax.CryptoSavingsTracker.data.local.database.entity.MonthlyExecutionRecordEntity
@@ -38,10 +40,11 @@ import com.xax.CryptoSavingsTracker.data.local.database.entity.TransactionEntity
         MonthlyGoalPlanEntity::class,
         MonthlyExecutionRecordEntity::class,
         ExecutionSnapshotEntity::class,
+        ExecutionAssetRateEntity::class,
         CompletionEventEntity::class,
         CompletedExecutionEntity::class
     ],
-    version = 5,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -56,6 +59,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun monthlyGoalPlanDao(): MonthlyGoalPlanDao
     abstract fun executionRecordDao(): ExecutionRecordDao
     abstract fun executionSnapshotDao(): ExecutionSnapshotDao
+    abstract fun executionAssetRateDao(): ExecutionAssetRateDao
     abstract fun completionEventDao(): CompletionEventDao
     abstract fun completedExecutionDao(): CompletedExecutionDao
 

@@ -173,7 +173,7 @@ struct OnboardingGoalTemplateView: View {
 struct OnboardingAssetSelectionView: View {
     let template: GoalTemplate
     let userProfile: UserProfile
-    @State private var selectedAssets: Set<String> = []
+    @Binding var selectedAssetCurrencies: Set<String>
     
     var body: some View {
         VStack(spacing: 32) {
@@ -194,12 +194,12 @@ struct OnboardingAssetSelectionView: View {
                 ForEach(template.recommendedAssets, id: \.id) { asset in
                     AssetRecommendationCard(
                         asset: asset,
-                        isSelected: selectedAssets.contains(asset.currency)
+                        isSelected: selectedAssetCurrencies.contains(asset.currency)
                     ) {
-                        if selectedAssets.contains(asset.currency) {
-                            selectedAssets.remove(asset.currency)
+                        if selectedAssetCurrencies.contains(asset.currency) {
+                            selectedAssetCurrencies.remove(asset.currency)
                         } else {
-                            selectedAssets.insert(asset.currency)
+                            selectedAssetCurrencies.insert(asset.currency)
                         }
                     }
                 }
@@ -231,10 +231,6 @@ struct OnboardingAssetSelectionView: View {
             )
         }
         .padding(.vertical, 16)
-        .onAppear {
-            // Pre-select all recommended assets
-            selectedAssets = Set(template.recommendedAssets.map { $0.currency })
-        }
     }
 }
 
@@ -622,7 +618,7 @@ struct AssetRecommendationCard: View {
         case "SOL": return .purple
         case "USDC": return .green
         case "ADA": return .blue
-        case "MATIC": return .purple
+        case "POL", "MATIC": return .purple
         case "AVAX": return .red
         default: return .gray
         }

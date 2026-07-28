@@ -1,0 +1,183 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Status chips & badges</title>
+<link rel="stylesheet" href="_card.css">
+<link rel="stylesheet" href="_glass.css">
+<style>
+  body.glass {
+    position: relative;
+    padding: 28px 20px 20px;
+  }
+  body.glass::before {
+    content:'';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background:
+      radial-gradient(22% 32% at 14% 22%, rgba(255, 170, 90, 0.55), transparent 70%),
+      radial-gradient(22% 30% at 82% 18%, rgba(90, 180, 255, 0.55), transparent 70%),
+      radial-gradient(24% 30% at 68% 78%, rgba(180, 120, 255, 0.45), transparent 72%),
+      radial-gradient(20% 28% at 22% 82%, rgba(90, 220, 180, 0.50), transparent 70%);
+    pointer-events: none;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font: 600 12px var(--font-sans);
+    letter-spacing: -0.1px;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+  }
+  .chip::before {
+    content:'';
+    position:absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(120% 80% at 50% -10%, rgba(255,255,255,0.55), rgba(255,255,255,0) 60%);
+    pointer-events:none;
+    z-index: 1;
+    mix-blend-mode: screen;
+  }
+  .chip::after {
+    content:'';
+    position:absolute; inset:0;
+    border-radius:inherit;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.60),
+      inset 0 -1px 0 rgba(0,0,0,0.05);
+    border: 0.5px solid rgba(255,255,255,0.50);
+    pointer-events:none;
+    z-index: 2;
+  }
+  .chip > * { position: relative; z-index: 3; }
+  .chip .dot { width:6px; height:6px; border-radius:50%; background:currentColor; box-shadow: 0 0 6px currentColor; opacity: 0.9; }
+
+  /* Tinted glass chips — semantic color shows through the frost */
+  .tint-success {
+    background: linear-gradient(180deg, rgba(80, 200, 140, 0.38), rgba(0, 140, 90, 0.50));
+    color: #063F28;
+    box-shadow: 0 1px 2px rgba(0, 80, 50, 0.14), 0 4px 10px rgba(0, 140, 90, 0.18);
+  }
+  .tint-warning {
+    background: linear-gradient(180deg, rgba(255, 170, 80, 0.40), rgba(220, 120, 30, 0.52));
+    color: #4A1F00;
+    box-shadow: 0 1px 2px rgba(120, 50, 0, 0.14), 0 4px 10px rgba(220, 120, 30, 0.20);
+  }
+  .tint-error {
+    background: linear-gradient(180deg, rgba(240, 120, 120, 0.42), rgba(200, 50, 50, 0.55));
+    color: #4A0000;
+    box-shadow: 0 1px 2px rgba(120, 10, 10, 0.16), 0 4px 10px rgba(200, 50, 50, 0.22);
+  }
+  .tint-info {
+    background: linear-gradient(180deg, rgba(100, 170, 240, 0.42), rgba(30, 110, 200, 0.55));
+    color: #06325C;
+    box-shadow: 0 1px 2px rgba(10, 50, 120, 0.16), 0 4px 10px rgba(30, 110, 200, 0.22);
+  }
+  .tint-neutral {
+    background: linear-gradient(180deg, rgba(255,255,255,0.52), rgba(255,255,255,0.28));
+    color: #2B2B30;
+    box-shadow: 0 1px 2px rgba(0,40,90,0.08), 0 4px 10px rgba(0,40,90,0.08);
+  }
+
+  /* Host — an icon with a badge anchored to its top-right */
+  .badge-host {
+    position: relative;
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.30));
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    border-radius: 10px;
+    border: 0.5px solid rgba(255,255,255,0.55);
+    box-shadow: 0 1px 2px rgba(0,40,90,0.06), 0 2px 6px rgba(0,40,90,0.05);
+  }
+
+  /* Dot — pure status, no number */
+  .badge-dot {
+    position: absolute;
+    top: -3px; right: -3px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #E03434;
+    border: 1.5px solid rgba(255,255,255,0.92);
+    box-shadow: 0 0 0 0.5px rgba(120, 0, 0, 0.4), 0 1px 2px rgba(200, 30, 30, 0.35);
+  }
+
+  /* Notification badge — tinted glass red, not flat */
+  .badge-count {
+    position: absolute;
+    top: -7px; right: -7px;
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 5px;
+    border-radius: 999px;
+    font: 700 10px var(--font-sans);
+    letter-spacing: 0;
+    color: #fff;
+    text-shadow: 0 0.5px 0 rgba(80, 0, 0, 0.28);
+    background: linear-gradient(180deg, #EE5656 0%, #BE2A2A 100%);
+    border: 1.5px solid rgba(255,255,255,0.92);
+    box-shadow:
+      0 1px 2px rgba(120, 0, 0, 0.24),
+      0 2px 6px rgba(200, 30, 30, 0.28);
+  }
+</style>
+</head>
+<body class="glass">
+<div class="col gap-3" style="position:relative;z-index:2">
+  <div class="row gap-2 wrap">
+    <span class="chip tint-success"><span class="dot"></span>On Track</span>
+    <span class="chip tint-warning"><span class="dot"></span>At Risk</span>
+    <span class="chip tint-error"><span class="dot"></span>Off Track</span>
+    <span class="chip tint-info"><span class="dot"></span>Syncing</span>
+    <span class="chip tint-neutral"><span class="dot"></span>Paused</span>
+    <span class="chip tint-info">Stale — tap to refresh</span>
+  </div>
+  <div class="row gap-4" style="align-items:center">
+
+    <!-- Dot badge -->
+    <div class="badge-host" title="unread dot">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2B2B30" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.7 21a2 2 0 01-3.4 0"/>
+      </svg>
+      <span class="badge-dot"></span>
+    </div>
+
+    <!-- 3 badge -->
+    <div class="badge-host" title="3 unread">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2B2B30" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="5" width="18" height="14" rx="2"/>
+        <path d="M3 7l9 6 9-6"/>
+      </svg>
+      <span class="badge-count">3</span>
+    </div>
+
+    <!-- 12 badge -->
+    <div class="badge-host" title="12 updates">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2B2B30" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 7v5l3 2"/>
+      </svg>
+      <span class="badge-count">12</span>
+    </div>
+
+    <!-- 99+ badge -->
+    <div class="badge-host" title="many">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2B2B30" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="8" r="4"/>
+        <path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>
+      </svg>
+      <span class="badge-count">99+</span>
+    </div>
+
+    <span class="caption-pill">Badges sit on tab/row icons — dot for unseen state, numeric for counts, 99+ cap for overflow.</span>
+  </div>
+</div>
+</body></html>

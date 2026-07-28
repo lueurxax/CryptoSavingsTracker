@@ -34,17 +34,20 @@ data class EditTransactionState(
     val isSaved: Boolean = false,
     val error: String? = null
 ) {
+    private val parsedAmount: Double?
+        get() = amount.toDoubleOrNull()?.takeIf(Double::isFinite)
+
     val isEditable: Boolean
         get() = source == TransactionSource.MANUAL
 
     val isValid: Boolean
-        get() = amount.toDoubleOrNull()?.let { it > 0 } == true
+        get() = parsedAmount?.let { it > 0 } == true
 
     val amountError: String?
         get() = when {
             amount.isEmpty() -> null
-            amount.toDoubleOrNull() == null -> "Enter a valid number"
-            amount.toDoubleOrNull()!! <= 0 -> "Amount must be positive"
+            parsedAmount == null -> "Enter a finite number"
+            parsedAmount!! <= 0 -> "Amount must be positive"
             else -> null
         }
 }
@@ -101,18 +104,16 @@ class EditTransactionViewModel @Inject constructor(
     }
 
     fun setTransactionType(type: TransactionType) {
-        _state.update { it.copy(transactionType = type) }
+        // Financial fields are immutable because legacy auto-allocation writes do not retain
+        // enough provenance to reverse an amount/type change safely.
     }
 
     fun setAmount(amount: String) {
-        val filtered = amount.filter { it.isDigit() || it == '.' }
-        if (filtered.count { it == '.' } <= 1) {
-            _state.update { it.copy(amount = filtered) }
-        }
+        // Metadata-only edit; see setTransactionType.
     }
 
     fun setDate(date: LocalDate) {
-        _state.update { it.copy(date = date) }
+        // Metadata-only edit; see setTransactionType.
     }
 
     fun setCounterparty(counterparty: String) {
@@ -137,12 +138,16 @@ class EditTransactionViewModel @Inject constructor(
                 } else {
                     amountValue
                 }
+                val zone = ZoneId.systemDefault()
+                val originalDate = Instant.ofEpochMilli(original.dateMillis)
+                    .atZone(zone)
+                    .toLocalDate()
                 // iOS parity: use current timestamp for today's date
-                val dateMillis = if (currentState.date == LocalDate.now()) {
-                    System.currentTimeMillis()
-                } else {
-                    currentState.date
-                        .atStartOfDay(ZoneId.systemDefault())
+                val dateMillis = when {
+                    currentState.date == originalDate -> original.dateMillis
+                    currentState.date == LocalDate.now(zone) -> System.currentTimeMillis()
+                    else -> currentState.date
+                        .atStartOfDay(zone)
                         .toInstant()
                         .toEpochMilli()
                 }
@@ -166,4 +171,3 @@ class EditTransactionViewModel @Inject constructor(
         _state.update { it.copy(error = null) }
     }
 }
-

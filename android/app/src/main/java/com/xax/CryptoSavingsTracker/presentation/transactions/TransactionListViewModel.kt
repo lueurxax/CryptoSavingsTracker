@@ -9,6 +9,8 @@ import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.GetAssetByIdUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.transaction.DeleteTransactionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.transaction.GetTransactionsUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.balance.AssetBalanceCompleteness
+import com.xax.CryptoSavingsTracker.domain.usecase.balance.AssetBalanceCompletenessResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,10 +24,12 @@ data class TransactionListState(
     val assetCurrency: String = "",
     val assetName: String = "",
     val isCryptoAsset: Boolean = false,
-    val cachedOnChainBalance: Double = 0.0,
+    val cachedOnChainBalance: Double? = null,
+    val isBalanceResolved: Boolean = false,
+    val balanceIssue: String? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
-    val totalBalance: Double = 0.0,
+    val totalBalance: Double? = null,
     val depositCount: Int = 0,
     val withdrawalCount: Int = 0
 )
@@ -54,23 +58,41 @@ class TransactionListViewModel @Inject constructor(
             try {
                 val asset = getAssetByIdUseCase(assetId)
                 if (asset != null) {
-                    val hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
-                    val cachedOnChain = if (!hasOnChain) {
-                        0.0
-                    } else {
-                        runCatching { onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0 }
-                            .getOrElse { 0.0 }
-                    }
                     val existingManual = _state.value.transactions
                         .filter { it.source == TransactionSource.MANUAL }
                         .sumOf { it.amount }
-                    _state.update { it.copy(
-                        assetCurrency = asset.currency,
-                        assetName = asset.displayName(),
-                        isCryptoAsset = asset.isCryptoAsset,
-                        cachedOnChainBalance = cachedOnChain,
-                        totalBalance = existingManual + cachedOnChain
-                    )}
+                    val balance = AssetBalanceCompletenessResolver.resolve(
+                        asset = asset,
+                        manualBalance = existingManual,
+                        repository = onChainBalanceRepository,
+                        forceRefresh = false
+                    )
+                    val cachedOnChain = (balance as? AssetBalanceCompleteness.Complete)
+                        ?.onChainBalance
+                        ?: if (balance is AssetBalanceCompleteness.Complete) 0.0 else null
+                    _state.update { current ->
+                        val latestManualBalance = current.transactions
+                            .filter { it.source == TransactionSource.MANUAL }
+                            .sumOf { it.amount }
+                        val totalBalance = if (
+                            balance.issueOrNull == null &&
+                            latestManualBalance.isFinite()
+                        ) {
+                            (latestManualBalance + (cachedOnChain ?: 0.0))
+                                .takeIf(Double::isFinite)
+                        } else {
+                            null
+                        }
+                        current.copy(
+                            assetCurrency = asset.currency,
+                            assetName = asset.displayName(),
+                            isCryptoAsset = asset.isCryptoAsset,
+                            cachedOnChainBalance = cachedOnChain,
+                            isBalanceResolved = true,
+                            balanceIssue = balance.issueOrNull,
+                            totalBalance = totalBalance
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(error = "Failed to load asset: ${e.message}") }
@@ -85,17 +107,28 @@ class TransactionListViewModel @Inject constructor(
                 val manualBalance = transactions
                     .filter { it.source == TransactionSource.MANUAL }
                     .sumOf { it.amount }
-                val totalBalance = manualBalance + _state.value.cachedOnChainBalance
                 val depositCount = transactions.count { it.isDeposit }
                 val withdrawalCount = transactions.count { !it.isDeposit }
 
-                _state.update { it.copy(
-                    transactions = sortedTransactions,
-                    isLoading = false,
-                    totalBalance = totalBalance,
-                    depositCount = depositCount,
-                    withdrawalCount = withdrawalCount
-                )}
+                _state.update { current ->
+                    val totalBalance = if (
+                        current.isBalanceResolved &&
+                        current.balanceIssue == null &&
+                        manualBalance.isFinite()
+                    ) {
+                        (manualBalance + (current.cachedOnChainBalance ?: 0.0))
+                            .takeIf(Double::isFinite)
+                    } else {
+                        null
+                    }
+                    current.copy(
+                        transactions = sortedTransactions,
+                        isLoading = false,
+                        totalBalance = totalBalance,
+                        depositCount = depositCount,
+                        withdrawalCount = withdrawalCount
+                    )
+                }
             }
         }
     }

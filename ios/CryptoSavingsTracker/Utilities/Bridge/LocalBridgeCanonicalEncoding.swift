@@ -249,6 +249,8 @@ extension BridgeAllocationHistorySnapshot {
             ("id", .string(bridgeCanonicalUUID(id))),
             ("monthLabel", .string(monthLabel)),
             ("recordState", .string(recordState.rawValue)),
+            ("sourcePreviousAmount", bridgeCanonicalNullableDecimal(sourcePreviousAmount)),
+            ("sourceTransactionId", bridgeCanonicalNullableUUID(sourceTransactionId)),
             ("timestamp", .integer(bridgeCanonicalMilliseconds(timestamp)))
         ])
     }
@@ -407,6 +409,7 @@ private let bridgeCanonicalDecimalKeys: Set<String> = [
     "requiredMonthly",
     "remainingAmount",
     "customAmount",
+    "sourcePreviousAmount",
     "totalPlanned",
     "plannedAmount"
 ]

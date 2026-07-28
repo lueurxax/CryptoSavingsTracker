@@ -131,4 +131,45 @@ struct RateSnapshot: Sendable {
 struct GoalProgressResult: Sendable {
     let currentAmount: Decimal
     let progressRatio: Double
+    let isComplete: Bool
+    let missingRatePairs: Set<String>
+}
+
+/// Rate pairs required to recalculate shared-goal progress and apply its
+/// USD-denominated materiality floor.
+struct FamilyShareRateRequirements: Sendable {
+    let calculationPairs: Set<String>
+    let materialityPairs: Set<String>
+
+    nonisolated init(goalInputs: [GoalProgressInput]) {
+        var calculationPairs: Set<String> = []
+        var materialityPairs: Set<String> = []
+
+        for input in goalInputs {
+            let goalCurrency = input.currency.uppercased()
+            var goalRequiresConversion = false
+
+            for allocation in input.allocations where allocation.allocatedAmount > 0 {
+                let assetCurrency = allocation.assetCurrency.uppercased()
+                guard assetCurrency != goalCurrency else { continue }
+                calculationPairs.insert(
+                    CurrencyPair.canonicalKey(from: assetCurrency, to: goalCurrency)
+                )
+                goalRequiresConversion = true
+            }
+
+            if goalRequiresConversion, goalCurrency != "USD" {
+                materialityPairs.insert(
+                    CurrencyPair.canonicalKey(from: "USD", to: goalCurrency)
+                )
+            }
+        }
+
+        self.calculationPairs = calculationPairs
+        self.materialityPairs = materialityPairs
+    }
+
+    nonisolated var allPairs: Set<String> {
+        calculationPairs.union(materialityPairs)
+    }
 }

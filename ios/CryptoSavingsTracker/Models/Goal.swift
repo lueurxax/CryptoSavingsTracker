@@ -197,9 +197,12 @@ final class Goal {
     }
     
     var suggestedDailyDeposit: Double {
-        // Simple calculation based on days remaining and manual total
+        suggestedDailyDeposit(currentTotal: manualTotal)
+    }
+
+    func suggestedDailyDeposit(currentTotal: Double) -> Double {
         guard daysRemaining > 0, targetAmount > 0 else { return 0 }
-        let remainingAmount = max(targetAmount - manualTotal, 0)
+        let remainingAmount = max(targetAmount - currentTotal, 0)
         return remainingAmount / Double(daysRemaining)
     }
     

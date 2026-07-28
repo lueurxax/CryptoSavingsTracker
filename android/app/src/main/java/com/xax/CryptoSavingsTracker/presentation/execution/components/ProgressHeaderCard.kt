@@ -54,6 +54,12 @@ internal fun formatCurrency(amount: Double, currency: String = "USD"): String {
     return "$currency ${String.format("%,.2f", amount)}"
 }
 
+internal fun executionPlannedTotalLabel(session: ExecutionSession): String {
+    val currency = session.totalsCurrency ?: return "Mixed currencies"
+    val total = session.totalPlanned ?: return "Mixed currencies"
+    return formatCurrency(total, currency)
+}
+
 internal fun formatRelativeTime(millis: Long): String {
     val now = Instant.now()
     val then = Instant.ofEpochMilli(millis)
@@ -237,7 +243,7 @@ internal fun ProgressHeaderCard(
                 // Total planned
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = formatCurrency(session.totalPlanned),
+                        text = executionPlannedTotalLabel(session),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold
                     )

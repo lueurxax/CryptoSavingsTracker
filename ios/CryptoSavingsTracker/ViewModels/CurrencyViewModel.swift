@@ -46,6 +46,13 @@ class CurrencyViewModel: ObservableObject {
     }
     
     private func loadInitialData() {
+#if DEBUG
+        if UITestFlags.shouldSeedPublicCurrencyCatalog {
+            supportedCurrencies = ["EUR", "GBP", "USD"]
+            return
+        }
+#endif
+
         // Load cached crypto data immediately
         coinInfos = coinGeckoService.coinInfos
         coins = coinGeckoService.coins

@@ -18,6 +18,7 @@ class AssetViewModel: ObservableObject, ErrorAwareViewModel {
     @Published var balanceError: String?
     @Published var onChainTransactions: [TatumTransaction] = []
     @Published var isLoadingTransactions: Bool = false
+    @Published var transactionError: String?
     @Published var lastBalanceUpdate: Date?
     @Published var balanceState: BalanceState = .loading
     @Published var isCachedData: Bool = false
@@ -83,29 +84,30 @@ class AssetViewModel: ObservableObject, ErrorAwareViewModel {
         
         // Fetch on-chain balance if configured
         if let address = asset.address, let chainId = asset.chainId, !address.isEmpty {
-            let (balance, isFromCache, updateTime) = await fetchOnChainBalanceWithState(
+            let result = await fetchOnChainBalanceWithState(
                 address: address,
                 chainId: chainId,
                 forceRefresh: forceRefresh
             )
-            onChainBalance = balance
-            isCachedData = isFromCache
-            lastBalanceUpdate = updateTime
+            onChainBalance = result.balance
+            isCachedData = result.isFromCache
+            lastBalanceUpdate = result.updateTime
             
             // Update balance state based on result
             if let error = balanceError {
-                // We have an error, but might have cached data
+                // Expired cache may explain the degraded state, but it is not
+                // promoted into the operational on-chain or total balances.
                 balanceState = .error(
                     message: error,
-                    cachedBalance: balance > 0 ? balance : nil,
-                    lastUpdated: updateTime
+                    cachedBalance: result.fallbackBalance,
+                    lastUpdated: result.updateTime
                 )
             } else {
                 // Successfully loaded (either fresh or cached)
                 balanceState = .loaded(
-                    balance: balance,
-                    isCached: isFromCache,
-                    lastUpdated: updateTime ?? Date()
+                    balance: result.balance,
+                    isCached: result.isFromCache,
+                    lastUpdated: result.updateTime ?? Date()
                 )
             }
         } else {
@@ -133,26 +135,51 @@ class AssetViewModel: ObservableObject, ErrorAwareViewModel {
               !address.isEmpty else { return }
         
         isLoadingTransactions = true
+        transactionError = nil
         
         do {
-            let fetched = try await tatumService.fetchTransactionHistory(
+            let batch = try await tatumService.fetchTransactionHistoryBatch(
                 chainId: chainId,
                 address: address,
                 currency: asset.currency,
                 limit: 20,
                 forceRefresh: forceRefresh
             )
-            onChainTransactions = fetched
 
-            if let modelContext {
-                let importer = OnChainTransactionImportService(modelContext: modelContext)
-                _ = try? importer.upsert(transactions: fetched, for: asset)
+            guard let modelContext else {
+                throw OnChainTransactionImportError.persistenceUnavailable
+            }
+            switch try batch.commitIfCurrent({
+                let importer = OnChainTransactionImportService(
+                    modelContext: modelContext
+                )
+                let importResult = try importer.upsertWithResult(
+                    transactions: batch.transactions,
+                    for: asset
+                )
+                tatumService.commitImportedTransactionHistory(
+                    importResult.acceptedTransactions,
+                    chainId: chainId,
+                    address: address,
+                    currency: asset.currency
+                )
+                return importResult
+            }) {
+            case .committed(let importResult):
+                onChainTransactions = importResult.acceptedTransactions
+            case .superseded:
+                break
             }
         } catch {
-            onChainTransactions = []
+            transactionError = error.localizedDescription
+            viewState = .degraded("Transaction history may be stale")
         }
         
         isLoadingTransactions = false
+    }
+
+    func retryTransactions() async {
+        await fetchTransactions(forceRefresh: true)
     }
     
     private func fetchOnChainBalance(address: String, chainId: String, forceRefresh: Bool) async -> Double {
@@ -172,7 +199,16 @@ class AssetViewModel: ObservableObject, ErrorAwareViewModel {
         }
     }
     
-    private func fetchOnChainBalanceWithState(address: String, chainId: String, forceRefresh: Bool) async -> (balance: Double, isFromCache: Bool, updateTime: Date?) {
+    private func fetchOnChainBalanceWithState(
+        address: String,
+        chainId: String,
+        forceRefresh: Bool
+    ) async -> (
+        balance: Double,
+        isFromCache: Bool,
+        updateTime: Date?,
+        fallbackBalance: Double?
+    ) {
         let cacheKey = BalanceCacheManager.balanceCacheKey(chainId: chainId, address: address, symbol: asset.currency)
         let lastUpdate = BalanceCacheManager.shared.getLastBalanceUpdate(for: cacheKey)
         
@@ -189,19 +225,21 @@ class AssetViewModel: ObservableObject, ErrorAwareViewModel {
             let newUpdate = BalanceCacheManager.shared.getLastBalanceUpdate(for: cacheKey)
             let isFromCache = newUpdate == lastUpdate && !forceRefresh
             
-            return (balance, isFromCache, newUpdate ?? Date())
+            return (balance, isFromCache, newUpdate ?? Date(), nil)
         } catch {
             AppLog.warning("On-chain balance fetch error: \(error)", category: .balanceService)
             balanceError = error.localizedDescription
             
-            // Try to get cached balance as fallback
-            if let cachedBalance = BalanceCacheManager.shared.getFallbackBalance(for: cacheKey) {
-                AppLog.info("Using cached balance: \(cachedBalance) \(asset.currency)", category: .cache)
-                return (cachedBalance, true, lastUpdate)
+            let fallbackBalance = BalanceCacheManager.shared.getFallbackBalance(
+                for: cacheKey
+            )
+            if let fallbackBalance {
+                AppLog.info(
+                    "Retaining expired balance for degraded presentation: \(fallbackBalance) \(asset.currency)",
+                    category: .cache
+                )
             }
-            
-            // No cached data available
-            return (0, false, nil)
+            return (0, false, lastUpdate, fallbackBalance)
         }
     }
     
@@ -226,32 +264,4 @@ class AssetViewModel: ObservableObject, ErrorAwareViewModel {
         return total
     }
     
-    func deleteTransaction(_ transaction: Transaction) {
-        if let index = (asset.transactions ?? []).firstIndex(where: { $0.id == transaction.id }) {
-            asset.transactions?.remove(at: index)
-        }
-        modelContext?.delete(transaction)
-        
-        do {
-            try modelContext?.save()
-            NotificationCenter.default.post(name: .goalProgressRefreshed, object: nil)
-            let affectedGoalIDs = (asset.allocations ?? []).compactMap { $0.goal?.id }
-            if !affectedGoalIDs.isEmpty {
-                NotificationCenter.default.post(
-                    name: .sharedGoalDataDidChange,
-                    object: nil,
-                    userInfo: [
-                        "affectedGoalIDs": affectedGoalIDs,
-                        "reason": "transactionMutation"
-                    ]
-                )
-            }
-            // Update balances after deletion
-            Task {
-                await refreshBalances()
-            }
-        } catch {
-            AppLog.error("Failed to delete transaction: \(error)", category: .transactionHistory)
-        }
-    }
 }

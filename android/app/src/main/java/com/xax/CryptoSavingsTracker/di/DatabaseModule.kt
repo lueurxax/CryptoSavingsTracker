@@ -10,6 +10,7 @@ import com.xax.CryptoSavingsTracker.data.local.database.dao.AssetDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.CompletedExecutionDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.CompletionEventDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.ExecutionRecordDao
+import com.xax.CryptoSavingsTracker.data.local.database.dao.ExecutionAssetRateDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.ExecutionSnapshotDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.GoalDao
 import com.xax.CryptoSavingsTracker.data.local.database.dao.MonthlyPlanDao
@@ -38,7 +39,9 @@ object DatabaseModule {
                 DatabaseMigrations.MIGRATION_1_2,
                 DatabaseMigrations.MIGRATION_2_3,
                 DatabaseMigrations.MIGRATION_3_4,
-                DatabaseMigrations.MIGRATION_4_5
+                DatabaseMigrations.MIGRATION_4_5,
+                DatabaseMigrations.MIGRATION_5_6,
+                DatabaseMigrations.MIGRATION_6_7
             )
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
@@ -70,6 +73,9 @@ object DatabaseModule {
 
     @Provides
     fun provideExecutionSnapshotDao(database: AppDatabase): ExecutionSnapshotDao = database.executionSnapshotDao()
+
+    @Provides
+    fun provideExecutionAssetRateDao(database: AppDatabase): ExecutionAssetRateDao = database.executionAssetRateDao()
 
     @Provides
     fun provideCompletionEventDao(database: AppDatabase): CompletionEventDao = database.completionEventDao()

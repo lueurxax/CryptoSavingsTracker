@@ -1,0 +1,82 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Goal list row</title>
+<link rel="stylesheet" href="_card.css">
+<link rel="stylesheet" href="_glass.css">
+<style>
+  .row-card {
+    border-radius: 16px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 10px;
+  }
+  .row-card:last-child { margin-bottom: 0; }
+
+  .avatar {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .name { font: 600 16px var(--font-sans); color: var(--fg-1); letter-spacing: -0.2px; }
+  .meta { font: 500 13px var(--font-sans); color: var(--fg-2); font-variant-numeric: tabular-nums; }
+
+  .progress-track {
+    height: 6px;
+    border-radius: 999px;
+    flex: 1;
+    overflow: hidden;
+    max-width: 140px;
+    background: rgba(255,255,255,0.35);
+    box-shadow: inset 0 1px 2px rgba(0,40,90,0.08);
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+  }
+  .progress-fill.on   { background: linear-gradient(180deg, #00B67A, #008F5C); }
+  .progress-fill.warn { background: linear-gradient(180deg, #E68232, #B84D00); }
+
+  .chip {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:3px 10px; border-radius:999px;
+    font: 600 11px var(--font-sans);
+    position: relative; isolation: isolate;
+  }
+</style>
+</head>
+<body class="glass">
+<div class="col">
+  <div class="row-card glass-surface">
+    <div class="avatar glass-surface" style="backdrop-filter:none">🏖️</div>
+    <div class="col grow" style="gap:5px; min-width:0">
+      <div class="row" style="justify-content:space-between; align-items:baseline">
+        <div class="name">Trip · Portugal</div>
+        <div class="meta" style="font-weight:700; color:var(--fg-1)">$1,980 / $3,000</div>
+      </div>
+      <div class="row gap-2" style="align-items:center">
+        <div class="progress-track"><div class="progress-fill on" style="width:66%"></div></div>
+        <span class="chip glass-surface glass-tint-success">On Track</span>
+        <span class="meta">by Aug 2026</span>
+      </div>
+    </div>
+  </div>
+  <div class="row-card glass-surface">
+    <div class="avatar glass-surface" style="backdrop-filter:none">🏠</div>
+    <div class="col grow" style="gap:5px; min-width:0">
+      <div class="row" style="justify-content:space-between; align-items:baseline">
+        <div class="name">House deposit</div>
+        <div class="meta" style="font-weight:700; color:var(--fg-1)">$112,305 / $180,000</div>
+      </div>
+      <div class="row gap-2" style="align-items:center">
+        <div class="progress-track"><div class="progress-fill warn" style="width:62%"></div></div>
+        <span class="chip glass-surface glass-tint-warning">At Risk</span>
+        <span class="meta">by Apr 2029</span>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

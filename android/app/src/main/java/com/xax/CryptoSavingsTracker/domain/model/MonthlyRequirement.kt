@@ -1,5 +1,6 @@
 package com.xax.CryptoSavingsTracker.domain.model
 
+import com.xax.CryptoSavingsTracker.domain.util.PlanningCalendarUtc
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -35,7 +36,10 @@ data class MonthlyRequirement(
      * Days remaining until deadline
      */
     val daysRemaining: Int
-        get() = maxOf(0, ChronoUnit.DAYS.between(LocalDate.now(), deadline).toInt())
+        get() = maxOf(
+            0,
+            ChronoUnit.DAYS.between(PlanningCalendarUtc.today(), deadline).toInt()
+        )
 
     /**
      * Whether the goal has been achieved

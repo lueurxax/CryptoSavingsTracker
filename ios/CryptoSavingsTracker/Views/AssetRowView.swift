@@ -8,7 +8,54 @@
 import SwiftUI
 import SwiftData
 
+@MainActor
+enum AssetRowTransactionRefreshCoordinator {
+    static func fetchAndImport(
+        asset: Asset,
+        address: String,
+        chainId: String,
+        forceRefresh: Bool,
+        transactionService: TransactionServiceProtocol,
+        modelContext: ModelContext
+    ) async throws -> OnChainTransactionImportResult {
+        let batch = try await transactionService.fetchTransactionHistoryBatch(
+            chainId: chainId,
+            address: address,
+            currency: asset.currency,
+            limit: 10,
+            forceRefresh: forceRefresh
+        )
+        let outcome = try batch.commitIfCurrent {
+            let importResult = try OnChainTransactionImportService(
+                modelContext: modelContext
+            )
+                .upsertWithResult(
+                    transactions: batch.transactions,
+                    for: asset
+                )
+            transactionService.commitImportedTransactionHistory(
+                importResult.acceptedTransactions,
+                chainId: chainId,
+                address: address,
+                currency: asset.currency
+            )
+            return importResult
+        }
+        switch outcome {
+        case .committed(let importResult):
+            return importResult
+        case .superseded:
+            return .superseded
+        }
+    }
+}
+
 struct AssetRowView: View {
+    private enum MutationAction {
+        case allocateAll(Goal)
+        case deleteTransaction(Transaction)
+    }
+
     @Environment(\.modelContext) private var modelContext
     @Query private var allTransactions: [Transaction]
     
@@ -24,11 +71,13 @@ struct AssetRowView: View {
     @State private var lastBalanceUpdate: Date? = nil
     @State private var isLoadingTransactions = false
     @State private var onChainTransactions: [TatumTransaction] = []
+    @State private var transactionSyncError: String?
     @State private var isRefreshing = false
     @State private var hoveredTransactionId: UUID? = nil
     @State private var showingAddTransaction = false
     @State private var showingAllocationView = false
     @State private var exchangeRates: [String: Double] = [:]
+    @State private var mutationRetryState = PersistenceMutationRetryPresentationState<MutationAction>()
     
     private var safeAssetAddress: String? {
         guard let address = asset.address else { return nil }
@@ -52,7 +101,9 @@ struct AssetRowView: View {
         guard hasOnChainAddress else { return nil }
         return balanceState.publicCryptoTrackingStatus(
             isRefreshing: isRefreshing || isLoadingBalance,
-            hasRetainedValue: lastBalanceUpdate != nil || onChainBalance > 0 || asset.cachedOnChainBalance > 0
+            hasRetainedValue: lastBalanceUpdate != nil
+                || onChainBalance > 0
+                || asset.fallbackOnChainBalance > 0
         )
     }
     
@@ -97,9 +148,7 @@ struct AssetRowView: View {
     }
 
     private var unallocatedAmountForAllocationUI: Double {
-        // Prefer the freshest balance we have in this view (on-chain fetch), but fall back to cached model value.
-        let bestKnownBalance = max(asset.currentAmount, totalBalance)
-        return max(0, bestKnownBalance - asset.totalAllocatedAmount)
+        asset.unallocatedAmount
     }
     
     init(asset: Asset, goal: Goal? = nil, isExpanded: Bool, onToggleExpanded: @escaping () -> Void, onDelete: (() -> Void)? = nil) {
@@ -228,9 +277,9 @@ struct AssetRowView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
-            .accessibilityIdentifier("assetRow-\(safeAssetCurrency)")
             // Prevent identifier duplication across child nodes in XCTest snapshots.
             .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("assetRow-\(safeAssetCurrency)")
             .buttonStyle(PlainButtonStyle())
             .padding()
             .background(Color.gray.opacity(0.05))
@@ -360,6 +409,34 @@ struct AssetRowView: View {
                             .fontWeight(.semibold)
                             .foregroundColor(.secondary)
                             .padding(.horizontal)
+
+                        if let transactionSyncError {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Transaction history could not be updated. Retained history is still shown.")
+                                    .font(.caption)
+                                    .foregroundStyle(AccessibleColors.error)
+                                Text(transactionSyncError)
+                                    .font(.caption2)
+                                    .foregroundStyle(AccessibleColors.secondaryText)
+                                    .lineLimit(2)
+                                Button("Retry") {
+                                    guard
+                                        let address = safeAssetAddress,
+                                        let chainId = safeAssetChainId
+                                    else { return }
+                                    Task {
+                                        await fetchOnChainTransactions(
+                                            address: address,
+                                            chainId: chainId,
+                                            forceRefresh: true
+                                        )
+                                    }
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                            .padding(.horizontal)
+                            .accessibilityIdentifier("transactionHistorySyncError")
+                        }
                         
                         if assetTransactions.isEmpty && onChainTransactions.isEmpty {
                             Text("No transactions yet")
@@ -436,7 +513,7 @@ struct AssetRowView: View {
                                         .padding(.horizontal)
                                         .padding(.top, 4)
                                     
-                                    ForEach(onChainTransactions.prefix(3), id: \.hash) { tx in
+                                    ForEach(onChainTransactions.prefix(3), id: \.movementIdentity) { tx in
                                         HStack {
                                             VStack(alignment: .leading, spacing: 2) {
                                                 HStack {
@@ -487,12 +564,30 @@ struct AssetRowView: View {
         .sheet(isPresented: $showingAllocationView) {
             AssetSharingView(asset: asset, currentGoalId: goal?.id)
         }
+        .alert(
+            "Change Not Saved",
+            isPresented: Binding(
+                get: { mutationRetryState.isPresented },
+                set: { isPresented in
+                    if !isPresented {
+                        mutationRetryState.presentationDismissed()
+                    }
+                }
+            )
+        ) {
+            Button("Retry") {
+                retryFailedMutation()
+            }
+            Button("Cancel", role: .cancel) {
+                mutationRetryState.cancel()
+            }
+        } message: {
+            Text(mutationRetryState.errorMessage ?? "Please try again.")
+        }
     }
 
     private func allocateAllUnallocated(to goal: Goal) {
-        let bestKnownBalance = max(asset.currentAmount, totalBalance)
-        try? DIContainer.shared.makeAssetMutationService(modelContext: modelContext)
-            .allocateAllUnallocated(of: asset, to: goal, bestKnownBalance: bestKnownBalance)
+        performMutation(.allocateAll(goal))
     }
     
     private func loadInitialData() async {
@@ -513,7 +608,40 @@ struct AssetRowView: View {
     }
     
     private func deleteTransaction(_ transaction: Transaction) {
-        try? DIContainer.shared.makeTransactionMutationService(modelContext: modelContext).deleteTransaction(transaction)
+        performMutation(.deleteTransaction(transaction))
+    }
+
+    private func retryFailedMutation() {
+        Task { @MainActor in
+            var retryState = mutationRetryState
+            _ = await retryState.retryAfterDismissal { action in
+                try executeMutation(action)
+            }
+            mutationRetryState = retryState
+        }
+    }
+
+    private func performMutation(_ action: MutationAction) {
+        var retryState = mutationRetryState
+        _ = retryState.perform(action) {
+            try executeMutation(action)
+        }
+        mutationRetryState = retryState
+    }
+
+    private func executeMutation(_ action: MutationAction) throws {
+        switch action {
+        case .allocateAll(let goal):
+            try DIContainer.shared.makeAssetMutationService(modelContext: modelContext)
+                .allocateAllUnallocated(
+                    of: asset,
+                    to: goal,
+                    bestKnownBalance: asset.currentAmount
+                )
+        case .deleteTransaction(let transaction):
+            try DIContainer.shared.makeTransactionMutationService(modelContext: modelContext)
+                .deleteTransaction(transaction)
+        }
     }
     
     @MainActor
@@ -566,20 +694,23 @@ struct AssetRowView: View {
         let transactionService = DIContainer.shared.transactionService
         
         do {
-            let transactions = try await transactionService.fetchTransactionHistory(
-                chainId: chainId,
+            let importResult = try await AssetRowTransactionRefreshCoordinator.fetchAndImport(
+                asset: asset,
                 address: address,
-                currency: asset.currency,
-                limit: 10,
-                forceRefresh: forceRefresh
+                chainId: chainId,
+                forceRefresh: forceRefresh,
+                transactionService: transactionService,
+                modelContext: modelContext
             )
 
-            // Persist into SwiftData so execution tracking can use timestamps without live bridging.
-            let insertedCount = await MainActor.run { () -> Int in
-                let importer = OnChainTransactionImportService(modelContext: modelContext)
-                return (try? importer.upsert(transactions: transactions, for: asset)) ?? 0
+            guard importResult.wasPublished else {
+                await MainActor.run {
+                    isLoadingTransactions = false
+                }
+                return
             }
-            if insertedCount > 0 {
+
+            if importResult.mutationCount > 0 {
                 NotificationCenter.default.post(name: .goalProgressRefreshed, object: nil)
                 let affectedGoalIDs = (asset.allocations ?? []).compactMap { $0.goal?.id }
                 if !affectedGoalIDs.isEmpty {
@@ -595,13 +726,13 @@ struct AssetRowView: View {
             }
 
             await MainActor.run {
-                onChainTransactions = transactions
+                onChainTransactions = importResult.acceptedTransactions
+                transactionSyncError = nil
                 isLoadingTransactions = false
             }
         } catch {
             await MainActor.run {
-                // Silent failure - empty transaction list
-                onChainTransactions = []
+                transactionSyncError = error.localizedDescription
                 isLoadingTransactions = false
             }
         }

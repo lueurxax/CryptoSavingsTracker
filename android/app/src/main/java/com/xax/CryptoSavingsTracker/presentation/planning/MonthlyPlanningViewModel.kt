@@ -19,12 +19,16 @@ import com.xax.CryptoSavingsTracker.domain.usecase.planning.RedistributionStrate
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.util.MonthLabelUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import java.time.LocalDate
 
@@ -50,8 +54,8 @@ data class MonthlyPlanningUiState(
     val activeExecutionMonthLabel: String? = null,
     val activeExecutionStartedAtMillis: Long? = null,
     val requirements: List<MonthlyRequirementRow> = emptyList(),
-    val baseTotalRequired: Double = 0.0,
-    val totalRequired: Double = 0.0,
+    val baseTotalRequired: Double? = null,
+    val totalRequired: Double? = null,
     val displayCurrency: String = "USD",
     val paymentDay: Int = 1,
     val flexAdjustment: Double = 1.0,
@@ -73,6 +77,7 @@ data class MonthlyPlanningUiState(
     val isBudgetAppliedForMonth: Boolean = false,
     val budgetMinimum: Double? = null,
     val isBudgetMinimumLoading: Boolean = false,
+    val budgetMinimumError: String? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
     val showSettingsDialog: Boolean = false
@@ -118,7 +123,14 @@ class MonthlyPlanningViewModel @Inject constructor(
     private var baseRequirements: List<MonthlyRequirement> = emptyList()
     private var plansByGoalId: Map<String, MonthlyGoalPlan> = emptyMap()
     private var activeGoals: List<Goal> = emptyList()
-    private var isApplyingBudgetMigration = false
+    private val planningMutationMutex = Mutex()
+    private var loadDataJob: Job? = null
+    private var loadDataGeneration: Long = 0L
+    private var budgetPreviewJob: Job? = null
+    private var budgetPreviewGeneration: Long = 0
+    private var budgetMinimumJob: Job? = null
+    private var budgetMinimumGeneration: Long = 0
+    private var latestBudgetMinimumCurrency: String? = null
 
     init {
         observeActiveExecution()
@@ -139,46 +151,86 @@ class MonthlyPlanningViewModel @Inject constructor(
     }
 
     fun loadData() {
-        viewModelScope.launch {
-            loadDataInternal()
+        startLoadData()
+    }
+
+    private fun startLoadData(): Job {
+        val generation = ++loadDataGeneration
+        loadDataJob?.cancel()
+        return viewModelScope.launch {
+            loadDataInternal(generation)
+        }.also { job ->
+            loadDataJob = job
         }
     }
 
-    private suspend fun loadDataInternal() {
-        _uiState.update { it.copy(isLoading = true, error = null) }
+    private fun launchPlanMutation(block: suspend () -> Unit) {
+        loadDataGeneration += 1
+        loadDataJob?.cancel()
+        loadDataJob = null
+        _uiState.update { it.copy(isLoading = false) }
+        viewModelScope.launch {
+            planningMutationMutex.withLock {
+                block()
+            }
+        }
+    }
+
+    private suspend fun loadDataInternal(generation: Long) {
+        if (generation != loadDataGeneration) return
+        _uiState.update {
+            it.copy(
+                isLoading = true,
+                baseTotalRequired = null,
+                totalRequired = null,
+                error = null
+            )
+        }
 
         try {
             val displayCurrency = monthlyPlanningService.displayCurrency
+            val paymentDay = monthlyPlanningService.paymentDay
+            val flexAdjustment = monthlyPlanningService.flexAdjustment
+            val budgetAmount = settings.monthlyBudget
+            val budgetCurrency = settings.budgetCurrency
+            val budgetAppliedMonthLabel = settings.budgetAppliedMonthLabel
+            val budgetAppliedSignature = settings.budgetAppliedSignature
             val requirements = monthlyPlanningService.calculateMonthlyRequirements()
-            baseRequirements = requirements
-            activeGoals = goalRepository.getAllGoals().first()
+            if (generation != loadDataGeneration) return
+            val loadedActiveGoals = goalRepository.getAllGoals().first()
                 .filter { it.lifecycleStatus == com.xax.CryptoSavingsTracker.domain.model.GoalLifecycleStatus.ACTIVE }
+            if (generation != loadDataGeneration) return
 
-            val syncedPlans = monthlyGoalPlanService.syncPlans(monthLabel, requirements)
-            plansByGoalId = syncedPlans.associateBy { it.goalId }
+            val syncedPlans = planningMutationMutex.withLock {
+                if (generation != loadDataGeneration) {
+                    throw CancellationException("Monthly planning load was superseded")
+                }
+                monthlyGoalPlanService.syncPlans(monthLabel, requirements)
+            }
+            if (generation != loadDataGeneration) return
 
             val rows = buildRows(requirements, syncedPlans.associateBy { it.goalId })
             val baseTotalRequired = calculateTotal(displayCurrency, requirements.map { it.currency to it.requiredMonthly })
+            if (generation != loadDataGeneration) return
             val totalRequired = calculateTotal(
                 displayCurrency,
                 rows.map { it.requirement.currency to it.adjustedRequiredMonthly }
             )
-            val paymentDay = monthlyPlanningService.paymentDay
+            if (generation != loadDataGeneration) return
             val skippedIds = syncedPlans.filter { it.isSkipped }.map { it.goalId }.toSet()
-            val eligibleGoals = activeGoals.filter { !skippedIds.contains(it.id) }
-            val budgetAmount = settings.monthlyBudget
-            val budgetCurrency = settings.budgetCurrency
+            val eligibleGoals = loadedActiveGoals.filter { !skippedIds.contains(it.id) }
             val feasibility = if (budgetAmount != null && budgetAmount > 0 && eligibleGoals.isNotEmpty()) {
                 budgetCalculatorUseCase.checkFeasibility(eligibleGoals, budgetAmount, budgetCurrency)
             } else {
                 FeasibilityResult.EMPTY
             }
+            if (generation != loadDataGeneration) return
             val budgetSignature = if (eligibleGoals.isNotEmpty()) buildBudgetSignature(eligibleGoals) else ""
             val shouldPromptBudget = budgetAmount != null &&
-                settings.budgetAppliedMonthLabel != null &&
-                (settings.budgetAppliedMonthLabel != monthLabel ||
-                    settings.budgetAppliedSignature != budgetSignature)
-            val goalById = activeGoals.associateBy { it.id }
+                budgetAppliedMonthLabel != null &&
+                (budgetAppliedMonthLabel != monthLabel ||
+                    budgetAppliedSignature != budgetSignature)
+            val goalById = loadedActiveGoals.associateBy { it.id }
             val focusGoal = if (budgetAmount != null && budgetAmount > 0) {
                 syncedPlans
                     .filter { !it.isSkipped && (it.customAmount ?: 0.0) > 0.01 }
@@ -188,6 +240,10 @@ class MonthlyPlanningViewModel @Inject constructor(
                 null
             }
 
+            if (generation != loadDataGeneration) return
+            baseRequirements = requirements
+            activeGoals = loadedActiveGoals
+            plansByGoalId = syncedPlans.associateBy { it.goalId }
             _uiState.update {
                 it.copy(
                     monthLabel = monthLabel,
@@ -196,23 +252,38 @@ class MonthlyPlanningViewModel @Inject constructor(
                     totalRequired = totalRequired,
                     displayCurrency = displayCurrency,
                     paymentDay = paymentDay,
-                    flexAdjustment = monthlyPlanningService.flexAdjustment,
+                    flexAdjustment = flexAdjustment,
                     budgetAmount = budgetAmount,
                     budgetCurrency = budgetCurrency,
                     budgetFeasibility = feasibility,
                     showBudgetRecalculationPrompt = shouldPromptBudget,
-                    isBudgetAppliedForMonth = budgetAmount != null && settings.budgetAppliedMonthLabel == monthLabel,
+                    isBudgetAppliedForMonth = budgetAmount != null && budgetAppliedMonthLabel == monthLabel,
                     budgetFocusGoalName = focusGoal?.name,
                     budgetFocusGoalDeadline = focusGoal?.deadline,
                     isLoading = false
                 )
             }
 
-            handleBudgetMigrationIfNeeded(budgetAmount, budgetCurrency, eligibleGoals)
+            if (generation == loadDataGeneration) {
+                handleBudgetMigrationIfNeeded(
+                    generation = generation,
+                    budgetAmount = budgetAmount,
+                    budgetCurrency = budgetCurrency,
+                    budgetAppliedMonthLabel = budgetAppliedMonthLabel,
+                    eligibleGoals = eligibleGoals,
+                    sourcePlansByGoalId = syncedPlans.associateBy { it.goalId },
+                    sourceGoals = loadedActiveGoals
+                )
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Exception) {
+            if (generation != loadDataGeneration) return
             _uiState.update {
                 it.copy(
                     isLoading = false,
+                    baseTotalRequired = null,
+                    totalRequired = null,
                     error = e.message ?: "Failed to load monthly requirements"
                 )
             }
@@ -240,51 +311,107 @@ class MonthlyPlanningViewModel @Inject constructor(
     }
 
     fun previewBudget(amount: Double, currency: String) {
-        viewModelScope.launch {
-            if (amount <= 0 || activeGoals.isEmpty()) {
-                _uiState.update {
-                    it.copy(
-                        budgetPreviewPlan = null,
-                        budgetPreviewTimeline = emptyList(),
-                        budgetPreviewError = null,
-                        budgetFeasibility = FeasibilityResult.EMPTY,
-                        isBudgetPreviewLoading = false
-                    )
-                }
-                return@launch
-            }
+        val requestGeneration = ++budgetPreviewGeneration
+        budgetPreviewJob?.cancel()
 
-            _uiState.update { it.copy(isBudgetPreviewLoading = true, budgetPreviewError = null) }
-            val eligibleGoals = activeGoals.filter { goal ->
-                val plan = plansByGoalId[goal.id]
-                plan?.isSkipped != true
-            }
-            val feasibility = budgetCalculatorUseCase.checkFeasibility(eligibleGoals, amount, currency)
-            val plan = budgetCalculatorUseCase.generateSchedule(eligibleGoals, amount, currency)
-            val timeline = budgetCalculatorUseCase.buildTimelineBlocks(plan, eligibleGoals)
-
+        if (!amount.isFinite() || amount <= 0 || activeGoals.isEmpty()) {
+            budgetPreviewJob = null
             _uiState.update {
                 it.copy(
-                    budgetFeasibility = feasibility,
-                    budgetPreviewPlan = plan,
-                    budgetPreviewTimeline = timeline,
+                    budgetPreviewPlan = null,
+                    budgetPreviewTimeline = emptyList(),
+                    budgetPreviewError = null,
+                    budgetFeasibility = FeasibilityResult.EMPTY,
                     isBudgetPreviewLoading = false
                 )
+            }
+            return
+        }
+
+        _uiState.update { it.copy(isBudgetPreviewLoading = true, budgetPreviewError = null) }
+        budgetPreviewJob = viewModelScope.launch {
+            try {
+                val eligibleGoals = activeGoals.filter { goal ->
+                    val plan = plansByGoalId[goal.id]
+                    plan?.isSkipped != true
+                }
+                val feasibility = budgetCalculatorUseCase.checkFeasibility(
+                    eligibleGoals,
+                    amount,
+                    currency
+                )
+                val plan = budgetCalculatorUseCase.generateSchedule(
+                    eligibleGoals,
+                    amount,
+                    currency
+                )
+                val timeline = budgetCalculatorUseCase.buildTimelineBlocks(plan, eligibleGoals)
+                if (requestGeneration != budgetPreviewGeneration) return@launch
+                _uiState.update {
+                    it.copy(
+                        budgetFeasibility = feasibility,
+                        budgetPreviewPlan = plan,
+                        budgetPreviewTimeline = timeline,
+                        isBudgetPreviewLoading = false,
+                        budgetPreviewError = null
+                    )
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (requestGeneration != budgetPreviewGeneration) return@launch
+                _uiState.update {
+                    it.copy(
+                        budgetFeasibility = FeasibilityResult.EMPTY,
+                        budgetPreviewPlan = null,
+                        budgetPreviewTimeline = emptyList(),
+                        isBudgetPreviewLoading = false,
+                        budgetPreviewError = error.message
+                            ?: "Budget preview is unavailable. Refresh rates and retry."
+                    )
+                }
             }
         }
     }
 
     fun applyBudgetPlan(amount: Double, currency: String) {
-        viewModelScope.launch {
-            if (amount <= 0 || activeGoals.isEmpty()) return@launch
-            val eligibleGoals = activeGoals.filter { goal ->
-                val plan = plansByGoalId[goal.id]
-                plan?.isSkipped != true
-            }
-            val plan = budgetCalculatorUseCase.generateSchedule(eligibleGoals, amount, currency)
-            val applied = applyBudgetPlanInternal(amount, currency, plan)
-            if (applied) {
-                dismissBudgetSheet()
+        if (!amount.isPersistablePositiveFloat() || activeGoals.isEmpty()) {
+            _uiState.update { it.copy(error = "Budget amount is invalid or too large") }
+            return
+        }
+        launchPlanMutation {
+            runCatching {
+                val eligibleGoals = activeGoals.filter { goal ->
+                    val plan = plansByGoalId[goal.id]
+                    plan?.isSkipped != true
+                }
+                val feasibility = budgetCalculatorUseCase.checkFeasibility(
+                    eligibleGoals,
+                    amount,
+                    currency
+                )
+                _uiState.update { it.copy(budgetFeasibility = feasibility) }
+                if (!feasibility.isFeasible) {
+                    _uiState.update {
+                        it.copy(
+                            error = "Budget is no longer feasible. Increase it or adjust goal deadlines."
+                        )
+                    }
+                    return@runCatching false
+                }
+                val plan = budgetCalculatorUseCase.generateSchedule(eligibleGoals, amount, currency)
+                applyBudgetPlanLocked(amount, currency, plan)
+            }.onSuccess { applied ->
+                if (applied) {
+                    dismissBudgetSheet()
+                }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(
+                        error = error.message
+                            ?: "Unable to convert the budget. Refresh rates and retry."
+                    )
+                }
             }
         }
     }
@@ -310,15 +437,20 @@ class MonthlyPlanningViewModel @Inject constructor(
                 is com.xax.CryptoSavingsTracker.domain.model.FeasibilitySuggestion.EditGoal -> return@launch
             }
 
-            loadDataInternal()
-            if (currentBudget > 0) {
+            val replacementLoad = startLoadData()
+            replacementLoad.join()
+            if (replacementLoad === loadDataJob && currentBudget > 0) {
                 previewBudget(currentBudget, currency)
             }
         }
     }
 
     fun updateFlexAdjustment(value: Double) {
-        viewModelScope.launch {
+        if (!value.isFinite()) {
+            _uiState.update { it.copy(error = "Flex adjustment must be finite") }
+            return
+        }
+        launchPlanMutation {
             val clamped = value.coerceIn(0.0, 1.5)
             val strategy = _uiState.value.selectedStrategy
             val usePlanBaseline = settings.budgetAppliedMonthLabel == monthLabel && settings.monthlyBudget != null
@@ -345,7 +477,7 @@ class MonthlyPlanningViewModel @Inject constructor(
     }
 
     fun updateStrategy(strategy: RedistributionStrategy) {
-        viewModelScope.launch {
+        launchPlanMutation {
             _uiState.update { it.copy(selectedStrategy = strategy, showStrategyPicker = false) }
             // Reapply flex adjustment with new strategy
             val adjustment = _uiState.value.flexAdjustment
@@ -381,7 +513,7 @@ class MonthlyPlanningViewModel @Inject constructor(
     }
 
     fun toggleProtected(goalId: String) {
-        viewModelScope.launch {
+        launchPlanMutation {
             val updated = monthlyGoalPlanService.toggleProtected(monthLabel, goalId)
             plansByGoalId = plansByGoalId.toMutableMap().apply { put(goalId, updated) }
             refreshRows()
@@ -389,7 +521,7 @@ class MonthlyPlanningViewModel @Inject constructor(
     }
 
     fun toggleSkipped(goalId: String) {
-        viewModelScope.launch {
+        launchPlanMutation {
             val updated = monthlyGoalPlanService.toggleSkipped(monthLabel, goalId)
             plansByGoalId = plansByGoalId.toMutableMap().apply { put(goalId, updated) }
             refreshRows()
@@ -397,10 +529,21 @@ class MonthlyPlanningViewModel @Inject constructor(
     }
 
     fun setCustomAmount(goalId: String, amount: Double?) {
-        viewModelScope.launch {
-            val updated = monthlyGoalPlanService.setCustomAmount(monthLabel, goalId, amount)
-            plansByGoalId = plansByGoalId.toMutableMap().apply { put(goalId, updated) }
-            refreshRows()
+        if (amount != null && (!amount.isFinite() || amount < 0.0)) {
+            _uiState.update { it.copy(error = "Custom amount must be finite and non-negative") }
+            return
+        }
+        launchPlanMutation {
+            runCatching {
+                monthlyGoalPlanService.setCustomAmount(monthLabel, goalId, amount)
+            }.onSuccess { updated ->
+                plansByGoalId = plansByGoalId.toMutableMap().apply { put(goalId, updated) }
+                refreshRows()
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(error = error.message ?: "Unable to save custom amount")
+                }
+            }
         }
     }
 
@@ -414,21 +557,73 @@ class MonthlyPlanningViewModel @Inject constructor(
     }
 
     fun loadBudgetMinimum(currency: String) {
-        viewModelScope.launch {
+        val normalizedCurrency = currency.trim().uppercase().ifBlank { "USD" }
+        val requestGeneration = ++budgetMinimumGeneration
+        latestBudgetMinimumCurrency = normalizedCurrency
+        budgetMinimumJob?.cancel()
+        budgetMinimumJob = viewModelScope.launch {
             val eligibleGoals = activeGoals.filter { goal ->
                 plansByGoalId[goal.id]?.isSkipped != true
             }
             if (eligibleGoals.isEmpty()) {
-                _uiState.update { it.copy(budgetMinimum = null, isBudgetMinimumLoading = false) }
+                if (
+                    requestGeneration != budgetMinimumGeneration ||
+                    normalizedCurrency != latestBudgetMinimumCurrency
+                ) {
+                    return@launch
+                }
+                _uiState.update {
+                    it.copy(
+                        budgetMinimum = null,
+                        isBudgetMinimumLoading = false,
+                        budgetMinimumError = null
+                    )
+                }
                 return@launch
             }
-            _uiState.update { it.copy(isBudgetMinimumLoading = true) }
-            val minimum = budgetCalculatorUseCase.calculateMinimumBudget(eligibleGoals, currency)
             _uiState.update {
                 it.copy(
-                    budgetMinimum = if (minimum > 0) minimum else null,
-                    isBudgetMinimumLoading = false
+                    budgetMinimum = null,
+                    isBudgetMinimumLoading = true,
+                    budgetMinimumError = null
                 )
+            }
+            runCatching {
+                budgetCalculatorUseCase.calculateMinimumBudget(eligibleGoals, normalizedCurrency)
+                    .also { minimum ->
+                        check(minimum.isFinite() && minimum >= 0.0) {
+                            "Calculated minimum is invalid"
+                        }
+                    }
+            }.onSuccess { minimum ->
+                if (
+                    requestGeneration != budgetMinimumGeneration ||
+                    normalizedCurrency != latestBudgetMinimumCurrency
+                ) {
+                    return@onSuccess
+                }
+                _uiState.update {
+                    it.copy(
+                        budgetMinimum = if (minimum > 0) minimum else null,
+                        isBudgetMinimumLoading = false,
+                        budgetMinimumError = null
+                    )
+                }
+            }.onFailure { error ->
+                if (
+                    requestGeneration != budgetMinimumGeneration ||
+                    normalizedCurrency != latestBudgetMinimumCurrency
+                ) {
+                    return@onFailure
+                }
+                _uiState.update {
+                    it.copy(
+                        budgetMinimum = null,
+                        isBudgetMinimumLoading = false,
+                        budgetMinimumError = error.message
+                            ?: "Calculated minimum is unavailable. Refresh rates and retry."
+                    )
+                }
             }
         }
     }
@@ -448,6 +643,10 @@ class MonthlyPlanningViewModel @Inject constructor(
         budgetAmount: Double?,
         budgetCurrency: String
     ) {
+        if (budgetAmount != null && !budgetAmount.isPersistablePositiveFloat()) {
+            _uiState.update { it.copy(error = "Monthly budget is invalid or too large") }
+            return
+        }
         val normalizedCurrency = displayCurrency.trim().uppercase().ifBlank { "USD" }
         val normalizedBudgetCurrency = budgetCurrency.trim().uppercase().ifBlank { "USD" }
         monthlyPlanningService.paymentDay = day
@@ -467,39 +666,71 @@ class MonthlyPlanningViewModel @Inject constructor(
     }
 
     private suspend fun handleBudgetMigrationIfNeeded(
+        generation: Long,
         budgetAmount: Double?,
         budgetCurrency: String,
-        eligibleGoals: List<Goal>
+        budgetAppliedMonthLabel: String?,
+        eligibleGoals: List<Goal>,
+        sourcePlansByGoalId: Map<String, MonthlyGoalPlan>,
+        sourceGoals: List<Goal>
     ) {
-        if (budgetAmount == null || budgetAmount <= 0) return
-        if (settings.budgetAppliedMonthLabel != null) return
+        if (budgetAmount == null || !budgetAmount.isPersistablePositiveFloat()) return
+        if (budgetAppliedMonthLabel != null) return
         if (eligibleGoals.isEmpty()) return
-        if (isApplyingBudgetMigration) return
 
-        isApplyingBudgetMigration = true
-        val plan = budgetCalculatorUseCase.generateSchedule(eligibleGoals, budgetAmount, budgetCurrency)
-        val applied = applyBudgetPlanInternal(budgetAmount, budgetCurrency, plan)
-        if (applied && !settings.hasSeenBudgetMigrationNotice) {
+        val plan = budgetCalculatorUseCase.generateSchedule(
+            eligibleGoals,
+            budgetAmount,
+            budgetCurrency
+        )
+        if (generation != loadDataGeneration) return
+        val applied = planningMutationMutex.withLock {
+            if (generation != loadDataGeneration) {
+                false
+            } else {
+                applyBudgetPlanLocked(
+                    amount = budgetAmount,
+                    currency = budgetCurrency,
+                    plan = plan,
+                    expectedLoadGeneration = generation,
+                    sourcePlansByGoalId = sourcePlansByGoalId,
+                    sourceGoals = sourceGoals
+                )
+            }
+        }
+        if (
+            applied &&
+            generation == loadDataGeneration &&
+            !settings.hasSeenBudgetMigrationNotice
+        ) {
             _uiState.update { it.copy(showBudgetMigrationNotice = true) }
         }
-        isApplyingBudgetMigration = false
     }
 
-    private suspend fun applyBudgetPlanInternal(
+    private suspend fun applyBudgetPlanLocked(
         amount: Double,
         currency: String,
-        plan: BudgetCalculatorPlan
+        plan: BudgetCalculatorPlan,
+        expectedLoadGeneration: Long? = null,
+        sourcePlansByGoalId: Map<String, MonthlyGoalPlan> = plansByGoalId,
+        sourceGoals: List<Goal> = activeGoals
     ): Boolean {
-        if (plansByGoalId.isEmpty()) return false
+        check(amount.isFinite() && amount > 0.0) {
+            "Budget amount is invalid"
+        }
+        if (sourcePlansByGoalId.isEmpty()) return false
 
         val contributionMap = plan.schedule.firstOrNull()?.contributions
             ?.associate { it.goalId to it.amount }
             ?: emptyMap()
 
         val customAmounts = mutableMapOf<String, Double>()
-        for (planItem in plansByGoalId.values) {
+        for (planItem in sourcePlansByGoalId.values) {
             if (planItem.isSkipped) continue
             val plannedAmount = contributionMap[planItem.goalId] ?: 0.0
+            check(plannedAmount.isFinite() && plannedAmount >= 0.0) {
+                "Budget contribution for ${planItem.goalId} is invalid"
+            }
             val converted = if (plannedAmount <= 0.0) {
                 0.0
             } else {
@@ -509,23 +740,39 @@ class MonthlyPlanningViewModel @Inject constructor(
                     toCurrency = planItem.currency
                 )
             }
+            check(
+                converted.isFinite() &&
+                    (plannedAmount == 0.0 || converted > 0.0)
+            ) {
+                "Converted budget contribution for ${planItem.goalId} is invalid"
+            }
             customAmounts[planItem.goalId] = converted
         }
 
-        val updatedPlans = monthlyGoalPlanService.applyCustomAmounts(monthLabel, customAmounts)
+        if (
+            expectedLoadGeneration != null &&
+            expectedLoadGeneration != loadDataGeneration
+        ) {
+            return false
+        }
+
+        val updatedPlans = monthlyGoalPlanService.applyCustomAmounts(
+            monthLabel,
+            customAmounts
+        )
         plansByGoalId = updatedPlans.associateBy { it.goalId }
 
-        val goalById = activeGoals.associateBy { it.id }
+        val goalById = sourceGoals.associateBy { it.id }
         val focusGoalName = updatedPlans
             .filter { !it.isSkipped && (it.customAmount ?: 0.0) > 0.01 }
-            .mapNotNull { plan -> goalById[plan.goalId] }
+            .mapNotNull { updatedPlan -> goalById[updatedPlan.goalId] }
             .minByOrNull { it.deadline }
             ?.name
 
         settings.monthlyBudget = amount
         settings.budgetCurrency = currency
         settings.budgetAppliedMonthLabel = monthLabel
-        settings.budgetAppliedSignature = buildBudgetSignature(activeGoals)
+        settings.budgetAppliedSignature = buildBudgetSignature(sourceGoals)
         monthlyPlanningService.flexAdjustment = 1.0
 
         _uiState.update {
@@ -550,16 +797,30 @@ class MonthlyPlanningViewModel @Inject constructor(
 
     private suspend fun refreshRows() {
         val rows = buildRows(baseRequirements, plansByGoalId)
-        val total = calculateTotal(
-            _uiState.value.displayCurrency,
-            rows.map { it.requirement.currency to it.adjustedRequiredMonthly }
-        )
-        _uiState.update {
-            it.copy(
-                requirements = rows,
-                totalRequired = total,
-                flexAdjustment = monthlyPlanningService.flexAdjustment
+        runCatching {
+            calculateTotal(
+                _uiState.value.displayCurrency,
+                rows.map { it.requirement.currency to it.adjustedRequiredMonthly }
             )
+        }.onSuccess { total ->
+            _uiState.update {
+                it.copy(
+                    requirements = rows,
+                    totalRequired = total,
+                    flexAdjustment = monthlyPlanningService.flexAdjustment,
+                    error = null
+                )
+            }
+        }.onFailure { error ->
+            _uiState.update {
+                it.copy(
+                    requirements = rows,
+                    totalRequired = null,
+                    flexAdjustment = monthlyPlanningService.flexAdjustment,
+                    error = error.message
+                        ?: "Monthly total is unavailable. Refresh rates and retry."
+                )
+            }
         }
     }
 
@@ -591,4 +852,10 @@ class MonthlyPlanningViewModel @Inject constructor(
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
+}
+
+private fun Double.isPersistablePositiveFloat(): Boolean {
+    if (!isFinite() || this <= 0.0) return false
+    val persisted = toFloat()
+    return persisted.isFinite() && persisted > 0f
 }

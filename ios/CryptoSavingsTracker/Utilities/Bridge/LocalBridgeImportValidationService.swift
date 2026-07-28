@@ -112,12 +112,30 @@ final class LocalBridgeImportValidationService {
         if package.canonicalEncodingVersion != capabilityManifest.maximumSupportedCanonicalEncodingVersion {
             blockingIssues.append("Package canonical encoding \(package.canonicalEncodingVersion) is incompatible with this build.")
         }
+        if package.snapshotEnvelope.manifest.canonicalEncodingVersion != package.canonicalEncodingVersion {
+            blockingIssues.append("Signed package canonical encoding does not match the embedded snapshot manifest.")
+        }
 
         let incomingSchema = package.snapshotEnvelope.manifest.snapshotSchemaVersion
         if incomingSchema < capabilityManifest.minimumSupportedSnapshotSchemaVersion ||
             incomingSchema > capabilityManifest.maximumSupportedSnapshotSchemaVersion {
             blockingIssues.append("Snapshot schema v\(incomingSchema) is outside the supported range \(capabilityManifest.minimumSupportedSnapshotSchemaVersion)-\(capabilityManifest.maximumSupportedSnapshotSchemaVersion).")
         }
+
+        blockingIssues.append(
+            contentsOf: BridgeAllocationHistoryProvenanceValidator.issues(
+                histories: overlaid(
+                    currentSnapshot.allocationHistories,
+                    with: package.snapshotEnvelope.allocationHistories,
+                    id: \.id
+                ),
+                transactions: overlaid(
+                    currentSnapshot.transactions,
+                    with: package.snapshotEnvelope.transactions,
+                    id: \.id
+                )
+            )
+        )
 
         if package.snapshotID != package.snapshotEnvelope.manifest.snapshotID {
             blockingIssues.append("Signed package snapshot identity does not match the embedded snapshot manifest.")
@@ -242,6 +260,18 @@ final class LocalBridgeImportValidationService {
             validationWarnings: warnings,
             blockingIssues: blockingIssues
         )
+    }
+
+    private func overlaid<Element>(
+        _ current: [Element],
+        with incoming: [Element],
+        id: KeyPath<Element, UUID>
+    ) -> [Element] {
+        var valuesByID = Dictionary(uniqueKeysWithValues: current.map { ($0[keyPath: id], $0) })
+        for value in incoming {
+            valuesByID[value[keyPath: id]] = value
+        }
+        return Array(valuesByID.values)
     }
 
     private func evaluateSignatureStatus(

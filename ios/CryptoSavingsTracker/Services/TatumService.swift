@@ -47,8 +47,49 @@ final class TatumService: TatumServiceProtocol {
     
     // MARK: - Transaction Methods (Delegate to TransactionService)
     func fetchTransactionHistory(chainId: String, address: String, currency: String? = nil, limit: Int = 50, forceRefresh: Bool = false) async throws -> [TatumTransaction] {
-        let transactionService = TransactionService(client: client, chainService: chainService)
-        return try await transactionService.fetchTransactionHistory(chainId: chainId, address: address, currency: currency, limit: limit, forceRefresh: forceRefresh)
+        let batch = try await fetchTransactionHistoryBatch(
+            chainId: chainId,
+            address: address,
+            currency: currency,
+            limit: limit,
+            forceRefresh: forceRefresh
+        )
+        return batch.transactions
+    }
+
+    func fetchTransactionHistoryBatch(
+        chainId: String,
+        address: String,
+        currency: String? = nil,
+        limit: Int = 50,
+        forceRefresh: Bool = false
+    ) async throws -> ProviderTransactionHistoryBatch {
+        let transactionService = TransactionService(
+            client: client,
+            chainService: chainService
+        )
+        return try await transactionService.fetchTransactionHistoryBatch(
+            chainId: chainId,
+            address: address,
+            currency: currency,
+            limit: limit,
+            forceRefresh: forceRefresh
+        )
+    }
+
+    func commitImportedTransactionHistory(
+        _ transactions: [TatumTransaction],
+        chainId: String,
+        address: String,
+        currency: String?
+    ) {
+        TransactionService(client: client, chainService: chainService)
+            .commitImportedTransactionHistory(
+                transactions,
+                chainId: chainId,
+                address: address,
+                currency: currency
+            )
     }
     
     // MARK: - Error Recovery Support

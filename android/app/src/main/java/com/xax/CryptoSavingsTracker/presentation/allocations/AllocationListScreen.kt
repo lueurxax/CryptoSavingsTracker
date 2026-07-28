@@ -122,6 +122,7 @@ fun AllocationListScreen(
                         allocations = uiState.allocations,
                         totalAllocated = uiState.totalAllocated,
                         totalFunded = uiState.totalFunded,
+                        financialDataIssue = uiState.financialDataIssue,
                         hasOverAllocatedAssets = uiState.hasOverAllocatedAssets,
                         onDeleteAllocation = viewModel::requestDeleteAllocation,
                         onEditAllocation = { allocationId ->
@@ -171,8 +172,9 @@ fun AllocationListScreen(
 private fun AllocationListContent(
     goal: com.xax.CryptoSavingsTracker.domain.model.Goal,
     allocations: List<AllocationWithDetails>,
-    totalAllocated: Double,
-    totalFunded: Double,
+    totalAllocated: Double?,
+    totalFunded: Double?,
+    financialDataIssue: String?,
     hasOverAllocatedAssets: Boolean,
     onDeleteAllocation: (com.xax.CryptoSavingsTracker.domain.model.Allocation) -> Unit,
     onEditAllocation: (String) -> Unit,
@@ -196,7 +198,8 @@ private fun AllocationListContent(
                 goalCurrency = goal.currency,
                 targetAmount = goal.targetAmount,
                 totalAllocated = totalAllocated,
-                totalFunded = totalFunded
+                totalFunded = totalFunded,
+                financialDataIssue = financialDataIssue
             )
         }
 
@@ -263,17 +266,23 @@ private fun AllocationSummaryCard(
     goalName: String,
     goalCurrency: String,
     targetAmount: Double,
-    totalAllocated: Double,
-    totalFunded: Double
+    totalAllocated: Double?,
+    totalFunded: Double?,
+    financialDataIssue: String?
 ) {
     // Progress is based on funded amount (actual backing), not just allocated
-    val progress = if (targetAmount > 0) {
+    val progress = if (totalFunded != null && targetAmount > 0) {
         min(totalFunded / targetAmount, 1.0)
-    } else {
+    } else if (totalFunded != null) {
         0.0
+    } else {
+        null
     }
-    val progressPercent = (progress * 100).toInt()
-    val hasUnderfunding = totalFunded < totalAllocated - 0.01
+    val progressPercent = progress?.let { (it * 100).toInt() }
+    val hasUnderfunding =
+        totalFunded != null &&
+            totalAllocated != null &&
+            totalFunded < totalAllocated - 0.01
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -292,13 +301,15 @@ private fun AllocationSummaryCard(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Allocated: ${
-                    AmountFormatters.formatDisplayCurrencyAmount(
-                        totalAllocated,
-                        goalCurrency,
-                        isCrypto = false
-                    )
-                } / ${AmountFormatters.formatDisplayAmount(targetAmount, isCrypto = false)}",
+                text = totalAllocated?.let {
+                    "Allocated: ${
+                        AmountFormatters.formatDisplayCurrencyAmount(
+                            it,
+                            goalCurrency,
+                            isCrypto = false
+                        )
+                    } / ${AmountFormatters.formatDisplayAmount(targetAmount, isCrypto = false)}"
+                } ?: "Allocated total unavailable",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
             )
@@ -316,17 +327,26 @@ private fun AllocationSummaryCard(
                     color = MaterialTheme.colorScheme.error
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { progress.toFloat() },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "$progressPercent% funded",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-            )
+            if (progress != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { progress.toFloat() },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "$progressPercent% funded",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = financialDataIssue ?: "Funded total unavailable",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }
@@ -345,9 +365,12 @@ private fun AllocationCard(
     val isCryptoAsset = asset?.isCryptoAsset == true
 
     // Visual warning states
-    val isOverAllocated = allocationWithDetails.isAssetOverAllocated
-    val isUnderfunded = allocationWithDetails.isUnderfunded
-    val hasWarning = isOverAllocated || isUnderfunded
+    val isOverAllocated = allocationWithDetails.isAssetOverAllocated == true
+    val isUnderfunded = allocationWithDetails.isUnderfunded == true
+    val hasWarning =
+        isOverAllocated ||
+            isUnderfunded ||
+            allocationWithDetails.balanceIssue != null
 
     val cardContainerColor = when {
         isOverAllocated -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
@@ -392,15 +415,21 @@ private fun AllocationCard(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "Balance: ${
-                                AmountFormatters.formatDisplayCurrencyAmount(
-                                    allocationWithDetails.assetBalance,
-                                    asset?.currency ?: "?",
-                                    isCrypto = isCryptoAsset
-                                )
-                            }",
+                            text = allocationWithDetails.assetBalance?.let {
+                                "Balance: ${
+                                    AmountFormatters.formatDisplayCurrencyAmount(
+                                        it,
+                                        asset?.currency ?: "?",
+                                        isCrypto = isCryptoAsset
+                                    )
+                                }"
+                            } ?: (allocationWithDetails.balanceIssue ?: "Balance unavailable"),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (allocationWithDetails.assetBalance == null) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
                         )
                     }
                 }
@@ -420,11 +449,11 @@ private fun AllocationCard(
                             fontWeight = FontWeight.Bold,
                             color = if (hasWarning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                         )
-                        if (isUnderfunded) {
+                        if (isUnderfunded && allocationWithDetails.fundedAmount != null) {
                             Text(
                                 text = "Funded: ${
                                     AmountFormatters.formatDisplayCurrencyAmount(
-                                        allocationWithDetails.fundedAmount,
+                                        checkNotNull(allocationWithDetails.fundedAmount),
                                         allocationCurrency,
                                         isCrypto = isCryptoAsset
                                     )
@@ -447,6 +476,7 @@ private fun AllocationCard(
 
             // Warning message for over-allocated assets
             if (isOverAllocated) {
+                val assetBalance = checkNotNull(allocationWithDetails.assetBalance)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically
@@ -461,7 +491,7 @@ private fun AllocationCard(
                     Text(
                         text = "Asset over-allocated by ${
                             AmountFormatters.formatDisplayAmount(
-                                allocationWithDetails.assetTotalAllocated - allocationWithDetails.assetBalance,
+                                allocationWithDetails.assetTotalAllocated - assetBalance,
                                 isCrypto = isCryptoAsset
                             )
                         }",

@@ -67,8 +67,8 @@ struct BridgeImportValidationServiceTests {
         #expect(status.blockingIssues.contains(where: { $0.contains("signer is not an active trusted device") || $0.contains("signing key does not match") }))
     }
 
-    @Test("Validation fails for canonical encoding mismatch")
-    func canonicalEncodingMismatchFailsValidation() throws {
+    @Test("Validation rejects legacy v1 canonical encoding after the provenance schema upgrade")
+    func legacyCanonicalEncodingFailsValidation() throws {
         let container = try TestContainer.create()
         let context = ModelContext(container)
         _ = try TestDataFactory.createFullCutoverTestData(in: context)
@@ -87,7 +87,7 @@ struct BridgeImportValidationServiceTests {
             SignedImportPackage(
                 packageID: basePackage.packageID,
                 snapshotID: basePackage.snapshotID,
-                canonicalEncodingVersion: "bridge-snapshot-v999",
+                canonicalEncodingVersion: "bridge-snapshot-v1",
                 baseDatasetFingerprint: basePackage.baseDatasetFingerprint,
                 editedDatasetFingerprint: basePackage.editedDatasetFingerprint,
                 snapshotEnvelope: basePackage.snapshotEnvelope,

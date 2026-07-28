@@ -19,6 +19,22 @@ struct BalanceCacheEntry: Codable {
     }
 }
 
+/// Immutable, non-network evidence for the currently authoritative balance-cache entry.
+/// Exact bit patterns make financial drift checks sensitive to both value and freshness changes.
+struct BalanceCacheSnapshotEvidence: Equatable, Sendable {
+    let cacheKey: String
+    let balance: UInt64
+    let timestamp: UInt64
+    let expiresAt: UInt64
+
+    init(cacheKey: String, entry: BalanceCacheEntry) {
+        self.cacheKey = cacheKey
+        balance = entry.balance.bitPattern
+        timestamp = entry.timestamp.timeIntervalSinceReferenceDate.bitPattern
+        expiresAt = entry.expiresAt.timeIntervalSinceReferenceDate.bitPattern
+    }
+}
+
 // Cache entry for transactions
 struct TransactionsCacheEntry {
     let transactions: [TatumTransaction]
@@ -46,10 +62,20 @@ final class BalanceCacheManager {
     // Cache duration for transactions (2 hours - transactions change less frequently)
     private let transactionsCacheDuration: TimeInterval = 2 * 60 * 60
     
-    // Persistent storage keys
-    private let balanceCacheKey = "com.cryptosavings.balance.cache"
+    // Versioned storage prevents balances normalized with obsolete API semantics
+    // from surviving an app upgrade and bypassing the corrected parser.
+    private let balanceCacheStorageKey = "com.cryptosavings.balance.cache.v5"
+    private let obsoleteBalanceCacheStorageKeys = [
+        "com.cryptosavings.balance.cache",
+        "com.cryptosavings.balance.cache.v2",
+        "com.cryptosavings.balance.cache.v3",
+        "com.cryptosavings.balance.cache.v4"
+    ]
     
     private init() {
+        for key in obsoleteBalanceCacheStorageKeys {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
         loadPersistedCache()
     }
     
@@ -63,6 +89,17 @@ final class BalanceCacheManager {
             return entry.balance
         }
     }
+
+    /// Reads the same unexpired cache state used by operational balance calculations.
+    /// This method is synchronous and never refreshes the provider.
+    func balanceSnapshotEvidence(for key: String) -> BalanceCacheSnapshotEvidence? {
+        cacheQueue.sync {
+            guard let entry = balanceCache[key], !entry.isExpired else {
+                return nil
+            }
+            return BalanceCacheSnapshotEvidence(cacheKey: key, entry: entry)
+        }
+    }
     
     // Get cached balance without expiry check (for fallback scenarios)
     func getFallbackBalance(for key: String) -> Double? {
@@ -71,13 +108,18 @@ final class BalanceCacheManager {
         }
     }
     
-    func cacheBalance(_ balance: Double, for key: String) {
-        // Update in-memory cache synchronously so callers can read the new value immediately
-        // (e.g., allocation UI using `Asset.currentAmount` right after a balance refresh).
+    func cacheBalance(
+        _ balance: Double,
+        for key: String,
+        timestamp: Date = Date(),
+        expiresAt: Date? = nil
+    ) {
+        // Update in-memory cache synchronously so operational readers can use
+        // the newly authoritative value immediately after a successful refresh.
         let entry = BalanceCacheEntry(
             balance: balance,
-            timestamp: Date(),
-            expiresAt: Date().addingTimeInterval(self.balanceCacheDuration)
+            timestamp: timestamp,
+            expiresAt: expiresAt ?? timestamp.addingTimeInterval(self.balanceCacheDuration)
         )
         var balanceSnapshot: [String: BalanceCacheEntry] = [:]
         cacheQueue.sync(flags: .barrier) {
@@ -118,7 +160,7 @@ final class BalanceCacheManager {
     }
     
     func cacheTransactions(_ transactions: [TatumTransaction], for key: String) {
-        cacheQueue.async(flags: .barrier) {
+        cacheQueue.sync(flags: .barrier) {
             let entry = TransactionsCacheEntry(
                 transactions: transactions,
                 timestamp: Date(),
@@ -146,15 +188,37 @@ final class BalanceCacheManager {
     
     // Generate cache key for balance
     static func balanceCacheKey(chainId: String, address: String, symbol: String) -> String {
-        return "balance_\(chainId)_\(address)_\(symbol)".lowercased()
+        let normalizedAddress = OnChainIdentifierPolicy.normalizedAddress(
+            address,
+            forChainIdentifier: chainId
+        )
+        return [
+            "balance_v5",
+            chainId.lowercased(),
+            normalizedAddress,
+            symbol.lowercased()
+        ].joined(separator: "_")
     }
     
     // Generate cache key for transactions
     static func transactionsCacheKey(chainId: String, address: String, currency: String? = nil) -> String {
+        let normalizedAddress = OnChainIdentifierPolicy.normalizedAddress(
+            address,
+            forChainIdentifier: chainId
+        )
         if let currency = currency {
-            return "transactions_\(chainId)_\(address)_\(currency)".lowercased()
+            return [
+                "transactions_v4",
+                chainId.lowercased(),
+                normalizedAddress,
+                currency.lowercased()
+            ].joined(separator: "_")
         } else {
-            return "transactions_\(chainId)_\(address)".lowercased()
+            return [
+                "transactions_v4",
+                chainId.lowercased(),
+                normalizedAddress
+            ].joined(separator: "_")
         }
     }
     
@@ -162,7 +226,7 @@ final class BalanceCacheManager {
     
     private func loadPersistedCache() {
         cacheQueue.sync(flags: .barrier) {
-            if let data = UserDefaults.standard.data(forKey: self.balanceCacheKey),
+            if let data = UserDefaults.standard.data(forKey: self.balanceCacheStorageKey),
                let decodedCache = try? JSONDecoder().decode([String: BalanceCacheEntry].self, from: data) {
                 // Only load non-expired entries or entries less than 24 hours old
                 let oneDayAgo = Date().addingTimeInterval(-24 * 60 * 60)
@@ -179,7 +243,7 @@ final class BalanceCacheManager {
     
     private func persistCache(_ snapshot: [String: BalanceCacheEntry]) {
         if let encoded = try? JSONEncoder().encode(snapshot) {
-            UserDefaults.standard.set(encoded, forKey: self.balanceCacheKey)
+            UserDefaults.standard.set(encoded, forKey: self.balanceCacheStorageKey)
         }
     }
 }

@@ -1,0 +1,122 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Type · Body & Caption</title>
+<link rel="stylesheet" href="_card.css">
+<link rel="stylesheet" href="_glass.css">
+<style>
+  .type-card {
+    border-radius: 18px;
+    padding: 20px 22px;
+    max-width: 760px;
+  }
+  table.spec { width: 100%; border-collapse: collapse; }
+  table.spec th, table.spec td {
+    text-align: left;
+    padding: 14px 8px;
+    border-bottom: 0.5px solid rgba(60,60,67,0.15);
+    vertical-align: baseline;
+  }
+  table.spec tr:last-child td { border-bottom: none; }
+  table.spec th {
+    font: 600 11px var(--font-sans);
+    color: var(--fg-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding-bottom: 8px;
+  }
+  .sample { color: var(--fg-1); }
+  .name {
+    font: 600 12px var(--font-sans);
+    color: var(--fg-1);
+    letter-spacing: -0.1px;
+  }
+  .tokens {
+    font: 500 11px var(--font-mono);
+    color: var(--fg-3);
+    line-height: 1.5;
+  }
+  .tokens strong { color: var(--fg-2); font-weight: 600; }
+  .usage { font: 500 12px var(--font-sans); color: var(--fg-2); line-height: 1.4; max-width: 200px; }
+
+  /* Sample styles with proper tracking & leading per iOS Dynamic Type */
+  .s-headline     { font: 600 17px/1.30 var(--font-sans); letter-spacing: -0.41px; }
+  .s-body         { font: 400 17px/1.45 var(--font-sans); letter-spacing: -0.41px; }
+  .s-callout      { font: 400 16px/1.45 var(--font-sans); letter-spacing: -0.32px; }
+  .s-subheadline  { font: 400 15px/1.45 var(--font-sans); letter-spacing: -0.24px; color: var(--fg-2); }
+  .s-footnote     { font: 400 13px/1.45 var(--font-sans); letter-spacing: -0.08px; color: var(--fg-2); }
+  .s-caption1     { font: 400 12px/1.45 var(--font-sans); letter-spacing:  0;       color: var(--fg-3); }
+  .s-caption2     { font: 400 11px/1.45 var(--font-sans); letter-spacing:  0.07px;  color: var(--fg-3); }
+
+  .rank {
+    display:inline-block;
+    width: 22px; height: 22px;
+    line-height: 22px; text-align: center;
+    border-radius: 6px;
+    background: rgba(245,166,35,0.16);
+    color: #F5A623;
+    font: 700 11px var(--font-mono);
+    margin-right: 8px;
+  }
+</style>
+</head>
+<body class="glass">
+
+<div class="type-card glass-surface">
+  <table class="spec">
+    <thead>
+      <tr>
+        <th style="width:38%">Sample</th>
+        <th style="width:22%">Name</th>
+        <th style="width:22%">Tokens</th>
+        <th style="width:18%">Use for</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="sample s-headline">Log contribution</td>
+        <td><span class="rank">H</span><span class="name">Headline</span></td>
+        <td class="tokens"><strong>17 / 600</strong><br>tracking −0.41<br>leading 1.30</td>
+        <td class="usage">Section titles inside cards, row emphasis, sheet title</td>
+      </tr>
+      <tr>
+        <td class="sample s-body">You're on track to reach your goal by Nov 12.</td>
+        <td><span class="rank">B</span><span class="name">Body</span></td>
+        <td class="tokens"><strong>17 / 400</strong><br>tracking −0.41<br>leading 1.45</td>
+        <td class="usage">Default paragraph text, list row titles</td>
+      </tr>
+      <tr>
+        <td class="sample s-callout">Add more transactions to generate a forecast.</td>
+        <td><span class="rank">C</span><span class="name">Callout</span></td>
+        <td class="tokens"><strong>16 / 400</strong><br>tracking −0.32<br>leading 1.45</td>
+        <td class="usage">Inline prompts, tight card copy</td>
+      </tr>
+      <tr>
+        <td class="sample s-subheadline">Updated 2 minutes ago</td>
+        <td><span class="rank">S</span><span class="name">Subheadline</span></td>
+        <td class="tokens"><strong>15 / 400</strong><br>tracking −0.24<br>leading 1.45</td>
+        <td class="usage">Row metadata, secondary line</td>
+      </tr>
+      <tr>
+        <td class="sample s-footnote">Budget saved — not applied to this month yet.</td>
+        <td><span class="rank">F</span><span class="name">Footnote</span></td>
+        <td class="tokens"><strong>13 / 400</strong><br>tracking −0.08<br>leading 1.45</td>
+        <td class="usage">Helper text beneath fields, chip context</td>
+      </tr>
+      <tr>
+        <td class="sample s-caption1">WCAG AA ratings validated against fg‑1 on surface</td>
+        <td><span class="rank">C1</span><span class="name">Caption 1</span></td>
+        <td class="tokens"><strong>12 / 400</strong><br>tracking 0<br>leading 1.45</td>
+        <td class="usage">Form labels, legend text</td>
+      </tr>
+      <tr>
+        <td class="sample s-caption2">TABULAR · NUMS · 0123456789</td>
+        <td><span class="rank">C2</span><span class="name">Caption 2</span></td>
+        <td class="tokens"><strong>11 / 400</strong><br>tracking +0.07<br>leading 1.45</td>
+        <td class="usage">Uppercase eyebrows, chart ticks</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div style="margin-top:14px"><span class="caption-pill">SF Pro Text on iOS / Roboto on Android (system). Negative tracking at body sizes mirrors Apple's Dynamic Type; Caption 2 uses positive tracking for uppercase legibility.</span></div>
+
+</body></html>

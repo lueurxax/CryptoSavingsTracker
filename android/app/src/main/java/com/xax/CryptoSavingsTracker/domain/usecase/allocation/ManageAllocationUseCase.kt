@@ -1,7 +1,12 @@
 package com.xax.CryptoSavingsTracker.domain.usecase.allocation
 
 import com.xax.CryptoSavingsTracker.domain.model.Allocation
+import com.xax.CryptoSavingsTracker.domain.model.ExecutionStatus
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExecutionAssetRateRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExecutionRecordRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExecutionTransitionTransactionRunner
+import kotlinx.coroutines.flow.first
 import java.util.UUID
 import javax.inject.Inject
 
@@ -12,7 +17,10 @@ import javax.inject.Inject
 class AddAllocationUseCase @Inject constructor(
     private val allocationRepository: AllocationRepository,
     private val allocationHistoryService: AllocationHistoryService,
-    private val validationService: AllocationValidationService
+    private val validationService: AllocationValidationService,
+    private val executionRecordRepository: ExecutionRecordRepository,
+    private val executionAssetRateRepository: ExecutionAssetRateRepository,
+    private val transactionRunner: ExecutionTransitionTransactionRunner
 ) {
     /**
      * Add a new allocation.
@@ -28,36 +36,44 @@ class AddAllocationUseCase @Inject constructor(
     ): Result<Allocation> = runCatching {
         require(amount > 0) { "Allocation amount must be positive" }
 
-        validationService.validateAllocation(
-            assetId = assetId,
-            goalId = goalId,
-            amount = amount
-        )?.let { message ->
-            throw IllegalStateException(message)
+        transactionRunner.run {
+            validationService.validateAllocation(
+                assetId = assetId,
+                goalId = goalId,
+                amount = amount
+            )?.let { message ->
+                throw IllegalStateException(message)
+            }
+
+            requireExecutionRateCoverage(
+                assetId = assetId,
+                executionRecordRepository = executionRecordRepository,
+                executionAssetRateRepository = executionAssetRateRepository
+            )
+
+            // Check if allocation already exists for this asset-goal pair
+            val existingAllocation = allocationRepository.getAllocationByAssetAndGoal(assetId, goalId)
+            if (existingAllocation != null) {
+                throw IllegalStateException("Allocation already exists for this asset and goal")
+            }
+
+            val now = System.currentTimeMillis()
+            val allocation = Allocation(
+                id = UUID.randomUUID().toString(),
+                assetId = assetId,
+                goalId = goalId,
+                amount = amount,
+                createdAt = now,
+                lastModifiedAt = now
+            )
+
+            allocationRepository.upsertAllocation(allocation)
+
+            // Create history snapshot for execution tracking
+            allocationHistoryService.createSnapshot(allocation)
+
+            allocation
         }
-
-        // Check if allocation already exists for this asset-goal pair
-        val existingAllocation = allocationRepository.getAllocationByAssetAndGoal(assetId, goalId)
-        if (existingAllocation != null) {
-            throw IllegalStateException("Allocation already exists for this asset and goal")
-        }
-
-        val now = System.currentTimeMillis()
-        val allocation = Allocation(
-            id = UUID.randomUUID().toString(),
-            assetId = assetId,
-            goalId = goalId,
-            amount = amount,
-            createdAt = now,
-            lastModifiedAt = now
-        )
-
-        allocationRepository.upsertAllocation(allocation)
-
-        // Create history snapshot for execution tracking
-        allocationHistoryService.createSnapshot(allocation)
-
-        allocation
     }
 }
 
@@ -68,32 +84,69 @@ class AddAllocationUseCase @Inject constructor(
 class UpdateAllocationUseCase @Inject constructor(
     private val allocationRepository: AllocationRepository,
     private val allocationHistoryService: AllocationHistoryService,
-    private val validationService: AllocationValidationService
+    private val validationService: AllocationValidationService,
+    private val executionRecordRepository: ExecutionRecordRepository,
+    private val executionAssetRateRepository: ExecutionAssetRateRepository,
+    private val transactionRunner: ExecutionTransitionTransactionRunner
 ) {
     /**
      * Update an allocation with full details.
      */
     suspend operator fun invoke(allocation: Allocation): Result<Allocation> = runCatching {
         require(allocation.amount > 0) { "Allocation amount must be positive" }
-        validationService.validateAllocation(
-            assetId = allocation.assetId,
-            goalId = allocation.goalId,
-            amount = allocation.amount,
-            excludeAllocationId = allocation.id
-        )?.let { message ->
-            throw IllegalStateException(message)
+
+        transactionRunner.run {
+            validationService.validateAllocation(
+                assetId = allocation.assetId,
+                goalId = allocation.goalId,
+                amount = allocation.amount,
+                excludeAllocationId = allocation.id
+            )?.let { message ->
+                throw IllegalStateException(message)
+            }
+
+            requireExecutionRateCoverage(
+                assetId = allocation.assetId,
+                executionRecordRepository = executionRecordRepository,
+                executionAssetRateRepository = executionAssetRateRepository
+            )
+
+            val updatedAllocation = allocation.copy(
+                lastModifiedAt = System.currentTimeMillis()
+            )
+
+            allocationRepository.upsertAllocation(updatedAllocation)
+
+            // Create history snapshot for execution tracking
+            allocationHistoryService.createSnapshot(updatedAllocation)
+
+            updatedAllocation
+        }
+    }
+}
+
+private suspend fun requireExecutionRateCoverage(
+    assetId: String,
+    executionRecordRepository: ExecutionRecordRepository,
+    executionAssetRateRepository: ExecutionAssetRateRepository
+) {
+    val nowMillis = System.currentTimeMillis()
+    val reversibleRecords = executionRecordRepository.getAllRecords().first().filter { record ->
+        record.status == ExecutionStatus.EXECUTING ||
+            (record.status == ExecutionStatus.CLOSED && record.canUndo(nowMillis))
+    }
+    for (record in reversibleRecords) {
+        check(!record.legacyRateSnapshotPending) {
+            "Cannot change allocations while execution rates are still preparing"
         }
 
-        val updatedAllocation = allocation.copy(
-            lastModifiedAt = System.currentTimeMillis()
-        )
-
-        allocationRepository.upsertAllocation(updatedAllocation)
-
-        // Create history snapshot for execution tracking
-        allocationHistoryService.createSnapshot(updatedAllocation)
-
-        updatedAllocation
+        val hasPersistedRate = executionAssetRateRepository
+            .getByRecordId(record.id)
+            .first()
+            .any { it.assetId == assetId }
+        check(hasPersistedRate) {
+            "Cannot allocate asset during a reversible execution because it is missing from the execution rate snapshot"
+        }
     }
 }
 
@@ -103,7 +156,8 @@ class UpdateAllocationUseCase @Inject constructor(
  */
 class DeleteAllocationUseCase @Inject constructor(
     private val allocationRepository: AllocationRepository,
-    private val allocationHistoryService: AllocationHistoryService
+    private val allocationHistoryService: AllocationHistoryService,
+    private val transactionRunner: ExecutionTransitionTransactionRunner
 ) {
     /**
      * Delete an allocation by ID.
@@ -116,34 +170,40 @@ class DeleteAllocationUseCase @Inject constructor(
         assetId: String? = null,
         goalId: String? = null
     ): Result<Unit> = runCatching {
-        // Create deletion snapshot if asset/goal IDs are provided
-        if (assetId != null && goalId != null) {
-            allocationHistoryService.createDeletionSnapshot(assetId, goalId)
+        transactionRunner.run {
+            // Create deletion snapshot if asset/goal IDs are provided
+            if (assetId != null && goalId != null) {
+                allocationHistoryService.createDeletionSnapshot(assetId, goalId)
+            }
+            allocationRepository.deleteAllocation(allocationId)
         }
-        allocationRepository.deleteAllocation(allocationId)
     }
 
     /**
      * Delete all allocations for a goal.
      */
     suspend fun deleteForGoal(goalId: String): Result<Unit> = runCatching {
-        // Get allocations before deleting to create history snapshots
-        val allocations = allocationRepository.getAllocationsForGoal(goalId)
-        for (allocation in allocations) {
-            allocationHistoryService.createDeletionSnapshot(allocation.assetId, allocation.goalId)
+        transactionRunner.run {
+            // Get allocations before deleting to create history snapshots
+            val allocations = allocationRepository.getAllocationsForGoal(goalId)
+            for (allocation in allocations) {
+                allocationHistoryService.createDeletionSnapshot(allocation.assetId, allocation.goalId)
+            }
+            allocationRepository.deleteAllocationsForGoal(goalId)
         }
-        allocationRepository.deleteAllocationsForGoal(goalId)
     }
 
     /**
      * Delete all allocations for an asset.
      */
     suspend fun deleteForAsset(assetId: String): Result<Unit> = runCatching {
-        // Get allocations before deleting to create history snapshots
-        val allocations = allocationRepository.getAllocationsForAsset(assetId)
-        for (allocation in allocations) {
-            allocationHistoryService.createDeletionSnapshot(allocation.assetId, allocation.goalId)
+        transactionRunner.run {
+            // Get allocations before deleting to create history snapshots
+            val allocations = allocationRepository.getAllocationsForAsset(assetId)
+            for (allocation in allocations) {
+                allocationHistoryService.createDeletionSnapshot(allocation.assetId, allocation.goalId)
+            }
+            allocationRepository.deleteAllocationsForAsset(assetId)
         }
-        allocationRepository.deleteAllocationsForAsset(assetId)
     }
 }

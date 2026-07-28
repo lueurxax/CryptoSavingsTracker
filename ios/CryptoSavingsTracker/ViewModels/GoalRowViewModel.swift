@@ -28,16 +28,25 @@ class GoalRowViewModel: ObservableObject, ErrorAwareViewModel {
     
     // MARK: - Properties
     let goal: Goal
+    private let currentTotalLoader: @MainActor (Goal) async -> GoalCurrentTotalResult
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Initialization
-    init(goal: Goal) {
+    init(
+        goal: Goal,
+        currentTotalLoader: @escaping @MainActor (Goal) async -> GoalCurrentTotalResult = {
+            await GoalCalculationService.getCurrentTotalResult(for: $0)
+        }
+    ) {
         self.goal = goal
+        self.currentTotalLoader = currentTotalLoader
         self.displayEmoji = goal.emoji
         self.asyncCurrentTotal = goal.manualTotal
         self.asyncProgress = goal.manualProgress
         self.progressAnimation = goal.manualProgress
-        self.hasLoadedInitialData = goal.manualTotal > 0
+        // Manual value is only a provisional lower bound until every
+        // allocated provider balance and conversion has completed.
+        self.hasLoadedInitialData = false
         
         // Start shimmer animation
         withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
@@ -75,6 +84,13 @@ class GoalRowViewModel: ObservableObject, ErrorAwareViewModel {
     /// Status badge information - only shows for exceptional states
     /// Returns nil for normal "in progress" goals to reduce visual noise
     var statusBadge: (text: String, color: Color, icon: String)? {
+        if hasError {
+            return (
+                "Balance unavailable",
+                AccessibleColors.warning,
+                "exclamationmark.triangle.fill"
+            )
+        }
         let progress = asyncProgress
         if progress >= 1.0 {
             return ("Achieved", AccessibleColors.success, "checkmark.circle.fill")
@@ -103,13 +119,20 @@ class GoalRowViewModel: ObservableObject, ErrorAwareViewModel {
     
     /// Formatted progress percentage text
     var progressPercentageText: String {
-        "\(Int(asyncProgress * 100))% complete"
+        guard !hasError else { return "Progress unavailable" }
+        return "\(Int(asyncProgress * 100))% complete"
     }
     
     /// Formatted current/target amount text with proper currency symbols
     var amountText: String {
-        let currentFormatted = formatAmount(asyncCurrentTotal, currency: goal.currency)
         let targetFormatted = formatAmount(goal.targetAmount, currency: goal.currency)
+        if hasError && abs(asyncCurrentTotal) <= 0.000_000_1 {
+            return "Balance unavailable / \(targetFormatted)"
+        }
+        let currentFormatted = formatAmount(asyncCurrentTotal, currency: goal.currency)
+        if hasError {
+            return "Partial: \(currentFormatted) / \(targetFormatted)"
+        }
         return "\(currentFormatted) / \(targetFormatted)"
     }
 
@@ -163,12 +186,17 @@ class GoalRowViewModel: ObservableObject, ErrorAwareViewModel {
         guard !isLoading else { return }
 
         isLoading = true
-        hasError = false
-        viewState = .loading
+        if !hasLoadedInitialData {
+            viewState = .loading
+        }
         
-        // Use the proper service that does currency conversion
-        let newProgress = await GoalCalculationService.getProgress(for: goal)
-        let newTotal = await GoalCalculationService.getCurrentTotal(for: goal)
+        // Load the financial result once so completeness metadata cannot be
+        // discarded or disagree across two independent provider refreshes.
+        let result = await currentTotalLoader(goal)
+        let newTotal = result.total
+        let newProgress = goal.targetAmount > 0
+            ? min(max(0, newTotal / goal.targetAmount), 1)
+            : 0
         
         await MainActor.run {
             // Update emoji if it changed
@@ -192,8 +220,13 @@ class GoalRowViewModel: ObservableObject, ErrorAwareViewModel {
             }
 
             isLoading = false
-            lastSuccessfulLoad = Date()
-            viewState = .loaded
+            hasError = result.error != nil
+            if let error = result.error {
+                viewState = .degraded(error.message)
+            } else {
+                lastSuccessfulLoad = Date()
+                viewState = .loaded
+            }
         }
     }
     

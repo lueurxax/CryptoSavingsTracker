@@ -1,0 +1,70 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Neutrals</title>
+<link rel="stylesheet" href="_card.css">
+<link rel="stylesheet" href="_glass.css">
+<style>
+  .panel {
+    border-radius: 18px;
+    padding: 22px 24px;
+    max-width: 760px;
+  }
+  .hero { font: 700 15px var(--font-sans); color: #fff; letter-spacing: -0.2px; }
+  .sub  { font: 500 12px var(--font-sans); color: rgba(255,255,255,0.65); margin-top: 2px; margin-bottom: 14px; }
+
+  .ramp-label {
+    font: 600 11px var(--font-sans);
+    color: rgba(255,255,255,0.55);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 14px 0 8px;
+  }
+  .ramp { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .sw {
+    aspect-ratio: 1 / 1.05;
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border: 0.5px solid rgba(255,255,255,0.06);
+  }
+  .sw .name { font: 600 11px var(--font-sans); letter-spacing: -0.005em; }
+  .sw .hex  { font: 500 10px var(--font-mono); opacity: 0.75; }
+
+  .footnote { font: 500 12px var(--font-sans); color: rgba(255,255,255,0.55); line-height: 1.45; margin-top: 14px; }
+  .footnote code { font-family: var(--font-mono); color: #F5A623; }
+</style>
+</head>
+<body class="glass">
+
+<div class="panel glass-surface">
+  <div class="hero">Neutrals · light & dark</div>
+  <div class="sub">Both ramps — every theme picks one set of canvas/surface/foreground tokens. Swatch borders separate near-white tiles on the midnight panel.</div>
+
+  <div class="ramp-label">Light theme</div>
+  <div class="ramp">
+    <div class="sw" style="background:#FAFAFA; color:#0A0F1F"><span class="name">bg</span><span class="hex">#FAFAFA</span></div>
+    <div class="sw" style="background:#FFFFFF; color:#0A0F1F"><span class="name">surface</span><span class="hex">#FFF</span></div>
+    <div class="sw" style="background:#F2F2F2; color:#0A0F1F"><span class="name">surface‑2</span><span class="hex">#F2F2F2</span></div>
+    <div class="sw" style="background:#1A1A1A; color:#fff"><span class="name">fg‑1</span><span class="hex">#1A1A1A</span></div>
+    <div class="sw" style="background:#4A4A4A; color:#fff"><span class="name">fg‑2</span><span class="hex">#4A4A4A</span></div>
+    <div class="sw" style="background:#6E6E73; color:#fff"><span class="name">fg‑3</span><span class="hex">#6E6E73</span></div>
+    <div class="sw" style="background:#B0B0B5; color:#1A1A1A"><span class="name">disabled</span><span class="hex">#B0B0B5</span></div>
+  </div>
+
+  <div class="ramp-label">Dark theme</div>
+  <div class="ramp">
+    <div class="sw" style="background:#05080F; color:#fff; border:0.5px solid rgba(120,175,255,0.18)"><span class="name">bg</span><span class="hex">#05080F</span></div>
+    <div class="sw" style="background:#0A0F1F; color:#fff; border:0.5px solid rgba(120,175,255,0.18)"><span class="name">surface</span><span class="hex">#0A0F1F</span></div>
+    <div class="sw" style="background:#121A2E; color:#fff; border:0.5px solid rgba(120,175,255,0.18)"><span class="name">surface‑2</span><span class="hex">#121A2E</span></div>
+    <div class="sw" style="background:#FFFFFF; color:#0A0F1F"><span class="name">fg‑1</span><span class="hex">#FFFFFF</span></div>
+    <div class="sw" style="background:#C7CCD9; color:#0A0F1F"><span class="name">fg‑2</span><span class="hex">#C7CCD9</span></div>
+    <div class="sw" style="background:#7A8499; color:#0A0F1F"><span class="name">fg‑3</span><span class="hex">#7A8499</span></div>
+    <div class="sw" style="background:#3A4257; color:#fff"><span class="name">disabled</span><span class="hex">#3A4257</span></div>
+  </div>
+
+  <div class="footnote">
+    Light surfaces default to <code>#FAFAFA</code> canvas with plain white cards. Dark mode uses <code>#0A0F1F</code> midnight (the banner base) with <code>#121A2E</code> raised surfaces. Foregrounds invert; the disabled token stays distinct from <code>fg‑3</code> in both modes.
+  </div>
+</div>
+</body></html>

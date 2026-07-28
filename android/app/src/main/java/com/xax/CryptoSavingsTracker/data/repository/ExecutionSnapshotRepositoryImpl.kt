@@ -21,6 +21,12 @@ class ExecutionSnapshotRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun getByGoalId(goalId: String): Flow<List<ExecutionSnapshot>> {
+        return executionSnapshotDao.getSnapshotsByGoalId(goalId).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
     override suspend fun replaceForRecord(recordId: String, snapshots: List<ExecutionSnapshot>) {
         executionSnapshotDao.deleteByRecordId(recordId)
         executionSnapshotDao.insertAll(snapshots.map { it.toEntity() })
@@ -30,4 +36,3 @@ class ExecutionSnapshotRepositoryImpl @Inject constructor(
         executionSnapshotDao.deleteByRecordId(recordId)
     }
 }
-
