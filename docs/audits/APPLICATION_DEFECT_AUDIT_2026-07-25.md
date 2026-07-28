@@ -4,7 +4,7 @@
 
 | Metadata | Value |
 |----------|-------|
-| Status | ⚠️ Fixes implemented; Apple verified; final Android rerun blocked |
+| Status | ✅ Closed — fixes implemented; Apple and Android verified |
 | Last Updated | 2026-07-28 |
 | Platform | Shared |
 | Audience | All |
@@ -49,8 +49,7 @@ defects, and three medium-impact defects. A later exhaustive whole-diff review
 found zero Critical findings and 23 deduplicated Important defect packages,
 including both variants of the original findings and newly proven failures.
 All identified packages now have production corrections and behavior-level
-regressions. Apple closeout is current and green; Android closeout is waiting
-only for a current Gradle rerun that the execution environment could not start.
+regressions. Apple and Android closeout are current and green.
 
 | Initial priority | Count | Meaning |
 |------------------|-------|---------|
@@ -61,26 +60,27 @@ only for a current Gradle rerun that the execution environment could not start.
 | Final whole-diff severity | Count | Current state |
 |---------------------------|-------|---------------|
 | Critical | 0 | None found |
-| Important | 23 packages | Implemented; Apple verified, Android rerun blocked |
+| Important | 23 packages | Implemented and verified |
 
-The highest-risk cluster is financial correctness. Both applications contain
-paths that compare, aggregate, label, or persist values without converting them
-to the required currency or unit. Those paths can show plausible but materially
-wrong balances and progress.
+The highest-risk cluster was financial correctness. Both applications contained
+paths that compared, aggregated, labeled, or persisted values without
+converting them to the required currency or unit. Those paths could show
+plausible but materially wrong balances and progress.
 
 Remediation posture:
 
 - The 16 original findings and all 23 final review packages are implemented.
 - The current Apple diff passed 896 tests with no failures or skips and a
   signing-disabled macOS build.
-- The complete staged Android production/test patch has SHA-256
-  `5b8f5a84d153dbcedb81bf53104c68aa2a6aa3d39eb31847276fa402f8907187`.
-  Its previously tracked-file component remained stable at SHA-256
-  `8631bfcd01f1780aed0df7a91e022b2ed32f40d09b10012e247caf8f9ddf02ee`,
+- The complete Android production/test patch relative to `origin/main` has
+  SHA-256
+  `aceb5df5e98267f086c351d0cd70ffd8421555570a99a30cd9af1e8d06e255fa`,
   and the final static review has no unresolved Critical or Important finding.
-- Android JVM, instrumentation, migration, and lint artifacts from 2026-07-27
-  remain historical evidence only. A current Gradle rerun is still required
-  before this audit can be marked closed.
+- The current Android diff passed 502 JVM tests and 48 instrumentation tests on
+  API 36.1 with no failures or skips. Instrumentation compilation/assembly and
+  the included Room migration regressions passed.
+- Current Android lint passed with zero errors, 128 warnings, and two
+  informational hints.
 
 ---
 
@@ -625,26 +625,26 @@ only after its behavior regression and the final stable-diff review pass.
 | FINAL-001 | Apple | Provider correction or enrichment can duplicate one durable movement instead of reconciling it. | Verified |
 | FINAL-002 | Apple | Monthly requirements can be saved from a mixed financial snapshot across suspension points. | Verified |
 | FINAL-003 | Apple | Plan/execution membership can retain inactive goals, duplicate roll-forward, or resurrect a removed goal at close. | Verified |
-| FINAL-004 | Shared | Planning month, payment-date, storage, and worker timezone semantics disagree at month boundaries. | Apple verified; Android rerun blocked |
+| FINAL-004 | Shared | Planning month, payment-date, storage, and worker timezone semantics disagree at month boundaries. | Verified |
 | FINAL-005 | Apple | Start and undo compose multiple saves without one rollback-safe persistence boundary. | Verified |
 | FINAL-006 | Apple | Missing execution FX becomes omitted or zero progress, and failed completion can leave a pending closed mutation. | Verified |
-| FINAL-007 | Shared | Overall execution progress raw-sums incompatible currencies and can display an incorrect currency label. | Apple verified; Android rerun blocked |
+| FINAL-007 | Shared | Overall execution progress raw-sums incompatible currencies and can display an incorrect currency label. | Verified |
 | FINAL-008 | Apple | Canonically duplicate addressed assets can double balances, totals, and imported history. | Verified |
 | FINAL-009 | Apple | Asset deletion can destroy active or still-undoable execution evidence. | Verified |
 | FINAL-010 | Apple | Goal rows promote partial or unavailable financial totals as a successful authoritative zero. | Verified |
 | FINAL-011 | Apple | Onboarding creation is not restart-safe after commit succeeds before the completion flag. | Verified |
 | FINAL-012 | Apple | Real exchange-rate stale refresh can synchronously re-enter its own queue and deadlock. | Verified |
 | FINAL-013 | Apple | Cloud sync dedup folds case-sensitive wallets and can discard allocation value. | Verified |
-| FINAL-014 | Android | Asset provider identity can change during reversible execution or a suspended refresh. | Implemented; final Gradle rerun blocked |
-| FINAL-015 | Android | Provider identity and reconciliation do not survive mutable corrections or optional event-index enrichment. | Implemented; final Gradle rerun blocked |
-| FINAL-016 | Android | Equivalent BTC, LTC, or BCH address aliases can persist as separate financial assets. | Implemented; final Gradle rerun blocked |
-| FINAL-017 | Android | Historical-only execution assets can be omitted from the immutable rate scope. | Implemented; final Gradle rerun blocked |
-| FINAL-018 | Android | Start can commit a stale, internally inconsistent goal/plan/progress snapshot. | Implemented; final Gradle rerun blocked |
-| FINAL-019 | Android | Missing, stale, or malformed on-chain balance data can become authoritative zero. | Implemented; final Gradle rerun blocked |
-| FINAL-020 | Android | Automation workers report success when Start or Complete returns a domain failure, preventing retry. | Implemented; final Gradle rerun blocked |
-| FINAL-021 | Android | Downstream financial and presentation consumers can promote missing, stale, malformed, or identity-mismatched on-chain balances to authoritative zero. | Implemented; final Gradle rerun blocked |
+| FINAL-014 | Android | Asset provider identity can change during reversible execution or a suspended refresh. | Verified |
+| FINAL-015 | Android | Provider identity and reconciliation do not survive mutable corrections or optional event-index enrichment. | Verified |
+| FINAL-016 | Android | Equivalent BTC, LTC, or BCH address aliases can persist as separate financial assets. | Verified |
+| FINAL-017 | Android | Historical-only execution assets can be omitted from the immutable rate scope. | Verified |
+| FINAL-018 | Android | Start can commit a stale, internally inconsistent goal/plan/progress snapshot. | Verified |
+| FINAL-019 | Android | Missing, stale, or malformed on-chain balance data can become authoritative zero. | Verified |
+| FINAL-020 | Android | Automation workers report success when Start or Complete returns a domain failure, preventing retry. | Verified |
+| FINAL-021 | Android | Downstream financial and presentation consumers can promote missing, stale, malformed, or identity-mismatched on-chain balances to authoritative zero. | Verified |
 | FINAL-022 | Apple | Family Sharing can publish active or fresh goal progress from incomplete FX/allocation inputs, miss material partial-rate drift, or republish after sharing is revoked. | Verified |
-| FINAL-023 | Android | Monthly planning can treat a failed FX conversion as one-to-one, retain a stale total, or persist a false successful zero budget. | Implemented; final Gradle rerun blocked |
+| FINAL-023 | Android | Monthly planning can treat a failed FX conversion as one-to-one, retain a stale total, or persist a false successful zero budget. | Verified |
 
 Earlier review variants are retained below as historical evidence. Their
 presence does not close the final packages above.
@@ -731,10 +731,13 @@ into their original evidence.
 | Current Apple diff | Provenance, bridge, dedup, provider-correction, and financial-race regressions | Passed: 106/106 |
 | Current Apple diff | Budget sheet source/UX contracts after final formatting fix | Passed: 20/20 |
 | Current Apple diff | macOS app build | Passed with code signing disabled |
-| Current Android diff | Complete staged production/test patch identity | SHA-256 `5b8f5a84d153dbcedb81bf53104c68aa2a6aa3d39eb31847276fa402f8907187` |
-| Current Android diff | Previously tracked-file patch identity | SHA-256 `8631bfcd01f1780aed0df7a91e022b2ed32f40d09b10012e247caf8f9ddf02ee` |
+| Current Android diff | Complete production/test patch identity relative to `origin/main` | SHA-256 `aceb5df5e98267f086c351d0cd70ffd8421555570a99a30cd9af1e8d06e255fa` |
 | Current Android diff | Static whole-diff review | Zero unresolved Critical or Important findings |
-| Current Android diff | Gradle unit/compile/instrumentation/lint rerun | **Blocked by environment:** Gradle could not create its `FileLockContentionHandler` socket in the sandbox; the escalated retry was unavailable because the execution environment had exhausted its tool-usage allowance |
+| Current Android diff | JVM suite | Passed: 502/502; no failures or skips |
+| Current Android diff | Test compilation and instrumentation APK assembly | Passed |
+| Current Android diff | Instrumentation suite | Passed: 48/48 on API 36.1; no failures or skips |
+| Current Android diff | Room migrations | Current 1-to-7 and focused 5-to-6/6-to-7 migration regressions passed in the instrumentation suite |
+| Current Android diff | Lint | Passed with zero errors; 128 warnings and two informational hints |
 | Historical Android artifact, 2026-07-27 | JVM suite | Passed: 456/456; no failures or skips |
 | Historical Android artifact, 2026-07-27 | Instrumentation suite | Passed: 46/46 on API 36.1 |
 | Historical Android artifact, 2026-07-27 | Room migrations | Direct 5-to-6, direct 6-to-7, and complete 1-to-7 paths passed |
@@ -745,15 +748,14 @@ into their original evidence.
 
 ## Exit criteria
 
-The audit remains open until:
+The audit is closed because:
 
-- [ ] Every finding has a behavior-level regression that passed against the
-  current platform diff; Apple is complete, Android still needs the final
-  Gradle rerun.
+- [x] Every finding has a behavior-level regression that passed against the
+  current platform diff.
 - [x] The macOS target compiles with signing disabled.
 - [x] The Apple unit suite passes on a healthy CoreSimulator.
 - [x] Focused Apple UI regressions pass.
-- [ ] Android unit, test-compilation, instrumentation, migration, and lint
+- [x] Android unit, test-compilation, instrumentation, migration, and lint
   gates pass against the current Android diff.
 - [x] Mixed-currency and token-unit scenarios use deterministic rate fixtures.
 - [x] Lifecycle tests prove hidden goals cannot retain allocations.

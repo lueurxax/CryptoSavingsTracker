@@ -401,7 +401,8 @@ class StartExecutionUseCaseTest {
         coEvery { goalPlans.syncPlans(month, listOf(requirement)) } returns listOf(goalPlan)
         coEvery { goalPlans.applyFlexAdjustment(month, any()) } returns listOf(goalPlan)
         coEvery { goalPlans.getPlansOnce(month) } returns listOf(goalPlan)
-        coEvery { records.getRecordByMonthLabelOnce(month) } returns null
+        var existingMonthRecord: com.xax.CryptoSavingsTracker.domain.model.ExecutionRecord? = null
+        coEvery { records.getRecordByMonthLabelOnce(month) } answers { existingMonthRecord }
         val assetsState = MutableStateFlow(
             listOf(
                 Asset(

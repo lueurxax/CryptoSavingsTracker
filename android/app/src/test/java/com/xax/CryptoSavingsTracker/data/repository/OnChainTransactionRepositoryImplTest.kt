@@ -5486,7 +5486,9 @@ class OnChainTransactionRepositoryImplTest {
         apiKey: String = "test-api-key",
         transactionRepository: TransactionRepository = mockk(relaxed = true),
         allocationRepository: AllocationRepository = mockk(relaxed = true),
-        allocationHistoryRepository: AllocationHistoryRepository = mockk(relaxed = true),
+        allocationHistoryRepository: AllocationHistoryRepository = mockk(relaxed = true) {
+            every { getByAssetId(any()) } returns flowOf(emptyList())
+        },
         onChainBalanceRepository: OnChainBalanceRepository = mockk(relaxed = true),
         assetProviderIdentityVerifier: OnChainAssetProviderIdentityVerifier = mockk(relaxed = true),
         transactionRunner: ExecutionTransitionTransactionRunner = DirectTransactionRunner,

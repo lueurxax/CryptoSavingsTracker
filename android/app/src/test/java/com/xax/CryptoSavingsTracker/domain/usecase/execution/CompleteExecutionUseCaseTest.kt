@@ -247,10 +247,9 @@ class CompleteExecutionUseCaseTest {
         coEvery { executionRecordRepository.getRecordById(record.id) } returns record
         coEvery { executionSnapshotRepository.getByRecordId(record.id) } returns flowOf(snapshots)
         coEvery { completionEventRepository.getNextSequence(record.id) } returns 3
+        val transactionReadContexts = mutableListOf<Boolean>()
         coEvery { transactionRepository.getAllTransactions() } answers {
-            check(transactionRunner.isInside) {
-                "completion transaction snapshot must be read inside the transaction"
-            }
+            transactionReadContexts += transactionRunner.isInside
             flowOf(
                 listOf(
                     Transaction(
@@ -343,6 +342,7 @@ class CompleteExecutionUseCaseTest {
         val result = useCase(record.id)
 
         assertThat(result.isSuccess).isTrue()
+        assertThat(transactionReadContexts).containsExactly(false, true).inOrder()
         assertThat(insertedEvent).isNotNull()
         assertThat(insertedEvent!!.executionRecordId).isEqualTo(record.id)
         assertThat(insertedEvent!!.monthLabel).isEqualTo(record.monthLabel)

@@ -89,6 +89,11 @@ class HappyPathAllocationFlowTest {
         composeRule.onNodeWithText("Add Allocation").assertIsDisplayed()
 
         // Select BTC asset (available on-chain) and use MAX
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("BTC", substring = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
         composeRule.onAllNodesWithText("BTC", substring = true)[0].performClick()
         composeRule.onNodeWithText("MAX").performClick()
         composeRule.onNode(hasText("Add Allocation") and hasClickAction()).performClick()

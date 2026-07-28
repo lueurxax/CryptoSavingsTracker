@@ -1,10 +1,11 @@
 package com.xax.CryptoSavingsTracker.presentation.execution
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionRecord
@@ -51,8 +52,8 @@ class ExecutionUnavailableContentTest {
         }
 
         composeRule.onNodeWithTag("execution_progress_unavailable").assertIsDisplayed()
-        composeRule.onNodeWithText("All goals funded! 🎉").assertDoesNotExist()
-        composeRule.onNodeWithText("Monthly Progress").assertDoesNotExist()
+        composeRule.onAllNodesWithText("All goals funded! 🎉").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Monthly Progress").assertCountEquals(0)
         composeRule.onNodeWithText("Finish", substring = true).assertIsNotEnabled()
         composeRule.onNodeWithText("Cancel tracking").assertIsDisplayed()
     }
@@ -80,7 +81,7 @@ class ExecutionUnavailableContentTest {
         }
 
         composeRule.onNodeWithTag("monthly_execution_progress_unavailable").assertIsDisplayed()
-        composeRule.onNodeWithText("Monthly Progress").assertDoesNotExist()
+        composeRule.onAllNodesWithText("Monthly Progress").assertCountEquals(0)
         composeRule.onNodeWithText("Complete Month").assertIsNotEnabled()
         composeRule.onNodeWithText("Cancel tracking").assertIsDisplayed()
     }

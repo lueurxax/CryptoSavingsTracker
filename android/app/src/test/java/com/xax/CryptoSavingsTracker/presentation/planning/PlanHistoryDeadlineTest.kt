@@ -1,5 +1,6 @@
 package com.xax.CryptoSavingsTracker.presentation.planning
 
+import androidx.lifecycle.viewModelScope
 import com.google.common.truth.Truth.assertThat
 import com.xax.CryptoSavingsTracker.domain.model.CompletedExecution
 import com.xax.CryptoSavingsTracker.domain.model.CompletionEvent
@@ -11,24 +12,42 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlanHistoryDeadlineTest {
+    private val mainTestScheduler = TestCoroutineScheduler()
+    private val mainDispatcher = StandardTestDispatcher(mainTestScheduler)
+
+    @BeforeEach
+    fun setUpMainDispatcher() {
+        Dispatchers.setMain(mainDispatcher)
+    }
+
+    @AfterEach
+    fun tearDownMainDispatcher() {
+        Dispatchers.resetMain()
+    }
+
     @Test
     fun `history undo expires at persisted deadline without repository emission`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
+        var viewModelToClear: PlanHistoryViewModel? = null
 
         try {
             val deadline = 168 * 60 * 60 * 1_000L
@@ -76,6 +95,7 @@ class PlanHistoryDeadlineTest {
                 undoExecutionUseCase = mockk<UndoExecutionUseCase>(),
                 deadlineTimeSource = timeSource
             )
+            viewModelToClear = viewModel
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect { }
             }
@@ -93,7 +113,9 @@ class PlanHistoryDeadlineTest {
             assertThat(viewModel.uiState.value.groups.single().events.single().isUndoAvailable)
                 .isFalse()
         } finally {
-            Dispatchers.resetMain()
+            viewModelToClear?.viewModelScope?.cancel()
+            runCurrent()
+            Dispatchers.setMain(mainDispatcher)
         }
     }
 }

@@ -37,10 +37,13 @@ import io.mockk.mockk
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -49,10 +52,25 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.launch
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ExecutionCloseMonthFrozenRateCallerTest {
+    private val mainTestScheduler = TestCoroutineScheduler()
+    private val mainDispatcher = StandardTestDispatcher(mainTestScheduler)
+
+    @BeforeEach
+    fun setUpMainDispatcher() {
+        Dispatchers.setMain(mainDispatcher)
+    }
+
+    @AfterEach
+    fun tearDownMainDispatcher() {
+        Dispatchers.resetMain()
+    }
+
     @Test
     fun `execution caller suggests one BTC from frozen rate instead of half BTC from live divergence`() =
         runTest {
@@ -83,7 +101,7 @@ class ExecutionCloseMonthFrozenRateCallerTest {
                     allocationRepository = mockk<AllocationRepository>(),
                     goalRepository = goals,
                     deadlineTimeSource = mockk {
-                        every { nowMillis() } returns 0L
+                        every { nowMillis() } answers { testScheduler.currentTime }
                     }
                 )
 
@@ -94,7 +112,7 @@ class ExecutionCloseMonthFrozenRateCallerTest {
 
                 assertThat(suggestion).isEqualTo(1.0)
             } finally {
-                Dispatchers.resetMain()
+                Dispatchers.setMain(mainDispatcher)
             }
         }
 
@@ -103,6 +121,7 @@ class ExecutionCloseMonthFrozenRateCallerTest {
         runTest {
             val dispatcher = StandardTestDispatcher(testScheduler)
             Dispatchers.setMain(dispatcher)
+            var uiStateCollector: Job? = null
 
             try {
                 val unavailable = session(
@@ -118,6 +137,9 @@ class ExecutionCloseMonthFrozenRateCallerTest {
                 val goals = mockk<GoalRepository>()
                 every { goals.getActiveGoals() } returns flowOf(emptyList())
                 val complete = mockk<CompleteExecutionUseCase>(relaxed = true)
+                val timeSource = mockk<DeadlineTimeSource> {
+                    every { nowMillis() } answers { testScheduler.currentTime }
+                }
 
                 val viewModel = ExecutionViewModel(
                     startExecutionUseCase = mockk<StartExecutionUseCase>(),
@@ -131,11 +153,9 @@ class ExecutionCloseMonthFrozenRateCallerTest {
                     getAssetsUseCase = mockk<GetAssetsUseCase>(),
                     allocationRepository = mockk<AllocationRepository>(),
                     goalRepository = goals,
-                    deadlineTimeSource = mockk {
-                        every { nowMillis() } returns 0L
-                    }
+                    deadlineTimeSource = timeSource
                 )
-                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                uiStateCollector = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                     viewModel.uiState.collect { }
                 }
                 advanceUntilIdle()
@@ -157,7 +177,8 @@ class ExecutionCloseMonthFrozenRateCallerTest {
                 assertThat(viewModel.uiState.value.error).contains("progress is unavailable")
                 coVerify(exactly = 0) { complete(any()) }
             } finally {
-                Dispatchers.resetMain()
+                uiStateCollector?.cancelAndJoin()
+                Dispatchers.setMain(mainDispatcher)
             }
         }
 
@@ -204,7 +225,7 @@ class ExecutionCloseMonthFrozenRateCallerTest {
             assertThat(viewModel.uiState.value.closeMonthSuggestions).isEmpty()
             assertThat(viewModel.uiState.value.conversionWarning).contains("frozen execution rate")
         } finally {
-            Dispatchers.resetMain()
+            Dispatchers.setMain(mainDispatcher)
         }
     }
 
@@ -213,6 +234,7 @@ class ExecutionCloseMonthFrozenRateCallerTest {
         runTest {
             val dispatcher = StandardTestDispatcher(testScheduler)
             Dispatchers.setMain(dispatcher)
+            var uiStateCollector: Job? = null
 
             try {
                 val twoHours = 2 * 60 * 60 * 1_000L
@@ -251,7 +273,7 @@ class ExecutionCloseMonthFrozenRateCallerTest {
                     goalRepository = goals,
                     deadlineTimeSource = timeSource
                 )
-                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                uiStateCollector = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                     viewModel.uiState.collect { }
                 }
                 runCurrent()
@@ -274,7 +296,8 @@ class ExecutionCloseMonthFrozenRateCallerTest {
                 assertThat(viewModel.uiState.value.undoStartDeadlineMillis)
                     .isEqualTo(fortyEightHours)
             } finally {
-                Dispatchers.resetMain()
+                uiStateCollector?.cancelAndJoin()
+                Dispatchers.setMain(mainDispatcher)
             }
         }
 
@@ -322,7 +345,7 @@ class ExecutionCloseMonthFrozenRateCallerTest {
                 .containsExactly("goal-1", 1.0)
             assertThat(viewModel.uiState.value.conversionWarning).isNull()
         } finally {
-            Dispatchers.resetMain()
+            Dispatchers.setMain(mainDispatcher)
         }
     }
 

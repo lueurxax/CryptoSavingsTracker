@@ -99,6 +99,13 @@ class AddTransactionRoomTransactionTest {
     fun historyFailureRollsBackTransactionAndAllocationThenRetryCommitsAll() = runBlocking {
         val failingHistory = mockk<AllocationHistoryService>()
         coEvery {
+            failingHistory.hasEvidenceNewerThan(
+                assetId = ASSET_ID,
+                goalId = GOAL_ID,
+                timestampMillis = TRANSACTION_DATE
+            )
+        } returns false
+        coEvery {
             failingHistory.createSnapshot(any(), timestampMillis = TRANSACTION_DATE)
         } throws IllegalStateException("simulated history failure")
 

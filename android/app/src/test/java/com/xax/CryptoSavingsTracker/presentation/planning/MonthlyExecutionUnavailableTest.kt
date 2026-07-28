@@ -1,5 +1,6 @@
 package com.xax.CryptoSavingsTracker.presentation.planning
 
+import androidx.lifecycle.viewModelScope
 import com.google.common.truth.Truth.assertThat
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionRecord
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionStatus
@@ -14,20 +15,38 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MonthlyExecutionUnavailableTest {
+    private val mainTestScheduler = TestCoroutineScheduler()
+    private val mainDispatcher = StandardTestDispatcher(mainTestScheduler)
+
+    @BeforeEach
+    fun setUpMainDispatcher() {
+        Dispatchers.setMain(mainDispatcher)
+    }
+
+    @AfterEach
+    fun tearDownMainDispatcher() {
+        Dispatchers.resetMain()
+    }
+
     @Test
     fun `unavailable session hides progress keeps recovery undo and rejects completion`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
+        var viewModelToClear: MonthlyExecutionViewModel? = null
 
         try {
             val now = System.currentTimeMillis()
@@ -58,6 +77,7 @@ class MonthlyExecutionUnavailableTest {
                 undoExecutionUseCase = mockk<UndoExecutionUseCase>(),
                 undoStartExecutionUseCase = mockk<UndoStartExecutionUseCase>()
             )
+            viewModelToClear = viewModel
             runCurrent()
 
             val state = viewModel.uiState.value
@@ -78,7 +98,9 @@ class MonthlyExecutionUnavailableTest {
             assertThat(viewModel.uiState.value.error).contains("progress is unavailable")
             coVerify(exactly = 0) { complete(any()) }
         } finally {
-            Dispatchers.resetMain()
+            viewModelToClear?.viewModelScope?.cancel()
+            runCurrent()
+            Dispatchers.setMain(mainDispatcher)
         }
     }
 }
