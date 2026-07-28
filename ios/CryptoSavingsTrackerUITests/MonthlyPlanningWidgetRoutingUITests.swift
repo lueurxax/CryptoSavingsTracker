@@ -2,7 +2,7 @@ import XCTest
 
 final class MonthlyPlanningWidgetRoutingUITests: XCTestCase {
     @MainActor
-    func testViewMonthlyPlanDoesNotOpenPlanningSettingsSheet() {
+    func testPlanningAddGoalUsesNavigationDestinationInsteadOfSettingsSheet() {
         let app = XCUIApplication()
         app.launchArguments += [
             "UITEST_RESET_DATA",
@@ -13,21 +13,20 @@ final class MonthlyPlanningWidgetRoutingUITests: XCTestCase {
         ]
         app.launch()
 
-        let expandButton = app.buttons["planningWidgetExpandButton"]
-        XCTAssertTrue(expandButton.waitForExistence(timeout: 10))
-        expandButton.tap()
+        let planningTab = app.tabBars.buttons["Planning"]
+        XCTAssertTrue(planningTab.waitForExistence(timeout: 10))
+        planningTab.tap()
 
-        let viewPlanCandidates = [
-            app.buttons["viewMonthlyPlanLink"],
-            app.otherElements["viewMonthlyPlanLink"],
-            app.staticTexts["viewMonthlyPlanLink"]
-        ]
-        let viewPlan = viewPlanCandidates.first(where: { $0.exists }) ?? viewPlanCandidates[0]
-        XCTAssertTrue(viewPlan.waitForExistence(timeout: 10))
-        viewPlan.tap()
+        XCTAssertTrue(app.navigationBars["Monthly Planning"].waitForExistence(timeout: 10))
+
+        let addGoalButton = app.buttons["addGoalButton"]
+        XCTAssertTrue(addGoalButton.waitForExistence(timeout: 10))
+        addGoalButton.tap()
 
         XCTAssertFalse(app.navigationBars["Monthly Planning Settings"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.navigationBars["Monthly Planning"].waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            app.navigationBars["New Goal"].waitForExistence(timeout: 10)
+                || app.navigationBars["Add Goal"].waitForExistence(timeout: 10)
+        )
     }
 }
-

@@ -10,6 +10,7 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.firstOrNull
 
 /**
  * Service for managing allocation history snapshots.
@@ -71,6 +72,26 @@ class AllocationHistoryService @Inject constructor(
             createdAt = createdAt
         )
         allocationHistoryRepository.insert(snapshot)
+    }
+
+    /**
+     * Whether a later allocation snapshot already defines the current target.
+     * Backdated transactions must not mutate that target or append older
+     * history behind the evidence that produced the current allocation.
+     */
+    suspend fun hasEvidenceNewerThan(
+        assetId: String,
+        goalId: String,
+        timestampMillis: Long
+    ): Boolean {
+        return allocationHistoryRepository
+            .getByAssetId(assetId)
+            .firstOrNull()
+            .orEmpty()
+            .any { history ->
+                history.goalId == goalId &&
+                    history.timestamp > timestampMillis
+            }
     }
 
     /**

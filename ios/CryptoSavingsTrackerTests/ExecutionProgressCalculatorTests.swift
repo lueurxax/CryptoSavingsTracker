@@ -235,4 +235,153 @@ final class ExecutionProgressCalculatorTests: XCTestCase {
 
         XCTAssertEqual(totals[goal.id] ?? 0, 0.01 * 10_000, accuracy: 0.0001)
     }
+
+    func testUnmatchedLegacyOnChainMovementDoesNotCountUntilCanonicalRefresh() async throws {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let transactionDate = start.addingTimeInterval(3_600)
+        let container = try makeContainer()
+        let context = container.mainContext
+
+        let goal = Goal(
+            name: "Verified history",
+            currency: "USDT",
+            targetAmount: 100,
+            deadline: start.addingTimeInterval(86_400)
+        )
+        let trackedAddress = "0x00000000000000000000000000000000000000aa"
+        let asset = Asset(currency: "USDT", address: trackedAddress, chainId: "ETH")
+        let allocation = AssetAllocation(asset: asset, goal: goal, amount: 5)
+        let unmatchedLegacy = Transaction(
+            amount: 5,
+            asset: asset,
+            date: transactionDate,
+            source: .onChain,
+            externalId: "unmatched-hash",
+            comment: "Preserve until proven"
+        )
+        asset.transactions = [unmatchedLegacy]
+        asset.allocations = [allocation]
+        goal.allocations = [allocation]
+
+        context.insert(goal)
+        context.insert(asset)
+        context.insert(allocation)
+        context.insert(unmatchedLegacy)
+        context.insert(AllocationHistory(asset: asset, goal: goal, amount: 5, timestamp: start))
+        let record = MonthlyExecutionRecord(monthLabel: "2023-11", goalIds: [goal.id])
+        record.statusRawValue = "executing"
+        record.startedAt = start
+        context.insert(record)
+        try context.save()
+
+        let cacheKey = BalanceCacheManager.balanceCacheKey(
+            chainId: "ETH",
+            address: trackedAddress,
+            symbol: "USDT"
+        )
+        BalanceCacheManager.shared.cacheBalance(5, for: cacheKey)
+
+        let calculator = ExecutionProgressCalculator(
+            modelContext: context,
+            exchangeRateService: MockExchangeRateService()
+        )
+        let beforeRefresh = try await calculator.contributionTotalsInGoalCurrency(
+            for: record,
+            end: transactionDate.addingTimeInterval(1)
+        )
+        XCTAssertEqual(beforeRefresh[goal.id] ?? 0, 0, accuracy: 0.0001)
+
+        let canonical = TatumTransaction(
+            hash: "unmatched-hash",
+            timestamp: Int(transactionDate.timeIntervalSince1970 * 1_000),
+            chain: "ethereum-mainnet",
+            address: trackedAddress,
+            transactionType: "fungible",
+            transactionSubtype: "incoming",
+            amount: "5",
+            tokenAddress: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+        )
+        XCTAssertEqual(
+            try OnChainTransactionImportService(modelContext: context).upsert(
+                transactions: [canonical],
+                for: asset
+            ),
+            1
+        )
+        XCTAssertEqual(asset.transactions?.count, 1)
+        XCTAssertEqual(asset.transactions?.first?.id, unmatchedLegacy.id)
+
+        let afterRefresh = try await calculator.contributionTotalsInGoalCurrency(
+            for: record,
+            end: transactionDate.addingTimeInterval(1)
+        )
+        XCTAssertEqual(afterRefresh[goal.id] ?? 0, 5, accuracy: 0.0001)
+    }
+
+    func testLegacyQuickCanonicalMovementIsQuarantinedWhileCurrentContractRemainsEligible() async throws {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let transactionDate = start.addingTimeInterval(3_600)
+        let container = try makeContainer()
+        let context = container.mainContext
+
+        let goal = Goal(
+            name: "Current QUICK only",
+            currency: "QUICK",
+            targetAmount: 10,
+            deadline: start.addingTimeInterval(86_400)
+        )
+        let trackedAddress = "0x00000000000000000000000000000000000000aa"
+        let asset = Asset(currency: "QUICK", address: trackedAddress, chainId: "MATIC")
+        asset.id = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+        let allocation = AssetAllocation(asset: asset, goal: goal, amount: 1)
+        let movement = Transaction(
+            amount: 1,
+            asset: asset,
+            date: transactionDate,
+            source: .onChain,
+            externalId: """
+            onchain_v3|matic|0x00000000000000000000000000000000000000aa|quick|00000000-0000-0000-0000-000000000003|legacy-quick|polygon-mainnet|0x00000000000000000000000000000000000000aa||fungible|0x831753dd7087cac61ab5644b308642cc1c33dc13|incoming||||3ff0000000000000|
+            """
+        )
+        asset.transactions = [movement]
+        asset.allocations = [allocation]
+        goal.allocations = [allocation]
+
+        context.insert(goal)
+        context.insert(asset)
+        context.insert(allocation)
+        context.insert(movement)
+        context.insert(AllocationHistory(asset: asset, goal: goal, amount: 1, timestamp: start))
+        let record = MonthlyExecutionRecord(monthLabel: "2023-11", goalIds: [goal.id])
+        record.statusRawValue = "executing"
+        record.startedAt = start
+        context.insert(record)
+        try context.save()
+
+        let cacheKey = BalanceCacheManager.balanceCacheKey(
+            chainId: "MATIC",
+            address: trackedAddress,
+            symbol: "QUICK"
+        )
+        BalanceCacheManager.shared.cacheBalance(1, for: cacheKey)
+
+        let calculator = ExecutionProgressCalculator(
+            modelContext: context,
+            exchangeRateService: MockExchangeRateService()
+        )
+        let legacyTotals = try await calculator.contributionTotalsInGoalCurrency(
+            for: record,
+            end: transactionDate.addingTimeInterval(1)
+        )
+        XCTAssertEqual(legacyTotals[goal.id] ?? 0, 0, accuracy: 0.0001)
+
+        movement.externalId = """
+        onchain_v3|matic|0x00000000000000000000000000000000000000aa|quick|00000000-0000-0000-0000-000000000003|current-quick|polygon-mainnet|0x00000000000000000000000000000000000000aa||fungible|0xb5c064f955d8e7f38fe0460c556a72987494ee17|incoming||||3ff0000000000000|
+        """
+        let currentTotals = try await calculator.contributionTotalsInGoalCurrency(
+            for: record,
+            end: transactionDate.addingTimeInterval(1)
+        )
+        XCTAssertEqual(currentTotals[goal.id] ?? 0, 1, accuracy: 0.0001)
+    }
 }

@@ -27,6 +27,12 @@ class CompletedExecutionRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun getByGoalId(goalId: String): Flow<List<CompletedExecution>> {
+        return completedExecutionDao.getByGoalId(goalId).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
     override fun getActiveByRecordId(recordId: String): Flow<List<CompletedExecution>> {
         return completedExecutionDao.getActiveByRecordId(recordId).map { entities ->
             entities.map { it.toDomain() }

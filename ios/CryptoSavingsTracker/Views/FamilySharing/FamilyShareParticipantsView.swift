@@ -25,9 +25,9 @@ struct FamilyShareParticipantsView: View {
                 }
                 .padding(16)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(AccessibleColors.surfaceSubtle)
             .navigationTitle("Participants")
-            .navigationBarTitleDisplayMode(.inline)
+            .platformInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done", action: onDismiss)
@@ -105,4 +105,3 @@ struct FamilyShareParticipantsView: View {
         }
     }
 }
-

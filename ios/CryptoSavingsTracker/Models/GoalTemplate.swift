@@ -54,7 +54,7 @@ struct GoalTemplate: Identifiable, Hashable {
             recommendedAssets: [
                 AssetRecommendation(currency: "ETH", allocation: 0.4, reasoning: "DeFi backbone"),
                 AssetRecommendation(currency: "BTC", allocation: 0.2, reasoning: "Portfolio anchor"),
-                AssetRecommendation(currency: "MATIC", allocation: 0.2, reasoning: "Low-cost DeFi"),
+                AssetRecommendation(currency: "POL", allocation: 0.2, reasoning: "Low-cost DeFi"),
                 AssetRecommendation(currency: "AVAX", allocation: 0.2, reasoning: "Fast ecosystem")
             ],
             difficulty: .intermediate,
@@ -127,7 +127,7 @@ struct GoalTemplate: Identifiable, Hashable {
                 AssetRecommendation(currency: "ETH", allocation: 0.3, reasoning: "Foundation layer"),
                 AssetRecommendation(currency: "SOL", allocation: 0.25, reasoning: "Fast ecosystem"),
                 AssetRecommendation(currency: "AVAX", allocation: 0.2, reasoning: "Scalable platform"),
-                AssetRecommendation(currency: "MATIC", allocation: 0.25, reasoning: "Layer 2 solution")
+                AssetRecommendation(currency: "POL", allocation: 0.25, reasoning: "Layer 2 solution")
             ],
             difficulty: .advanced,
             tags: ["speculative", "alt-coins", "high-risk"]

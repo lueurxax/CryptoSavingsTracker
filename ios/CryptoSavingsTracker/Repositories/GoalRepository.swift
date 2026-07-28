@@ -9,6 +9,56 @@ import SwiftData
 import SwiftUI
 import Foundation
 
+@MainActor
+enum GoalListQuery {
+    static var activePredicate: Predicate<Goal> {
+        #Predicate<Goal> { goal in
+            goal.lifecycleStatusRawValue == "active"
+        }
+    }
+
+    static var archivedPredicate: Predicate<Goal> {
+        #Predicate<Goal> { goal in
+            goal.lifecycleStatusRawValue == "deleted"
+        }
+    }
+
+    static func activeDescriptor() -> FetchDescriptor<Goal> {
+        FetchDescriptor(
+            predicate: activePredicate,
+            sortBy: [SortDescriptor(\.deadline, order: .forward)]
+        )
+    }
+
+    static func archivedDescriptor() -> FetchDescriptor<Goal> {
+        FetchDescriptor(
+            predicate: archivedPredicate,
+            sortBy: [SortDescriptor(\.lastModifiedDate, order: .reverse)]
+        )
+    }
+}
+
+@MainActor
+enum GoalSidebarSelectionPolicy {
+    static func initialSelection(activeGoals: [Goal]) -> Goal? {
+        eligibleGoals(from: activeGoals).first
+    }
+
+    static func reconcile(
+        selectedGoal: Goal?,
+        activeGoals: [Goal],
+        excludingGoalID: UUID? = nil
+    ) -> Goal? {
+        let candidates = eligibleGoals(from: activeGoals).filter { $0.id != excludingGoalID }
+        guard let selectedGoal else { return nil }
+        return candidates.first(where: { $0.id == selectedGoal.id }) ?? candidates.first
+    }
+
+    private static func eligibleGoals(from goals: [Goal]) -> [Goal] {
+        goals.filter { $0.lifecycleStatus == .active }
+    }
+}
+
 // MARK: - Repository Protocol
 
 /// Protocol for goal data access operations
@@ -35,8 +85,7 @@ class GoalRepository: GoalRepositoryProtocol {
     }
 
     func fetchGoals() async throws -> [Goal] {
-        let descriptor = FetchDescriptor<Goal>(sortBy: [SortDescriptor(\.deadline, order: .forward)])
-        let goals = try modelContext.fetch(descriptor)
+        let goals = try modelContext.fetch(GoalListQuery.activeDescriptor())
         return Self.deduplicateInMemory(goals)
     }
 

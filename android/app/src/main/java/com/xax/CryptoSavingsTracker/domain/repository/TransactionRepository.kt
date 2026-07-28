@@ -2,6 +2,7 @@ package com.xax.CryptoSavingsTracker.domain.repository
 
 import com.xax.CryptoSavingsTracker.domain.model.Transaction
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 /**
  * Repository interface for Transaction operations.
@@ -18,6 +19,12 @@ interface TransactionRepository {
     fun getTransactionsByAssetId(assetId: String): Flow<List<Transaction>>
 
     /**
+     * Transaction-bound snapshot used by provider import reconciliation.
+     */
+    suspend fun getTransactionsByAssetIdOnce(assetId: String): List<Transaction> =
+        getTransactionsByAssetId(assetId).first()
+
+    /**
      * Get a single transaction by ID
      */
     suspend fun getTransactionById(id: String): Transaction?
@@ -31,6 +38,15 @@ interface TransactionRepository {
      * Get transaction by external ID (for on-chain transactions)
      */
     suspend fun getTransactionByExternalId(externalId: String): Transaction?
+
+    /**
+     * Get every transaction with an external ID.
+     *
+     * Legacy databases can contain duplicate hash-only identities, so import reconciliation
+     * must inspect the complete set instead of selecting an arbitrary row.
+     */
+    suspend fun getTransactionsByExternalId(externalId: String): List<Transaction> =
+        getTransactionByExternalId(externalId)?.let(::listOf).orEmpty()
 
     /**
      * Get transactions in a date range

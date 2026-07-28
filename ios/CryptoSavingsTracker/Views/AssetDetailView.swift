@@ -36,7 +36,9 @@ struct AssetDetailView: View {
         } else if let balanceError {
             balanceState = .error(
                 message: balanceError,
-                cachedBalance: asset.cachedOnChainBalance > 0 ? asset.cachedOnChainBalance : nil,
+                cachedBalance: asset.fallbackOnChainBalance > 0
+                    ? asset.fallbackOnChainBalance
+                    : nil,
                 lastUpdated: nil
             )
         } else {
@@ -50,7 +52,8 @@ struct AssetDetailView: View {
 
         return balanceState.publicCryptoTrackingStatus(
             isRefreshing: isLoadingBalance,
-            hasRetainedValue: asset.cachedOnChainBalance > 0 || currentBalance > asset.manualBalance
+            hasRetainedValue: asset.fallbackOnChainBalance > 0
+                || currentBalance > asset.manualBalance
         )
     }
     
@@ -302,7 +305,7 @@ struct AssetDetailView: View {
         } catch {
             await MainActor.run {
                 balanceError = error.localizedDescription
-                currentBalance = max(asset.currentAmount, asset.manualBalance)
+                currentBalance = asset.manualBalance + asset.fallbackOnChainBalance
                 isLoadingBalance = false
             }
         }

@@ -100,7 +100,7 @@ struct ExecutionFlowIntegrationTests {
         record.startedAt = startTime
 
         // Create snapshot
-        let snapshot = ExecutionSnapshot.create(from: [plan1, plan2], goals: [goal1, goal2])
+        let snapshot = try ExecutionSnapshot.create(from: [plan1, plan2], goals: [goal1, goal2])
         record.snapshot = snapshot
         context.insert(record)
         try context.save()
@@ -189,7 +189,7 @@ struct ExecutionFlowIntegrationTests {
         let record = MonthlyExecutionRecord(monthLabel: monthLabel, goalIds: [goal.id])
         record.statusRawValue = "executing"
         record.startedAt = startTime
-        let snapshot = ExecutionSnapshot.create(from: [plan], goals: [goal])
+        let snapshot = try ExecutionSnapshot.create(from: [plan], goals: [goal])
         record.snapshot = snapshot
         context.insert(record)
         try context.save()
@@ -299,7 +299,7 @@ struct ExecutionFlowIntegrationTests {
         let record = MonthlyExecutionRecord(monthLabel: monthLabel, goalIds: [goal1.id, goal2.id, goal3.id])
         record.statusRawValue = "executing"
         record.startedAt = startTime
-        let snapshot = ExecutionSnapshot.create(from: [plan1, plan2, plan3], goals: [goal1, goal2, goal3])
+        let snapshot = try ExecutionSnapshot.create(from: [plan1, plan2, plan3], goals: [goal1, goal2, goal3])
         record.snapshot = snapshot
         context.insert(record)
         try context.save()

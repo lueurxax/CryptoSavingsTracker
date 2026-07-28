@@ -3,7 +3,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | Implemented |
-| Last Updated | 2026-04-18 |
+| Last Updated | 2026-07-28 |
 | Platform | iOS 18+, iPadOS 18+ |
 | Audience | Developers, QA, Release Managers |
 
@@ -84,6 +84,21 @@ Owner-side freshness maintenance is assembled inside [`FamilyShareAcceptanceCoor
 6. [`FamilyShareProjectionPublishCoordinator`](../ios/CryptoSavingsTracker/Services/FamilySharing/FamilyShareServices.swift) and [`FamilyShareCloudKitStore`](../ios/CryptoSavingsTracker/Services/FamilySharing/FamilyShareCloudKitStore.swift) write the projection payload to CloudKit.
 
 The runtime rule is simple: no component outside the namespace actor boundary publishes directly. All publish-triggering flows funnel through the auto-republish coordinator.
+
+Publication safety invariants:
+
+- Projection construction requires complete goal allocations, balances, and
+  every necessary FX pair. An incomplete input retains the last-good
+  projection and keeps the namespace dirty for retry; it never publishes an
+  active or fresh-looking partial zero.
+- Rate-drift evaluation merges a partial refresh with the last complete
+  observed rate snapshot before materiality comparison. Missing pairs do not
+  erase known rates or suppress a material change.
+- Revocation is a generation fence. Pending catch-up work is cleared, new
+  mutation/rate events cannot republish, and a previously suspended remote
+  publish that completes late is followed by an idempotent compensating revoke.
+- Teardown preserves a legitimate unresolved catch-up only when sharing may
+  become active again; a definitive remote revoke removes that obligation.
 
 ### Invitee Pipeline
 

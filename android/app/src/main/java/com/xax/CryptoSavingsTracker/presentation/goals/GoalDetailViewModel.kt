@@ -23,10 +23,11 @@ import javax.inject.Inject
  */
 data class GoalDetailUiState(
     val goal: Goal? = null,
-    val allocatedAmount: Double = 0.0,  // Total allocated (sum of allocations)
-    val fundedAmount: Double = 0.0,     // Actual funded amount (min of allocation vs balance, matches iOS)
-    val progress: Double = 0.0,
-    val progressPercent: Int = 0,
+    val allocatedAmount: Double? = null,
+    val fundedAmount: Double? = null,
+    val progress: Double? = null,
+    val progressPercent: Int? = null,
+    val financialDataIssue: String? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
     val showDeleteConfirmation: Boolean = false,
@@ -61,10 +62,11 @@ class GoalDetailViewModel @Inject constructor(
     ) { goalWithProgress, showDelete, showStatus, isDeleted, error ->
         GoalDetailUiState(
             goal = goalWithProgress?.goal,
-            allocatedAmount = goalWithProgress?.allocatedAmount ?: 0.0,
-            fundedAmount = goalWithProgress?.fundedAmount ?: 0.0,
-            progress = goalWithProgress?.progress ?: 0.0,
-            progressPercent = goalWithProgress?.progressPercent ?: 0,
+            allocatedAmount = goalWithProgress?.allocatedAmount,
+            fundedAmount = goalWithProgress?.fundedAmount,
+            progress = goalWithProgress?.progress,
+            progressPercent = goalWithProgress?.progressPercent,
+            financialDataIssue = goalWithProgress?.financialDataIssue,
             isLoading = false,
             error = error,
             showDeleteConfirmation = showDelete,

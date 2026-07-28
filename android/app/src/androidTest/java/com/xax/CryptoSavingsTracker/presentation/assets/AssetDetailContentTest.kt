@@ -44,6 +44,7 @@ class AssetDetailContentTest {
                     asset = asset,
                     manualBalance = 0.0,
                     currentBalance = 0.004106,
+                    balanceIssue = null,
                     currentBalanceUsd = null,
                     isUsdLoading = false,
                     usdError = null,

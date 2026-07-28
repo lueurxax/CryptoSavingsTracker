@@ -1,28 +1,15 @@
 import XCTest
 
 final class CSVExportUITests: XCTestCase {
-    private func element(_ app: XCUIApplication, labelContains labelFragment: String) -> XCUIElement {
-        app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label CONTAINS[c] %@", labelFragment))
-            .firstMatch
-    }
-
-    private func findExportControl(_ app: XCUIApplication) -> XCUIElement {
-        let candidates = [
-            app.buttons["exportCSVButton"],
-            app.otherElements["exportCSVButton"],
-            app.staticTexts["exportCSVButton"],
-            app.buttons["Export Data (CSV)"],
-            app.otherElements["Export Data (CSV)"],
-            app.staticTexts["Export Data (CSV)"],
-            element(app, labelContains: "Export")
-        ]
-
-        return candidates.first(where: { $0.exists }) ?? candidates.last!
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+#if os(iOS)
+        XCUIDevice.shared.orientation = .portrait
+#endif
     }
 
     @MainActor
-    func testExportCSVFromSettingsShowsThreeFiles() {
+    func testPublicMVPSettingsDoNotExposeCSVExport() {
         let app = XCUIApplication()
         app.launchArguments += [
             "UITEST_RESET_DATA",
@@ -33,35 +20,18 @@ final class CSVExportUITests: XCTestCase {
         app.launch()
 
         let settingsButton = app.buttons["openSettingsButton"]
-        XCTAssertTrue(settingsButton.waitForExistence(timeout: 10))
-        settingsButton.tap()
+        if settingsButton.waitForExistence(timeout: 5) {
+            settingsButton.tap()
+        } else {
+            let settingsTab = app.tabBars.buttons["Settings"]
+            XCTAssertTrue(settingsTab.waitForExistence(timeout: 5), "Settings tab should be visible")
+            settingsTab.tap()
+        }
 
         XCTAssertTrue(app.buttons["dismissSettingsButton"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 10))
-
-        var exportElement = findExportControl(app)
-        if !exportElement.exists {
-            let formContainer: XCUIElement = {
-                if app.otherElements["settingsForm"].exists { return app.otherElements["settingsForm"] }
-                if app.scrollViews.firstMatch.exists { return app.scrollViews.firstMatch }
-                return app
-            }()
-            let scrollContainer: XCUIElement = formContainer.scrollViews.firstMatch.exists
-                ? formContainer.scrollViews.firstMatch
-                : formContainer
-            for _ in 0..<20 {
-                scrollContainer.swipeUp()
-                exportElement = findExportControl(app)
-                if exportElement.exists { break }
-            }
-        }
-        XCTAssertTrue(exportElement.waitForExistence(timeout: 2))
-        exportElement.tap()
-
-        XCTAssertTrue(app.otherElements["csvExportShareView"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["csvExportHeader"].exists)
-        XCTAssertTrue(app.staticTexts["csvFileName-goals.csv"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["csvFileName-assets.csv"].exists)
-        XCTAssertTrue(app.staticTexts["csvFileName-value_changes.csv"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["exportCSVButton"].exists)
+        XCTAssertFalse(app.staticTexts["Export Data (CSV)"].exists)
+        XCTAssertFalse(app.otherElements["csvExportShareView"].exists)
     }
 }

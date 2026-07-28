@@ -4,6 +4,7 @@ import com.xax.CryptoSavingsTracker.domain.model.MonthlyGoalPlan
 import com.xax.CryptoSavingsTracker.domain.model.MonthlyGoalPlanState
 import com.xax.CryptoSavingsTracker.domain.model.MonthlyRequirement
 import com.xax.CryptoSavingsTracker.domain.repository.MonthlyGoalPlanRepository
+import com.xax.CryptoSavingsTracker.domain.util.PlanningCalendarUtc
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,6 +20,10 @@ class MonthlyGoalPlanService @Inject constructor(
     private val repository: MonthlyGoalPlanRepository,
     private val flexAdjustmentService: FlexAdjustmentService
 ) {
+    suspend fun getPlansOnce(monthLabel: String): List<MonthlyGoalPlan> {
+        return repository.getPlansOnce(monthLabel)
+    }
+
     suspend fun syncPlans(
         monthLabel: String,
         requirements: List<MonthlyRequirement>
@@ -86,6 +91,9 @@ class MonthlyGoalPlanService @Inject constructor(
     }
 
     suspend fun setCustomAmount(monthLabel: String, goalId: String, amount: Double?): MonthlyGoalPlan {
+        require(amount == null || (amount.isFinite() && amount >= 0.0)) {
+            "Custom amount must be finite and non-negative"
+        }
         val plan = repository.getPlanOnce(monthLabel, goalId)
             ?: throw IllegalStateException("Plan not found")
 
@@ -104,6 +112,9 @@ class MonthlyGoalPlanService @Inject constructor(
         monthLabel: String,
         customAmounts: Map<String, Double>
     ): List<MonthlyGoalPlan> {
+        require(customAmounts.values.all { it.isFinite() && it >= 0.0 }) {
+            "Every custom amount must be finite and non-negative"
+        }
         val plans = repository.getPlansOnce(monthLabel)
         val updated = plans.map { plan ->
             val amount = customAmounts[plan.goalId] ?: return@map plan
@@ -128,6 +139,9 @@ class MonthlyGoalPlanService @Inject constructor(
         strategy: RedistributionStrategy = RedistributionStrategy.BALANCED,
         requirements: List<MonthlyRequirement>? = null
     ): List<MonthlyGoalPlan> {
+        require(adjustment.isFinite()) {
+            "Flex adjustment must be finite"
+        }
         val clamped = min(1.5, max(0.0, adjustment))
         val plans = repository.getPlansOnce(monthLabel)
         val nonDraft = plans.filter { it.state != MonthlyGoalPlanState.DRAFT }
@@ -161,7 +175,7 @@ class MonthlyGoalPlanService @Inject constructor(
                 monthsRemaining = plan.monthsRemaining,
                 requiredMonthly = baseAmount,
                 progress = 0.0,
-                deadline = java.time.LocalDate.now().plusMonths(plan.monthsRemaining.toLong()),
+                deadline = PlanningCalendarUtc.today().plusMonths(plan.monthsRemaining.toLong()),
                 status = plan.status
             )
         }
@@ -212,6 +226,9 @@ class MonthlyGoalPlanService @Inject constructor(
         strategy: RedistributionStrategy,
         requirements: List<MonthlyRequirement>
     ): AdjustmentSimulation {
+        require(adjustment.isFinite()) {
+            "Flex adjustment must be finite"
+        }
         val plans = repository.getPlansOnce(monthLabel)
         val protectedIds = plans.filter { it.isProtected }.map { it.goalId }.toSet()
         val skippedIds = plans.filter { it.isSkipped }.map { it.goalId }.toSet()

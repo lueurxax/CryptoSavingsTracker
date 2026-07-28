@@ -510,10 +510,14 @@ struct iOSCompactPlanningView: View {
                         adjustedAmount: viewModel.getEffectiveAmount(for: requirement.goalId),
                         showBudgetIndicator: viewModel.hasBudget && viewModel.hasCustomAmount(for: requirement.goalId),
                         onToggleProtection: {
-                            viewModel.toggleProtection(for: requirement.goalId)
+                            Task {
+                                await viewModel.toggleProtection(for: requirement.goalId)
+                            }
                         },
                         onToggleSkip: {
-                            viewModel.toggleSkip(for: requirement.goalId)
+                            Task {
+                                await viewModel.toggleSkip(for: requirement.goalId)
+                            }
                         },
                         onSetCustomAmount: { amount in
                             viewModel.setCustomAmount(for: requirement.goalId, amount: amount)
@@ -934,10 +938,14 @@ struct iOSRegularPlanningView: View {
                                 adjustedAmount: viewModel.getEffectiveAmount(for: requirement.goalId),
                                 showBudgetIndicator: viewModel.hasBudget && viewModel.hasCustomAmount(for: requirement.goalId),
                                 onToggleProtection: {
-                                    viewModel.toggleProtection(for: requirement.goalId)
+                                    Task {
+                                        await viewModel.toggleProtection(for: requirement.goalId)
+                                    }
                                 },
                                 onToggleSkip: {
-                                    viewModel.toggleSkip(for: requirement.goalId)
+                                    Task {
+                                        await viewModel.toggleSkip(for: requirement.goalId)
+                                    }
                                 },
                                 onSetCustomAmount: { amount in
                                     viewModel.setCustomAmount(for: requirement.goalId, amount: amount)
@@ -993,10 +1001,14 @@ struct iOSRegularPlanningView: View {
                                 adjustedAmount: viewModel.getEffectiveAmount(for: requirement.goalId),
                                 showBudgetIndicator: viewModel.hasBudget && viewModel.hasCustomAmount(for: requirement.goalId),
                                 onToggleProtection: {
-                                    viewModel.toggleProtection(for: requirement.goalId)
+                                    Task {
+                                        await viewModel.toggleProtection(for: requirement.goalId)
+                                    }
                                 },
                                 onToggleSkip: {
-                                    viewModel.toggleSkip(for: requirement.goalId)
+                                    Task {
+                                        await viewModel.toggleSkip(for: requirement.goalId)
+                                    }
                                 },
                                 onSetCustomAmount: { amount in
                                     viewModel.setCustomAmount(for: requirement.goalId, amount: amount)
@@ -1086,10 +1098,14 @@ struct macOSPlanningView: View {
                                     adjustedAmount: viewModel.getEffectiveAmount(for: requirement.goalId),
                                     showBudgetIndicator: viewModel.hasBudget && viewModel.hasCustomAmount(for: requirement.goalId),
                                     onToggleProtection: {
-                                        viewModel.toggleProtection(for: requirement.goalId)
+                                        Task {
+                                            await viewModel.toggleProtection(for: requirement.goalId)
+                                        }
                                     },
                                     onToggleSkip: {
-                                        viewModel.toggleSkip(for: requirement.goalId)
+                                        Task {
+                                            await viewModel.toggleSkip(for: requirement.goalId)
+                                        }
                                     },
                                     onSetCustomAmount: { amount in
                                         viewModel.setCustomAmount(for: requirement.goalId, amount: amount)
@@ -1122,10 +1138,14 @@ struct macOSPlanningView: View {
                                 adjustedAmount: viewModel.getEffectiveAmount(for: requirement.goalId),
                                 showBudgetIndicator: viewModel.hasBudget && viewModel.hasCustomAmount(for: requirement.goalId),
                                 onToggleProtection: {
-                                    viewModel.toggleProtection(for: requirement.goalId)
+                                    Task {
+                                        await viewModel.toggleProtection(for: requirement.goalId)
+                                    }
                                 },
                                 onToggleSkip: {
-                                    viewModel.toggleSkip(for: requirement.goalId)
+                                    Task {
+                                        await viewModel.toggleSkip(for: requirement.goalId)
+                                    }
                                 },
                                 onSetCustomAmount: { amount in
                                     viewModel.setCustomAmount(for: requirement.goalId, amount: amount)

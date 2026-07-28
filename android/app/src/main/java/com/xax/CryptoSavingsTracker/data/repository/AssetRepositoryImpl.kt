@@ -45,6 +45,14 @@ class AssetRepositoryImpl @Inject constructor(
         return assetDao.getAssetByAddress(address)?.toDomain()
     }
 
+    override suspend fun getAssetByOnChainIdentity(
+        address: String,
+        chainId: String,
+        currency: String
+    ): Asset? {
+        return assetDao.getAssetByOnChainIdentity(address, chainId, currency)?.toDomain()
+    }
+
     override suspend fun insertAsset(asset: Asset) {
         assetDao.insert(asset.toEntity())
     }

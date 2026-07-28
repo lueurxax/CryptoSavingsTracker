@@ -875,8 +875,8 @@ final class LocalBridgeSyncController: ObservableObject {
         let snapshotID = UUID(uuidString: "33333333-3333-3333-3333-333333333333") ?? UUID()
         let manifest = SnapshotManifest(
             snapshotID: snapshotID,
-            canonicalEncodingVersion: "bridge-snapshot-v1",
-            snapshotSchemaVersion: 1,
+            canonicalEncodingVersion: "bridge-snapshot-v2",
+            snapshotSchemaVersion: 2,
             exportedAt: exportedAt,
             appModelSchemaVersion: "cloudkit-model-v1",
             entityCounts: [],
@@ -964,7 +964,7 @@ final class LocalBridgeSyncController: ObservableObject {
         let package = BridgeSignedImportPackageSummaryDTO(
             packageID: packageID,
             packageVersion: "bridge-import-v1",
-            canonicalEncodingVersion: "bridge-snapshot-v1",
+            canonicalEncodingVersion: "bridge-snapshot-v2",
             sourceDeviceName: "Bridge Mac",
             sourceDeviceFingerprint: "ABCDEF1234567890",
             producedAt: Date().addingTimeInterval(-1800),

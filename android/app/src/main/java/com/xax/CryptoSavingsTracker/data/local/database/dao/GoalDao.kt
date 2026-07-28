@@ -45,6 +45,23 @@ interface GoalDao {
     @Query("UPDATE goals SET lifecycle_status = :status, lifecycle_status_changed_at_utc_millis = :changedAt, last_modified_at_utc_millis = :modifiedAt WHERE id = :id")
     suspend fun updateLifecycleStatus(id: String, status: String, changedAt: Long, modifiedAt: Long)
 
+    @Query(
+        """
+        UPDATE goals
+        SET reminder_frequency = NULL,
+            reminder_time_utc_millis = NULL,
+            first_reminder_epoch_day = NULL,
+            last_modified_at_utc_millis = :modifiedAt
+        WHERE id = :goalId
+          AND last_modified_at_utc_millis = :expectedUpdatedAt
+        """
+    )
+    suspend fun disableReminderIfUnchanged(
+        goalId: String,
+        expectedUpdatedAt: Long,
+        modifiedAt: Long
+    ): Int
+
     @Query("SELECT COUNT(*) FROM goals")
     suspend fun getGoalCount(): Int
 

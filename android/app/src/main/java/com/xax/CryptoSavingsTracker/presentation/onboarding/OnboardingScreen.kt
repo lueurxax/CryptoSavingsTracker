@@ -58,6 +58,8 @@ object OnboardingTestTags {
     const val CONTENT_AREA = "onboarding_content"
 }
 
+internal const val ONBOARDING_ERROR_TAG = "onboarding_error"
+
 /**
  * Onboarding flow matching iOS implementation.
  * 5 steps: Welcome, Profile, Goal Template, Asset Selection, Complete
@@ -107,6 +109,8 @@ fun OnboardingScreen(
                     .padding(horizontal = OnboardingSpacing.ScreenPadding, vertical = 16.dp)
                     .testTag(OnboardingTestTags.PROGRESS_BAR)
             )
+
+            OnboardingErrorMessage(error = uiState.error)
 
             // Main content with animation
             Box(
@@ -164,6 +168,7 @@ fun OnboardingScreen(
             OnboardingNavigation(
                 currentStep = uiState.currentStep,
                 canProceed = uiState.canProceed,
+                isLoading = uiState.isLoading,
                 isLastStep = uiState.currentStep == 4,
                 onNext = viewModel::nextStep,
                 onPrevious = viewModel::previousStep,
@@ -171,6 +176,21 @@ fun OnboardingScreen(
                 modifier = Modifier.padding(horizontal = OnboardingSpacing.ScreenPadding, vertical = OnboardingSpacing.SectionSpacing)
             )
         }
+    }
+}
+
+@Composable
+internal fun OnboardingErrorMessage(error: String?) {
+    if (!error.isNullOrBlank()) {
+        Text(
+            text = error,
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = OnboardingSpacing.ScreenPadding, vertical = 8.dp)
+                .testTag(ONBOARDING_ERROR_TAG)
+        )
     }
 }
 
@@ -673,6 +693,7 @@ private fun CompletionStep(
 private fun OnboardingNavigation(
     currentStep: Int,
     canProceed: Boolean,
+    isLoading: Boolean,
     isLastStep: Boolean,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
@@ -708,7 +729,7 @@ private fun OnboardingNavigation(
             // Next/Complete button
             Button(
                 onClick = onNext,
-                enabled = canProceed,
+                enabled = canProceed && !isLoading,
                 modifier = Modifier.testTag(OnboardingTestTags.NEXT_BUTTON)
             ) {
                 Text(

@@ -1168,7 +1168,14 @@ final class CloudKitCutoverCoordinator: ObservableObject {
                 historiesSkipped += 1
                 continue
             }
-            let copy = AllocationHistory(asset: tgtAsset, goal: tgtGoal, amount: history.amount, timestamp: history.timestamp)
+            let copy = AllocationHistory(
+                asset: tgtAsset,
+                goal: tgtGoal,
+                amount: history.amount,
+                timestamp: history.timestamp,
+                sourceTransactionId: history.sourceTransactionId,
+                sourcePreviousAmount: history.sourcePreviousAmount
+            )
             copy.id = history.id
             copy.assetId = history.assetId
             copy.goalId = history.goalId

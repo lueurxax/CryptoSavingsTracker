@@ -363,6 +363,397 @@ struct LocalBridgeImportApplyServiceTests {
         #expect(try receiptStore.receipt(for: package.packageID) != nil)
     }
 
+    @Test("Apply preserves transaction-linked allocation provenance")
+    func applyPreservesAllocationProvenance() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        _ = try TestDataFactory.createFullCutoverTestData(in: context)
+        let signingService = TestBridgeSigningService()
+        let trustedDevice = signingService.makeTrustedDevice(displayName: "Bridge Mac")
+        let exportService = LocalBridgeSnapshotExportService()
+        let validationService = LocalBridgeImportValidationService(
+            snapshotExportService: exportService,
+            capabilityManifest: .current(),
+            signingService: signingService
+        )
+        let applyService = LocalBridgeImportApplyService(
+            snapshotExportService: exportService,
+            validationService: validationService,
+            receiptStore: InMemoryBridgeImportReceiptStore()
+        )
+        let baseSnapshot = try exportService.exportSnapshot(from: ModelContext(container))
+        let sourceTransaction = try #require(baseSnapshot.transactions.first)
+        let originalHistory = try #require(baseSnapshot.allocationHistories.first)
+        let editedHistory = BridgeAllocationHistorySnapshot(
+            id: originalHistory.id,
+            recordState: originalHistory.recordState,
+            assetId: originalHistory.assetId,
+            goalId: originalHistory.goalId,
+            amount: originalHistory.amount,
+            timestamp: originalHistory.timestamp,
+            createdAt: originalHistory.createdAt,
+            monthLabel: originalHistory.monthLabel,
+            sourceTransactionId: sourceTransaction.id,
+            sourcePreviousAmount: 0.25
+        )
+        let editedSnapshot = try replacingBridgeProvenance(
+            in: baseSnapshot,
+            transactions: baseSnapshot.transactions,
+            allocationHistories: [editedHistory]
+        )
+        let package = try makeSignedPackage(
+            from: editedSnapshot,
+            baseDatasetFingerprint: baseSnapshot.manifest.baseDatasetFingerprint,
+            trustedDevice: trustedDevice,
+            signingService: signingService
+        )
+        let review = try validationService.review(
+            package: package,
+            trustedDevice: trustedDevice,
+            currentSnapshot: baseSnapshot
+        )
+
+        _ = try applyService.applyReviewedPackage(
+            package,
+            trustedDevice: trustedDevice,
+            reviewStatus: approved(review),
+            in: container
+        )
+
+        let durableHistory = try #require(
+            ModelContext(container)
+                .fetch(FetchDescriptor<AllocationHistory>())
+                .first(where: { $0.id == originalHistory.id })
+        )
+        #expect(durableHistory.sourceTransactionId == sourceTransaction.id)
+        #expect(durableHistory.sourcePreviousAmount == 0.25)
+    }
+
+    @Test("Import review blocks malformed transaction-linked allocation provenance")
+    func importReviewBlocksMalformedAllocationProvenance() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        _ = try TestDataFactory.createFullCutoverTestData(in: context)
+        let signingService = TestBridgeSigningService()
+        let trustedDevice = signingService.makeTrustedDevice(displayName: "Bridge Mac")
+        let exportService = LocalBridgeSnapshotExportService()
+        let validationService = LocalBridgeImportValidationService(
+            snapshotExportService: exportService,
+            capabilityManifest: .current(),
+            signingService: signingService
+        )
+        let baseSnapshot = try exportService.exportSnapshot(from: ModelContext(container))
+        let sourceTransaction = try #require(baseSnapshot.transactions.first)
+        let originalHistory = try #require(baseSnapshot.allocationHistories.first)
+        let missingTransactionID = UUID(
+            uuidString: "00000000-0000-0000-0000-000000000777"
+        )!
+
+        let cases: [(
+            history: BridgeAllocationHistorySnapshot,
+            transactions: [BridgeTransactionSnapshot],
+            expectedIssue: String
+        )] = [
+            (
+                BridgeAllocationHistorySnapshot(
+                    id: originalHistory.id,
+                    recordState: .active,
+                    assetId: originalHistory.assetId,
+                    goalId: originalHistory.goalId,
+                    amount: originalHistory.amount,
+                    timestamp: originalHistory.timestamp,
+                    createdAt: originalHistory.createdAt,
+                    monthLabel: originalHistory.monthLabel,
+                    sourceTransactionId: nil,
+                    sourcePreviousAmount: 0.25
+                ),
+                baseSnapshot.transactions,
+                "has sourcePreviousAmount without sourceTransactionId"
+            ),
+            (
+                BridgeAllocationHistorySnapshot(
+                    id: originalHistory.id,
+                    recordState: .active,
+                    assetId: originalHistory.assetId,
+                    goalId: originalHistory.goalId,
+                    amount: originalHistory.amount,
+                    timestamp: originalHistory.timestamp,
+                    createdAt: originalHistory.createdAt,
+                    monthLabel: originalHistory.monthLabel,
+                    sourceTransactionId: sourceTransaction.id,
+                    sourcePreviousAmount: -0.25
+                ),
+                baseSnapshot.transactions,
+                "has invalid sourcePreviousAmount"
+            ),
+            (
+                BridgeAllocationHistorySnapshot(
+                    id: originalHistory.id,
+                    recordState: .active,
+                    assetId: originalHistory.assetId,
+                    goalId: originalHistory.goalId,
+                    amount: originalHistory.amount,
+                    timestamp: originalHistory.timestamp,
+                    createdAt: originalHistory.createdAt,
+                    monthLabel: originalHistory.monthLabel,
+                    sourceTransactionId: missingTransactionID,
+                    sourcePreviousAmount: nil
+                ),
+                baseSnapshot.transactions,
+                "references missing source transaction"
+            ),
+            (
+                BridgeAllocationHistorySnapshot(
+                    id: originalHistory.id,
+                    recordState: .active,
+                    assetId: originalHistory.assetId,
+                    goalId: originalHistory.goalId,
+                    amount: originalHistory.amount,
+                    timestamp: originalHistory.timestamp,
+                    createdAt: originalHistory.createdAt,
+                    monthLabel: originalHistory.monthLabel,
+                    sourceTransactionId: sourceTransaction.id,
+                    sourcePreviousAmount: nil
+                ),
+                baseSnapshot.transactions.map { transaction in
+                    guard transaction.id == sourceTransaction.id else { return transaction }
+                    return BridgeTransactionSnapshot(
+                        id: transaction.id,
+                        recordState: transaction.recordState,
+                        assetId: nil,
+                        amount: transaction.amount,
+                        date: transaction.date,
+                        sourceRawValue: transaction.sourceRawValue,
+                        externalId: transaction.externalId,
+                        counterparty: transaction.counterparty,
+                        comment: transaction.comment
+                    )
+                },
+                "references a source transaction from another asset"
+            )
+        ]
+
+        for testCase in cases {
+            let editedSnapshot = try replacingBridgeProvenance(
+                in: baseSnapshot,
+                transactions: testCase.transactions,
+                allocationHistories: [testCase.history]
+            )
+            let package = try makeSignedPackage(
+                from: editedSnapshot,
+                baseDatasetFingerprint: baseSnapshot.manifest.baseDatasetFingerprint,
+                trustedDevice: trustedDevice,
+                signingService: signingService
+            )
+
+            let review = try validationService.review(
+                package: package,
+                trustedDevice: trustedDevice,
+                currentSnapshot: baseSnapshot
+            )
+
+            #expect(review.validationStatus == .failed)
+            #expect(review.blockingIssues.contains(where: { $0.contains(testCase.expectedIssue) }))
+        }
+    }
+
+    @Test("Bridge rejects a legacy MATIC to POL Polygon wallet collision atomically")
+    func bridgeAssetUpdateRejectsPolygonNativeAliasCollision() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let first = Asset(
+            currency: "MATIC",
+            address: "0x00000000000000000000000000000000000000AA",
+            chainId: "MATIC"
+        )
+        let second = Asset(
+            currency: "POL",
+            address: "0x00000000000000000000000000000000000000BB",
+            chainId: "MATIC"
+        )
+        context.insert(first)
+        context.insert(second)
+        try context.save()
+
+        let signingService = TestBridgeSigningService()
+        let trustedDevice = signingService.makeTrustedDevice(displayName: "Bridge Mac")
+        let exportService = LocalBridgeSnapshotExportService()
+        let validationService = LocalBridgeImportValidationService(
+            snapshotExportService: exportService,
+            capabilityManifest: .current(),
+            signingService: signingService
+        )
+        let applyService = LocalBridgeImportApplyService(
+            snapshotExportService: exportService,
+            validationService: validationService,
+            receiptStore: InMemoryBridgeImportReceiptStore()
+        )
+        let baseSnapshot = try exportService.exportSnapshot(from: ModelContext(container))
+        let editedAssets = baseSnapshot.assets.map { snapshot in
+            guard snapshot.id == second.id else { return snapshot }
+            return BridgeAssetSnapshot(
+                id: snapshot.id,
+                recordState: .active,
+                currency: "POL",
+                address: "0x00000000000000000000000000000000000000aa",
+                chainId: "polygon-mainnet"
+            )
+        }
+        let editedSnapshot = try replacingAssets(in: baseSnapshot, with: editedAssets)
+        let package = try makeSignedPackage(
+            from: editedSnapshot,
+            baseDatasetFingerprint: baseSnapshot.manifest.baseDatasetFingerprint,
+            trustedDevice: trustedDevice,
+            signingService: signingService
+        )
+        let review = try validationService.review(
+            package: package,
+            trustedDevice: trustedDevice,
+            currentSnapshot: baseSnapshot
+        )
+
+        #expect(throws: LocalBridgeImportApplyError.self) {
+            try applyService.applyReviewedPackage(
+                package,
+                trustedDevice: trustedDevice,
+                reviewStatus: approved(review),
+                in: container
+            )
+        }
+
+        let durableAssets = try ModelContext(container).fetch(FetchDescriptor<Asset>())
+        #expect(durableAssets.count == 2)
+        #expect(durableAssets.first(where: { $0.id == second.id })?.address == second.address)
+    }
+
+    @Test("Bridge asset update preserves distinct case-sensitive Solana identities")
+    func bridgeAssetUpdatePreservesSolanaAddressCase() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let first = Asset(
+            currency: "SOL",
+            address: "AbcDefGhijkLmnoPqrstUvwxyz123456789",
+            chainId: "SOL"
+        )
+        let second = Asset(
+            currency: "SOL",
+            address: "DifferentGhijkLmnoPqrstUvwxyz123456789",
+            chainId: "SOL"
+        )
+        context.insert(first)
+        context.insert(second)
+        try context.save()
+
+        let signingService = TestBridgeSigningService()
+        let trustedDevice = signingService.makeTrustedDevice(displayName: "Bridge Mac")
+        let exportService = LocalBridgeSnapshotExportService()
+        let validationService = LocalBridgeImportValidationService(
+            snapshotExportService: exportService,
+            capabilityManifest: .current(),
+            signingService: signingService
+        )
+        let applyService = LocalBridgeImportApplyService(
+            snapshotExportService: exportService,
+            validationService: validationService,
+            receiptStore: InMemoryBridgeImportReceiptStore()
+        )
+        let baseSnapshot = try exportService.exportSnapshot(from: ModelContext(container))
+        let expectedAddress = "abcDefGhijkLmnoPqrstUvwxyz123456789"
+        let editedAssets = baseSnapshot.assets.map { snapshot in
+            guard snapshot.id == second.id else { return snapshot }
+            return BridgeAssetSnapshot(
+                id: snapshot.id,
+                recordState: .active,
+                currency: "sol",
+                address: expectedAddress,
+                chainId: "solana-mainnet"
+            )
+        }
+        let editedSnapshot = try replacingAssets(in: baseSnapshot, with: editedAssets)
+        let package = try makeSignedPackage(
+            from: editedSnapshot,
+            baseDatasetFingerprint: baseSnapshot.manifest.baseDatasetFingerprint,
+            trustedDevice: trustedDevice,
+            signingService: signingService
+        )
+        let review = try validationService.review(
+            package: package,
+            trustedDevice: trustedDevice,
+            currentSnapshot: baseSnapshot
+        )
+
+        _ = try applyService.applyReviewedPackage(
+            package,
+            trustedDevice: trustedDevice,
+            reviewStatus: approved(review),
+            in: container
+        )
+
+        let durableAssets = try ModelContext(container).fetch(FetchDescriptor<Asset>())
+        #expect(durableAssets.count == 2)
+        #expect(durableAssets.first(where: { $0.id == second.id })?.address == expectedAddress)
+    }
+
+    @Test("Bridge permits multiple independent addressless accounts in one currency")
+    func bridgeAllowsMultipleAddresslessAccounts() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let first = Asset(currency: "BTC", address: nil, chainId: "BTC")
+        context.insert(first)
+        try context.save()
+
+        let signingService = TestBridgeSigningService()
+        let trustedDevice = signingService.makeTrustedDevice(displayName: "Bridge Mac")
+        let exportService = LocalBridgeSnapshotExportService()
+        let validationService = LocalBridgeImportValidationService(
+            snapshotExportService: exportService,
+            capabilityManifest: .current(),
+            signingService: signingService
+        )
+        let applyService = LocalBridgeImportApplyService(
+            snapshotExportService: exportService,
+            validationService: validationService,
+            receiptStore: InMemoryBridgeImportReceiptStore()
+        )
+        let baseSnapshot = try exportService.exportSnapshot(from: ModelContext(container))
+        let secondID = UUID()
+        let editedSnapshot = try replacingAssets(
+            in: baseSnapshot,
+            with: baseSnapshot.assets + [
+                BridgeAssetSnapshot(
+                    id: secondID,
+                    recordState: .active,
+                    currency: "BTC",
+                    address: nil,
+                    chainId: "BTC"
+                )
+            ]
+        )
+        let package = try makeSignedPackage(
+            from: editedSnapshot,
+            baseDatasetFingerprint: baseSnapshot.manifest.baseDatasetFingerprint,
+            trustedDevice: trustedDevice,
+            signingService: signingService
+        )
+        let review = try validationService.review(
+            package: package,
+            trustedDevice: trustedDevice,
+            currentSnapshot: baseSnapshot
+        )
+
+        _ = try applyService.applyReviewedPackage(
+            package,
+            trustedDevice: trustedDevice,
+            reviewStatus: approved(review),
+            in: container
+        )
+
+        let durableAssets = try ModelContext(container).fetch(FetchDescriptor<Asset>())
+        #expect(durableAssets.count == 2)
+        #expect(durableAssets.contains(where: { $0.id == first.id }))
+        #expect(durableAssets.contains(where: { $0.id == secondID }))
+    }
+
     @Test("Replaying an already applied package is a no-op")
     func replayedPackageReturnsAlreadyApplied() throws {
         let container = try TestContainer.create()
@@ -700,6 +1091,45 @@ struct LocalBridgeImportApplyServiceTests {
         return approvedReview
     }
 
+    private func replacingAssets(
+        in snapshot: SnapshotEnvelope,
+        with assets: [BridgeAssetSnapshot]
+    ) throws -> SnapshotEnvelope {
+        try SnapshotEnvelope(
+            manifest: snapshot.manifest.withBaseDatasetFingerprint(""),
+            goals: snapshot.goals,
+            assets: assets.sorted { $0.id.uuidString < $1.id.uuidString },
+            transactions: snapshot.transactions,
+            assetAllocations: snapshot.assetAllocations,
+            allocationHistories: snapshot.allocationHistories,
+            monthlyPlans: snapshot.monthlyPlans,
+            monthlyExecutionRecords: snapshot.monthlyExecutionRecords,
+            completedExecutions: snapshot.completedExecutions,
+            executionSnapshots: snapshot.executionSnapshots,
+            completionEvents: snapshot.completionEvents
+        ).withComputedFingerprint()
+    }
+
+    private func replacingBridgeProvenance(
+        in snapshot: SnapshotEnvelope,
+        transactions: [BridgeTransactionSnapshot],
+        allocationHistories: [BridgeAllocationHistorySnapshot]
+    ) throws -> SnapshotEnvelope {
+        try SnapshotEnvelope(
+            manifest: snapshot.manifest.withBaseDatasetFingerprint(""),
+            goals: snapshot.goals,
+            assets: snapshot.assets,
+            transactions: transactions,
+            assetAllocations: snapshot.assetAllocations,
+            allocationHistories: allocationHistories,
+            monthlyPlans: snapshot.monthlyPlans,
+            monthlyExecutionRecords: snapshot.monthlyExecutionRecords,
+            completedExecutions: snapshot.completedExecutions,
+            executionSnapshots: snapshot.executionSnapshots,
+            completionEvents: snapshot.completionEvents
+        ).withComputedFingerprint()
+    }
+
     private func makeEditedSnapshot(from baseSnapshot: SnapshotEnvelope) throws -> SnapshotEnvelope {
         let newAssetID = UUID()
         let newAsset = BridgeAssetSnapshot(
@@ -810,7 +1240,9 @@ struct LocalBridgeImportApplyServiceTests {
                 amount: history.amount,
                 timestamp: history.timestamp,
                 createdAt: history.createdAt,
-                monthLabel: history.monthLabel
+                monthLabel: history.monthLabel,
+                sourceTransactionId: history.sourceTransactionId,
+                sourcePreviousAmount: history.sourcePreviousAmount
             )
         }
 

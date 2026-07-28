@@ -11,72 +11,140 @@ import os
 
 // MARK: - Transaction Service
 final class TransactionService: TransactionServiceProtocol {
+    private static let maximumHistoryPages = 100
+    private static let maximumUTXOPrevoutLookups = 250
     private let rateLimiter = RateLimiter(
         timeInterval: 1.0
     ) // 1 request per 1 seconds
     private let client: TatumClient
     private let chainService: ChainService
+    private let refreshGenerationGate: ProviderRefreshGenerationGate
     private static let log = Logger(subsystem: "xax.CryptoSavingsTracker", category: "TransactionService")
     
-    init(client: TatumClient, chainService: ChainService) {
+    init(
+        client: TatumClient,
+        chainService: ChainService,
+        refreshGenerationGate: ProviderRefreshGenerationGate = .shared
+    ) {
         self.client = client
         self.chainService = chainService
+        self.refreshGenerationGate = refreshGenerationGate
     }
     
     // MARK: - Transaction History Fetching
     func fetchTransactionHistory(chainId: String, address: String, currency: String? = nil, limit: Int = 50, forceRefresh: Bool = false) async throws -> [TatumTransaction] {
+        let batch = try await fetchTransactionHistoryBatch(
+            chainId: chainId,
+            address: address,
+            currency: currency,
+            limit: limit,
+            forceRefresh: forceRefresh
+        )
+        return batch.transactions
+    }
+
+    func fetchTransactionHistoryBatch(
+        chainId: String,
+        address: String,
+        currency: String? = nil,
+        limit: Int = 50,
+        forceRefresh: Bool = false
+    ) async throws -> ProviderTransactionHistoryBatch {
         Self.log.debug("fetchTransactionHistory called - ChainId: \(chainId), Address: \(address), Limit: \(limit)")
+
+        guard let chain = chainService.getChain(by: chainId) else {
+            throw TatumError.unsupportedChain(chainId)
+        }
+        let normalizedRateLimitAddress = OnChainIdentifierPolicy.normalizedAddress(
+            address,
+            forChainIdentifier: chain.id
+        )
+        let rateLimitKey = [
+            chain.id.lowercased(),
+            normalizedRateLimitAddress,
+            currency?.lowercased() ?? ""
+        ].joined(separator: "-")
         
-        let rateLimitKey = "\(chainId)-\(address)"
-        
-        let transactions: [TatumTransaction] = try await rateLimiter.execute(key: rateLimitKey) {
+        return try await rateLimiter.execute(key: rateLimitKey) {
             // Check cache first
             let cacheKey = BalanceCacheManager.transactionsCacheKey(chainId: chainId, address: address, currency: currency)
             
             if !forceRefresh {
                 if let cachedTransactions = BalanceCacheManager.shared.getCachedTransactions(for: cacheKey) {
                     Self.log.debug("Using cached transactions (count: \(cachedTransactions.count))")
-                    return cachedTransactions
+                    return ProviderTransactionHistoryBatch(
+                        transactions: cachedTransactions
+                    )
                 }
             }
-            
-            guard let chain = self.chainService.getChain(by: chainId) else {
-                throw TatumError.unsupportedChain(chainId)
-            }
+
+            let publicationToken = self.refreshGenerationGate.begin(
+                routeKey: cacheKey
+            )
             
             let fetchedTransactions = try await self.fetchTransactionsForChain(chain: chain, address: address, currency: currency, limit: limit)
-            
-            // Only cache non-empty results, and fall back to cached data if API returns empty
-            if !fetchedTransactions.isEmpty {
-                BalanceCacheManager.shared.cacheTransactions(fetchedTransactions, for: cacheKey)
-                Self.log.debug("Cached \(fetchedTransactions.count) transactions for \(chainId)")
-                return fetchedTransactions
-            } else {
-                // If API returned empty, try to use cached data (even if expired)
-                Self.log.info("API returned empty transactions for \(chainId), attempting cache fallback")
-                if let cachedTransactions = BalanceCacheManager.shared.getCachedTransactions(for: cacheKey) {
-                    Self.log.info("Using fresh cached transactions for \(chainId) (count: \(cachedTransactions.count))")
-                    return cachedTransactions
-                } else if let anyCachedTransactions = BalanceCacheManager.shared.getAnyTransactions(for: cacheKey) {
-                    Self.log.info("Using expired cached transactions for \(chainId) (count: \(anyCachedTransactions.count))")
-                    return anyCachedTransactions
-                } else {
-                    Self.log.info("No cached transactions available for \(chainId)")
-                    return []
-                }
-            }
+
+            let authoritative = Self.authoritativeHistory(
+                fetched: fetchedTransactions,
+                cached: BalanceCacheManager.shared.getAnyTransactions(for: cacheKey)
+            )
+            return ProviderTransactionHistoryBatch(
+                transactions: authoritative,
+                publicationToken: publicationToken
+            )
         }
-        return transactions
+    }
+
+    func commitImportedTransactionHistory(
+        _ transactions: [TatumTransaction],
+        chainId: String,
+        address: String,
+        currency: String?
+    ) {
+        let cacheKey = BalanceCacheManager.transactionsCacheKey(
+            chainId: chainId,
+            address: address,
+            currency: currency
+        )
+        // Only durable, route-validated history reaches this publication
+        // handshake. Rejected provider batches never enter the two-hour cache.
+        BalanceCacheManager.shared.cacheTransactions(transactions, for: cacheKey)
+        Self.log.debug(
+            "Committed imported history (\(transactions.count) transactions) for \(chainId)"
+        )
+    }
+
+    static func authoritativeHistory(
+        fetched: [TatumTransaction],
+        cached: [TatumTransaction]?
+    ) -> [TatumTransaction] {
+        fetched
+    }
+
+    static func decodeProviderResponse<Response: Decodable>(
+        _ type: Response.Type,
+        from data: Data,
+        decoder: JSONDecoder = JSONDecoder()
+    ) throws -> Response {
+        do {
+            return try decoder.decode(type, from: data)
+        } catch {
+            throw TatumError.decodingError(error)
+        }
     }
     
     private func fetchTransactionsForChain(chain: TatumChain, address: String, currency: String?, limit: Int) async throws -> [TatumTransaction] {
         switch chain.chainType {
         case .evm:
-            if chainService.supportsV4API(chain.id) {
-                return try await fetchV4Transactions(chainId: chain.id, address: address, limit: limit)
-            } else {
-                return try await fetchEVMTransactions(chainId: chain.id, address: address, limit: limit)
-            }
+            let requests = try Self.makeV4HistoryRequests(
+                chainId: chain.id,
+                address: address,
+                currency: currency ?? chain.nativeCurrencySymbol,
+                limit: limit,
+                client: client,
+                chainService: chainService
+            )
+            return try await fetchV4Transactions(requests: requests, limit: limit)
         case .utxo:
             return try await fetchUTXOTransactions(chainId: chain.id, address: address, limit: limit)
         case .other:
@@ -85,35 +153,494 @@ final class TransactionService: TransactionServiceProtocol {
     }
     
     // MARK: - Tatum v4 Transaction Fetching
-    private func fetchV4Transactions(chainId: String, address: String, limit: Int) async throws -> [TatumTransaction] {
-        guard let v4Chain = chainService.getV4ChainName(for: chainId) else {
-            throw TatumError.unsupportedChain(chainId)
-        }
-        
-        let queryItems = [
+    private static func v4HistoryQueryItems(
+        v4Chain: String,
+        address: String,
+        transactionType: String,
+        tokenAddress: String?,
+        pageSize: Int,
+        offset: Int
+    ) -> [URLQueryItem] {
+        var queryItems = [
             URLQueryItem(name: "chain", value: v4Chain),
             URLQueryItem(name: "addresses", value: address),
+            URLQueryItem(name: "transactionTypes", value: transactionType),
             URLQueryItem(name: "sort", value: "DESC"),
-            URLQueryItem(name: "pageSize", value: String(limit))
+            URLQueryItem(name: "pageSize", value: String(pageSize)),
+            URLQueryItem(name: "offset", value: String(offset))
         ]
-        
-        guard let request = client.createV4Request(path: "/data/transaction/history", queryItems: queryItems) else {
+        if let tokenAddress {
+            queryItems.append(URLQueryItem(name: "tokenAddress", value: tokenAddress))
+        }
+        return queryItems
+    }
+
+    static func makeV4HistoryRequests(
+        chainId: String,
+        address: String,
+        currency: String,
+        limit: Int,
+        client: TatumClient,
+        chainService: ChainService
+    ) throws -> [URLRequest] {
+        let route = try BalanceRouteResolver.resolve(
+            chainId: chainId,
+            symbol: currency,
+            chainService: chainService
+        )
+
+        let requestParameters: [(v4Chain: String, type: String, tokenAddress: String?)]
+        switch route {
+        case .v4Native(let v4Chain):
+            requestParameters = [(v4Chain, "native", nil)]
+        case .v4Token(let v4Chain, let canonicalContracts):
+            requestParameters = canonicalContracts.sorted().map { (v4Chain, "fungible", $0) }
+        default:
+            throw TatumError.unsupportedChain("\(chainId)/\(currency.uppercased())")
+        }
+
+        return try requestParameters.map { parameters in
+            let pageSize = max(1, min(limit, 50))
+            let queryItems = Self.v4HistoryQueryItems(
+                v4Chain: parameters.v4Chain,
+                address: address,
+                transactionType: parameters.type,
+                tokenAddress: parameters.tokenAddress,
+                pageSize: pageSize,
+                offset: 0
+            )
+            guard let request = client.createV4Request(
+                path: "/data/transaction/history",
+                queryItems: queryItems
+            ) else {
+                throw TatumError.invalidURL
+            }
+            return request
+        }
+    }
+
+    private func fetchV4Transactions(
+        requests: [URLRequest],
+        limit: Int
+    ) async throws -> [TatumTransaction] {
+        var fetched: [TatumTransaction] = []
+        let pageSize = max(1, min(limit, 50))
+
+        for baseRequest in requests {
+            let routeHistory = try await Self.collectOffsetTransactionPages(
+                pageSize: pageSize,
+                maxPages: Self.maximumHistoryPages
+            ) { offset, requestedPageSize in
+                let request = try Self.paginatedRequest(
+                    from: baseRequest,
+                    offset: offset,
+                    pageSize: requestedPageSize
+                )
+                Self.log.debug("Fetching filtered v4 transactions from: \(request.url?.absoluteString ?? "")")
+                let (data, _) = try await self.client.performRequest(request)
+                let response = try Self.decodeProviderResponse(
+                    TatumV4TransactionResponse.self,
+                    from: data
+                )
+                let hasMore = response.nextPage.map { !$0.isEmpty }
+                    ?? (response.result.count >= requestedPageSize)
+                return (response.result, hasMore)
+            }
+            fetched.append(contentsOf: routeHistory)
+        }
+
+        return try Self.deduplicatedProviderTransactions(fetched)
+            .sorted { ($0.timestamp ?? 0) > ($1.timestamp ?? 0) }
+    }
+
+    private static func paginatedRequest(
+        from baseRequest: URLRequest,
+        offset: Int,
+        pageSize: Int
+    ) throws -> URLRequest {
+        guard let url = baseRequest.url,
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        else {
             throw TatumError.invalidURL
         }
-        
-        Self.log.debug("Fetching v4 transactions from: \(request.url?.absoluteString ?? "")")
-        
-        let (data, _) = try await client.performRequest(request)
-        
-        let decoder = JSONDecoder()
-        do {
-            let v4Response = try decoder.decode(TatumV4TransactionResponse.self, from: data)
-            Self.log.debug("Fetched \(v4Response.result.count) transactions")
-            return v4Response.result
-        } catch {
-            Self.log.error("Failed to decode v4 transaction response: \(error)")
-            throw TatumError.decodingError(error)
+        var queryItems = components.queryItems ?? []
+        queryItems.removeAll { $0.name == "offset" || $0.name == "pageSize" }
+        queryItems.append(URLQueryItem(name: "pageSize", value: String(pageSize)))
+        queryItems.append(URLQueryItem(name: "offset", value: String(offset)))
+        components.queryItems = queryItems
+        guard let paginatedURL = components.url else {
+            throw TatumError.invalidURL
         }
+        var request = baseRequest
+        request.url = paginatedURL
+        return request
+    }
+
+    private static func deduplicatedProviderTransactions(
+        _ transactions: [TatumTransaction]
+    ) throws -> [TatumTransaction] {
+        var ordered: [TatumTransaction] = []
+        var byProviderRecordID: [String: TatumTransaction] = [:]
+        for transaction in transactions {
+            guard transaction.isValidAuthoritativeMovement else {
+                throw TatumError.invalidResponse
+            }
+            let key = transaction.providerRecordIdentity
+            if let existing = byProviderRecordID[key] {
+                guard existing.isCanonicalProviderEquivalent(to: transaction) else {
+                    throw TatumError.invalidResponse
+                }
+                continue
+            }
+            byProviderRecordID[key] = transaction
+            ordered.append(transaction)
+        }
+        return ordered
+    }
+
+    static func collectOffsetTransactionPages(
+        pageSize: Int,
+        maxPages: Int,
+        fetchPage: (_ offset: Int, _ pageSize: Int) async throws -> (
+            transactions: [TatumTransaction],
+            hasMore: Bool
+        )
+    ) async throws -> [TatumTransaction] {
+        guard pageSize > 0, maxPages > 0 else {
+            throw TatumError.invalidResponse
+        }
+
+        var ordered: [TatumTransaction] = []
+        var byProviderRecordID: [String: TatumTransaction] = [:]
+        var offset = 0
+
+        for pageIndex in 0..<maxPages {
+            let page = try await fetchPage(offset, pageSize)
+            if page.transactions.isEmpty, page.hasMore {
+                throw TatumError.invalidResponse
+            }
+
+            for transaction in page.transactions {
+                guard transaction.isValidAuthoritativeMovement else {
+                    throw TatumError.invalidResponse
+                }
+                let key = transaction.providerRecordIdentity
+                if let existing = byProviderRecordID[key] {
+                    guard existing.isCanonicalProviderEquivalent(to: transaction) else {
+                        throw TatumError.invalidResponse
+                    }
+                    continue
+                }
+                byProviderRecordID[key] = transaction
+                ordered.append(transaction)
+            }
+
+            guard page.hasMore else {
+                return ordered
+            }
+            guard pageIndex + 1 < maxPages else {
+                throw TatumError.invalidResponse
+            }
+            offset += page.transactions.count
+        }
+
+        throw TatumError.invalidResponse
+    }
+
+    static func collectUTXOTransactionPages(
+        chainId: String,
+        pageSize: Int,
+        maxPages: Int,
+        fetchPage: (_ offset: Int, _ pageSize: Int) async throws -> (
+            transactions: [TatumUTXOTransaction],
+            hasMore: Bool
+        )
+    ) async throws -> [TatumUTXOTransaction] {
+        guard pageSize > 0, maxPages > 0 else {
+            throw TatumError.invalidResponse
+        }
+        var ordered: [TatumUTXOTransaction] = []
+        var indexByProviderHash: [String: Int] = [:]
+        var offset = 0
+
+        for pageIndex in 0..<maxPages {
+            let page = try await fetchPage(offset, pageSize)
+            if page.transactions.isEmpty, page.hasMore {
+                throw TatumError.invalidResponse
+            }
+            for transaction in page.transactions {
+                let incomingHashes = transaction.normalizedProviderHashes(
+                    chainId: chainId
+                )
+                let matchingIndexes = Set(
+                    incomingHashes.compactMap { indexByProviderHash[$0] }
+                )
+                guard matchingIndexes.count <= 1 else {
+                    throw TatumError.invalidResponse
+                }
+
+                guard let existingIndex = matchingIndexes.first else {
+                    let newIndex = ordered.count
+                    ordered.append(transaction)
+                    for providerHash in incomingHashes {
+                        indexByProviderHash[providerHash] = newIndex
+                    }
+                    continue
+                }
+
+                let existing = ordered[existingIndex]
+                guard existing.isCanonicalProviderEquivalentIgnoringHash(
+                    to: transaction,
+                    chainId: chainId
+                ) else {
+                    throw TatumError.invalidResponse
+                }
+                let existingHashes = existing.normalizedProviderHashes(
+                    chainId: chainId
+                )
+                let preferred: TatumUTXOTransaction
+                if existing.hasExplicitTxid != transaction.hasExplicitTxid {
+                    preferred = transaction.hasExplicitTxid ? transaction : existing
+                } else {
+                    let normalizedExistingHash =
+                        OnChainIdentifierPolicy.normalizedOpaqueIdentifier(
+                            existing.hash,
+                            forChainIdentifier: chainId
+                        )
+                    let normalizedIncomingHash =
+                        OnChainIdentifierPolicy.normalizedOpaqueIdentifier(
+                            transaction.hash,
+                            forChainIdentifier: chainId
+                        )
+                    guard normalizedExistingHash == normalizedIncomingHash else {
+                        throw TatumError.invalidResponse
+                    }
+                    preferred = incomingHashes.count > existingHashes.count
+                        ? transaction
+                        : existing
+                }
+
+                var seenHashes = Set<String>()
+                let aliases = (
+                    [existing.hash]
+                        + existing.providerHashAliases
+                        + [transaction.hash]
+                        + transaction.providerHashAliases
+                ).filter { providerHash in
+                    let normalizedProviderHash =
+                        OnChainIdentifierPolicy.normalizedOpaqueIdentifier(
+                            providerHash,
+                            forChainIdentifier: chainId
+                        )
+                    let normalizedPreferredHash =
+                        OnChainIdentifierPolicy.normalizedOpaqueIdentifier(
+                            preferred.hash,
+                            forChainIdentifier: chainId
+                        )
+                    return normalizedProviderHash != normalizedPreferredHash
+                        && seenHashes.insert(normalizedProviderHash).inserted
+                }
+                let merged = TatumUTXOTransaction(
+                    hash: preferred.hash,
+                    providerHashAliases: aliases,
+                    hasExplicitTxid: preferred.hasExplicitTxid,
+                    time: preferred.time,
+                    inputs: preferred.inputs,
+                    outputs: preferred.outputs
+                )
+                ordered[existingIndex] = merged
+
+                for providerHash in existingHashes.union(incomingHashes) {
+                    if let indexed = indexByProviderHash[providerHash],
+                       indexed != existingIndex {
+                        throw TatumError.invalidResponse
+                    }
+                    indexByProviderHash[providerHash] = existingIndex
+                }
+            }
+            guard page.hasMore else { return ordered }
+            guard pageIndex + 1 < maxPages else {
+                throw TatumError.invalidResponse
+            }
+            offset += page.transactions.count
+        }
+        throw TatumError.invalidResponse
+    }
+
+    static func normalizeUTXOTransactions(
+        chainId: String,
+        address: String,
+        transactions: [TatumUTXOTransaction],
+        maxPrevoutLookups: Int,
+        fetchPrevout: (_ transactionHash: String) async throws -> TatumUTXOTransaction
+    ) async throws -> [TatumTransaction] {
+        guard maxPrevoutLookups >= 0 else {
+            throw TatumError.invalidResponse
+        }
+
+        var originalHashByNormalizedHash: [String: String] = [:]
+        for transaction in transactions {
+            for input in transaction.inputs ?? [] where input.prevout == nil && !input.isCoinbase {
+                guard let transactionHash = input.transactionHash,
+                      input.outputIndex != nil
+                else {
+                    throw TatumError.invalidResponse
+                }
+                let normalizedHash = OnChainIdentifierPolicy.normalizedOpaqueIdentifier(
+                    transactionHash,
+                    forChainIdentifier: chainId
+                )
+                originalHashByNormalizedHash[normalizedHash] = transactionHash
+            }
+        }
+        guard originalHashByNormalizedHash.count <= maxPrevoutLookups else {
+            throw TatumError.invalidResponse
+        }
+
+        var parentByNormalizedHash: [String: TatumUTXOTransaction] = [:]
+        for normalizedHash in originalHashByNormalizedHash.keys.sorted() {
+            guard let originalHash = originalHashByNormalizedHash[normalizedHash] else {
+                throw TatumError.invalidResponse
+            }
+            let parent = try await fetchPrevout(originalHash)
+            let returnedHash = OnChainIdentifierPolicy.normalizedOpaqueIdentifier(
+                parent.hash,
+                forChainIdentifier: chainId
+            )
+            guard returnedHash == normalizedHash else {
+                throw TatumError.invalidResponse
+            }
+            parentByNormalizedHash[normalizedHash] = parent
+        }
+
+        let unitScale = chainId.caseInsensitiveCompare("BTC") == .orderedSame
+            ? 100_000_000.0
+            : 1.0
+        var movements: [TatumTransaction] = []
+        movements.reserveCapacity(transactions.count)
+
+        for transaction in transactions {
+            guard let rawTime = transaction.time,
+                  let timestamp = normalizedTimestampMilliseconds(rawTime)
+            else {
+                throw TatumError.invalidResponse
+            }
+
+            var netAmount = 0.0
+            var firstInputCounterparty: String?
+            var firstOutputCounterparty: String?
+
+            for input in transaction.inputs ?? [] {
+                if input.isCoinbase { continue }
+
+                let value: Double
+                let inputAddresses: [String]
+                if let prevout = input.prevout {
+                    guard let rawValue = prevout.valueNumber,
+                          rawValue.isFinite,
+                          rawValue >= 0
+                    else {
+                        throw TatumError.invalidResponse
+                    }
+                    value = rawValue / unitScale
+                    inputAddresses = prevout.scriptPubKey?.allAddresses ?? []
+                } else {
+                    guard let transactionHash = input.transactionHash,
+                          let outputIndex = input.outputIndex
+                    else {
+                        throw TatumError.invalidResponse
+                    }
+                    let normalizedHash = OnChainIdentifierPolicy.normalizedOpaqueIdentifier(
+                        transactionHash,
+                        forChainIdentifier: chainId
+                    )
+                    guard let parent = parentByNormalizedHash[normalizedHash],
+                          let parentOutputs = parent.outputs,
+                          parentOutputs.indices.contains(outputIndex),
+                          let rawValue = parentOutputs[outputIndex].valueNumber,
+                          rawValue.isFinite,
+                          rawValue >= 0
+                    else {
+                        throw TatumError.invalidResponse
+                    }
+                    value = rawValue / unitScale
+                    let parentOutput = parentOutputs[outputIndex]
+                    inputAddresses = Self.utxoAddresses(for: parentOutput)
+                }
+
+                if inputAddresses.contains(where: {
+                    OnChainIdentifierPolicy.addressesEqual($0, address, chainId: chainId)
+                }) {
+                    netAmount -= value
+                } else if firstInputCounterparty == nil {
+                    firstInputCounterparty = inputAddresses.first
+                }
+            }
+
+            for output in transaction.outputs ?? [] {
+                guard let rawValue = output.valueNumber,
+                      rawValue.isFinite,
+                      rawValue >= 0
+                else {
+                    throw TatumError.invalidResponse
+                }
+                let value = rawValue / unitScale
+                let outputAddresses = Self.utxoAddresses(for: output)
+                if outputAddresses.contains(where: {
+                    OnChainIdentifierPolicy.addressesEqual($0, address, chainId: chainId)
+                }) {
+                    netAmount += value
+                } else if firstOutputCounterparty == nil {
+                    firstOutputCounterparty = outputAddresses.first
+                }
+            }
+
+            guard netAmount.isFinite else {
+                throw TatumError.invalidResponse
+            }
+            if abs(netAmount) <= 0.000_000_000_001 {
+                continue
+            }
+            let isIncoming = netAmount > 0
+            movements.append(
+                TatumTransaction(
+                    hash: transaction.hash,
+                    timestamp: timestamp,
+                    from: isIncoming ? firstInputCounterparty : address,
+                    to: isIncoming ? address : firstOutputCounterparty,
+                    chain: chainId.uppercased(),
+                    address: address,
+                    transactionType: "utxo",
+                    transactionSubtype: isIncoming ? "received" : "sent",
+                    amount: String(abs(netAmount)),
+                    counterAddress: isIncoming ? firstInputCounterparty : firstOutputCounterparty,
+                    providerHashAliases: transaction.providerHashAliases.isEmpty
+                        ? nil
+                        : transaction.providerHashAliases,
+                    providerHashProvenance: transaction.hasExplicitTxid
+                        ? .explicitTxid
+                        : .fallbackIdentifier
+                )
+            )
+        }
+        return movements
+    }
+
+    private static func utxoAddresses(for output: TatumUTXOOutput) -> [String] {
+        var addresses = output.scriptPubKey?.allAddresses ?? []
+        if let address = output.address, !addresses.contains(address) {
+            addresses.append(address)
+        }
+        return addresses
+    }
+
+    private static func normalizedTimestampMilliseconds(_ rawValue: Int) -> Int? {
+        guard rawValue > 0 else { return nil }
+        if rawValue >= 1_000_000_000_000 {
+            return rawValue
+        }
+        let (milliseconds, overflow) = rawValue.multipliedReportingOverflow(by: 1_000)
+        return overflow ? nil : milliseconds
     }
     
     // MARK: - Legacy EVM Transaction Fetching
@@ -140,7 +667,7 @@ final class TransactionService: TransactionServiceProtocol {
                 return transactionResponse.transactions
             } catch {
                 Self.log.error("Failed to decode EVM transactions: \(error)")
-                return []
+                throw TatumError.decodingError(error)
             }
         }
     }
@@ -161,82 +688,91 @@ final class TransactionService: TransactionServiceProtocol {
         }
     }
     
-    // Other UTXO chains (LTC, BCH, DOGE) - keep existing logic for now
     private func fetchLegacyUTXOTransactions(chainId: String, path: String, address: String, limit: Int) async throws -> [TatumTransaction] {
-        let queryItems = [URLQueryItem(name: "pageSize", value: String(limit))]
-        
-        guard let request = client.createV3Request(path: path, queryItems: queryItems) else {
+        let pageSize = max(1, min(limit, 50))
+        let rawTransactions = try await Self.collectUTXOTransactionPages(
+            chainId: chainId,
+            pageSize: pageSize,
+            maxPages: Self.maximumHistoryPages
+        ) { offset, requestedPageSize in
+            let queryItems = [
+                URLQueryItem(name: "pageSize", value: String(requestedPageSize)),
+                URLQueryItem(name: "offset", value: String(offset))
+            ]
+            guard let request = self.client.createV3Request(
+                path: path,
+                queryItems: queryItems
+            ) else {
+                throw TatumError.invalidURL
+            }
+            let (data, _) = try await self.client.performRequest(request)
+            let decoded = try Self.decodeProviderResponse(
+                [TatumUTXOTransaction].self,
+                from: data
+            )
+            return (decoded, decoded.count >= requestedPageSize)
+        }
+
+        return try await Self.normalizeUTXOTransactions(
+            chainId: chainId,
+            address: address,
+            transactions: rawTransactions,
+            maxPrevoutLookups: Self.maximumUTXOPrevoutLookups
+        ) { transactionHash in
+            try await self.fetchUTXOPrevoutTransaction(
+                chainId: chainId,
+                hash: transactionHash
+            )
+        }
+    }
+
+    static func makeUTXOPrevoutRequest(
+        chainId: String,
+        hash: String,
+        client: TatumClient
+    ) throws -> URLRequest {
+        let v4Chain: String
+        switch chainId.uppercased() {
+        case "BTC": v4Chain = "bitcoin-mainnet"
+        case "LTC": v4Chain = "litecoin-mainnet"
+        case "BCH": v4Chain = "bch-mainnet"
+        case "DOGE": v4Chain = "doge-mainnet"
+        default: throw TatumError.unsupportedChain(chainId)
+        }
+        let queryItems = [
+            URLQueryItem(name: "chain", value: v4Chain),
+            URLQueryItem(name: "hash", value: hash)
+        ]
+        guard let request = client.createV4Request(
+            path: "/data/blockchains/transaction",
+            queryItems: queryItems
+        ) else {
             throw TatumError.invalidURL
         }
-        
-        Self.log.debug("Fetching \(chainId) transactions from: \(request.url?.absoluteString ?? "")")
-        
+        return request
+    }
+
+    private func fetchUTXOPrevoutTransaction(
+        chainId: String,
+        hash: String
+    ) async throws -> TatumUTXOTransaction {
+        let request = try Self.makeUTXOPrevoutRequest(
+            chainId: chainId,
+            hash: hash,
+            client: client
+        )
         let (data, _) = try await client.performRequest(request)
-        
-        Self.log.debug("\(chainId) transaction response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
-        
-        let decoder = JSONDecoder()
         do {
-            let utxoTransactions = try decoder.decode([TatumUTXOTransaction].self, from: data)
-            // Convert UTXO transactions to standard format with proper data mapping
-            return utxoTransactions.map { utxoTx in
-                // Calculate net amount for this address
-                var netAmount: Double = 0.0
-                var fromAddress: String?
-                var toAddress: String?
-                
-                // Sum inputs where this address is spending
-                if let inputs = utxoTx.inputs {
-                    for input in inputs {
-                        if let addresses = input.prevout?.scriptPubKey?.addresses, addresses.contains(address) {
-                            if let value = input.prevout?.valueNumber {
-                                netAmount -= value / 100_000_000 // Convert satoshis to BTC
-                                fromAddress = address
-                            }
-                        }
-                    }
-                }
-                
-                // Sum outputs where this address is receiving
-                if let outputs = utxoTx.outputs {
-                    for (index, output) in outputs.enumerated() {
-                        // Check direct address field first, then scriptPubKey.addresses
-                        let outputAddress = output.address ?? output.scriptPubKey?.addresses?.first
-                        
-                        if let addr = outputAddress, addr == address {
-                            let amount = output.humanReadableValue
-                            netAmount += amount
-                            toAddress = address
-                            Self.log.debug("Found receiving output [\(index)]: \(amount) BTC to \(address)")
-                        } else if toAddress == nil, let addr = outputAddress {
-                            toAddress = addr // Set first output address as destination if not receiving
-                        }
-                    }
-                }
-                
-                Self.log.debug("Transaction \(utxoTx.hash): netAmount=\(netAmount), from=\(fromAddress ?? "nil"), to=\(toAddress ?? "nil")")
-                
-                return TatumTransaction(
-                    hash: utxoTx.hash,
-                    blockNumber: nil,
-                    timestamp: utxoTx.time != nil ? utxoTx.time! * 1000 : nil, // Convert seconds to milliseconds
-                    from: fromAddress,
-                    to: toAddress,
-                    value: nil,
-                    gasUsed: nil,
-                    gasPrice: nil,
-                    tokenTransfers: nil,
-                    chain: chainId,
-                    address: address,
-                    transactionType: "utxo",
-                    transactionSubtype: netAmount >= 0 ? "received" : "sent",
-                    amount: String(abs(netAmount)), // UI expects positive amount
-                    counterAddress: netAmount >= 0 ? fromAddress : toAddress
-                )
-            }
+            return try JSONDecoder().decode(TatumUTXOTransaction.self, from: data)
         } catch {
-            Self.log.error("Failed to decode \(chainId) transactions: \(error)")
-            return []
+            do {
+                return try JSONDecoder().decode(
+                    TatumBlockchainTransactionResponse.self,
+                    from: data
+                ).result
+            } catch {
+                throw TatumError.decodingError(error)
+            }
         }
     }
     
@@ -262,56 +798,149 @@ final class TransactionService: TransactionServiceProtocol {
     
     private func fetchXRPTransactions(address: String, limit: Int) async throws -> [TatumTransaction] {
         Self.log.debug("fetchXRPTransactions called for address: \(address), limit: \(limit)")
-        
-        let queryItems = [
-            URLQueryItem(name: "min", value: "-1"), // Start from newest transactions
-            URLQueryItem(name: "pageSize", value: String(limit))
-        ]
-        
-        guard let request = client.createV3Request(path: "/xrp/account/tx/\(address)", queryItems: queryItems) else {
-            throw TatumError.invalidURL
-        }
-        
-        let (data, _) = try await client.performRequest(request)
-        
-        Self.log.debug("XRP transaction response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
-        
-        let decoder = JSONDecoder()
-        do {
-            let xrpResponse = try decoder.decode(XRPAccountResponse.self, from: data)
-            let xrpTransactions = xrpResponse.transactions
-            Self.log.debug("XRP API returned \(xrpTransactions.count) transactions")
-            return xrpTransactions.map { xrpTxDetails in
-                let xrpTx = xrpTxDetails.tx
-                
-                // Determine transaction direction and amount sign
-                let amountXRP = (Double(xrpTx.amount ?? "0") ?? 0.0) / 1_000_000 // Convert drops to XRP
-                let isSending = xrpTx.account == address
-                let isReceiving = xrpTx.destination == address
-                let signedAmount = isSending ? -amountXRP : amountXRP
-                let subtype = isSending ? "sent" : (isReceiving ? "received" : "unknown")
-                
-                return TatumTransaction(
-                    hash: xrpTx.hash,
-                    blockNumber: xrpTx.ledgerIndex,
-                    timestamp: Int((xrpTx.date + 946684800) * 1000), // Convert XRPL epoch to Unix epoch in milliseconds
-                    from: xrpTx.account,
-                    to: xrpTx.destination,
-                    value: nil,
-                    gasUsed: nil,
-                    gasPrice: xrpTx.fee, // Fee in drops
-                    tokenTransfers: nil,
-                    chain: "XRP",
-                    address: address,
-                    transactionType: xrpTx.transactionType,
-                    transactionSubtype: subtype,
-                    amount: String(abs(signedAmount)), // UI expects positive amount
-                    counterAddress: xrpTx.destination
-                )
+
+        let pageSize = max(1, min(limit, 50))
+        let details = try await Self.collectXRPTransactionPages(
+            pageSize: pageSize,
+            maxPages: Self.maximumHistoryPages
+        ) { marker, requestedPageSize in
+            var queryItems = [
+                URLQueryItem(name: "min", value: "-1"),
+                URLQueryItem(name: "pageSize", value: String(requestedPageSize))
+            ]
+            if let marker {
+                queryItems.append(URLQueryItem(name: "marker", value: marker))
             }
-        } catch {
-            Self.log.error("Failed to decode XRP transactions: \(error)")
-            return []
+            guard let request = self.client.createV3Request(
+                path: "/xrp/account/tx/\(address)",
+                queryItems: queryItems
+            ) else {
+                throw TatumError.invalidURL
+            }
+            let (data, _) = try await self.client.performRequest(request)
+            return try Self.decodeProviderResponse(XRPAccountResponse.self, from: data)
+        }
+
+        let aggregate = XRPAccountResponse(
+            account: address,
+            ledgerIndexMax: 0,
+            ledgerIndexMin: 0,
+            limit: pageSize,
+            transactions: details,
+            validated: true,
+            marker: nil
+        )
+        return try Self.parseXRPTransactions(aggregate, address: address)
+    }
+
+    static func collectXRPTransactionPages(
+        pageSize: Int,
+        maxPages: Int,
+        fetchPage: (_ marker: String?, _ pageSize: Int) async throws -> XRPAccountResponse
+    ) async throws -> [XRPTransactionDetails] {
+        guard pageSize > 0, maxPages > 0 else {
+            throw TatumError.invalidResponse
+        }
+        var marker: String?
+        var seenMarkers = Set<String>()
+        var ordered: [XRPTransactionDetails] = []
+        var byRecordID: [String: XRPTransactionDetails] = [:]
+
+        for pageIndex in 0..<maxPages {
+            let response = try await fetchPage(marker, pageSize)
+            guard response.validated else {
+                throw TatumError.invalidResponse
+            }
+            for details in response.transactions {
+                let key = [
+                    details.tx.hash.lowercased(),
+                    String(details.meta.transactionIndex)
+                ].joined(separator: "|")
+                if let existing = byRecordID[key] {
+                    guard existing.isCanonicalProviderEquivalent(to: details) else {
+                        throw TatumError.invalidResponse
+                    }
+                    continue
+                }
+                byRecordID[key] = details
+                ordered.append(details)
+            }
+
+            guard let providerMarker = response.marker else {
+                return ordered
+            }
+            if case .null = providerMarker {
+                return ordered
+            }
+            guard let nextMarker = providerMarker.queryValue,
+                  !nextMarker.isEmpty
+            else {
+                throw TatumError.invalidResponse
+            }
+            guard !response.transactions.isEmpty,
+                  seenMarkers.insert(nextMarker).inserted,
+                  pageIndex + 1 < maxPages
+            else {
+                throw TatumError.invalidResponse
+            }
+            marker = nextMarker
+        }
+        throw TatumError.invalidResponse
+    }
+
+    static func parseXRPTransactions(
+        _ response: XRPAccountResponse,
+        address: String
+    ) throws -> [TatumTransaction] {
+        guard response.validated else {
+            throw TatumError.invalidResponse
+        }
+        return try response.transactions.compactMap { details in
+            let transaction = details.tx
+            guard details.validated,
+                  details.meta.transactionResult == "tesSUCCESS",
+                  transaction.transactionType == "Payment"
+            else {
+                return nil
+            }
+            guard case .nativeDrops(let rawDeliveredAmount) = details.meta.deliveredAmount else {
+                // Issued-currency payments are valid provider records, but they
+                // are not native XRP movements.
+                return nil
+            }
+            guard let drops = Double(rawDeliveredAmount),
+                  drops.isFinite,
+                  drops >= 0
+            else {
+                throw TatumError.invalidResponse
+            }
+            let isSending = transaction.account == address
+            let isReceiving = transaction.destination == address
+            guard isSending != isReceiving else {
+                return nil
+            }
+            let (unixSeconds, overflow) = transaction.date
+                .addingReportingOverflow(946_684_800)
+            guard !overflow,
+                  let timestamp = normalizedTimestampMilliseconds(unixSeconds)
+            else {
+                throw TatumError.invalidResponse
+            }
+            return TatumTransaction(
+                hash: transaction.hash,
+                blockNumber: transaction.ledgerIndex,
+                timestamp: timestamp,
+                from: transaction.account,
+                to: transaction.destination,
+                gasPrice: transaction.fee,
+                chain: "XRP",
+                address: address,
+                transactionIndex: details.meta.transactionIndex,
+                transactionType: "Payment",
+                transactionSubtype: isSending ? "sent" : "received",
+                amount: String(drops / 1_000_000),
+                counterAddress: isSending ? transaction.destination : transaction.account
+            )
         }
     }
     
@@ -336,356 +965,599 @@ final class TransactionService: TransactionServiceProtocol {
                 return try await fetchTRC20Transactions(address: address, currency: currency, limit: limit)
             }
         } else {
-            // If no currency specified, fetch both (backward compatibility)
             async let nativeTransactions = fetchNativeTRXTransactions(address: address, limit: limit)
             async let trc20Transactions = fetchTRC20Transactions(address: address, currency: nil, limit: limit)
-            
             let allTransactions = try await nativeTransactions + trc20Transactions
-            
-            // Sort by timestamp (newest first), putting transactions without timestamps first
-            let sortedTransactions = allTransactions.sorted { tx1, tx2 in
-                switch (tx1.timestamp, tx2.timestamp) {
-                case (nil, nil):
-                    return false // Keep original order if both have no timestamp
-                case (nil, _):
-                    return true // TRC-20 transactions (no timestamp) come first
-                case (_, nil):
-                    return false // Native TRX transactions (with timestamp) come after
-                case (let time1?, let time2?):
-                    return time1 > time2 // Sort by timestamp if both have it
-                }
+            return allTransactions.sorted {
+                ($0.timestamp ?? Int.min) > ($1.timestamp ?? Int.min)
             }
-            
-            return Array(sortedTransactions.prefix(limit))
         }
     }
     
     private func fetchNativeTRXTransactions(address: String, limit: Int) async throws -> [TatumTransaction] {
-        let queryItems = [URLQueryItem(name: "pageSize", value: String(limit))]
-        
-        guard let request = client.createV3Request(path: "/tron/transaction/account/\(address)", queryItems: queryItems) else {
+        _ = limit
+        let transactions = try await Self.collectTRXTransactionPages(
+            maxPages: Self.maximumHistoryPages
+        ) { cursor in
+            let request = try Self.makeTRONHistoryRequest(
+                address: address,
+                trc20: false,
+                nextCursor: cursor,
+                client: self.client
+            )
+            let (data, _) = try await self.client.performRequest(request)
+            return try Self.decodeProviderResponse(
+                TRXTransactionResponse.self,
+                from: data
+            )
+        }
+        return try Self.parseNativeTRXTransactions(
+            TRXTransactionResponse(
+                transactions: transactions,
+                internalTransactions: nil
+            ),
+            address: address
+        )
+    }
+
+    static func makeTRONHistoryRequest(
+        address: String,
+        trc20: Bool,
+        nextCursor: String?,
+        client: TatumClient
+    ) throws -> URLRequest {
+        let queryItems = nextCursor.map {
+            [URLQueryItem(name: "next", value: $0)]
+        } ?? []
+        let suffix = trc20 ? "/trc20" : ""
+        guard let request = client.createV3Request(
+            path: "/tron/transaction/account/\(address)\(suffix)",
+            queryItems: queryItems
+        ) else {
             throw TatumError.invalidURL
         }
-        
-        Self.log.debug("Fetching native TRX transactions from: \(request.url?.absoluteString ?? "")")
-        
-        let (data, _) = try await client.performRequest(request)
-        
-        Self.log.debug("Native TRX transaction response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
-        
-        let decoder = JSONDecoder()
-        do {
-            let trxResponse = try decoder.decode(TRXTransactionResponse.self, from: data)
-            return trxResponse.transactions.compactMap { trxTx in
-                // Calculate transaction value and determine direction
-                var transactionValue: Double = 0.0
-                var fromAddress: String?
-                var toAddress: String?
-                var transactionType = "tron"
-                
-                // Parse contract data to extract transfer information
-                var shouldSkipTransaction = false
-                
-                if let contracts = trxTx.rawData?.contract {
-                    for (index, contract) in contracts.enumerated() {
-                        Self.log.debug("TRX contract[\(index)]: type=\(contract.type ?? "nil")")
-                        
-                        if let contractValue = contract.parameter?.value {
-                            Self.log.debug("TRX contract[\(index)] value: owner=\(contractValue.ownerAddressBase58 ?? "nil"), to=\(contractValue.toAddressBase58 ?? "nil"), amount=\(contractValue.amount ?? 0)")
-                            
-                            switch contract.type {
-                            case "TransferContract":
-                                // Native TRX transfer - this is what we want
-                                transactionValue = contractValue.trxAmount
-                                fromAddress = contractValue.ownerAddressBase58
-                                toAddress = contractValue.toAddressBase58
-                                transactionType = "tron"
-                                
-                            case "TriggerSmartContract":
-                                // Skip ALL TRC20 token transfers - they're handled by the dedicated TRC20 endpoint
-                                Self.log.debug("Skipping TriggerSmartContract transaction (TRC-20 token transfer)")
-                                shouldSkipTransaction = true
-                                break
-                                
-                            default:
-                                Self.log.debug("TRX contract[\(index)]: unknown type \(contract.type ?? "nil")")
-                                break
-                            }
-                        }
+        return request
+    }
+
+    static func collectTRXTransactionPages(
+        maxPages: Int,
+        fetchPage: (_ cursor: String?) async throws -> TRXTransactionResponse
+    ) async throws -> [TRXTransaction] {
+        guard maxPages > 0 else { throw TatumError.invalidResponse }
+        var cursor: String?
+        var followedCursors = Set<String>()
+        var ordered: [TRXTransaction] = []
+        var byID: [String: TRXTransaction] = [:]
+
+        for pageIndex in 0..<maxPages {
+            let response = try await fetchPage(cursor)
+            for transaction in response.transactions {
+                let key = transaction.txID.lowercased()
+                guard !key.isEmpty else { throw TatumError.invalidResponse }
+                if let existing = byID[key] {
+                    guard trxTransactionsAreEquivalent(existing, transaction) else {
+                        throw TatumError.invalidResponse
                     }
-                }
-                
-                // Skip TRC-20 transactions entirely
-                if shouldSkipTransaction {
-                    return nil
-                }
-                
-                // Determine transaction direction based on address involvement
-                let isReceiving = toAddress == address
-                let isSending = fromAddress == address
-                
-                // For TRX, if we don't have clear direction, check the addresses more carefully
-                var finalSubtype = "unknown"
-                if isReceiving {
-                    finalSubtype = "received"
-                } else if isSending {
-                    finalSubtype = "sent"
                 } else {
-                    // The API might return all transactions for an address, so check both directions
-                    if let contracts = trxTx.rawData?.contract {
-                        for contract in contracts {
-                            if let contractValue = contract.parameter?.value {
-                                // Check if our target address is the owner (sender)
-                                if contractValue.ownerAddressBase58 == address {
-                                    finalSubtype = "sent"
-                                    break
-                                }
-                                // Check if our target address is the recipient
-                                else if contractValue.toAddressBase58 == address {
-                                    finalSubtype = "received"
-                                    break
-                                }
-                            }
-                        }
-                    }
+                    byID[key] = transaction
+                    ordered.append(transaction)
                 }
-                
-                let subtype = finalSubtype
-                
-                // Get timestamp from rawData (already in milliseconds)
-                let timestamp = trxTx.rawData?.timestamp.flatMap { Int($0) }
-                
-                Self.log.debug("TRX transaction \(trxTx.hash): value=\(transactionValue), type=\(transactionType), subtype=\(subtype), from=\(fromAddress ?? "nil"), to=\(toAddress ?? "nil"), targetAddress=\(address)")
-                
-                return TatumTransaction(
-                    hash: trxTx.hash,
-                    blockNumber: trxTx.blockNumber,
-                    timestamp: timestamp,
-                    from: fromAddress,
-                    to: toAddress,
-                    value: nil,
-                    gasUsed: nil,
-                    gasPrice: trxTx.totalFee > 0 ? String(trxTx.totalFee) : nil,
-                    tokenTransfers: nil,
-                    chain: "TRX",
-                    address: address,
-                    transactionType: transactionType,
-                    transactionSubtype: subtype,
-                    amount: String(transactionValue), // UI expects positive amount
-                    counterAddress: isReceiving ? fromAddress : toAddress
-                )
             }
-        } catch {
-            Self.log.error("Failed to decode native TRX transactions: \(error)")
-            return []
+
+            guard let next = normalizedProviderCursor(response.next) else {
+                return ordered
+            }
+            guard !response.transactions.isEmpty,
+                  pageIndex + 1 < maxPages,
+                  followedCursors.insert(next).inserted
+            else {
+                throw TatumError.invalidResponse
+            }
+            cursor = next
+        }
+        throw TatumError.invalidResponse
+    }
+
+    private static func trxTransactionsAreEquivalent(
+        _ lhs: TRXTransaction,
+        _ rhs: TRXTransaction
+    ) -> Bool {
+        lhs.txID.caseInsensitiveCompare(rhs.txID) == .orderedSame
+            && lhs.blockNumber == rhs.blockNumber
+            && lhs.ret == rhs.ret
+            && lhs.signature == rhs.signature
+            && lhs.netFee == rhs.netFee
+            && lhs.netUsage == rhs.netUsage
+            && lhs.energyFee == rhs.energyFee
+            && lhs.energyUsage == rhs.energyUsage
+            && lhs.energyUsageTotal == rhs.energyUsageTotal
+            && lhs.rawData == rhs.rawData
+            && lhs.internalTransactions == rhs.internalTransactions
+    }
+
+    static func parseNativeTRXTransactions(
+        _ response: TRXTransactionResponse,
+        address: String
+    ) throws -> [TatumTransaction] {
+        try response.transactions.compactMap { transaction in
+            guard let results = transaction.ret,
+                  !results.isEmpty,
+                  results.allSatisfy({ $0.contractRet == "SUCCESS" })
+            else {
+                return nil
+            }
+
+            var netAmount = 0.0
+            var firstSender: String?
+            var firstRecipient: String?
+            var foundNativeTransfer = false
+            for contract in transaction.rawData?.contract ?? []
+                where contract.type == "TransferContract" {
+                guard let value = contract.parameter?.value,
+                      let amount = value.amount,
+                      amount >= 0
+                else {
+                    throw TatumError.invalidResponse
+                }
+                foundNativeTransfer = true
+                let from = value.ownerAddressBase58
+                let to = value.toAddressBase58
+                if firstSender == nil { firstSender = from }
+                if firstRecipient == nil { firstRecipient = to }
+                let humanAmount = Double(amount) / 1_000_000
+                if from == address { netAmount -= humanAmount }
+                if to == address { netAmount += humanAmount }
+            }
+            guard foundNativeTransfer,
+                  abs(netAmount) > 0.000_000_000_001
+            else {
+                return nil
+            }
+            guard let rawTimestamp = transaction.rawData?.timestamp,
+                  let timestampValue = Int(exactly: rawTimestamp),
+                  let timestamp = normalizedTimestampMilliseconds(timestampValue)
+            else {
+                throw TatumError.invalidResponse
+            }
+            let incoming = netAmount > 0
+            return TatumTransaction(
+                hash: transaction.hash,
+                blockNumber: transaction.blockNumber,
+                timestamp: timestamp,
+                from: firstSender,
+                to: firstRecipient,
+                gasPrice: transaction.totalFee > 0 ? String(transaction.totalFee) : nil,
+                chain: "TRX",
+                address: address,
+                transactionType: "tron",
+                transactionSubtype: incoming ? "received" : "sent",
+                amount: String(abs(netAmount)),
+                counterAddress: incoming ? firstSender : firstRecipient
+            )
         }
     }
-    
+
     private func fetchTRC20Transactions(address: String, currency: String? = nil, limit: Int) async throws -> [TatumTransaction] {
-        let queryItems = [URLQueryItem(name: "pageSize", value: String(limit))]
-        
-        guard let request = client.createV3Request(path: "/tron/transaction/account/\(address)/trc20", queryItems: queryItems) else {
-            throw TatumError.invalidURL
+        _ = limit
+        let transactions = try await Self.collectTRC20TransactionPages(
+            maxPages: Self.maximumHistoryPages
+        ) { cursor in
+            let request = try Self.makeTRONHistoryRequest(
+                address: address,
+                trc20: true,
+                nextCursor: cursor,
+                client: self.client
+            )
+            let (data, _) = try await self.client.performRequest(request)
+            return try Self.decodeProviderResponse(
+                TRC20TransactionResponse.self,
+                from: data
+            )
         }
-        
-        Self.log.debug("Fetching TRC-20 transactions from: \(request.url?.absoluteString ?? "")")
-        
-        let (data, _) = try await client.performRequest(request)
-        
-        Self.log.debug("TRC-20 transaction response received (\(data.count) bytes)")
-        
-        let decoder = JSONDecoder()
-        do {
-            let trc20Response = try decoder.decode(TRC20TransactionResponse.self, from: data)
-            let allTransactions = trc20Response.transactions.map { trc20Tx in
-                // Determine transaction direction
-                let isSending = trc20Tx.from == address
-                let isReceiving = trc20Tx.to == address
-                let subtype = isSending ? "sent" : (isReceiving ? "received" : "unknown")
-                
-                // Convert amount based on token decimals from tokenInfo
-                let tokenAmount = trc20Tx.tokenAmount
-                
-                return TatumTransaction(
-                    hash: trc20Tx.txID,
-                    blockNumber: nil, // TRC-20 endpoint doesn't provide block numbers
-                    timestamp: nil, // TRC-20 endpoint doesn't provide timestamps - will use current time for sorting
-                    from: trc20Tx.from,
-                    to: trc20Tx.to,
-                    value: nil,
-                    gasUsed: nil,
-                    gasPrice: nil,
-                    tokenTransfers: nil,
-                    chain: "TRX",
-                    address: address,
-                    transactionType: "trc20",
-                    transactionSubtype: subtype,
-                    amount: String(tokenAmount),
-                    counterAddress: isReceiving ? trc20Tx.from : trc20Tx.to
-                )
-            }
-            
-            // Filter by currency if specified
-            if let currency = currency {
-                let filteredTransactions = trc20Response.transactions.compactMap { trc20Tx -> TatumTransaction? in
-                    // Check if this transaction is for the specified token symbol
-                    guard trc20Tx.tokenInfo.symbol.uppercased() == currency.uppercased() else {
-                        return nil
+        return try Self.parseTRC20Transactions(
+            TRC20TransactionResponse(transactions: transactions),
+            address: address,
+            currency: currency
+        )
+    }
+
+    static func collectTRC20TransactionPages(
+        maxPages: Int,
+        fetchPage: (_ cursor: String?) async throws -> TRC20TransactionResponse
+    ) async throws -> [TRC20Transaction] {
+        guard maxPages > 0 else { throw TatumError.invalidResponse }
+        var cursor: String?
+        var followedCursors = Set<String>()
+        var ordered: [TRC20Transaction] = []
+        var byID: [String: TRC20Transaction] = [:]
+
+        for pageIndex in 0..<maxPages {
+            let response = try await fetchPage(cursor)
+            for transaction in response.transactions {
+                let key = transaction.txID.lowercased()
+                guard !key.isEmpty else { throw TatumError.invalidResponse }
+                if let existing = byID[key] {
+                    guard trc20TransactionsAreEquivalent(existing, transaction) else {
+                        throw TatumError.invalidResponse
                     }
-                    
-                    // Determine transaction direction
-                    let isSending = trc20Tx.from == address
-                    let isReceiving = trc20Tx.to == address
-                    let subtype = isSending ? "sent" : (isReceiving ? "received" : "unknown")
-                    
-                    // Convert amount based on token decimals from tokenInfo
-                    let tokenAmount = trc20Tx.tokenAmount
-                    
-                    return TatumTransaction(
-                        hash: trc20Tx.txID,
-                        blockNumber: nil,
-                        timestamp: nil,
-                        from: trc20Tx.from,
-                        to: trc20Tx.to,
-                        value: nil,
-                        gasUsed: nil,
-                        gasPrice: nil,
-                        tokenTransfers: nil,
-                        chain: "TRX",
-                        address: address,
-                        transactionType: "trc20",
-                        transactionSubtype: subtype,
-                        amount: String(tokenAmount),
-                        counterAddress: isReceiving ? trc20Tx.from : trc20Tx.to
-                    )
+                } else {
+                    byID[key] = transaction
+                    ordered.append(transaction)
                 }
-                Self.log.debug("Filtered TRC-20 transactions for \(currency): \(filteredTransactions.count) out of \(trc20Response.transactions.count)")
-                return filteredTransactions
             }
-            
-            return allTransactions
-        } catch {
-            Self.log.error("Failed to decode TRC-20 transactions: \(error)")
-            return []
+
+            guard let next = normalizedProviderCursor(response.next) else {
+                return ordered
+            }
+            guard !response.transactions.isEmpty,
+                  pageIndex + 1 < maxPages,
+                  followedCursors.insert(next).inserted
+            else {
+                throw TatumError.invalidResponse
+            }
+            cursor = next
+        }
+        throw TatumError.invalidResponse
+    }
+
+    private static func trc20TransactionsAreEquivalent(
+        _ lhs: TRC20Transaction,
+        _ rhs: TRC20Transaction
+    ) -> Bool {
+        lhs.txID.caseInsensitiveCompare(rhs.txID) == .orderedSame
+            && lhs.tokenInfo == rhs.tokenInfo
+            && lhs.from == rhs.from
+            && lhs.to == rhs.to
+            && lhs.type == rhs.type
+            && lhs.value == rhs.value
+            && lhs.timestamp == rhs.timestamp
+            && lhs.contractRet == rhs.contractRet
+            && lhs.receipt == rhs.receipt
+    }
+
+    private static func normalizedProviderCursor(_ cursor: String?) -> String? {
+        guard let cursor else { return nil }
+        let normalized = cursor.trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized.isEmpty ? nil : normalized
+    }
+
+    static func parseTRC20Transactions(
+        _ response: TRC20TransactionResponse,
+        address: String,
+        currency: String?
+    ) throws -> [TatumTransaction] {
+        let normalizedCurrency = currency?.uppercased()
+        let acceptedContracts: Set<String>
+        if let normalizedCurrency {
+            guard let contract = TRXAccountResponse.tokenContracts[normalizedCurrency] else {
+                throw TatumError.unsupportedChain("TRX/\(normalizedCurrency)")
+            }
+            acceptedContracts = [contract]
+        } else {
+            acceptedContracts = Set(TRXAccountResponse.tokenContracts.values)
+        }
+
+        return try response.transactions.compactMap { transaction in
+            guard transaction.isSuccessful,
+                  acceptedContracts.contains(transaction.tokenInfo.address)
+            else {
+                return nil
+            }
+            if let normalizedCurrency,
+               transaction.tokenInfo.symbol.uppercased() != normalizedCurrency {
+                return nil
+            }
+            let isSending = transaction.from == address
+            let isReceiving = transaction.to == address
+            guard isSending != isReceiving else {
+                return nil
+            }
+            guard let rawTimestamp = transaction.timestamp,
+                  let timestamp = normalizedTimestampMilliseconds(rawTimestamp),
+                  let amount = transaction.tokenAmount
+            else {
+                throw TatumError.invalidResponse
+            }
+            return TatumTransaction(
+                hash: transaction.txID,
+                timestamp: timestamp,
+                from: transaction.from,
+                to: transaction.to,
+                chain: "TRX",
+                address: address,
+                transactionType: "trc20",
+                transactionSubtype: isSending ? "sent" : "received",
+                amount: String(amount),
+                tokenAddress: transaction.tokenInfo.address,
+                counterAddress: isSending ? transaction.to : transaction.from
+            )
         }
     }
     
     private func fetchADATransactions(address: String, limit: Int) async throws -> [TatumTransaction] {
-        let queryItems = [URLQueryItem(name: "pageSize", value: String(limit))]
-        
-        guard let request = client.createV3Request(path: "/ada/transaction/address/\(address)", queryItems: queryItems) else {
+        let pageSize = max(1, min(limit, 50))
+        let transactions = try await Self.collectADATransactionPages(
+            pageSize: pageSize,
+            maxPages: Self.maximumHistoryPages
+        ) { offset, requestedPageSize in
+            let request = try Self.makeADAHistoryRequest(
+                address: address,
+                offset: offset,
+                pageSize: requestedPageSize,
+                client: self.client
+            )
+            let (data, _) = try await self.client.performRequest(request)
+            return try Self.decodeProviderResponse(
+                [TatumADATransaction].self,
+                from: data
+            )
+        }
+        return try Self.parseADATransactions(transactions, address: address)
+    }
+
+    static func makeADAHistoryRequest(
+        address: String,
+        offset: Int,
+        pageSize: Int,
+        client: TatumClient
+    ) throws -> URLRequest {
+        guard offset >= 0, (1...50).contains(pageSize) else {
+            throw TatumError.invalidResponse
+        }
+        guard let request = client.createV3Request(
+            path: "/ada/transaction/address/\(address)",
+            queryItems: [
+                URLQueryItem(name: "pageSize", value: String(pageSize)),
+                URLQueryItem(name: "offset", value: String(offset))
+            ]
+        ) else {
             throw TatumError.invalidURL
         }
-        
-        Self.log.debug("Fetching ADA transactions from: \(request.url?.absoluteString ?? "")")
-        
-        let (data, _) = try await client.performRequest(request)
-        
-        Self.log.debug("ADA transaction response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
-        
-        let decoder = JSONDecoder()
-        do {
-            let adaTransactions = try decoder.decode([TatumADATransaction].self, from: data)
-            return adaTransactions.map { adaTx in
-                // Calculate value for this specific address
-                var transactionValue: Double = 0
-                var fromAddress: String? = nil
-                var toAddress: String? = nil
-                
-                // Check if this address is in inputs (sending)
-                if let input = adaTx.inputs?.first(where: { $0.address == address }) {
-                    transactionValue = -input.amountValue // Negative for outgoing
-                    fromAddress = address
-                    toAddress = adaTx.outputs?.first?.address
-                    Self.log.debug("ADA transaction \(adaTx.hash): Found in inputs, sending \(abs(transactionValue)) ADA")
+        return request
+    }
+
+    static func collectADATransactionPages(
+        pageSize: Int,
+        maxPages: Int,
+        fetchPage: (_ offset: Int, _ pageSize: Int) async throws -> [TatumADATransaction]
+    ) async throws -> [TatumADATransaction] {
+        guard (1...50).contains(pageSize), maxPages > 0 else {
+            throw TatumError.invalidResponse
+        }
+        var offset = 0
+        var ordered: [TatumADATransaction] = []
+        var byHash: [String: TatumADATransaction] = [:]
+
+        for pageIndex in 0..<maxPages {
+            let page = try await fetchPage(offset, pageSize)
+            guard page.count <= pageSize else { throw TatumError.invalidResponse }
+            for transaction in page {
+                let key = transaction.hash.lowercased()
+                guard !key.isEmpty else { throw TatumError.invalidResponse }
+                if let existing = byHash[key] {
+                    guard adaTransactionsAreEquivalent(existing, transaction) else {
+                        throw TatumError.invalidResponse
+                    }
+                } else {
+                    byHash[key] = transaction
+                    ordered.append(transaction)
                 }
-                // Check if this address is in outputs (receiving)
-                else if let output = adaTx.outputs?.first(where: { $0.address == address }) {
-                    transactionValue = output.amountValue // Positive for incoming
-                    fromAddress = adaTx.inputs?.first?.address
-                    toAddress = address
-                    Self.log.debug("ADA transaction \(adaTx.hash): Found in outputs, receiving \(transactionValue) ADA")
-                }
-                
-                Self.log.debug("ADA transaction \(adaTx.hash): finalValue=\(transactionValue), from=\(fromAddress ?? "nil"), to=\(toAddress ?? "nil")")
-                
-                return TatumTransaction(
-                    hash: adaTx.hash,
-                    blockNumber: adaTx.block?.number,
-                    timestamp: nil, // ADA endpoint doesn't provide timestamp
-                    from: fromAddress,
-                    to: toAddress,
-                    value: nil,
-                    gasUsed: nil,
-                    gasPrice: adaTx.fee, // Store fee as gasPrice for reference
-                    tokenTransfers: nil,
-                    chain: "ADA",
-                    address: address,
-                    transactionType: "cardano",
-                    transactionSubtype: transactionValue >= 0 ? "received" : "sent",
-                    amount: String(abs(transactionValue)), // UI expects positive amount
-                    counterAddress: transactionValue >= 0 ? fromAddress : toAddress
-                )
             }
-        } catch {
-            Self.log.error("Failed to decode ADA transactions: \(error)")
-            return []
+
+            guard page.count == pageSize else { return ordered }
+            guard pageIndex + 1 < maxPages,
+                  offset <= Int.max - page.count
+            else {
+                throw TatumError.invalidResponse
+            }
+            offset += page.count
+        }
+        throw TatumError.invalidResponse
+    }
+
+    private static func adaTransactionsAreEquivalent(
+        _ lhs: TatumADATransaction,
+        _ rhs: TatumADATransaction
+    ) -> Bool {
+        lhs.hash.caseInsensitiveCompare(rhs.hash) == .orderedSame
+            && lhs.block == rhs.block
+            && lhs.inputs == rhs.inputs
+            && lhs.outputs == rhs.outputs
+            && lhs.fee == rhs.fee
+            && lhs.timestamp == rhs.timestamp
+    }
+
+    static func parseADATransactions(
+        _ transactions: [TatumADATransaction],
+        address: String
+    ) throws -> [TatumTransaction] {
+        try transactions.compactMap { transaction in
+            var incoming = 0.0
+            var outgoing = 0.0
+            var firstInputCounterparty: String?
+            var firstOutputCounterparty: String?
+            var trackedAddressWasPresent = false
+
+            for input in transaction.inputs ?? [] {
+                let isNative = input.symbol == nil
+                    || input.symbol?.caseInsensitiveCompare("ADA") == .orderedSame
+                guard isNative else { continue }
+                if input.address == address {
+                    trackedAddressWasPresent = true
+                    guard let amount = input.amountValue else {
+                        throw TatumError.invalidResponse
+                    }
+                    outgoing += amount
+                } else if firstInputCounterparty == nil {
+                    firstInputCounterparty = input.address
+                }
+            }
+
+            for output in transaction.outputs ?? [] {
+                let isNative = output.symbol == nil
+                    || output.symbol?.caseInsensitiveCompare("ADA") == .orderedSame
+                guard isNative else { continue }
+                if output.address == address {
+                    trackedAddressWasPresent = true
+                    guard let amount = output.amountValue else {
+                        throw TatumError.invalidResponse
+                    }
+                    incoming += amount
+                } else if firstOutputCounterparty == nil {
+                    firstOutputCounterparty = output.address
+                }
+            }
+
+            guard trackedAddressWasPresent else { return nil }
+            let netAmount = incoming - outgoing
+            guard netAmount.isFinite else {
+                throw TatumError.invalidResponse
+            }
+            if abs(netAmount) <= 0.000_000_000_001 {
+                return nil
+            }
+            guard let rawTimestamp = transaction.timestamp ?? transaction.block?.timestamp,
+                  let timestamp = normalizedTimestampMilliseconds(rawTimestamp)
+            else {
+                throw TatumError.invalidResponse
+            }
+            let isIncoming = netAmount > 0
+            return TatumTransaction(
+                hash: transaction.hash,
+                blockNumber: transaction.block?.number,
+                timestamp: timestamp,
+                from: isIncoming ? firstInputCounterparty : address,
+                to: isIncoming ? address : firstOutputCounterparty,
+                gasPrice: transaction.fee,
+                chain: "ADA",
+                address: address,
+                transactionType: "cardano",
+                transactionSubtype: isIncoming ? "received" : "sent",
+                amount: String(abs(netAmount)),
+                counterAddress: isIncoming ? firstInputCounterparty : firstOutputCounterparty
+            )
         }
     }
     
     private func fetchSOLTransactions(address: String, limit: Int) async throws -> [TatumTransaction] {
-        Self.log.debug("Fetching SOL transactions using two-step process: 1) Get signatures, 2) Fetch transactions")
-        
-        // Step 1: Get signatures from Solana RPC
         let signatures = try await fetchSolanaSignatures(address: address, limit: limit)
-        Self.log.debug("Found \(signatures.count) SOL signatures")
-        
-        // Step 2: Fetch transaction details for each signature
+        return try await Self.collectSolanaTransactionDetails(signatures: signatures) {
+            signature in
+            try await self.fetchSolanaTransaction(
+                signature: signature.signature,
+                targetAddress: address
+            )
+        }
+    }
+
+    static func collectSolanaTransactionDetails(
+        signatures: [SolanaSignature],
+        fetchDetail: (_ signature: SolanaSignature) async throws -> TatumTransaction?
+    ) async throws -> [TatumTransaction] {
         var transactions: [TatumTransaction] = []
-        
-        for signature in signatures.prefix(limit) {
-            do {
-                if let transaction = try await fetchSolanaTransaction(signature: signature.signature, targetAddress: address) {
-                    transactions.append(transaction)
-                }
-            } catch {
-                Self.log.error("Failed to fetch SOL transaction \(signature.signature): \(error)")
-                // Continue with other transactions
+        for signature in signatures where signature.isSuccess {
+            if let transaction = try await fetchDetail(signature) {
+                transactions.append(transaction)
             }
         }
-        
-        Self.log.debug("Successfully fetched \(transactions.count) SOL transactions")
         return transactions
     }
     
     private func fetchSolanaSignatures(address: String, limit: Int) async throws -> [SolanaSignature] {
+        let pageSize = max(1, min(limit, 1_000))
+        return try await Self.collectSolanaSignaturePages(
+            pageSize: pageSize,
+            maxPages: Self.maximumHistoryPages
+        ) { before, requestedPageSize in
+            let request = try Self.makeSolanaSignatureRequest(
+                address: address,
+                limit: requestedPageSize,
+                before: before,
+                client: self.client
+            )
+            let (data, _) = try await self.client.performRequest(request)
+            let rpcResponse = try Self.decodeProviderResponse(
+                SolanaRPCResponse<[SolanaSignature]>.self,
+                from: data
+            )
+
+            if let error = rpcResponse.error {
+                Self.log.error("Solana RPC error: \(error.message)")
+                throw TatumError.httpError(error.code)
+            }
+            guard let result = rpcResponse.result else {
+                throw TatumError.invalidResponse
+            }
+            return result
+        }
+    }
+
+    static func makeSolanaSignatureRequest(
+        address: String,
+        limit: Int,
+        before: String?,
+        client: TatumClient
+    ) throws -> URLRequest {
+        var options: [String: SolanaRPCValue] = [
+            "limit": .int(max(1, min(limit, 1_000))),
+            "commitment": .string("confirmed")
+        ]
+        if let before = normalizedProviderCursor(before) {
+            options["before"] = .string(before)
+        }
         let params: [SolanaRPCParam] = [
             .string(address),
-            .object([
-                "limit": .int(limit),
-                "commitment": .string("confirmed")
-            ])
+            .object(options)
         ]
-        
-        guard let request = client.createSolanaRPCRequest(method: "getSignaturesForAddress", params: params) else {
+        guard let request = client.createSolanaRPCRequest(
+            method: "getSignaturesForAddress",
+            params: params
+        ) else {
             throw TatumError.invalidURL
         }
-        
-        Self.log.debug("Fetching Solana signatures for address: \(address)")
-        
-        let (data, _) = try await client.performRequest(request)
-        
-        Self.log.debug("Solana signatures response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
-        
-        let decoder = JSONDecoder()
-        let rpcResponse = try decoder.decode(SolanaRPCResponse<[SolanaSignature]>.self, from: data)
-        
-        if let error = rpcResponse.error {
-            Self.log.error("Solana RPC error: \(error.message)")
-            throw TatumError.httpError(error.code)
+        return request
+    }
+
+    static func collectSolanaSignaturePages(
+        pageSize: Int,
+        maxPages: Int,
+        fetchPage: (_ before: String?, _ pageSize: Int) async throws -> [SolanaSignature]
+    ) async throws -> [SolanaSignature] {
+        guard (1...1_000).contains(pageSize), maxPages > 0 else {
+            throw TatumError.invalidResponse
         }
-        
-        return rpcResponse.result ?? []
+        var before: String?
+        var followedCursors = Set<String>()
+        var ordered: [SolanaSignature] = []
+        var bySignature: [String: SolanaSignature] = [:]
+
+        for pageIndex in 0..<maxPages {
+            let page = try await fetchPage(before, pageSize)
+            guard page.count <= pageSize else { throw TatumError.invalidResponse }
+            for signature in page {
+                guard !signature.signature.isEmpty else {
+                    throw TatumError.invalidResponse
+                }
+                if let existing = bySignature[signature.signature] {
+                    guard existing == signature else {
+                        throw TatumError.invalidResponse
+                    }
+                } else {
+                    bySignature[signature.signature] = signature
+                    ordered.append(signature)
+                }
+            }
+
+            guard page.count == pageSize else { return ordered }
+            guard let next = normalizedProviderCursor(page.last?.signature),
+                  pageIndex + 1 < maxPages,
+                  followedCursors.insert(next).inserted
+            else {
+                throw TatumError.invalidResponse
+            }
+            before = next
+        }
+        throw TatumError.invalidResponse
     }
     
     private func fetchSolanaTransaction(signature: String, targetAddress: String) async throws -> TatumTransaction? {
@@ -693,100 +1565,77 @@ final class TransactionService: TransactionServiceProtocol {
             throw TatumError.invalidURL
         }
         
-        Self.log.debug("Fetching Solana transaction: \(signature)")
-        
         let (data, _) = try await client.performRequest(request)
-        
-        Self.log.debug("Solana transaction response: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
-        
-        let decoder = JSONDecoder()
-        let solTx = try decoder.decode(TatumSOLTransaction.self, from: data)
-        
-        // Skip failed transactions
-        guard solTx.meta?.isSuccess == true else {
-            Self.log.debug("Skipping failed transaction: \(signature)")
-            return nil
+        let transaction = try Self.decodeProviderResponse(
+            TatumSOLTransaction.self,
+            from: data
+        )
+        return try Self.normalizeSOLTransaction(
+            transaction,
+            requestedSignature: signature,
+            targetAddress: targetAddress
+        )
+    }
+
+    static func normalizeSOLTransaction(
+        _ transaction: TatumSOLTransaction,
+        requestedSignature: String,
+        targetAddress: String
+    ) throws -> TatumTransaction? {
+        guard let meta = transaction.meta else {
+            throw TatumError.invalidResponse
         }
-        
-        // Calculate balance change for the target address
-        let balanceChange = calculateSOLBalanceChange(transaction: solTx, targetAddress: targetAddress)
-        
-        Self.log.debug("SOL transaction \(signature): balanceChange=\(balanceChange), direction=\(balanceChange > 0 ? "received" : "sent")")
-        
-        // Skip transactions with no balance change for this address
-        guard balanceChange != 0.0 else {
-            Self.log.debug("Skipping transaction with no balance change: \(signature)")
-            return nil
+        guard meta.isSuccess else { return nil }
+        guard transaction.transaction?.signatures?.first == requestedSignature else {
+            throw TatumError.invalidResponse
         }
-        
-        // For sent transactions, try to find the recipient address
-        var recipientAddress: String? = nil
-        if balanceChange < 0, let accountKeys = solTx.transaction?.message?.accountKeys, let postBalances = solTx.meta?.postBalances {
-            // Find target address index
-            let targetIndex = accountKeys.firstIndex(of: targetAddress) ?? 0
-            
-            // Look for an account that gained balance (excluding fee accounts)
-            for (index, postBal) in postBalances.enumerated() {
-                if index != targetIndex && index < accountKeys.count && postBal > 0 {
-                    // This account received funds
-                    recipientAddress = accountKeys[index]
-                    break
-                }
+        guard let rawBlockTime = transaction.blockTime,
+              let timestamp = normalizedTimestampMilliseconds(rawBlockTime),
+              let preBalances = meta.preBalances,
+              let postBalances = meta.postBalances,
+              let accountKeys = transaction.transaction?.message?.accountKeys,
+              preBalances.count == postBalances.count,
+              postBalances.count == accountKeys.count,
+              let targetIndex = accountKeys.firstIndex(of: targetAddress)
+        else {
+            throw TatumError.invalidResponse
+        }
+
+        let (lamportChange, overflow) = postBalances[targetIndex]
+            .subtractingReportingOverflow(preBalances[targetIndex])
+        guard !overflow else {
+            throw TatumError.invalidResponse
+        }
+        if lamportChange == 0 { return nil }
+
+        var counterAddress: String?
+        for index in accountKeys.indices where index != targetIndex {
+            let (change, changeOverflow) = postBalances[index]
+                .subtractingReportingOverflow(preBalances[index])
+            guard !changeOverflow else {
+                throw TatumError.invalidResponse
+            }
+            if (lamportChange < 0 && change > 0)
+                || (lamportChange > 0 && change < 0) {
+                counterAddress = accountKeys[index]
+                break
             }
         }
-        
-        Self.log.debug("SOL transaction \(signature): balanceChange=\(balanceChange), subtype=\(balanceChange > 0 ? "received" : "sent"), storedAmount=\(String(abs(balanceChange))), from=\(balanceChange < 0 ? targetAddress : "nil"), to=\(balanceChange > 0 ? targetAddress : recipientAddress ?? "nil")")
-        
+        let balanceChange = Double(lamportChange) / 1_000_000_000
+        let incoming = balanceChange > 0
         return TatumTransaction(
-            hash: solTx.hash,
-            blockNumber: nil,
-            timestamp: solTx.blockTime != nil ? solTx.blockTime! * 1000 : nil, // Convert to milliseconds
-            from: balanceChange < 0 ? targetAddress : nil, // If negative, we sent
-            to: balanceChange > 0 ? targetAddress : recipientAddress,   // If positive, we received; if negative, try to find recipient
-            value: nil,
-            gasUsed: nil,
-            gasPrice: solTx.meta?.fee.flatMap { String($0) },
-            tokenTransfers: nil,
+            hash: requestedSignature,
+            timestamp: timestamp,
+            from: incoming ? counterAddress : targetAddress,
+            to: incoming ? targetAddress : counterAddress,
+            gasPrice: meta.fee.map(String.init),
             chain: "SOL",
             address: targetAddress,
             transactionType: "solana",
-            transactionSubtype: balanceChange > 0 ? "received" : "sent",
-            amount: String(abs(balanceChange)), // UI likely expects positive amount with subtype for direction
-            counterAddress: balanceChange > 0 ? nil : recipientAddress // For sent transactions, store recipient
+            transactionSubtype: incoming ? "received" : "sent",
+            amount: String(abs(balanceChange)),
+            counterAddress: counterAddress
         )
-    }
-    
-    private func calculateSOLBalanceChange(transaction: TatumSOLTransaction, targetAddress: String) -> Double {
-        guard let meta = transaction.meta,
-              let preBalances = meta.preBalances,
-              let postBalances = meta.postBalances,
-              let accountKeys = transaction.transaction?.message?.accountKeys else {
-            Self.log.debug("Missing required data for balance calculation")
-            return 0.0
-        }
-        
-        // Find the index of the target address in account keys
-        guard let addressIndex = accountKeys.firstIndex(of: targetAddress) else {
-            Self.log.debug("Target address not found in account keys")
-            return 0.0
-        }
-        
-        // Ensure we have balance data for this index
-        guard addressIndex < preBalances.count && addressIndex < postBalances.count else {
-            Self.log.debug("Balance index out of range")
-            return 0.0
-        }
-        
-        let preBalance = preBalances[addressIndex]
-        let postBalance = postBalances[addressIndex]
-        let balanceChange = postBalance - preBalance
-        
-        // Convert lamports to SOL
-        let solChange = Double(balanceChange) / 1_000_000_000.0
-        
-        Self.log.debug("SOL balance change for \(targetAddress): \(solChange) SOL (\(balanceChange) lamports), preBalance=\(preBalance), postBalance=\(postBalance), addressIndex=\(addressIndex)")
-        
-        return solChange
     }
     
     private func fetchALGOTransactions(address: String, limit: Int) async throws -> [TatumTransaction] {
@@ -798,27 +1647,27 @@ final class TransactionService: TransactionServiceProtocol {
         
         let (data, _) = try await client.performRequest(request)
         
-        let decoder = JSONDecoder()
-        do {
-            let algoTransactions = try decoder.decode([TatumALGOTransaction].self, from: data)
-            return algoTransactions.map { algoTx in
-                let amount = algoTx.paymentTransaction?.amountValue ?? 0
-                
-                return TatumTransaction(
-                    hash: algoTx.id,
-                    blockNumber: nil,
-                    timestamp: Int(algoTx.date.timeIntervalSince1970),
-                    from: nil,
-                    to: algoTx.paymentTransaction?.receiver,
-                    value: String(amount),
-                    gasUsed: nil,
-                    gasPrice: nil,
-                    tokenTransfers: nil
-                )
+        let transactions = try Self.decodeProviderResponse(
+            [TatumALGOTransaction].self,
+            from: data
+        )
+        return try transactions.map { transaction in
+            guard let roundTime = transaction.roundTime,
+                  let timestamp = Self.normalizedTimestampMilliseconds(roundTime)
+            else {
+                throw TatumError.invalidResponse
             }
-        } catch {
-            Self.log.error("Failed to decode ALGO transactions: \(error)")
-            return []
+            let amount = transaction.paymentTransaction?.amountValue ?? 0
+            return TatumTransaction(
+                hash: transaction.id,
+                timestamp: timestamp,
+                to: transaction.paymentTransaction?.receiver,
+                value: String(amount),
+                chain: "ALGO",
+                address: address,
+                transactionType: "payment",
+                amount: String(amount)
+            )
         }
     }
     
@@ -831,25 +1680,27 @@ final class TransactionService: TransactionServiceProtocol {
         
         let (data, _) = try await client.performRequest(request)
         
-        let decoder = JSONDecoder()
-        do {
-            let xlmTransactions = try decoder.decode([TatumXLMTransaction].self, from: data)
-            return xlmTransactions.map { xlmTx in
-                TatumTransaction(
-                    hash: xlmTx.hash,
-                    blockNumber: nil,
-                    timestamp: Int(xlmTx.date.timeIntervalSince1970),
-                    from: xlmTx.sourceAccount,
-                    to: nil,
-                    value: "0", // XLM transactions need operation-level parsing for amounts
-                    gasUsed: nil,
-                    gasPrice: nil,
-                    tokenTransfers: nil
-                )
+        let transactions = try Self.decodeProviderResponse(
+            [TatumXLMTransaction].self,
+            from: data
+        )
+        return try transactions.map { transaction in
+            guard let date = ISO8601DateFormatter().date(from: transaction.createdAt),
+                  let timestamp = Self.normalizedTimestampMilliseconds(
+                    Int(date.timeIntervalSince1970)
+                  )
+            else {
+                throw TatumError.invalidResponse
             }
-        } catch {
-            Self.log.error("Failed to decode XLM transactions: \(error)")
-            return []
+            return TatumTransaction(
+                hash: transaction.hash,
+                timestamp: timestamp,
+                from: transaction.sourceAccount,
+                value: "0",
+                chain: "XLM",
+                address: address,
+                transactionType: "stellar"
+            )
         }
     }
     

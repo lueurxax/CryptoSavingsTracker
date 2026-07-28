@@ -13,12 +13,17 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
     private let baseLaunchArguments = [
         "UITEST_RESET_DATA",
         "UITEST_UI_FLOW",
+        "UITEST_START_ON_GOALS",
         "-ApplePersistenceIgnoreState",
         "YES"
     ]
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+#if os(iOS)
+        // UI launch configurations share simulator orientation across suites.
+        XCUIDevice.shared.orientation = .portrait
+#endif
         launchApp()
     }
 
@@ -50,6 +55,25 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
     }
     
     // MARK: - Goal Creation Flow Tests
+
+    @MainActor
+    func testDashboardEmptyStateCanOpenGoalForm() throws {
+        let dashboardTab = app.tabBars.buttons["Dashboard"]
+        XCTAssertTrue(dashboardTab.waitForExistence(timeout: 5))
+        dashboardTab.tap()
+
+        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
+
+        let createGoalButton = app.buttons["Create Goal"]
+        XCTAssertTrue(createGoalButton.waitForExistence(timeout: 5))
+        createGoalButton.tap()
+
+        XCTAssertTrue(
+            app.navigationBars["New Goal"].waitForExistence(timeout: 5)
+                || app.navigationBars["Add Goal"].waitForExistence(timeout: 5),
+            "Dashboard navigation should open the goal form"
+        )
+    }
     
     @MainActor
     func testCreateNewGoal() throws {
@@ -68,21 +92,14 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         amountField.tap()
         amountField.typeText("10000")
         
-        // Set deadline (assume there's a date picker)
-        if app.datePickers.count > 0 {
-            let datePicker = app.datePickers.firstMatch
-            datePicker.tap()
-            // Set a future date (basic interaction)
-        }
+        // The form already supplies a future default deadline. Opening the
+        // compact picker without selecting a value only obscures the bottom
+        // action bar and does not exercise a deadline change.
         
         // Save the goal
         let saveButton = app.buttons["saveGoalButton"].exists ? app.buttons["saveGoalButton"] : app.buttons["Save"]
-        if saveButton.exists {
-            saveButton.tap()
-        } else {
-            // Try alternative save button text
-            app.buttons["Save"].tap()
-        }
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 3))
+        saveButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         
         // Wait for form to dismiss and navigation to complete
         sleep(2)
@@ -106,7 +123,7 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         if newGoalNav.exists {
             let saveButton = app.buttons["saveGoalButton"].exists ? app.buttons["saveGoalButton"] : app.buttons["Save"]
             if saveButton.exists && saveButton.isEnabled {
-                saveButton.tap()
+                saveButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
                 sleep(2)
             }
         }
@@ -133,6 +150,154 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
             let goalText = app.staticTexts["Bitcoin Savings"]
             XCTAssertTrue(goalText.waitForExistence(timeout: 5), "Goal 'Bitcoin Savings' should appear in the list")
         }
+    }
+
+    @MainActor
+    func testPublicGoalCurrencyPickerSelectsCatalogCell() throws {
+        relaunch(extraArguments: ["UITEST_SEED_PUBLIC_CURRENCY_CATALOG"])
+        openAddGoalForm()
+
+        let currencyButton = app.buttons["currencyButton"]
+        XCTAssertTrue(currencyButton.waitForExistence(timeout: 3))
+        currencyButton.tap()
+
+        let searchField = app.textFields["currencySearchField"]
+        XCTAssertTrue(
+            searchField.waitForExistence(timeout: 3),
+            "The public currency picker must be presented"
+        )
+
+        let euroCell = app.buttons["currencyCell-EUR"].firstMatch
+        XCTAssertTrue(
+            euroCell.waitForExistence(timeout: 3),
+            "The deterministic public catalog must expose a real EUR currencyCell"
+        )
+        XCTAssertTrue(euroCell.isHittable, "The public EUR currencyCell must be directly selectable")
+        euroCell.tap()
+
+        XCTAssertTrue(
+            searchField.waitForNonExistence(timeout: 3),
+            "Selecting the public EUR cell must dismiss the picker"
+        )
+        XCTAssertEqual(
+            currencyButton.value as? String,
+            "EUR",
+            "The goal form must receive the value selected through the public picker"
+        )
+    }
+
+    @MainActor
+    func testLocalizedGoalAmountCanBeSaved() throws {
+        relaunch(extraArguments: [
+            "-AppleLanguages",
+            "(de)",
+            "-AppleLocale",
+            "de_DE"
+        ])
+        openGoalsTab()
+        openAddGoalForm()
+
+        let nameField = app.textFields["goalNameField"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 3))
+        nameField.tap()
+        nameField.typeText("Localized Goal")
+        setGoalCurrency("EUR")
+
+        let amountField = app.textFields["targetAmountField"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 3))
+        amountField.tap()
+        amountField.typeText("1,50")
+
+        let saveButton = app.buttons["saveGoalButton"].exists
+            ? app.buttons["saveGoalButton"]
+            : app.buttons["Save Goal"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 3))
+        saveButton.tap()
+
+        XCTAssertTrue(
+            app.buttons["goalRow-Localized Goal"].waitForExistence(timeout: 8),
+            "A comma-decimal amount should save as a localized value"
+        )
+    }
+
+    @MainActor
+    func testArchivedGoalCanBeRestoredFromGoalsList() throws {
+        relaunch(extraArguments: ["UITEST_SEED_GOALS"])
+        openGoalsTab()
+
+        let goalRow = app.buttons["goalRow-UI Goal Seed"]
+        XCTAssertTrue(goalRow.waitForExistence(timeout: 8))
+        goalRow.swipeLeft()
+
+        let editButton = app.buttons["Edit"]
+        XCTAssertTrue(editButton.waitForExistence(timeout: 3))
+        editButton.tap()
+
+        let archiveButton = app.buttons["Archive this goal"]
+        XCTAssertTrue(archiveButton.waitForExistence(timeout: 5))
+        archiveButton.tap()
+
+        let archiveConfirmation = app.buttons["Archive"]
+        XCTAssertTrue(archiveConfirmation.waitForExistence(timeout: 3))
+        archiveConfirmation.tap()
+
+        let archivedRow = app.otherElements["archivedGoalRow-UI Goal Seed"]
+        XCTAssertTrue(
+            archivedRow.waitForExistence(timeout: 8),
+            "Archived goals should remain reachable from the Goals list"
+        )
+
+        let restoreButton = app.buttons["restoreGoalButton-UI Goal Seed"]
+        XCTAssertTrue(restoreButton.waitForExistence(timeout: 3))
+        restoreButton.tap()
+
+        XCTAssertTrue(
+            app.buttons["goalRow-UI Goal Seed"].waitForExistence(timeout: 8),
+            "Restoring should return the goal to the active list"
+        )
+        XCTAssertFalse(archivedRow.exists)
+    }
+
+    @MainActor
+    func testArchiveFailureStaysInEditorAndRetrySucceeds() throws {
+        relaunch(extraArguments: [
+            "UITEST_SEED_GOALS",
+            "UITEST_SIMULATE_GOAL_ARCHIVE_FAILURE"
+        ])
+        openGoalsTab()
+
+        let goalRow = app.buttons["goalRow-UI Goal Seed"]
+        XCTAssertTrue(goalRow.waitForExistence(timeout: 8))
+        goalRow.swipeLeft()
+
+        let editButton = app.buttons["Edit"]
+        XCTAssertTrue(editButton.waitForExistence(timeout: 3))
+        editButton.tap()
+
+        let archiveButton = app.buttons["Archive this goal"]
+        XCTAssertTrue(archiveButton.waitForExistence(timeout: 5))
+        archiveButton.tap()
+
+        let archiveConfirmation = app.buttons["Archive"]
+        XCTAssertTrue(archiveConfirmation.waitForExistence(timeout: 3))
+        archiveConfirmation.tap()
+
+        let archiveError = app.alerts["Unable to Archive Goal"]
+        XCTAssertTrue(archiveError.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            archiveError.staticTexts["Unable to archive this goal right now. Please try again."].exists
+        )
+        XCTAssertTrue(app.navigationBars["Edit Goal"].exists)
+
+        let retryButton = archiveError.buttons["Retry Archive"]
+        XCTAssertTrue(retryButton.exists)
+        retryButton.tap()
+
+        XCTAssertTrue(
+            app.otherElements["archivedGoalRow-UI Goal Seed"].waitForExistence(timeout: 8),
+            "A successful retry should dismiss the editor and expose the archived goal"
+        )
+        XCTAssertFalse(archiveError.exists)
     }
     
     @MainActor
@@ -270,9 +435,11 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
                      app.staticTexts["Test Goal"].waitForExistence(timeout: 3))
         
         // Should show goal information
-        let targetLabel = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Target:'")).firstMatch
+        let targetLabel = app.staticTexts.containing(
+            NSPredicate(format: "label BEGINSWITH 'Target'")
+        ).firstMatch
         XCTAssertTrue(targetLabel.waitForExistence(timeout: 3))
-        XCTAssertTrue(targetLabel.label.contains("USD") || app.staticTexts["USD"].exists)
+        XCTAssertTrue(targetLabel.label.contains("USD"))
         
         // Should have Add Asset button
         XCTAssertTrue(app.buttons["addAssetButton"].waitForExistence(timeout: 3) || app.buttons["Add Asset"].waitForExistence(timeout: 3))
@@ -354,20 +521,26 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         createTestGoal(name: "Delete Me", amount: "500", currency: "EUR")
         
         // Find the goal cell
-        let goalCell = app.cells.containing(.staticText, identifier: "Delete Me").firstMatch
-        XCTAssertTrue(goalCell.waitForExistence(timeout: 5))
+        let goalRow = app.buttons["goalRow-Delete Me"]
+        XCTAssertTrue(goalRow.waitForExistence(timeout: 5))
         
         // Swipe to delete (iOS standard pattern)
-        goalCell.swipeLeft()
+        goalRow.swipeLeft()
         
         // Tap delete button
         let deleteButton = app.buttons["Delete"]
-        if deleteButton.waitForExistence(timeout: 3) {
-            deleteButton.tap()
-            
-            // Goal should be removed from list
-            XCTAssertFalse(app.cells.containing(.staticText, identifier: "Delete Me").firstMatch.waitForExistence(timeout: 2))
-        }
+        XCTAssertTrue(
+            deleteButton.waitForExistence(timeout: 3),
+            "Swiping an active goal must expose the Delete action"
+        )
+        deleteButton.tap()
+
+        // The active row must disappear and the goal must remain recoverable in the archive.
+        XCTAssertFalse(goalRow.waitForExistence(timeout: 2))
+        XCTAssertTrue(
+            app.otherElements["archivedGoalRow-Delete Me"].waitForExistence(timeout: 5),
+            "Deleting from the active list should archive the goal"
+        )
     }
     
     // MARK: - Progress Display Tests
@@ -383,16 +556,18 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         // Add asset and transaction for 25% progress
         addTestAsset(currency: "USD")
         addTestTransaction(amount: "250", assetCurrency: "USD")
-        
-        // Check that progress is displayed
-        // Look for percentage display
-        let progressText = app.staticTexts.containing(NSPredicate(format: "label CONTAINS '%'")).firstMatch
-        XCTAssertTrue(progressText.waitForExistence(timeout: 5))
-        
-        // Should show 25% or similar
-        XCTAssertTrue(app.staticTexts["25%"].exists || 
-                     app.staticTexts["25"].exists ||
-                     progressText.label.contains("25"))
+
+        let progressSummary = app.descendants(matching: .any)["goalSummaryProgress"]
+        XCTAssertTrue(progressSummary.waitForExistence(timeout: 5))
+        let progressUpdated = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", "25%"),
+            object: progressSummary
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [progressUpdated], timeout: 10),
+            .completed,
+            "Expected goal-specific progress to be 25%, got \(progressSummary.label)"
+        )
     }
     
     // MARK: - Platform-Specific Tests
@@ -471,62 +646,55 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
     
     private func addTestAsset(currency: String) {
         let addAssetButton = app.buttons["addAssetButton"].exists ? app.buttons["addAssetButton"] : app.buttons["Add Asset"]
-        if addAssetButton.waitForExistence(timeout: 3) {
-            addAssetButton.tap()
-            
-            setAssetCurrency(currency)
-            
-            let saveButton = app.buttons["saveAssetButton"].exists ? app.buttons["saveAssetButton"] : app.buttons["Save"]
-            if saveButton.exists {
-                saveButton.tap()
-            }
-        }
+        XCTAssertTrue(addAssetButton.waitForExistence(timeout: 5), "Add Asset control is unavailable")
+        tapForce(addAssetButton)
+
+        setAssetCurrency(currency)
+
+        let saveButton = app.buttons["saveAssetButton"].exists ? app.buttons["saveAssetButton"] : app.buttons["Save"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 5), "Save Asset control is unavailable")
+        tapForce(saveButton)
+        XCTAssertTrue(saveButton.waitForNonExistence(timeout: 8), "Asset form did not dismiss after Save")
     }
     
     private func addTestTransaction(amount: String, assetCurrency: String? = nil) {
         expandAssetRow(for: assetCurrency)
 
         let addTransactionButton = app.buttons["addTransactionButton"].exists ? app.buttons["addTransactionButton"] : app.buttons["Add Transaction"]
-        if addTransactionButton.waitForExistence(timeout: 3) {
-            addTransactionButton.tap()
-            
-            let amountField = app.textFields["transactionAmountField"].exists ? app.textFields["transactionAmountField"] : app.textFields["Amount"]
-            if amountField.waitForExistence(timeout: 3) {
-                amountField.tap()
-                amountField.typeText(amount)
-            }
-            
-            let saveButton = app.buttons["saveTransactionButton"].exists ? app.buttons["saveTransactionButton"] : app.buttons["Save"]
-            if saveButton.exists {
-                saveButton.tap()
-            }
+        XCTAssertTrue(addTransactionButton.waitForExistence(timeout: 5), "Add Transaction control is unavailable")
+        tapForce(addTransactionButton)
+
+        let amountField = app.textFields["transactionAmountField"].exists ? app.textFields["transactionAmountField"] : app.textFields["Amount"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 5), "Transaction amount field is unavailable")
+        guard acquireKeyboardFocus(amountField) else {
+            XCTFail("Transaction amount field did not acquire keyboard focus")
+            return
         }
+        amountField.typeText(amount)
+
+        let saveButton = app.buttons["saveTransactionButton"].exists ? app.buttons["saveTransactionButton"] : app.buttons["Save"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 5), "Save Transaction control is unavailable")
+        tapForce(saveButton)
+        XCTAssertTrue(saveButton.waitForNonExistence(timeout: 8), "Transaction form did not dismiss after Save")
     }
 
     private func expandAssetRow(for currency: String?) {
         let row: XCUIElement
         if let currency {
-            let identifier = "assetRow-\(currency.uppercased())"
-            row = app.buttons[identifier].exists ? app.buttons[identifier] : app.otherElements[identifier]
+            row = app.buttons["assetRow-\(currency.uppercased())"]
         } else {
-            let predicate = NSPredicate(format: "identifier BEGINSWITH 'assetRow-'")
-            row = app.buttons.matching(predicate).firstMatch.exists
-                ? app.buttons.matching(predicate).firstMatch
-                : app.otherElements.matching(predicate).firstMatch
+            row = app.buttons.matching(
+                NSPredicate(format: "identifier BEGINSWITH 'assetRow-'")
+            ).firstMatch
         }
 
-        if row.waitForExistence(timeout: 5) {
-            tapForce(row)
-            return
-        }
-
-        if let currency {
-            let label = currency.uppercased()
-            let text = app.staticTexts[label].exists ? app.staticTexts[label] : app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", label)).firstMatch
-            if text.waitForExistence(timeout: 3) {
-                tapForce(text)
+        if !row.waitForExistence(timeout: 2) {
+            for _ in 0..<6 where !row.exists {
+                app.swipeUp()
             }
         }
+        XCTAssertTrue(row.waitForExistence(timeout: 3), "Saved asset row is unavailable")
+        tapForce(row)
     }
 
     private func tapForce(_ element: XCUIElement) {
@@ -563,45 +731,64 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         XCTAssertTrue(newGoalNav.waitForExistence(timeout: 5) || addGoalNav.waitForExistence(timeout: 5))
     }
 
+    private func openGoalsTab() {
+        let goalsTab = app.tabBars.buttons["Goals"]
+        XCTAssertTrue(goalsTab.waitForExistence(timeout: 5))
+        goalsTab.tap()
+        XCTAssertTrue(app.navigationBars["Goals"].waitForExistence(timeout: 5))
+    }
+
     private func setGoalCurrency(_ symbol: String) {
-        if setCurrency(symbol: symbol, overrideId: "goalCurrencyOverrideField", buttonId: "currencyButton") {
-            return
-        }
+        XCTAssertTrue(
+            setCurrency(symbol: symbol, overrideId: "goalCurrencyOverrideField", buttonId: "currencyButton"),
+            "Unable to choose goal currency \(symbol)"
+        )
     }
 
     private func setAssetCurrency(_ symbol: String) {
-        if setCurrency(symbol: symbol, overrideId: "assetCurrencyOverrideField", buttonId: "assetCurrencyButton") {
-            return
-        }
+        XCTAssertTrue(
+            setCurrency(symbol: symbol, overrideId: "assetCurrencyOverrideField", buttonId: "assetCurrencyButton"),
+            "Unable to choose asset currency \(symbol)"
+        )
     }
 
     private func setCurrency(symbol: String, overrideId: String, buttonId: String) -> Bool {
-        let overrideField = app.textFields[overrideId]
-        if overrideField.waitForExistence(timeout: 2) {
-            overrideField.tap()
-            clearTextField(overrideField)
-            overrideField.typeText(symbol)
-            return true
-        }
-
         let button = app.buttons[buttonId]
-        guard button.waitForExistence(timeout: 2) else { return false }
-        button.tap()
+        if button.waitForExistence(timeout: 2) {
+            tapForce(button)
 
-        let search = app.textFields["currencySearchField"]
-        if search.waitForExistence(timeout: 2) {
-            search.tap()
-            search.typeText(symbol)
-            let cell = app.buttons["currencyCell-\(symbol.uppercased())"].firstMatch
-            if cell.waitForExistence(timeout: 3) {
-                cell.tap()
-            } else if app.buttons["currencyDoneButton"].waitForExistence(timeout: 2) {
-                app.buttons["currencyDoneButton"].tap()
+            let search = app.textFields["currencySearchField"]
+            if search.waitForExistence(timeout: 2) {
+                search.tap()
+                search.typeText(symbol)
+                let cell = app.buttons["currencyCell-\(symbol.uppercased())"].firstMatch
+                if cell.waitForExistence(timeout: 3) {
+                    tapForce(cell)
+                    return true
+                }
+
+                // The public picker can legitimately have no rows while its
+                // backing catalog is unavailable. Close it and use the
+                // UI-test-only field rather than pretending a selection was
+                // made.
+                let doneButton = app.buttons["currencyDoneButton"]
+                if doneButton.waitForExistence(timeout: 2) {
+                    tapForce(doneButton)
+                } else {
+                    let cancelButton = app.buttons["currencyCancelButton"]
+                    if cancelButton.waitForExistence(timeout: 2) {
+                        tapForce(cancelButton)
+                    }
+                }
             }
-            return true
         }
 
-        return false
+        let overrideField = app.textFields[overrideId]
+        guard overrideField.waitForExistence(timeout: 2) else { return false }
+        tapForce(overrideField)
+        clearTextField(overrideField)
+        overrideField.typeText(symbol)
+        return true
     }
 
     private func launchApp(extraArguments: [String] = []) {
@@ -620,5 +807,31 @@ final class CryptoSavingsTrackerUITests: XCTestCase {
         if currentValue.isEmpty { return }
         let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentValue.count)
         element.typeText(deleteString)
+    }
+
+    private func acquireKeyboardFocus(_ element: XCUIElement) -> Bool {
+        let hasFocus = NSPredicate(format: "hasKeyboardFocus == true")
+        if hasFocus.evaluate(with: element) {
+            return true
+        }
+
+        for attempt in 0..<3 {
+            switch attempt {
+            case 0:
+                element.tap()
+            case 1:
+                element.doubleTap()
+            default:
+                element.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)
+                ).tap()
+            }
+
+            let focused = XCTNSPredicateExpectation(predicate: hasFocus, object: element)
+            if XCTWaiter.wait(for: [focused], timeout: 1) == .completed {
+                return true
+            }
+        }
+        return false
     }
 }

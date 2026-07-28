@@ -30,7 +30,7 @@ interface ExecutionRecordDao {
     @Query("SELECT * FROM monthly_execution_records WHERE status = 'executing' ORDER BY month_label DESC LIMIT 1")
     fun getCurrentExecutingRecord(): Flow<MonthlyExecutionRecordEntity?>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(record: MonthlyExecutionRecordEntity)
 
     @Update
@@ -48,8 +48,11 @@ interface ExecutionRecordDao {
     @Query("UPDATE monthly_execution_records SET status = 'closed', closed_at_utc_millis = :closedAt, can_undo_until_utc_millis = :canUndoUntil, last_modified_at_utc_millis = :modifiedAt WHERE id = :id")
     suspend fun closeRecord(id: String, closedAt: Long, canUndoUntil: Long?, modifiedAt: Long)
 
-    @Query("UPDATE monthly_execution_records SET status = 'draft', started_at_utc_millis = NULL, closed_at_utc_millis = NULL, can_undo_until_utc_millis = NULL, last_modified_at_utc_millis = :modifiedAt WHERE id = :id")
+    @Query("UPDATE monthly_execution_records SET status = 'draft', started_at_utc_millis = NULL, closed_at_utc_millis = NULL, can_undo_until_utc_millis = NULL, legacy_rate_snapshot_pending = 0, last_modified_at_utc_millis = :modifiedAt WHERE id = :id")
     suspend fun revertToDraft(id: String, modifiedAt: Long)
+
+    @Query("UPDATE monthly_execution_records SET legacy_rate_snapshot_pending = 0, last_modified_at_utc_millis = :modifiedAt WHERE id = :id")
+    suspend fun clearLegacyRateSnapshotPending(id: String, modifiedAt: Long)
 
     @Query("UPDATE monthly_execution_records SET can_undo_until_utc_millis = :canUndoUntil, last_modified_at_utc_millis = :modifiedAt WHERE id = :id")
     suspend fun updateCanUndoUntil(id: String, canUndoUntil: Long, modifiedAt: Long)

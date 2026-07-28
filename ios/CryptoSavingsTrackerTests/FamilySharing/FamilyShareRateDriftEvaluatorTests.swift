@@ -118,4 +118,296 @@ final class FamilyShareRateDriftEvaluatorTests: XCTestCase {
         let isEmpty = await recorder.isEmpty()
         XCTAssertTrue(isEmpty)
     }
+
+    func testIncompleteRateSnapshotDoesNotEmitFalseDrift() async {
+        let source = TestRateRefreshSource()
+        let goalID = UUID()
+        let evaluator = FamilyShareRateDriftEvaluator(
+            rateRefreshSource: source,
+            rollout: .shared
+        )
+        let input = GoalProgressInput(
+            goalID: goalID,
+            currency: "USD",
+            targetAmount: 1_000,
+            allocations: [
+                AllocationInput(assetCurrency: "BTC", allocatedAmount: 1)
+            ]
+        )
+        let recorder = DirtyReasonRecorder()
+        await evaluator.start(goalInputs: [input], lastPublished: [goalID: 400], handler: { reason in
+            Task { await recorder.append(reason) }
+        })
+
+        source.emit(
+            RateRefreshEvent(
+                refreshedPairs: [CurrencyPair(from: "ETH", to: "USD").canonicalKey],
+                rateSnapshotTimestamp: Date(),
+                rates: [CurrencyPair(from: "ETH", to: "USD").canonicalKey: 2_000]
+            )
+        )
+        await flushAsyncWork()
+
+        let isEmpty = await recorder.isEmpty()
+        XCTAssertTrue(isEmpty)
+    }
+
+    func testPartialRefreshMergesWithPreviouslyObservedRatesBeforeEvaluatingDrift() async {
+        let source = TestRateRefreshSource()
+        let goalID = UUID()
+        let evaluator = FamilyShareRateDriftEvaluator(
+            rateRefreshSource: source,
+            rollout: .shared
+        )
+        let input = GoalProgressInput(
+            goalID: goalID,
+            currency: "USD",
+            targetAmount: 10_000,
+            allocations: [
+                AllocationInput(assetCurrency: "BTC", allocatedAmount: 1),
+                AllocationInput(assetCurrency: "ETH", allocatedAmount: 1)
+            ]
+        )
+        let recorder = DirtyReasonRecorder()
+        let dirtyEventExpectation = expectation(
+            description: "Cumulative rate snapshot emits material drift"
+        )
+        await evaluator.start(
+            goalInputs: [input],
+            lastPublished: [goalID: 12_000],
+            handler: { reason in
+                Task {
+                    await recorder.append(reason)
+                    dirtyEventExpectation.fulfill()
+                }
+            }
+        )
+
+        source.emit(
+            RateRefreshEvent(
+                refreshedPairs: [CurrencyPair(from: "ETH", to: "USD").canonicalKey],
+                rateSnapshotTimestamp: Date(),
+                rates: [CurrencyPair(from: "ETH", to: "USD").canonicalKey: 2_000]
+            )
+        )
+        await flushAsyncWork()
+        let isEmptyAfterPartialSnapshot = await recorder.isEmpty()
+        XCTAssertTrue(isEmptyAfterPartialSnapshot)
+
+        source.emit(
+            RateRefreshEvent(
+                refreshedPairs: [CurrencyPair(from: "BTC", to: "USD").canonicalKey],
+                rateSnapshotTimestamp: Date(),
+                rates: [CurrencyPair(from: "BTC", to: "USD").canonicalKey: 11_000]
+            )
+        )
+        await fulfillment(of: [dirtyEventExpectation], timeout: 1)
+
+        guard case .rateDrift(let goalIDs)? = await recorder.first() else {
+            return XCTFail("Expected cumulative rates to produce a material drift event")
+        }
+        XCTAssertEqual(goalIDs, [goalID])
+    }
+
+    func testProjectionSnapshotSeedsRatesForLaterPartialRefresh() async {
+        let source = TestRateRefreshSource()
+        let goalID = UUID()
+        let evaluator = FamilyShareRateDriftEvaluator(
+            rateRefreshSource: source,
+            rollout: .shared
+        )
+        let input = GoalProgressInput(
+            goalID: goalID,
+            currency: "USD",
+            targetAmount: 10_000,
+            allocations: [
+                AllocationInput(assetCurrency: "BTC", allocatedAmount: 1),
+                AllocationInput(assetCurrency: "ETH", allocatedAmount: 1)
+            ]
+        )
+        let recorder = DirtyReasonRecorder()
+        await evaluator.start(
+            goalInputs: [input],
+            lastPublished: [goalID: 12_000],
+            handler: { reason in
+                Task { await recorder.append(reason) }
+            }
+        )
+        await evaluator.updateTrackedGoals(
+            [input],
+            lastPublished: [goalID: 12_000],
+            rateSnapshot: RateSnapshot(
+                rates: [
+                    CurrencyPair(from: "BTC", to: "USD").canonicalKey: 10_000,
+                    CurrencyPair(from: "ETH", to: "USD").canonicalKey: 2_000
+                ],
+                timestamp: Date()
+            )
+        )
+
+        source.emit(
+            RateRefreshEvent(
+                refreshedPairs: [CurrencyPair(from: "BTC", to: "USD").canonicalKey],
+                rateSnapshotTimestamp: Date(),
+                rates: [CurrencyPair(from: "BTC", to: "USD").canonicalKey: 11_000]
+            )
+        )
+        for _ in 0..<50 {
+            if await recorder.first() != nil {
+                break
+            }
+            await flushAsyncWork(iterations: 2)
+        }
+
+        guard case .rateDrift(let goalIDs)? = await recorder.first() else {
+            return XCTFail("Expected the seeded projection rates to complete the partial refresh")
+        }
+        XCTAssertEqual(goalIDs, [goalID])
+    }
+
+    func testMergedUsdMaterialityRatePreventsFalseDriftOnPartialEvent() async {
+        let source = TestRateRefreshSource()
+        let goalID = UUID()
+        let evaluator = FamilyShareRateDriftEvaluator(
+            rateRefreshSource: source,
+            rollout: .shared
+        )
+        let input = GoalProgressInput(
+            goalID: goalID,
+            currency: "EUR",
+            targetAmount: 100,
+            allocations: [
+                AllocationInput(assetCurrency: "BTC", allocatedAmount: 1)
+            ]
+        )
+        let recorder = DirtyReasonRecorder()
+        await evaluator.start(
+            goalInputs: [input],
+            lastPublished: [goalID: 100],
+            handler: { reason in
+                Task { await recorder.append(reason) }
+            }
+        )
+
+        source.emit(
+            RateRefreshEvent(
+                refreshedPairs: [CurrencyPair(from: "USD", to: "EUR").canonicalKey],
+                rateSnapshotTimestamp: Date(),
+                rates: [CurrencyPair(from: "USD", to: "EUR").canonicalKey: 2]
+            )
+        )
+        await flushAsyncWork()
+        source.emit(
+            RateRefreshEvent(
+                refreshedPairs: [CurrencyPair(from: "BTC", to: "EUR").canonicalKey],
+                rateSnapshotTimestamp: Date(),
+                rates: [CurrencyPair(from: "BTC", to: "EUR").canonicalKey: 106]
+            )
+        )
+        await flushAsyncWork()
+
+        let isEmpty = await recorder.isEmpty()
+        XCTAssertTrue(isEmpty)
+    }
+
+    func testRemovingAllTrackedGoalsClearsRatesBeforeRetracking() async {
+        let source = TestRateRefreshSource()
+        let goalID = UUID()
+        let evaluator = FamilyShareRateDriftEvaluator(
+            rateRefreshSource: source,
+            rollout: .shared
+        )
+        let input = GoalProgressInput(
+            goalID: goalID,
+            currency: "USD",
+            targetAmount: 10_000,
+            allocations: [
+                AllocationInput(assetCurrency: "BTC", allocatedAmount: 1),
+                AllocationInput(assetCurrency: "ETH", allocatedAmount: 1)
+            ]
+        )
+        let recorder = DirtyReasonRecorder()
+        await evaluator.start(
+            goalInputs: [input],
+            lastPublished: [goalID: 12_000],
+            initialRateSnapshot: RateSnapshot(
+                rates: [
+                    CurrencyPair(from: "BTC", to: "USD").canonicalKey: 10_000,
+                    CurrencyPair(from: "ETH", to: "USD").canonicalKey: 2_000
+                ],
+                timestamp: Date()
+            ),
+            handler: { reason in
+                Task { await recorder.append(reason) }
+            }
+        )
+        await evaluator.updateTrackedGoals([], lastPublished: [:])
+        await evaluator.updateTrackedGoals([input], lastPublished: [goalID: 12_000])
+
+        source.emit(
+            RateRefreshEvent(
+                refreshedPairs: [CurrencyPair(from: "BTC", to: "USD").canonicalKey],
+                rateSnapshotTimestamp: Date(),
+                rates: [CurrencyPair(from: "BTC", to: "USD").canonicalKey: 11_000]
+            )
+        )
+        await flushAsyncWork()
+
+        let isEmpty = await recorder.isEmpty()
+        XCTAssertTrue(isEmpty)
+    }
+
+    func testTeardownClearsRatesBeforeRestart() async {
+        let source = TestRateRefreshSource()
+        let goalID = UUID()
+        let evaluator = FamilyShareRateDriftEvaluator(
+            rateRefreshSource: source,
+            rollout: .shared
+        )
+        let input = GoalProgressInput(
+            goalID: goalID,
+            currency: "USD",
+            targetAmount: 10_000,
+            allocations: [
+                AllocationInput(assetCurrency: "BTC", allocatedAmount: 1),
+                AllocationInput(assetCurrency: "ETH", allocatedAmount: 1)
+            ]
+        )
+        let firstRecorder = DirtyReasonRecorder()
+        await evaluator.start(
+            goalInputs: [input],
+            lastPublished: [goalID: 12_000],
+            initialRateSnapshot: RateSnapshot(
+                rates: [
+                    CurrencyPair(from: "BTC", to: "USD").canonicalKey: 10_000,
+                    CurrencyPair(from: "ETH", to: "USD").canonicalKey: 2_000
+                ],
+                timestamp: Date()
+            ),
+            handler: { reason in
+                Task { await firstRecorder.append(reason) }
+            }
+        )
+        await evaluator.teardown()
+
+        let restartRecorder = DirtyReasonRecorder()
+        await evaluator.start(
+            goalInputs: [input],
+            lastPublished: [goalID: 12_000],
+            handler: { reason in
+                Task { await restartRecorder.append(reason) }
+            }
+        )
+        source.emit(
+            RateRefreshEvent(
+                refreshedPairs: [CurrencyPair(from: "BTC", to: "USD").canonicalKey],
+                rateSnapshotTimestamp: Date(),
+                rates: [CurrencyPair(from: "BTC", to: "USD").canonicalKey: 11_000]
+            )
+        )
+        await flushAsyncWork()
+
+        let isEmpty = await restartRecorder.isEmpty()
+        XCTAssertTrue(isEmpty)
+    }
 }

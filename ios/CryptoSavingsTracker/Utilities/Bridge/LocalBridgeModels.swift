@@ -217,10 +217,10 @@ struct BridgeCapabilityManifest: Codable, Equatable, Sendable {
         let build = (bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "unknown"
         return Self(
             bridgeProtocolVersion: 1,
-            minimumSupportedCanonicalEncodingVersion: "bridge-snapshot-v1",
-            maximumSupportedCanonicalEncodingVersion: "bridge-snapshot-v1",
-            minimumSupportedSnapshotSchemaVersion: 1,
-            maximumSupportedSnapshotSchemaVersion: 1,
+            minimumSupportedCanonicalEncodingVersion: "bridge-snapshot-v2",
+            maximumSupportedCanonicalEncodingVersion: "bridge-snapshot-v2",
+            minimumSupportedSnapshotSchemaVersion: 2,
+            maximumSupportedSnapshotSchemaVersion: 2,
             appModelSchemaVersion: "cloudkit-model-v1",
             appBuild: build
         )
@@ -488,6 +488,8 @@ struct BridgeAllocationHistorySnapshot: Codable, Equatable, Sendable {
     let timestamp: Date
     let createdAt: Date
     let monthLabel: String
+    let sourceTransactionId: UUID?
+    let sourcePreviousAmount: Double?
 
     init(
         id: UUID,
@@ -497,7 +499,9 @@ struct BridgeAllocationHistorySnapshot: Codable, Equatable, Sendable {
         amount: Double,
         timestamp: Date,
         createdAt: Date,
-        monthLabel: String
+        monthLabel: String,
+        sourceTransactionId: UUID? = nil,
+        sourcePreviousAmount: Double? = nil
     ) {
         self.id = id
         self.recordState = recordState
@@ -507,6 +511,68 @@ struct BridgeAllocationHistorySnapshot: Codable, Equatable, Sendable {
         self.timestamp = timestamp
         self.createdAt = createdAt
         self.monthLabel = monthLabel
+        self.sourceTransactionId = sourceTransactionId
+        self.sourcePreviousAmount = sourcePreviousAmount
+    }
+}
+
+enum BridgeAllocationHistoryProvenanceValidator {
+    static func issues(
+        histories: [BridgeAllocationHistorySnapshot],
+        transactions: [BridgeTransactionSnapshot]
+    ) -> [String] {
+        let activeTransactionsByID = Dictionary(
+            grouping: transactions.filter { $0.recordState == .active },
+            by: \.id
+        )
+        var issues: [String] = []
+
+        for history in histories where history.recordState == .active {
+            if let previousAmount = history.sourcePreviousAmount {
+                if history.sourceTransactionId == nil {
+                    issues.append(
+                        "AllocationHistory \(history.id.uuidString) has sourcePreviousAmount without sourceTransactionId."
+                    )
+                }
+                if !previousAmount.isFinite || previousAmount < 0 {
+                    issues.append(
+                        "AllocationHistory \(history.id.uuidString) has invalid sourcePreviousAmount."
+                    )
+                }
+            }
+
+            guard let sourceTransactionID = history.sourceTransactionId else {
+                continue
+            }
+            let matchingTransactions = activeTransactionsByID[sourceTransactionID] ?? []
+            guard let sourceTransaction = matchingTransactions.first else {
+                issues.append(
+                    "AllocationHistory \(history.id.uuidString) references missing source transaction "
+                        + "\(sourceTransactionID.uuidString)."
+                )
+                continue
+            }
+            if matchingTransactions.count > 1 {
+                issues.append(
+                    "AllocationHistory \(history.id.uuidString) references ambiguous source transaction "
+                        + "\(sourceTransactionID.uuidString)."
+                )
+                continue
+            }
+            guard let historyAssetID = history.assetId else {
+                issues.append(
+                    "AllocationHistory \(history.id.uuidString) has sourceTransactionId but no assetId."
+                )
+                continue
+            }
+            if sourceTransaction.assetId != historyAssetID {
+                issues.append(
+                    "AllocationHistory \(history.id.uuidString) references a source transaction from another asset."
+                )
+            }
+        }
+
+        return issues.sorted()
     }
 }
 

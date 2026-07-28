@@ -13,6 +13,7 @@ import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.allocation.DeleteAllocationUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.allocation.UpdateAllocationUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.balance.AssetBalanceCompletenessResolver
 import com.xax.CryptoSavingsTracker.presentation.common.AmountFormatters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,8 +28,9 @@ data class EditAllocationUiState(
     val goal: Goal? = null,
     val allocation: Allocation? = null,
     val asset: Asset? = null,
-    val assetBalance: Double = 0.0,
-    val availableBalance: Double = 0.0,
+    val assetBalance: Double? = null,
+    val availableBalance: Double? = null,
+    val balanceIssue: String? = null,
     val amount: String = "",
     val amountError: String? = null,
     val isLoading: Boolean = true,
@@ -74,17 +76,24 @@ class EditAllocationViewModel @Inject constructor(
 
                 val asset = assetRepository.getAssetById(allocation.assetId)
                 val manualBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
-                val onChainBalance = runCatching {
-                    if (asset != null && !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()) {
-                        onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0
+                val balance = asset?.let {
+                    AssetBalanceCompletenessResolver.resolve(
+                        asset = it,
+                        manualBalance = manualBalance,
+                        repository = onChainBalanceRepository,
+                        forceRefresh = false
+                    )
+                }
+                val assetBalance = balance?.totalBalanceOrNull
+                val balanceIssue = balance?.issueOrNull
+                    ?: if (asset == null) {
+                        "Asset is unavailable. Restore the asset and retry."
                     } else {
-                        0.0
+                        null
                     }
-                }.getOrElse { 0.0 }
-                val assetBalance = manualBalance + onChainBalance
                 val otherAllocations = allocationRepository.getAllocationsForAsset(allocation.assetId)
                     .filter { it.id != allocation.id }
-                val availableBalance = assetBalance - otherAllocations.sumOf { it.amount }
+                val availableBalance = assetBalance?.minus(otherAllocations.sumOf { it.amount })
 
                 _uiState.update {
                     it.copy(
@@ -92,7 +101,8 @@ class EditAllocationViewModel @Inject constructor(
                         allocation = allocation,
                         asset = asset,
                         assetBalance = assetBalance,
-                        availableBalance = max(0.0, availableBalance),
+                        availableBalance = availableBalance?.let { max(0.0, it) },
+                        balanceIssue = balanceIssue,
                         amount = AmountFormatters.formatInputAmount(allocation.amount, isCrypto = asset?.isCryptoAsset == true),
                         isLoading = false
                     )
@@ -110,7 +120,15 @@ class EditAllocationViewModel @Inject constructor(
     }
 
     fun setMaxAmount() {
-        val maxAmount = _uiState.value.availableBalance
+        val maxAmount = _uiState.value.availableBalance ?: run {
+            _uiState.update {
+                it.copy(
+                    amountError = it.balanceIssue
+                        ?: "Asset balance is unavailable. Refresh the wallet balance and retry."
+                )
+            }
+            return
+        }
         val isCrypto = _uiState.value.asset?.isCryptoAsset == true
         _uiState.update { it.copy(amount = AmountFormatters.formatInputAmount(maxAmount, isCrypto = isCrypto), amountError = null) }
     }
@@ -122,11 +140,21 @@ class EditAllocationViewModel @Inject constructor(
             _uiState.update { it.copy(amountError = "Please enter a valid amount") }
             return
         }
-        if (amountValue > _uiState.value.availableBalance + 0.0000001) {
+        val availableBalance = _uiState.value.availableBalance
+        if (availableBalance == null) {
+            _uiState.update {
+                it.copy(
+                    amountError = it.balanceIssue
+                        ?: "Asset balance is unavailable. Refresh the wallet balance and retry."
+                )
+            }
+            return
+        }
+        if (amountValue > availableBalance + 0.0000001) {
             val isCrypto = _uiState.value.asset?.isCryptoAsset == true
             _uiState.update {
                 it.copy(
-                    amountError = "Amount exceeds available balance (${AmountFormatters.formatDisplayAmount(it.availableBalance, isCrypto = isCrypto)})"
+                    amountError = "Amount exceeds available balance (${AmountFormatters.formatDisplayAmount(availableBalance, isCrypto = isCrypto)})"
                 )
             }
             return

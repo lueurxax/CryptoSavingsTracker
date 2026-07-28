@@ -67,6 +67,7 @@ struct BudgetCalculatorSheet: View {
                             dismiss()
                         }
                     }
+                    .disabled(isApplying)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
@@ -125,11 +126,14 @@ struct BudgetCalculatorSheet: View {
             initialBudgetFingerprint = fingerprint(amount: parsedBudget, currency: currency)
         }
         .onChange(of: budgetText) { _, _ in
+            viewModel.invalidateBudgetPreviewForInputChange()
+            lastSubmittedMinorValue = nil
             Task {
                 await refreshPreview()
             }
         }
         .onChange(of: currency) { _, _ in
+            viewModel.invalidateBudgetPreviewForInputChange()
             lastSubmittedMinorValue = nil
             lastSubmittedCurrency = currency.uppercased()
             Task {
@@ -146,7 +150,7 @@ struct BudgetCalculatorSheet: View {
                 ProgressView(viewModel.isBudgetPreviewLoading ? "Calculating..." : "Applying...")
             }
         }
-        .interactiveDismissDisabled(isDirty)
+        .interactiveDismissDisabled(isDirty || isApplying)
         // NAV-MOD: MOD-02
         .confirmationDialog(
             "Discard Budget Changes?",
@@ -215,14 +219,16 @@ struct BudgetCalculatorSheet: View {
     }
 
     private var isSnapshotCurrent: Bool {
-        guard let parsedBudget, let snapshot = viewModel.budgetComputationResult else { return false }
-        return MoneyQuantizer.compare(parsedBudget, snapshot.enteredBudgetCanonical) == .orderedSame
+        guard let parsedBudget else { return false }
+        return viewModel.isBudgetSnapshotCurrent(for: parsedBudget)
     }
 
     private var canApply: Bool {
         guard let parsedBudget else { return false }
         guard let snapshot = viewModel.budgetComputationResult, snapshot.state == .readyFeasible else { return false }
         guard isSnapshotCurrent else { return false }
+        guard parsedBudget.currency == snapshot.minimumRequiredCanonical.currency else { return false }
+        guard viewModel.isBudgetSnapshotFresh else { return false }
         guard MoneyQuantizer.compare(parsedBudget, snapshot.minimumRequiredCanonical) != .orderedAscending else { return false }
         return viewModel.budgetPreviewPlan != nil && !viewModel.isBudgetPreviewLoading && !isApplying
     }
@@ -252,6 +258,7 @@ struct BudgetCalculatorSheet: View {
                 .accessibilityLabel("Budget currency")
                 .accessibilityHint("Double tap to choose the currency used for this monthly budget plan.")
                 .accessibilityValue(currency.uppercased())
+                .disabled(isApplying)
 
                 budgetAmountField
 
@@ -282,6 +289,7 @@ struct BudgetCalculatorSheet: View {
             .accessibilityLabel("Monthly budget amount")
             .accessibilityHint("Enter the amount you can save each month for active goals.")
             .accessibilityValue(budgetAmountAccessibilityValue)
+            .disabled(isApplying)
     }
 
     private var feasibilitySection: some View {
@@ -582,7 +590,11 @@ struct BudgetCalculatorSheet: View {
 
         lastSubmittedMinorValue = minorValue
         lastSubmittedCurrency = currency.uppercased()
-        await viewModel.previewBudget(amount: amount, currency: currency)
+        await viewModel.previewBudget(
+            amount: amount,
+            currency: currency,
+            forceRateRefresh: force
+        )
     }
 
     private func applyBudget() {

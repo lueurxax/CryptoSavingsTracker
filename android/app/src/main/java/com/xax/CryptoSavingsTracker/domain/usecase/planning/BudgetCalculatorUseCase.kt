@@ -12,6 +12,7 @@ import com.xax.CryptoSavingsTracker.domain.model.ScheduledGoalBlock
 import com.xax.CryptoSavingsTracker.domain.model.ScheduledPayment
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.GetGoalProgressUseCase
+import com.xax.CryptoSavingsTracker.domain.util.PlanningCalendarUtc
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,9 +32,7 @@ class BudgetCalculatorUseCase @Inject constructor(
     private val settings: MonthlyPlanningSettings
 ) {
     private var cachedPlan: BudgetCalculatorPlan? = null
-    private var cacheGoalIds: Set<String> = emptySet()
-    private var cacheBudget: Double = 0.0
-    private var cacheCurrency: String = ""
+    private var cacheInputFingerprint: ScheduleInputFingerprint? = null
     private var lastCacheUpdate: Long = 0
     private val cacheExpiration: Long = 300_000
 
@@ -58,7 +57,7 @@ class BudgetCalculatorUseCase @Inject constructor(
             if (remaining <= 0.0) continue
             cumulativeRemaining += remaining
 
-            val months = max(1, calculateMonthsRemaining(LocalDate.now(), goal.deadline))
+            val months = calculateMonthsRemaining(PlanningCalendarUtc.today(), goal.deadline)
             val required = cumulativeRemaining / months.toDouble()
             maxRequired = max(maxRequired, required)
         }
@@ -67,6 +66,9 @@ class BudgetCalculatorUseCase @Inject constructor(
     }
 
     suspend fun checkFeasibility(goals: List<Goal>, budget: Double, currency: String): FeasibilityResult {
+        require(budget.isFinite() && budget >= 0.0) {
+            "Budget amount is invalid"
+        }
         if (goals.isEmpty()) return FeasibilityResult.EMPTY
 
         val minimumRequired = calculateMinimumBudget(goals, currency)
@@ -95,7 +97,7 @@ class BudgetCalculatorUseCase @Inject constructor(
                 if (remaining <= 0.0) continue
                 cumulativeRemaining += remaining
 
-                val months = max(1, calculateMonthsRemaining(LocalDate.now(), goal.deadline))
+                val months = calculateMonthsRemaining(PlanningCalendarUtc.today(), goal.deadline)
                 val required = cumulativeRemaining / months.toDouble()
 
                 if (required > budget) {
@@ -165,17 +167,11 @@ class BudgetCalculatorUseCase @Inject constructor(
     }
 
     suspend fun generateSchedule(goals: List<Goal>, budget: Double, currency: String): BudgetCalculatorPlan {
-        val goalIds = goals.map { it.id }.toSet()
-        val now = System.currentTimeMillis()
-        if (cachedPlan != null &&
-            cacheGoalIds == goalIds &&
-            abs(cacheBudget - budget) < 0.01 &&
-            cacheCurrency.equals(currency, ignoreCase = true) &&
-            now - lastCacheUpdate < cacheExpiration
-        ) {
-            return cachedPlan!!
+        require(budget.isFinite() && budget >= 0.0) {
+            "Budget amount is invalid"
         }
-
+        val planningDate = PlanningCalendarUtc.today()
+        val paymentDay = settings.paymentDay
         val activeGoals = goals
             .filter { it.lifecycleStatus == GoalLifecycleStatus.ACTIVE }
             .sortedBy { it.deadline }
@@ -198,12 +194,49 @@ class BudgetCalculatorUseCase @Inject constructor(
             if (!goal.currency.equals(currency, ignoreCase = true)) {
                 remaining = convertAmount(remaining, goal.currency, currency)
             }
+            check(remaining.isFinite() && remaining >= 0.0) {
+                "Goal ${goal.name} remaining amount is invalid"
+            }
             goalRemaining[goal.id] = remaining
             goalNames[goal.id] = goal.name
         }
 
+        val inputFingerprint = ScheduleInputFingerprint(
+            budgetBits = budget.toBits(),
+            currency = currency.trim().uppercase(),
+            planningDate = planningDate,
+            paymentDay = paymentDay,
+            goals = activeGoals.map { goal ->
+                ScheduleGoalFingerprint(
+                    id = goal.id,
+                    name = goal.name,
+                    currency = goal.currency.trim().uppercase(),
+                    targetAmountBits = goal.targetAmount.toBits(),
+                    deadline = goal.deadline,
+                    startDate = goal.startDate,
+                    lifecycleStatus = goal.lifecycleStatus,
+                    convertedRemainingBits = checkNotNull(goalRemaining[goal.id]).toBits()
+                )
+            }
+        )
+        val now = System.currentTimeMillis()
+        val cachedPlanSnapshot = cachedPlan
+        if (
+            cachedPlanSnapshot != null &&
+            cacheInputFingerprint == inputFingerprint &&
+            now >= lastCacheUpdate &&
+            now - lastCacheUpdate < cacheExpiration
+        ) {
+            return cachedPlanSnapshot
+        }
+
         if (budget <= 0.0) {
-            val minimumRequired = calculateMinimumBudget(goals, currency)
+            val minimumRequired = calculateMinimumBudgetFromSnapshot(
+                activeGoals = activeGoals,
+                remainingByGoal = goalRemaining,
+                planningDate = planningDate,
+                paymentDay = paymentDay
+            )
             return BudgetCalculatorPlan(
                 monthlyBudget = budget,
                 currency = currency,
@@ -216,7 +249,10 @@ class BudgetCalculatorUseCase @Inject constructor(
 
         val payments = mutableListOf<ScheduledPayment>()
         var paymentNumber = 1
-        var paymentDate = nextPaymentDate()
+        var paymentDate = PlanningCalendarUtc.nextPaymentDate(
+            today = planningDate,
+            paymentDay = paymentDay
+        )
         val goalRunningTotals = activeGoals.associate { it.id to 0.0 }.toMutableMap()
         val remainingByGoal = goalRemaining.toMutableMap()
 
@@ -271,7 +307,12 @@ class BudgetCalculatorUseCase @Inject constructor(
             paymentDate = paymentDate.plusMonths(1)
         }
 
-        val minimumRequired = calculateMinimumBudget(goals, currency)
+        val minimumRequired = calculateMinimumBudgetFromSnapshot(
+            activeGoals = activeGoals,
+            remainingByGoal = goalRemaining,
+            planningDate = planningDate,
+            paymentDay = paymentDay
+        )
         val plan = BudgetCalculatorPlan(
             monthlyBudget = budget,
             currency = currency,
@@ -282,9 +323,7 @@ class BudgetCalculatorUseCase @Inject constructor(
         )
 
         cachedPlan = plan
-        cacheGoalIds = goalIds
-        cacheBudget = budget
-        cacheCurrency = currency
+        cacheInputFingerprint = inputFingerprint
         lastCacheUpdate = System.currentTimeMillis()
 
         return plan
@@ -338,6 +377,49 @@ class BudgetCalculatorUseCase @Inject constructor(
             }
     }
 
+    private fun calculateMinimumBudgetFromSnapshot(
+        activeGoals: List<Goal>,
+        remainingByGoal: Map<String, Double>,
+        planningDate: LocalDate,
+        paymentDay: Int
+    ): Double {
+        var cumulativeRemaining = 0.0
+        var maxRequired = 0.0
+
+        for (goal in activeGoals) {
+            val remaining = checkNotNull(remainingByGoal[goal.id])
+            if (remaining <= 0.0) continue
+            cumulativeRemaining += remaining
+            val months = PlanningCalendarUtc.paymentPeriodsRemaining(
+                startDate = planningDate,
+                endDate = goal.deadline,
+                paymentDay = paymentDay
+            )
+            maxRequired = max(maxRequired, cumulativeRemaining / months.toDouble())
+        }
+
+        return maxRequired
+    }
+
+    private data class ScheduleInputFingerprint(
+        val budgetBits: Long,
+        val currency: String,
+        val planningDate: LocalDate,
+        val paymentDay: Int,
+        val goals: List<ScheduleGoalFingerprint>
+    )
+
+    private data class ScheduleGoalFingerprint(
+        val id: String,
+        val name: String,
+        val currency: String,
+        val targetAmountBits: Long,
+        val deadline: LocalDate,
+        val startDate: LocalDate,
+        val lifecycleStatus: GoalLifecycleStatus,
+        val convertedRemainingBits: Long
+    )
+
     private data class TimelineSummary(
         val goalName: String,
         val startPayment: Int,
@@ -350,41 +432,42 @@ class BudgetCalculatorUseCase @Inject constructor(
 
     private suspend fun calculateRemaining(goal: Goal): Double {
         val progress = getGoalProgressUseCase.getProgress(goal.id)
-        val fundedAmount = progress?.fundedAmount ?: 0.0
+            ?: throw IllegalStateException("Goal ${goal.name} is unavailable.")
+        val fundedAmount = progress.fundedAmount
+            ?: throw IllegalStateException(
+                progress.financialDataIssue
+                    ?: "Goal ${goal.name} financial progress is unavailable. Refresh balances and retry."
+            )
         return max(0.0, goal.targetAmount - fundedAmount)
     }
 
     private suspend fun convertAmount(amount: Double, from: String, to: String): Double {
+        check(amount.isFinite() && amount >= 0.0) {
+            "Budget conversion amount is invalid"
+        }
         return if (from.equals(to, ignoreCase = true)) {
             amount
         } else {
             val rate = exchangeRateRepository.fetchRate(from, to)
-            amount * rate
+            check(rate.isFinite() && rate > 0.0) {
+                "Exchange rate $from → $to is invalid"
+            }
+            val converted = amount * rate
+            check(
+                converted.isFinite() &&
+                    (amount == 0.0 || converted > 0.0)
+            ) {
+                "Budget conversion $from → $to is invalid"
+            }
+            converted
         }
     }
 
     private fun calculateMonthsRemaining(startDate: LocalDate, endDate: LocalDate): Int {
-        val paymentDay = settings.paymentDay
-        var paymentDate = LocalDate.of(startDate.year, startDate.month, paymentDay)
-        if (!paymentDate.isAfter(startDate)) {
-            paymentDate = paymentDate.plusMonths(1)
-        }
-
-        var count = 0
-        while (paymentDate.isBefore(endDate)) {
-            count += 1
-            paymentDate = paymentDate.plusMonths(1)
-        }
-        return max(1, count)
-    }
-
-    private fun nextPaymentDate(): LocalDate {
-        val today = LocalDate.now()
-        val paymentDay = settings.paymentDay
-        var paymentDate = LocalDate.of(today.year, today.month, paymentDay)
-        if (!paymentDate.isAfter(today)) {
-            paymentDate = paymentDate.plusMonths(1)
-        }
-        return paymentDate
+        return PlanningCalendarUtc.paymentPeriodsRemaining(
+            startDate = startDate,
+            endDate = endDate,
+            paymentDay = settings.paymentDay
+        )
     }
 }

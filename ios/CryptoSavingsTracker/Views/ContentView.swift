@@ -96,7 +96,9 @@ struct iOSContentView: View {
 
     var body: some View {
         TabView(selection: $shellState.selectedRootSurface) {
-            DashboardView()
+            NavigationStack {
+                DashboardView()
+            }
             .tabItem {
                 Label(AppleRootSurface.dashboard.title, systemImage: AppleRootSurface.dashboard.systemImage)
             }
@@ -109,7 +111,9 @@ struct iOSContentView: View {
                 .tag(AppleRootSurface.goals)
 
             if HiddenRuntimeMode.current.allowsMonthlyPlanning {
-                MonthlyPlanningContainer()
+                NavigationStack {
+                    MonthlyPlanningContainer()
+                }
                     .tabItem {
                         Label(
                             AppleRootSurface.monthlyPlanning.title,

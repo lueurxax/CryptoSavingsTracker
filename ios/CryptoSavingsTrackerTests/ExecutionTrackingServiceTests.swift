@@ -113,7 +113,7 @@ struct ExecutionTrackingServiceTests {
         #expect(totals.keys.count == 2, "Both goals should appear in execution totals")
     }
 
-    @Test("Start tracking does not duplicate AllocationHistory baseline")
+    @Test("Repeated Start is rejected without duplicating AllocationHistory baseline")
     func testStartTrackingDoesNotDuplicateAllocationHistoryBaseline() async throws {
         let context = modelContainer.mainContext
 
@@ -140,13 +140,23 @@ struct ExecutionTrackingServiceTests {
         context.insert(plan)
         try context.save()
 
-        _ = try executionService.startTracking(for: monthLabel, from: [plan], goals: [goal])
+        _ = try executionService.startTracking(
+            for: monthLabel,
+            from: [plan],
+            goals: [goal]
+        )
         try context.save()
 
         var histories = try context.fetch(FetchDescriptor<AllocationHistory>())
         #expect(histories.count == 1)
 
-        _ = try executionService.startTracking(for: monthLabel, from: [plan], goals: [goal])
+        #expect(throws: ExecutionTrackingService.ExecutionError.self) {
+            _ = try executionService.startTracking(
+                for: monthLabel,
+                from: [plan],
+                goals: [goal]
+            )
+        }
         try context.save()
 
         histories = try context.fetch(FetchDescriptor<AllocationHistory>())

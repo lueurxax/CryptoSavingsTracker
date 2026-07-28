@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 interface CompletedExecutionRepository {
     fun getAll(): Flow<List<CompletedExecution>>
     fun getByRecordId(recordId: String): Flow<List<CompletedExecution>>
+    fun getByGoalId(goalId: String): Flow<List<CompletedExecution>>
     fun getActiveByRecordId(recordId: String): Flow<List<CompletedExecution>>
     fun getByCompletionEventId(completionEventId: String): Flow<List<CompletedExecution>>
     fun getActiveByCompletionEventId(completionEventId: String): Flow<List<CompletedExecution>>

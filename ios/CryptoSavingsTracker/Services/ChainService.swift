@@ -45,7 +45,7 @@ final class ChainService: ChainServiceProtocol {
         let chains = [
             // EVM Chains
             TatumChain(id: "ETH", name: "Ethereum", nativeCurrencySymbol: "ETH", chainType: .evm),
-            TatumChain(id: "MATIC", name: "Polygon", nativeCurrencySymbol: "MATIC", chainType: .evm),
+            TatumChain(id: "MATIC", name: "Polygon", nativeCurrencySymbol: "POL", chainType: .evm),
             TatumChain(id: "BSC", name: "Binance Smart Chain", nativeCurrencySymbol: "BNB", chainType: .evm),
             TatumChain(id: "AVAX", name: "Avalanche C-Chain", nativeCurrencySymbol: "AVAX", chainType: .evm),
             TatumChain(id: "FTM", name: "Fantom", nativeCurrencySymbol: "FTM", chainType: .evm),
@@ -87,7 +87,7 @@ final class ChainService: ChainServiceProtocol {
             return supportedChains.first { $0.id == "ETH" }
         case "BUSD", "CAKE":
             return supportedChains.first { $0.id == "BSC" }
-        case "WMATIC", "QUICK":
+        case "MATIC", "WMATIC", "QUICK":
             return supportedChains.first { $0.id == "MATIC" }
         default:
             return nil
@@ -113,9 +113,9 @@ final class ChainService: ChainServiceProtocol {
         case "BSC":
             return "bsc-mainnet"
         case "AVAX":
-            return "avalanche-c-mainnet"
-        case "FTM":
-            return "fantom-mainnet"
+            return "avax-mainnet"
+        case "CELO":
+            return "celo-mainnet"
         case "SOL":
             return "solana-mainnet"
         default:

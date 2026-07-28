@@ -2,6 +2,7 @@ package com.xax.CryptoSavingsTracker.domain.usecase.execution
 
 import com.google.common.truth.Truth.assertThat
 import com.xax.CryptoSavingsTracker.domain.model.AllocationHistory
+import com.xax.CryptoSavingsTracker.domain.model.ExecutionAssetRate
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionSnapshot
 import com.xax.CryptoSavingsTracker.domain.model.Transaction
 import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -21,6 +23,13 @@ import java.util.UUID
 class ExecutionProgressCalculatorTest {
 
     private lateinit var calculator: ExecutionProgressCalculator
+    private val usdIdentityRates = listOf(
+        ExecutionAssetRate(
+            assetId = "asset-1",
+            snapshotCurrency = "USD",
+            rate = 1.0
+        )
+    )
 
     @BeforeEach
     fun setup() {
@@ -100,6 +109,7 @@ class ExecutionProgressCalculatorTest {
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
+                assetRates = usdIdentityRates,
                 startedAtMillis = startedAt,
                 nowMillis = startedAt + 60_000
             )
@@ -119,6 +129,7 @@ class ExecutionProgressCalculatorTest {
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
+                assetRates = usdIdentityRates,
                 startedAtMillis = startedAt,
                 nowMillis = startedAt + 60_000
             )
@@ -139,12 +150,172 @@ class ExecutionProgressCalculatorTest {
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
+                assetRates = usdIdentityRates,
                 startedAtMillis = startedAt,
                 nowMillis = now
             )
 
             assertThat(result).hasSize(1)
             assertThat(result[0].contributed).isEqualTo(0.0)
+        }
+    }
+
+    @Nested
+    @DisplayName("Currency Conversion")
+    inner class CurrencyConversion {
+
+        @Test
+        fun `BTC contribution is converted to snapshot USD with the captured execution rate`() {
+            val startedAt = toMillis(2025, 12, 21, 12, 0, 0)
+            val snapshot = createSnapshot(requiredAmount = 100.0)
+            val allocation = createAllocationHistory(amount = 0.01, timestamp = startedAt - 1_000)
+            val transaction = createTransaction(amount = 0.01, dateMillis = startedAt + 60_000)
+
+            val result = calculator.calculateForSnapshots(
+                snapshots = listOf(snapshot),
+                transactions = listOf(transaction),
+                allocationHistory = listOf(allocation),
+                assetRates = listOf(
+                    ExecutionAssetRate(
+                        assetId = "asset-1",
+                        snapshotCurrency = "USD",
+                        rate = 10_000.0
+                    )
+                ),
+                startedAtMillis = startedAt,
+                nowMillis = startedAt + 120_000
+            )
+
+            assertThat(result).hasSize(1)
+            assertThat(result[0].contributed).isWithin(0.0001).of(100.0)
+            assertThat(result[0].isFulfilled).isTrue()
+        }
+
+        @Test
+        fun `missing required asset rate fails instead of silently reporting zero contribution`() {
+            val startedAt = toMillis(2025, 12, 21, 12, 0, 0)
+            val snapshot = createSnapshot(requiredAmount = 0.01)
+            val allocation = createAllocationHistory(amount = 0.01, timestamp = startedAt - 1_000)
+            val transaction = createTransaction(amount = 0.01, dateMillis = startedAt + 60_000)
+
+            val failure = assertThrows<IllegalStateException> {
+                calculator.calculateForSnapshots(
+                    snapshots = listOf(snapshot),
+                    transactions = listOf(transaction),
+                    allocationHistory = listOf(allocation),
+                    assetRates = emptyList(),
+                    startedAtMillis = startedAt,
+                    nowMillis = startedAt + 120_000
+                )
+            }
+
+            assertThat(failure).hasMessageThat().contains("Missing execution rate snapshot")
+        }
+    }
+
+    @Nested
+    @DisplayName("Shared Asset Attribution")
+    inner class SharedAssetAttribution {
+        @Test
+        fun `partial shared deposit is split by allocation targets instead of copied to every goal`() {
+            val startedAt = toMillis(2025, 12, 21, 12, 0, 0)
+            val now = startedAt + 60_000
+            val snapshots = listOf(
+                createSnapshot(goalId = "goal-a", goalName = "A"),
+                createSnapshot(goalId = "goal-b", goalName = "B")
+            )
+            val history = listOf(
+                createAllocationHistory(goalId = "goal-a", amount = 60.0, timestamp = startedAt - 1),
+                createAllocationHistory(goalId = "goal-b", amount = 40.0, timestamp = startedAt - 1)
+            )
+
+            val result = calculator.calculateForSnapshots(
+                snapshots = snapshots,
+                transactions = listOf(createTransaction(amount = 50.0, dateMillis = startedAt + 1)),
+                allocationHistory = history,
+                assetRates = usdIdentityRates,
+                startedAtMillis = startedAt,
+                nowMillis = now
+            ).associateBy { it.snapshot.goalId }
+
+            assertThat(result.getValue("goal-a").contributed).isEqualTo(30.0)
+            assertThat(result.getValue("goal-b").contributed).isEqualTo(20.0)
+            assertThat(result.values.sumOf { it.contributed }).isEqualTo(50.0)
+        }
+
+        @Test
+        fun `snapshot goal keeps shared asset sibling in attribution denominator`() {
+            val startedAt = toMillis(2025, 12, 21, 12, 0, 0)
+            val snapshot = createSnapshot(goalId = "goal-a", goalName = "A")
+            val history = listOf(
+                createAllocationHistory(goalId = "goal-a", amount = 60.0, timestamp = startedAt - 1),
+                createAllocationHistory(goalId = "goal-b", amount = 40.0, timestamp = startedAt - 1)
+            )
+
+            val result = calculator.calculateForSnapshots(
+                snapshots = listOf(snapshot),
+                transactions = listOf(createTransaction(amount = 50.0, dateMillis = startedAt + 1)),
+                allocationHistory = history,
+                assetRates = usdIdentityRates,
+                startedAtMillis = startedAt,
+                nowMillis = startedAt + 2
+            )
+
+            assertThat(result.single().contributed).isEqualTo(30.0)
+        }
+
+        @Test
+        fun `unallocated residue is not attributed to any goal`() {
+            val startedAt = toMillis(2025, 12, 21, 12, 0, 0)
+            val snapshots = listOf(
+                createSnapshot(goalId = "goal-a", goalName = "A"),
+                createSnapshot(goalId = "goal-b", goalName = "B")
+            )
+            val history = listOf(
+                createAllocationHistory(goalId = "goal-a", amount = 60.0, timestamp = startedAt - 1),
+                createAllocationHistory(goalId = "goal-b", amount = 40.0, timestamp = startedAt - 1)
+            )
+
+            val result = calculator.calculateForSnapshots(
+                snapshots = snapshots,
+                transactions = listOf(createTransaction(amount = 150.0, dateMillis = startedAt + 1)),
+                allocationHistory = history,
+                assetRates = usdIdentityRates,
+                startedAtMillis = startedAt,
+                nowMillis = startedAt + 2
+            ).associateBy { it.snapshot.goalId }
+
+            assertThat(result.getValue("goal-a").contributed).isEqualTo(60.0)
+            assertThat(result.getValue("goal-b").contributed).isEqualTo(40.0)
+            assertThat(result.values.sumOf { it.contributed }).isEqualTo(100.0)
+        }
+
+        @Test
+        fun `allocation change is replayed before a transaction at the same timestamp`() {
+            val startedAt = toMillis(2025, 12, 21, 12, 0, 0)
+            val eventTime = startedAt + 1
+            val snapshots = listOf(
+                createSnapshot(goalId = "goal-a", goalName = "A"),
+                createSnapshot(goalId = "goal-b", goalName = "B")
+            )
+            val history = listOf(
+                createAllocationHistory(goalId = "goal-a", amount = 100.0, timestamp = startedAt - 1),
+                createAllocationHistory(goalId = "goal-b", amount = 0.0, timestamp = startedAt - 1),
+                createAllocationHistory(goalId = "goal-a", amount = 50.0, timestamp = eventTime),
+                createAllocationHistory(goalId = "goal-b", amount = 50.0, timestamp = eventTime)
+            )
+
+            val result = calculator.calculateForSnapshots(
+                snapshots = snapshots,
+                transactions = listOf(createTransaction(amount = 50.0, dateMillis = eventTime)),
+                allocationHistory = history,
+                assetRates = usdIdentityRates,
+                startedAtMillis = startedAt,
+                nowMillis = eventTime + 1
+            ).associateBy { it.snapshot.goalId }
+
+            assertThat(result.getValue("goal-a").contributed).isEqualTo(25.0)
+            assertThat(result.getValue("goal-b").contributed).isEqualTo(25.0)
         }
     }
 
@@ -166,6 +337,7 @@ class ExecutionProgressCalculatorTest {
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
+                assetRates = usdIdentityRates,
                 startedAtMillis = startedAt,
                 nowMillis = now
             )
@@ -188,6 +360,7 @@ class ExecutionProgressCalculatorTest {
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
+                assetRates = usdIdentityRates,
                 startedAtMillis = startedAt,
                 nowMillis = now
             )
@@ -213,6 +386,7 @@ class ExecutionProgressCalculatorTest {
                 snapshots = listOf(snapshot),
                 transactions = transactions,
                 allocationHistory = listOf(allocation),
+                assetRates = usdIdentityRates,
                 startedAtMillis = startedAt,
                 nowMillis = now
             )
@@ -238,6 +412,7 @@ class ExecutionProgressCalculatorTest {
                 snapshots = listOf(snapshot),
                 transactions = listOf(preStartTx, inWindowTx),
                 allocationHistory = listOf(allocation),
+                assetRates = usdIdentityRates,
                 startedAtMillis = startedAt,
                 nowMillis = now
             )
@@ -265,6 +440,7 @@ class ExecutionProgressCalculatorTest {
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
+                assetRates = usdIdentityRates,
                 startedAtMillis = startedAt,
                 nowMillis = now
             )
@@ -287,6 +463,7 @@ class ExecutionProgressCalculatorTest {
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
+                assetRates = usdIdentityRates,
                 startedAtMillis = startedAt,
                 nowMillis = now
             )
@@ -309,6 +486,7 @@ class ExecutionProgressCalculatorTest {
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
+                assetRates = usdIdentityRates,
                 startedAtMillis = startedAt,
                 nowMillis = now
             )
@@ -330,6 +508,7 @@ class ExecutionProgressCalculatorTest {
                 snapshots = emptyList(),
                 transactions = emptyList(),
                 allocationHistory = emptyList(),
+                assetRates = emptyList(),
                 startedAtMillis = System.currentTimeMillis(),
                 nowMillis = System.currentTimeMillis()
             )
@@ -345,6 +524,7 @@ class ExecutionProgressCalculatorTest {
                 snapshots = listOf(snapshot),
                 transactions = emptyList(),
                 allocationHistory = emptyList(),
+                assetRates = usdIdentityRates,
                 startedAtMillis = 0L,
                 nowMillis = System.currentTimeMillis()
             )
@@ -362,6 +542,7 @@ class ExecutionProgressCalculatorTest {
                 snapshots = listOf(snapshot),
                 transactions = emptyList(),
                 allocationHistory = emptyList(),
+                assetRates = usdIdentityRates,
                 startedAtMillis = startedAt,
                 nowMillis = startedAt + 60_000
             )

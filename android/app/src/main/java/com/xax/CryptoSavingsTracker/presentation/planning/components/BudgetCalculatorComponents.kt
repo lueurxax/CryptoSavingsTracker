@@ -285,15 +285,26 @@ fun BudgetCalculatorDialog(
     var isAmountFocused by remember { mutableStateOf(false) }
     var selectedGoalBlock by remember { mutableStateOf<ScheduledGoalBlock?>(null) }
     val parsedAmount = budgetText.replace(",", "").toDoubleOrNull()
-    val inputError = if (budgetText.isNotEmpty() && parsedAmount == null) "Enter a valid amount" else null
+    val inputError = when {
+        budgetText.isEmpty() -> null
+        parsedAmount == null || !parsedAmount.isFinite() -> "Enter a finite amount"
+        parsedAmount <= 0.0 -> "Budget must be greater than 0"
+        !parsedAmount.toFloat().isFinite() || parsedAmount.toFloat() <= 0f ->
+            "Budget is outside the supported range"
+        else -> null
+    }
     val canApply = parsedAmount != null &&
+        parsedAmount.isFinite() &&
         parsedAmount > 0 &&
+        parsedAmount.toFloat().isFinite() &&
         feasibility.isFeasible &&
         previewPlan != null &&
         !isLoading
 
     LaunchedEffect(budgetText, selectedCurrency) {
-        val amount = parsedAmount ?: 0.0
+        val amount = parsedAmount
+            ?.takeIf { it.isFinite() && it > 0.0 && it.toFloat().isFinite() }
+            ?: 0.0
         onBudgetChange(amount, selectedCurrency)
     }
 
@@ -372,7 +383,7 @@ fun BudgetCalculatorDialog(
                                 if (isAmountFocused && !focusState.isFocused) {
                                     // Format on blur
                                     val amount = budgetText.replace(",", "").toDoubleOrNull()
-                                    if (amount != null) {
+                                    if (amount != null && amount.isFinite()) {
                                         budgetText = String.format("%,.2f", amount)
                                     }
                                 }

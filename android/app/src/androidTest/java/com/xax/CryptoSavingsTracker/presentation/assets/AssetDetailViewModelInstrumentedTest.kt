@@ -7,6 +7,11 @@ import com.xax.CryptoSavingsTracker.domain.model.OnChainBalance
 import com.xax.CryptoSavingsTracker.domain.model.Transaction
 import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
 import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
+import com.xax.CryptoSavingsTracker.domain.repository.AllocationHistoryRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExecutionAssetRateRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExecutionRecordRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExecutionSnapshotRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExecutionTransitionTransactionRunner
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainTransactionRepository
@@ -14,11 +19,14 @@ import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.DeleteAssetUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.asset.GetAssetByIdUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.transaction.GetTransactionsUseCase
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
@@ -51,16 +59,16 @@ class AssetDetailViewModelInstrumentedTest {
             exchangeRateRepository = exchangeRateRepository,
             onChainBalanceRepository = onChainBalanceRepository,
             onChainTransactionRepository = onChainTransactionRepository,
-            deleteAssetUseCase = DeleteAssetUseCase(assetRepository)
+            deleteAssetUseCase = deleteAssetUseCase(assetRepository)
         )
 
         val state = withTimeout(2_000) {
             viewModel.uiState
-                .filter { it.asset != null && it.currentBalance > 0.0 }
+                .filter { it.asset != null && it.currentBalance != null }
                 .first()
         }
 
-        assertEquals(0.004106, state.currentBalance, 0.0000001)
+        assertEquals(0.004106, requireNotNull(state.currentBalance), 0.0000001)
         assertEquals(410.60, state.currentBalanceUsd ?: 0.0, 0.05)
     }
 
@@ -100,17 +108,36 @@ class AssetDetailViewModelInstrumentedTest {
             exchangeRateRepository = TestExchangeRateRepository(rate = 1.0),
             onChainBalanceRepository = TestOnChainBalanceRepository(balance = 2.0),
             onChainTransactionRepository = TestOnChainTransactionRepository(),
-            deleteAssetUseCase = DeleteAssetUseCase(assetRepository)
+            deleteAssetUseCase = deleteAssetUseCase(assetRepository)
         )
 
         val state = withTimeout(2_000) {
             viewModel.uiState
-                .filter { it.asset != null && it.currentBalance >= 2.5 }
+                .filter {
+                    it.asset != null &&
+                        it.currentBalance?.let { balance -> balance >= 2.5 } == true
+                }
                 .first()
         }
 
         assertEquals(0.5, state.manualBalance, 0.0000001)
-        assertEquals(2.5, state.currentBalance, 0.0000001)
+        assertEquals(2.5, requireNotNull(state.currentBalance), 0.0000001)
+    }
+
+    private fun deleteAssetUseCase(repository: AssetRepository): DeleteAssetUseCase {
+        val records = mockk<ExecutionRecordRepository> {
+            every { getAllRecords() } returns flowOf(emptyList())
+        }
+        return DeleteAssetUseCase(
+            repository = repository,
+            executionRecordRepository = records,
+            executionAssetRateRepository = mockk<ExecutionAssetRateRepository>(relaxed = true),
+            executionSnapshotRepository = mockk<ExecutionSnapshotRepository>(relaxed = true),
+            allocationHistoryRepository = mockk<AllocationHistoryRepository>(relaxed = true),
+            transactionRunner = object : ExecutionTransitionTransactionRunner {
+                override suspend fun <T> run(block: suspend () -> T): T = block()
+            }
+        )
     }
 
     private class TestAssetRepository(initialAssets: List<Asset>) : AssetRepository {
@@ -217,6 +244,9 @@ class AssetDetailViewModelInstrumentedTest {
             )
         }
 
+        override suspend fun getFreshBalanceForPreflight(asset: Asset): Result<OnChainBalance> =
+            getBalance(asset, forceRefresh = true)
+
         override suspend fun clearCache() = Unit
     }
 
@@ -230,5 +260,6 @@ class AssetDetailViewModelInstrumentedTest {
         override suspend fun fetchRate(from: String, to: String): Double = rate
         override fun hasValidConfiguration(): Boolean = true
         override suspend fun clearCache() = Unit
+        override fun observeRateInvalidations(): Flow<Long> = flowOf(0L)
     }
 }

@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-04-18 |
+| Last Updated | 2026-07-28 |
 | Platform | Shared |
 | Audience | All |
 
@@ -79,13 +79,13 @@
 |----------|---------|----------|
 | [copy/FINANCIAL_COPY_DICTIONARY.md](copy/FINANCIAL_COPY_DICTIONARY.md) | Source of truth for planning/form user-facing language and copy keys | Developers, Content |
 
-### Historical Documentation
+### Planning and Quality Records
 
-| Directory | Contents |
-|-----------|----------|
-| [proposals/](proposals/) | Active proposal documents (drafts and ADRs) |
-| [archive/2026-01/](archive/2026-01/) | Archived proposals from January 2026 (now implemented) |
-| [archive/2025-11/](archive/2025-11/) | Archived proposals, fixes, and plans from August-November 2025 |
+| Document or directory | Purpose | Audience |
+|-----------------------|---------|----------|
+| [proposals/](proposals/) | Active proposal documents and architectural decisions | Developers, Reviewers |
+| [audits/APPLICATION_DEFECT_AUDIT_2026-07-25.md](audits/APPLICATION_DEFECT_AUDIT_2026-07-25.md) | Active cross-platform defect register: fixes implemented, Apple verified, final Android Gradle rerun blocked | Developers, QA, Release Managers |
+| [superpowers/plans/2026-07-25-application-defect-remediation.md](superpowers/plans/2026-07-25-application-defect-remediation.md) | Implementation record and remaining Android verification gate for the defect audit | Developers, Reviewers |
 
 ## Architecture Quick Reference
 
@@ -379,29 +379,6 @@ Configure external API keys in `Config.plist`:
 - [ ] Documentation updated
 - [ ] No regression in existing tests
 
-## Archive
-
-Historical documentation is preserved in `archive/` directories:
-
-- **archive/2026-03/**: Implemented proposals from March 2026
-  - Budget Health Widget Proposal (now MONTHLY_PLANNING_BUDGET_HEALTH_WIDGET.md)
-  - Navigation Presentation Consistency Proposal (now NAVIGATION_PRESENTATION_CONSISTENCY.md)
-  - Visual System Unification Proposal (now VISUAL_SYSTEM_UNIFICATION.md)
-
-- **archive/2026-01/**: Implemented proposals from January 2026
-  - Fixed Budget Planning Proposal (now BUDGET_CALCULATOR.md)
-  - Contribution Process Proposal (now CONTRIBUTION_PROCESS.md)
-  - Execution Tracking Live Sync Proposal (superseded by CONTRIBUTION_FLOW.md)
-
-- **archive/2025-11/**: Proposals and fixes from August-November 2025
-  - Dashboard improvement plans
-  - Execution tracking implementations
-  - Migration fixes
-  - UX reviews
-  - Technical fixes
-
-These are kept for historical reference but are superseded by current documentation.
-
 ## External Resources
 
 - [Swift Documentation](https://swift.org/documentation/)
@@ -481,7 +458,9 @@ let container = try ModelContainer(for:
 
 | Document | Last Updated | Status | Coverage |
 |----------|--------------|--------|----------|
-| README.md | 2026-04-18 | ✅ Current | Complete |
+| README.md | 2026-07-27 | ✅ Current | Complete |
+| audits/APPLICATION_DEFECT_AUDIT_2026-07-25.md | 2026-07-27 | 🔄 Remediation | In progress |
+| superpowers/plans/2026-07-25-application-defect-remediation.md | 2026-07-27 | 🔄 Active | In progress |
 | STYLE_GUIDE.md | 2026-01-04 | ✅ Current | Complete |
 | ANDROID_DEVELOPMENT_PLAN.md | 2026-01-04 | ✅ Current | Complete |
 | ARCHITECTURE.md | 2026-04-18 | ✅ Current | Complete |
@@ -503,6 +482,7 @@ let container = try ModelContainer(for:
 | FAMILY_SHARING_FRESHNESS_SYNC.md | 2026-03-21 | ✅ Current | Complete |
 
 ### Recent Updates
+- **2026-07-27**: Reopened the Apple/Android application defect audit after final whole-diff review identified additional material defects.
 - **2026-04-18**: Completed Wave 4 UX remediation: implemented SettingsSyncSharingGateway for runtime boundary alignment, AdaptiveSummaryRow for 320pt accessibility, and deterministic save-failure coverage for AddTransactionView.
 - **2026-03-21**: Converted Shared Goals Reputation Redesign proposal to FAMILY_SHARING.md; removed 10 proposal/review/audit files
 - **2026-03-16**: Converted 4 implemented proposals to documentation (Goal Dashboard, Budget Flow Hardening, Commit Dock Scroll Collapse, UI/UX Incremental Improvements); removed 16 proposal/review files
@@ -512,7 +492,7 @@ let container = try ModelContainer(for:
 - **2026-01-04**: Documentation cleanup - archived execution-tracking-live-sync proposal
 - **2026-01-04**: Added CONTRIBUTION_FLOW.md, CONTRIBUTION_TRACKING_REDESIGN.md to index
 - **2025-11-23**: Enhanced README with architecture diagrams, quick start guide
-- **2025-11-23**: Archived 12 outdated proposal documents to archive/2025-11/
+- **2025-11-23**: Removed 12 outdated proposal documents from the active index
 
 ## Version Information
 
@@ -524,4 +504,4 @@ let container = try ModelContainer(for:
 
 ---
 
-*Last updated: 2026-04-18*
+*Last updated: 2026-07-27*

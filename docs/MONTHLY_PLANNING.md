@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-02-28 |
+| Last Updated | 2026-07-28 |
 | Platform | Shared |
 | Audience | Developers |
 
@@ -35,9 +35,10 @@ The Monthly Planning feature is a comprehensive zero-input planning system that 
 1. **Zero-Input Planning**: Automatic calculation based on goal deadlines and allocated asset totals
 2. **Asset-Based Progress**: Progress tracks allocated assets, not manual contributions
 3. **Immutable History**: Completed executions freeze exchange rates and contribution snapshots
-4. **Undo Grace Period**: Configurable window (24h-7d) to undo state transitions
+4. **Undo Grace Period**: No undo (`0`), 24 hours, 48 hours, or seven days (`168`)
 5. **Duplicate Prevention**: `AsyncSerialExecutor` ensures only one set of plans per month
 6. **Draft Plan Freshness**: Draft plans are always recalculated from live allocation data when fetched, preventing stale values after allocation changes
+7. **Fail-Closed Financial Inputs**: Missing or changed balances and exchange rates block publication and persistence rather than becoming zero or one-to-one conversion
 
 ### High-Level Architecture
 
@@ -452,7 +453,25 @@ func completePlans(for plans: [MonthlyPlan])
 
 **Duplicate Prevention**: Uses `AsyncSerialExecutor` to serialize critical sections.
 
-**Draft Plan Freshness**: When `getOrCreatePlans` returns existing plans, all draft plans are recalculated via `calculateRequirement` before being returned. This ensures that `remainingAmount` and `requiredMonthly` always reflect the current allocation state (e.g., if an allocation was deleted between sessions). Plans in `executing` or `completed` state are not recalculated as they are intentionally immutable during and after execution. User preferences (`customAmount`, `flexState`, `isSkipped`, `isProtected`) are preserved during recalculation.
+**Draft Plan Freshness**: When `getOrCreatePlans` returns existing plans, all
+draft plans are recalculated via `calculateRequirement` before being returned.
+The service captures goal/allocation/transaction fingerprints plus balance-cache
+and exchange-rate evidence, then revalidates them after every await and
+immediately before persistence. A changed or incomplete input writes nothing.
+Plans in `executing` or `completed` state remain immutable. User preferences
+(`customAmount`, `flexState`, `isSkipped`, `isProtected`) are preserved during
+recalculation.
+
+### Budget preview and Apply boundary
+
+Budget preview identity includes the canonical amount/currency, planning month,
+payment day, plan membership, goal financial state, persisted flex outputs, and
+exact exchange-rate snapshot. Apply passes an identity validator into the
+mutation service; the service invokes it after asynchronous validation and
+immediately before changing any plan. The ViewModel rechecks the same identity
+before stamping settings. Editing amount/currency or replacing the preview
+invalidates the old request synchronously, and the sheet disables mutable
+controls and interactive dismissal while Apply is in flight.
 
 ### ExecutionTrackingService
 
@@ -620,7 +639,8 @@ final class MonthlyExecutionViewModel: ObservableObject {
 
 ### Undo Grace Period
 
-The system provides a configurable undo grace period (default 24 hours) for:
+The system provides a configurable undo grace period (default 24 hours; choices
+are no undo, 24 hours, 48 hours, or seven days) for:
 - Undoing "Start Tracking" (executing -> draft)
 - Undoing "Complete Month" (closed -> executing)
 
@@ -654,7 +674,7 @@ Manages automated monthly planning transitions.
 **Settings** (via `MonthlyPlanningSettings`):
 - `autoStartEnabled` - Auto-start tracking on 1st of month
 - `autoCompleteEnabled` - Auto-complete on last day of month
-- `undoGracePeriodHours` - 0, 24, 48, or 168 hours
+- `undoGracePeriodHours` - `0` (no undo), `24`, `48`, or `168` hours
 
 **Automation Flow**:
 
@@ -757,7 +777,7 @@ class MonthlyPlanningSettings: ObservableObject {
     @Published var notificationsEnabled: Bool
     @Published var autoStartEnabled: Bool       // Default: false
     @Published var autoCompleteEnabled: Bool    // Default: false
-    @Published var undoGracePeriodHours: Int    // 0, 24, 48, or 168
+    @Published var undoGracePeriodHours: Int    // 0=no undo; 24, 48, or 168
 
     var nextPaymentDate: Date { get }
     var daysUntilPayment: Int { get }

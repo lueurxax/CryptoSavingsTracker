@@ -24,13 +24,24 @@ interface AssetDao {
     @Query("SELECT * FROM assets WHERE address = :address")
     suspend fun getAssetByAddress(address: String): AssetEntity?
 
+    @Query(
+        "SELECT * FROM assets " +
+            "WHERE address = :address AND chain_id = :chainId AND currency = :currency " +
+            "LIMIT 1"
+    )
+    suspend fun getAssetByOnChainIdentity(
+        address: String,
+        chainId: String,
+        currency: String
+    ): AssetEntity?
+
     @Query("SELECT * FROM assets WHERE currency = :currency")
     fun getAssetsByCurrency(currency: String): Flow<List<AssetEntity>>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(asset: AssetEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertAll(assets: List<AssetEntity>)
 
     @Update

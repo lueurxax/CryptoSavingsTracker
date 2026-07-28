@@ -4,9 +4,15 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.xax.CryptoSavingsTracker.data.local.security.ApiKeyStore
 import com.xax.CryptoSavingsTracker.data.remote.api.CoinGeckoApi
+import com.xax.CryptoSavingsTracker.domain.model.ExchangeRateCurrencyCatalog
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateException
+import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateQuote
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
@@ -22,12 +28,27 @@ import javax.inject.Singleton
  * Matches iOS ExchangeRateService behavior with caching and multiple rate fetching strategies.
  */
 @Singleton
-class ExchangeRateRepositoryImpl @Inject constructor(
+class ExchangeRateRepositoryImpl internal constructor(
     private val coinGeckoApi: CoinGeckoApi,
-    @Named("CoinGeckoRateLimiter") private val rateLimiter: TokenBucketRateLimiter,
+    private val rateLimiter: TokenBucketRateLimiter,
     private val apiKeyStore: ApiKeyStore,
-    @ApplicationContext private val context: Context
+    private val context: Context,
+    private val currentTimeMillis: () -> Long
 ) : ExchangeRateRepository {
+
+    @Inject
+    constructor(
+        coinGeckoApi: CoinGeckoApi,
+        @Named("CoinGeckoRateLimiter") rateLimiter: TokenBucketRateLimiter,
+        apiKeyStore: ApiKeyStore,
+        @ApplicationContext context: Context
+    ) : this(
+        coinGeckoApi = coinGeckoApi,
+        rateLimiter = rateLimiter,
+        apiKeyStore = apiKeyStore,
+        context = context,
+        currentTimeMillis = System::currentTimeMillis
+    )
 
     private val prefs: SharedPreferences by lazy {
         context.getSharedPreferences("exchange_rate_cache", Context.MODE_PRIVATE)
@@ -36,39 +57,20 @@ class ExchangeRateRepositoryImpl @Inject constructor(
     private val mutex = Mutex()
     private val cachedRates = mutableMapOf<String, MutableMap<String, Double>>()
     private val lastFetchTime = mutableMapOf<String, Long>()
+    private val latestRequestGenerationByKey = mutableMapOf<String, Long>()
+    private var cacheEpoch: Long = 0L
+    private val rateInvalidationVersion = MutableStateFlow(0L)
 
     private val cacheExpirationMs = 5 * 60 * 1000L // 5 minutes
 
-    // Map common crypto symbols to CoinGecko IDs
-    private val cryptoIdMap = mapOf(
-        "BTC" to "bitcoin",
-        "ETH" to "ethereum",
-        "USDT" to "tether",
-        "BNB" to "binancecoin",
-        "SOL" to "solana",
-        "USDC" to "usd-coin",
-        "XRP" to "ripple",
-        "ADA" to "cardano",
-        "DOGE" to "dogecoin",
-        "TRX" to "tron",
-        "AVAX" to "avalanche-2",
-        "DOT" to "polkadot",
-        "MATIC" to "matic-network",
-        "LINK" to "chainlink",
-        "SHIB" to "shiba-inu",
-        "LTC" to "litecoin",
-        "BCH" to "bitcoin-cash",
-        "ALGO" to "algorand",
-        "XLM" to "stellar",
-        "UNI" to "uniswap"
-    )
-
-    private val fiatCurrencies = setOf("USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "CNY", "INR", "KRW")
     private val usdPegged = setOf("USD", "USDT", "USDC")
 
     init {
         loadCachedData()
     }
+
+    override fun observeRateInvalidations(): Flow<Long> =
+        rateInvalidationVersion.asStateFlow()
 
     override suspend fun fetchRate(from: String, to: String): Double {
         val canonicalFrom = from.uppercase()
@@ -85,17 +87,79 @@ class ExchangeRateRepositoryImpl @Inject constructor(
         }
 
         // Check cache
+        val requestCacheEpoch = currentCacheEpoch()
         getCachedRate(canonicalFrom, canonicalTo)?.let { return it }
-        val stale = getStaleRate(canonicalFrom, canonicalTo)
+        val requestToken = beginNetworkRequest(
+            from = canonicalFrom,
+            to = canonicalTo,
+            requestCacheEpoch = requestCacheEpoch
+        )
 
         // Fetch from API
         return try {
             rateLimiter.acquire()
-            val rate = fetchRateFromAPI(canonicalFrom, canonicalTo)
-            cacheRate(canonicalFrom, canonicalTo, rate)
+            val rate = requireValidRate(
+                fetchRateFromAPI(canonicalFrom, canonicalTo)
+            )
+            cacheRateIfLatest(
+                from = canonicalFrom,
+                to = canonicalTo,
+                rate = rate,
+                requestToken = requestToken
+            )
             rate
         } catch (e: Exception) {
-            stale ?: throw e
+            getCachedRate(canonicalFrom, canonicalTo) ?: throw e
+        }
+    }
+
+    override suspend fun fetchRateForImmutableSnapshot(
+        from: String,
+        to: String,
+        maximumAgeMillis: Long
+    ): ExchangeRateQuote {
+        require(maximumAgeMillis >= 0) { "maximumAgeMillis must be non-negative" }
+        val canonicalFrom = from.uppercase()
+        val canonicalTo = to.uppercase()
+        val now = currentTimeMillis()
+
+        if (canonicalFrom == canonicalTo ||
+            (canonicalFrom in usdPegged && canonicalTo in usdPegged)
+        ) {
+            return ExchangeRateQuote(rate = 1.0, fetchedAtMillis = now)
+        }
+
+        val requestCacheEpoch = currentCacheEpoch()
+        getCachedQuote(canonicalFrom, canonicalTo, maximumAgeMillis, now)?.let {
+            return it
+        }
+        val requestToken = beginNetworkRequest(
+            from = canonicalFrom,
+            to = canonicalTo,
+            requestCacheEpoch = requestCacheEpoch
+        )
+
+        return try {
+            rateLimiter.acquire()
+            val rate = requireValidRate(
+                fetchRateFromAPI(canonicalFrom, canonicalTo)
+            )
+            val fetchedAtMillis = currentTimeMillis()
+            cacheRateIfLatest(
+                from = canonicalFrom,
+                to = canonicalTo,
+                rate = rate,
+                fetchedAtMillis = fetchedAtMillis,
+                requestToken = requestToken
+            )
+            ExchangeRateQuote(rate = rate, fetchedAtMillis = fetchedAtMillis)
+        } catch (error: Exception) {
+            getCachedQuote(
+                from = canonicalFrom,
+                to = canonicalTo,
+                maximumAgeMillis = maximumAgeMillis,
+                nowMillis = currentTimeMillis()
+            ) ?: throw error
         }
     }
 
@@ -105,45 +169,99 @@ class ExchangeRateRepositoryImpl @Inject constructor(
 
     override suspend fun clearCache() {
         mutex.withLock {
+            cacheEpoch += 1L
+            latestRequestGenerationByKey.clear()
             cachedRates.clear()
             lastFetchTime.clear()
             prefs.edit().clear().apply()
         }
+        rateInvalidationVersion.update { it + 1L }
     }
 
     private suspend fun getCachedRate(from: String, to: String): Double? {
+        return getCachedQuote(
+            from = from,
+            to = to,
+            maximumAgeMillis = cacheExpirationMs,
+            nowMillis = currentTimeMillis()
+        )?.rate
+    }
+
+    private suspend fun getCachedQuote(
+        from: String,
+        to: String,
+        maximumAgeMillis: Long,
+        nowMillis: Long
+    ): ExchangeRateQuote? {
         val cacheKey = "$from-$to"
         return mutex.withLock {
             val lastFetch = lastFetchTime[cacheKey] ?: return@withLock null
-            if (System.currentTimeMillis() - lastFetch < cacheExpirationMs) {
-                cachedRates[from]?.get(to)
-            } else {
-                null
+            val rate = cachedRates[from]?.get(to) ?: return@withLock null
+            if (nowMillis < lastFetch || nowMillis - lastFetch > maximumAgeMillis) {
+                return@withLock null
             }
+            if (!rate.isValidExchangeRate()) {
+                return@withLock null
+            }
+            ExchangeRateQuote(rate = rate, fetchedAtMillis = lastFetch)
         }
     }
 
-    private suspend fun getStaleRate(from: String, to: String): Double? {
-        return mutex.withLock {
-            cachedRates[from]?.get(to)
-        }
-    }
+    private suspend fun currentCacheEpoch(): Long = mutex.withLock { cacheEpoch }
 
-    private suspend fun cacheRate(from: String, to: String, rate: Double) {
+    private suspend fun beginNetworkRequest(
+        from: String,
+        to: String,
+        requestCacheEpoch: Long
+    ): CacheRequestToken? {
         val cacheKey = "$from-$to"
-        mutex.withLock {
+        return mutex.withLock {
+            if (cacheEpoch != requestCacheEpoch) {
+                return@withLock null
+            }
+            val nextGeneration = (latestRequestGenerationByKey[cacheKey] ?: 0L) + 1L
+            latestRequestGenerationByKey[cacheKey] = nextGeneration
+            CacheRequestToken(
+                cacheEpoch = requestCacheEpoch,
+                requestGeneration = nextGeneration
+            )
+        }
+    }
+
+    private suspend fun cacheRateIfLatest(
+        from: String,
+        to: String,
+        rate: Double,
+        requestToken: CacheRequestToken?,
+        fetchedAtMillis: Long = currentTimeMillis()
+    ): Boolean {
+        requireValidRate(rate)
+        val cacheKey = "$from-$to"
+        val cacheUpdated = mutex.withLock {
+            if (
+                requestToken == null ||
+                cacheEpoch != requestToken.cacheEpoch ||
+                latestRequestGenerationByKey[cacheKey] != requestToken.requestGeneration
+            ) {
+                return@withLock false
+            }
             if (cachedRates[from] == null) {
                 cachedRates[from] = mutableMapOf()
             }
             cachedRates[from]!![to] = rate
-            lastFetchTime[cacheKey] = System.currentTimeMillis()
+            lastFetchTime[cacheKey] = fetchedAtMillis
+            saveCachedData()
+            true
         }
-        saveCachedData()
+        if (cacheUpdated) {
+            rateInvalidationVersion.update { it + 1L }
+        }
+        return cacheUpdated
     }
 
     private suspend fun fetchRateFromAPI(from: String, to: String): Double {
-        val fromIsFiat = fiatCurrencies.contains(from)
-        val toIsFiat = fiatCurrencies.contains(to)
+        val fromIsFiat = ExchangeRateCurrencyCatalog.fiatCurrencies.contains(from)
+        val toIsFiat = ExchangeRateCurrencyCatalog.fiatCurrencies.contains(to)
 
         return try {
             when {
@@ -155,9 +273,8 @@ class ExchangeRateRepositoryImpl @Inject constructor(
 
                 // Fiat to Crypto: inverse of Crypto to Fiat
                 fromIsFiat && !toIsFiat -> {
-                    val cryptoInFiat = fetchDirectRate(to, from)
-                    if (cryptoInFiat <= 0) throw ExchangeRateException.RateNotAvailable
-                    1.0 / cryptoInFiat
+                    val cryptoInFiat = requireValidRate(fetchDirectRate(to, from))
+                    requireValidRate(1.0 / cryptoInFiat)
                 }
 
                 // Crypto to Crypto: convert via USD
@@ -181,7 +298,9 @@ class ExchangeRateRepositoryImpl @Inject constructor(
                 vsCurrencies = to.lowercase()
             )
 
-            response[fromId]?.get(to.lowercase())?.let { return it }
+            response[fromId]?.get(to.lowercase())?.let {
+                return requireValidRate(it)
+            }
 
             // Fallback to markets endpoint
             return fetchRateFromMarkets(fromId, to)
@@ -211,11 +330,9 @@ class ExchangeRateRepositoryImpl @Inject constructor(
             val toUsd = response[toId]?.get("usd")
                 ?: throw ExchangeRateException.RateNotAvailable
 
-            if (fromUsd <= 0 || toUsd <= 0) {
-                throw ExchangeRateException.RateNotAvailable
-            }
-
-            return fromUsd / toUsd
+            return requireValidRate(
+                requireValidRate(fromUsd) / requireValidRate(toUsd)
+            )
 
         } catch (e: retrofit2.HttpException) {
             when (e.code()) {
@@ -235,7 +352,7 @@ class ExchangeRateRepositoryImpl @Inject constructor(
                 ids = id
             )
 
-            response.firstOrNull()?.current_price?.takeIf { it > 0 }
+            response.firstOrNull()?.current_price?.takeIf { it.isValidExchangeRate() }
         } catch (e: Exception) {
             null
         }
@@ -258,10 +375,10 @@ class ExchangeRateRepositoryImpl @Inject constructor(
             val toRate = rates[to.lowercase()]
                 ?: throw ExchangeRateException.RateNotAvailable
 
-            if (fromRate <= 0) throw ExchangeRateException.RateNotAvailable
-
             // Cross rate: from -> to = toRate / fromRate
-            return toRate / fromRate
+            return requireValidRate(
+                requireValidRate(toRate) / requireValidRate(fromRate)
+            )
 
         } catch (e: retrofit2.HttpException) {
             when (e.code()) {
@@ -273,9 +390,23 @@ class ExchangeRateRepositoryImpl @Inject constructor(
     }
 
     private fun coinGeckoId(symbol: String): String {
-        val upper = symbol.uppercase()
-        return cryptoIdMap[upper] ?: upper.lowercase()
+        return ExchangeRateCurrencyCatalog.providerId(symbol)
+            ?: throw ExchangeRateException.RateNotAvailable
     }
+
+    private fun requireValidRate(rate: Double): Double {
+        if (!rate.isValidExchangeRate()) {
+            throw ExchangeRateException.RateNotAvailable
+        }
+        return rate
+    }
+
+    private fun Double.isValidExchangeRate(): Boolean = isFinite() && this > 0.0
+
+    private data class CacheRequestToken(
+        val cacheEpoch: Long,
+        val requestGeneration: Long
+    )
 
     private fun saveCachedData() {
         try {

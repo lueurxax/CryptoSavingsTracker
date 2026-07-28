@@ -24,6 +24,9 @@ struct AddTransactionView: View {
     @State private var transactionDate = Date()
     @State private var accessErrorMessage: String?
     @State private var saveError: UserFacingError?
+#if os(iOS)
+    @FocusState private var amountFieldFocused: Bool
+#endif
 
     init(
         asset: Asset,
@@ -132,6 +135,7 @@ struct AddTransactionView: View {
                             TextField("Deposit Amount", text: $amount)
                                 .accessibilityIdentifier("transactionAmountField")
                                 .keyboardType(.decimalPad)
+                                .focused($amountFieldFocused)
                                 .padding(.vertical, 4)
 
                             TextField("Comment (optional)", text: $comment)
@@ -176,6 +180,9 @@ struct AddTransactionView: View {
         }
         .onAppear {
             validateWritableContext()
+#if os(iOS)
+            amountFieldFocused = true
+#endif
         }
         .alert(
             "Transaction Not Saved",
@@ -202,8 +209,11 @@ struct AddTransactionView: View {
     }
     
     private var isValidInput: Bool {
-        guard let value = Double(amount) else { return false }
-        return value > 0
+        AddTransactionSaveCoordinator.parsedAmount(
+            amount,
+            currency: asset.currency,
+            locale: .current
+        ).map { $0 > 0 } ?? false
     }
     
     private func saveTransaction() async {
@@ -254,12 +264,17 @@ enum AddTransactionSaveCoordinator {
     static func save(
         asset: Asset,
         amountText: String,
+        locale: Locale = .current,
         date: Date,
         comment: String,
         autoAllocateGoalId: UUID?,
         service: TransactionMutationServiceProtocol
     ) -> SaveResult {
-        guard let depositAmount = Double(amountText), depositAmount > 0 else {
+        guard let depositAmount = parsedAmount(
+            amountText,
+            currency: asset.currency,
+            locale: locale
+        ), depositAmount > 0 else {
             return SaveResult(shouldDismiss: false, error: nil)
         }
 
@@ -290,14 +305,25 @@ enum AddTransactionSaveCoordinator {
         } catch {
             return SaveResult(
                 shouldDismiss: false,
-                error: UserFacingError(
+                error: PersistenceMutationErrorPresentation.userFacingError(
+                    for: error,
                     title: "Transaction Not Saved",
-                    message: "Your transaction could not be saved.",
-                    recoverySuggestion: "Check that the goal is still writable, then retry.",
-                    isRetryable: true,
-                    category: .dataCorruption
+                    fallbackMessage: "Your transaction could not be saved.",
+                    fallbackRecoverySuggestion: "Check that the goal is still writable, then retry."
                 )
             )
         }
+    }
+
+    static func parsedAmount(
+        _ amountText: String,
+        currency: String,
+        locale: Locale
+    ) -> Double? {
+        MoneyInputParser.parse(
+            rawText: amountText,
+            currency: currency,
+            locale: locale
+        ).amount?.doubleValue
     }
 }

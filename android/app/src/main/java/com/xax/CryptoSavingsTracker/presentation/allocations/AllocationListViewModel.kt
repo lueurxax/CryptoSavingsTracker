@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.domain.model.Allocation
 import com.xax.CryptoSavingsTracker.domain.model.Asset
 import com.xax.CryptoSavingsTracker.domain.model.Goal
+import com.xax.CryptoSavingsTracker.domain.model.Transaction
+import com.xax.CryptoSavingsTracker.domain.model.TransactionSource
 import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
@@ -14,12 +16,19 @@ import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.usecase.allocation.DeleteAllocationUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.allocation.GetAllocationsForGoalUseCase
+import com.xax.CryptoSavingsTracker.domain.usecase.balance.AssetBalanceCompletenessResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -31,22 +40,23 @@ import kotlin.math.abs
 data class AllocationWithDetails(
     val allocation: Allocation,
     val asset: Asset?,
-    val assetBalance: Double,          // Best-known balance (manual + on-chain if available)
+    val assetBalance: Double?,
     val assetTotalAllocated: Double,   // Total allocated from this asset across all goals
     val assetDisplayName: String,
-    val isAssetOverAllocated: Boolean  // True if asset's total allocations exceed balance
+    val isAssetOverAllocated: Boolean?,
+    val balanceIssue: String?
 ) {
-    val fundedAmount: Double
+    val fundedAmount: Double?
         get() {
             val total = assetTotalAllocated
-            val balance = assetBalance
+            val balance = assetBalance ?: return null
             if (total <= 0.0 || balance <= 0.0) return 0.0
             val ratio = if (balance >= total) 1.0 else balance / total
             return allocation.amount.coerceAtLeast(0.0) * ratio
         }
 
-    val isUnderfunded: Boolean
-        get() = fundedAmount + 0.0000001 < allocation.amount
+    val isUnderfunded: Boolean?
+        get() = fundedAmount?.let { it + 0.0000001 < allocation.amount }
 }
 
 /**
@@ -55,10 +65,12 @@ data class AllocationWithDetails(
 data class AllocationListUiState(
     val goal: Goal? = null,
     val allocations: List<AllocationWithDetails> = emptyList(),
-    val totalAllocated: Double = 0.0, // Value in goal currency
-    val totalFunded: Double = 0.0,    // Value in goal currency
+    val totalAllocated: Double? = null,
+    val totalFunded: Double? = null,
     val hasOverAllocatedAssets: Boolean = false,
     val hasMissingExchangeRates: Boolean = false,
+    val hasUnavailableBalances: Boolean = false,
+    val financialDataIssue: String? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
     val showDeleteConfirmation: Allocation? = null
@@ -84,29 +96,30 @@ class AllocationListViewModel @Inject constructor(
 
     private val _error = MutableStateFlow<String?>(null)
     private val _showDeleteConfirmation = MutableStateFlow<Allocation?>(null)
-    private val _allocationsWithDetails = MutableStateFlow<List<AllocationWithDetails>>(emptyList())
-    private val _totals = MutableStateFlow(AllocationTotals())
+    private val _financialSnapshot = MutableStateFlow(AllocationFinancialSnapshot())
+    private var calculationJob: Job? = null
+    private var calculationGeneration: Long = 0L
 
     init {
-        loadAllocationsWithDetails()
+        observeFinancialInputs()
     }
 
     val uiState: StateFlow<AllocationListUiState> = combine(
-        goalRepository.getGoalByIdFlow(goalId),
-        _allocationsWithDetails,
-        _totals,
+        _financialSnapshot,
         _error,
         _showDeleteConfirmation
-    ) { goal, allocations, totals, error, deleteConfirmation ->
+    ) { snapshot, error, deleteConfirmation ->
         AllocationListUiState(
-            goal = goal,
-            allocations = allocations,
-            totalAllocated = totals.totalAllocatedInGoalCurrency,
-            totalFunded = totals.totalFundedInGoalCurrency,
-            hasOverAllocatedAssets = allocations.any { it.isAssetOverAllocated },
-            isLoading = false,
-            hasMissingExchangeRates = totals.hasMissingExchangeRates,
-            error = error,
+            goal = snapshot.goal,
+            allocations = snapshot.allocations,
+            totalAllocated = snapshot.totals.totalAllocatedInGoalCurrency,
+            totalFunded = snapshot.totals.totalFundedInGoalCurrency,
+            hasOverAllocatedAssets = snapshot.allocations.any { it.isAssetOverAllocated == true },
+            isLoading = snapshot.isLoading,
+            hasMissingExchangeRates = snapshot.totals.hasMissingExchangeRates,
+            hasUnavailableBalances = snapshot.allocations.any { it.assetBalance == null },
+            financialDataIssue = snapshot.totals.financialDataIssue,
+            error = error ?: snapshot.error,
             showDeleteConfirmation = deleteConfirmation
         )
     }.stateIn(
@@ -115,40 +128,119 @@ class AllocationListViewModel @Inject constructor(
         initialValue = AllocationListUiState()
     )
 
-    private fun loadAllocationsWithDetails() {
+    private fun observeFinancialInputs() {
         viewModelScope.launch {
-            getAllocationsForGoalUseCase(goalId).collect { allocations ->
-                val goal = goalRepository.getGoalById(goalId)
-                val withDetails = allocations.map { allocation ->
-                    val asset = assetRepository.getAssetById(allocation.assetId)
-                    val manualBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
-                    val onChainBalance = runCatching {
-                        if (asset != null && !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()) {
-                            onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0
-                        } else {
-                            0.0
-                        }
-                    }.getOrElse { 0.0 }
-                    val balance = manualBalance + onChainBalance
-
-                    // Get total allocations for this asset across all goals
-                    val allAssetAllocations = allocationRepository.getAllocationsForAsset(allocation.assetId)
-                    val totalAllocatedFromAsset = allAssetAllocations.sumOf { it.amount }
-                    val isOverAllocated = totalAllocatedFromAsset > balance + 0.0000001
-
-                    AllocationWithDetails(
-                        allocation = allocation,
-                        asset = asset,
-                        assetBalance = balance,
-                        assetTotalAllocated = totalAllocatedFromAsset,
-                        assetDisplayName = asset?.displayName() ?: "Unknown Asset",
-                        isAssetOverAllocated = isOverAllocated
-                    )
-                }
-                _allocationsWithDetails.value = withDetails
-                _totals.value = calculateTotals(goal, withDetails)
+            observeInputs().collect { inputs ->
+                startCalculation(inputs)
             }
         }
+    }
+
+    private fun observeInputs(): Flow<AllocationInputs> {
+        val invalidations = combine(
+            onChainBalanceRepository.observeBalanceInvalidations(),
+            exchangeRateRepository.observeRateInvalidations()
+        ) { balanceVersion, rateVersion ->
+            balanceVersion to rateVersion
+        }
+        val sourceSnapshots = combine(
+            goalRepository.getGoalByIdFlow(goalId),
+            assetRepository.getAllAssets(),
+            allocationRepository.getAllAllocationsFlow(),
+            transactionRepository.getAllTransactions()
+        ) { goal, assets, allocations, transactions ->
+            AllocationInputs(
+                goal = goal,
+                assets = assets,
+                allocations = allocations,
+                transactions = transactions
+            )
+        }
+        return combine(sourceSnapshots, invalidations) { inputs, _ -> inputs }
+    }
+
+    private fun startCalculation(inputs: AllocationInputs) {
+        val generation = ++calculationGeneration
+        calculationJob?.cancel()
+        _financialSnapshot.update { it.copy(isLoading = true, error = null) }
+        calculationJob = viewModelScope.launch {
+            val snapshot = try {
+                buildFinancialSnapshot(inputs)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                AllocationFinancialSnapshot(
+                    goal = inputs.goal,
+                    isLoading = false,
+                    error = error.message ?: "Failed to load allocations"
+                )
+            }
+            if (generation == calculationGeneration) {
+                _financialSnapshot.value = snapshot
+            }
+        }
+    }
+
+    private suspend fun buildFinancialSnapshot(
+        inputs: AllocationInputs
+    ): AllocationFinancialSnapshot = coroutineScope {
+        val assetsById = inputs.assets.associateBy { it.id }
+        val manualBalanceByAssetId = inputs.transactions
+            .filter { it.source == TransactionSource.MANUAL }
+            .groupBy { it.assetId }
+            .mapValues { (_, transactions) -> transactions.sumOf { it.amount } }
+        val totalAllocatedByAssetId = inputs.allocations
+            .groupBy { it.assetId }
+            .mapValues { (_, allocations) -> allocations.sumOf { it.amount } }
+        val goalAllocations = inputs.allocations.filter { it.goalId == goalId }
+        val balanceByAssetId = goalAllocations
+            .map { it.assetId }
+            .distinct()
+            .map { assetId ->
+                async {
+                    val asset = assetsById[assetId]
+                    val balanceResolution = asset?.let {
+                        AssetBalanceCompletenessResolver.resolve(
+                            asset = it,
+                            manualBalance = manualBalanceByAssetId[assetId] ?: 0.0,
+                            repository = onChainBalanceRepository,
+                            forceRefresh = false
+                        )
+                    }
+                    assetId to balanceResolution
+                }
+            }
+            .awaitAll()
+            .toMap()
+        val withDetails = goalAllocations.map { allocation ->
+            val asset = assetsById[allocation.assetId]
+            val balanceResolution = balanceByAssetId[allocation.assetId]
+            val balance = balanceResolution?.totalBalanceOrNull
+            val balanceIssue = balanceResolution?.issueOrNull
+                ?: if (asset == null) {
+                    "Asset is unavailable. Restore the asset and retry."
+                } else {
+                    null
+                }
+            val totalAllocatedFromAsset = totalAllocatedByAssetId[allocation.assetId] ?: 0.0
+            AllocationWithDetails(
+                allocation = allocation,
+                asset = asset,
+                assetBalance = balance,
+                assetTotalAllocated = totalAllocatedFromAsset,
+                assetDisplayName = asset?.displayName() ?: "Unknown Asset",
+                isAssetOverAllocated = balance?.let {
+                    totalAllocatedFromAsset > it + 0.0000001
+                },
+                balanceIssue = balanceIssue
+            )
+        }
+        AllocationFinancialSnapshot(
+            goal = inputs.goal,
+            allocations = withDetails,
+            totals = calculateTotals(inputs.goal, withDetails),
+            isLoading = false
+        )
     }
 
     fun requestDeleteAllocation(allocation: Allocation) {
@@ -190,40 +282,82 @@ class AllocationListViewModel @Inject constructor(
         var allocated = 0.0
         var funded = 0.0
         var missingRates = false
+        var allocatedComplete = true
+        var fundedComplete = true
+        val issues = linkedSetOf<String>()
 
         for (item in allocations) {
-            val assetCurrency = item.asset?.currency ?: goalCurrency
+            val assetCurrency = item.asset?.currency
+            if (assetCurrency == null) {
+                allocatedComplete = false
+                fundedComplete = false
+                issues += item.balanceIssue ?: "Allocation asset is unavailable."
+                continue
+            }
             val allocationAmount = item.allocation.amount
             val fundedAmount = item.fundedAmount
 
             val allocatedValue = convertOrNull(allocationAmount, assetCurrency, goalCurrency)
-            val fundedValue = convertOrNull(fundedAmount, assetCurrency, goalCurrency)
-
-            if (allocatedValue == null || fundedValue == null) {
+            if (allocatedValue == null) {
                 missingRates = true
+                allocatedComplete = false
+                fundedComplete = false
+                issues += "Exchange rate $assetCurrency → $goalCurrency is unavailable."
                 continue
             }
-
             allocated += allocatedValue
+
+            if (fundedAmount == null) {
+                fundedComplete = false
+                issues += item.balanceIssue ?: "Asset balance is unavailable."
+                continue
+            }
+            val fundedValue = convertOrNull(fundedAmount, assetCurrency, goalCurrency)
+            if (fundedValue == null) {
+                missingRates = true
+                fundedComplete = false
+                issues += "Exchange rate $assetCurrency → $goalCurrency is unavailable."
+                continue
+            }
             funded += fundedValue
         }
 
         return AllocationTotals(
-            totalAllocatedInGoalCurrency = allocated,
-            totalFundedInGoalCurrency = funded,
-            hasMissingExchangeRates = missingRates
+            totalAllocatedInGoalCurrency = allocated.takeIf { allocatedComplete },
+            totalFundedInGoalCurrency = funded.takeIf { fundedComplete },
+            hasMissingExchangeRates = missingRates,
+            financialDataIssue = issues.takeIf { it.isNotEmpty() }?.joinToString(" ")
         )
     }
 
     private suspend fun convertOrNull(amount: Double, from: String, to: String): Double? {
         if (from.equals(to, ignoreCase = true)) return amount
         val rate = runCatching { exchangeRateRepository.fetchRate(from, to) }.getOrNull()
-        return rate?.let { amount * it }
+        return rate
+            ?.takeIf { it.isFinite() && it > 0.0 }
+            ?.let { amount * it }
+            ?.takeIf(Double::isFinite)
     }
 }
 
 private data class AllocationTotals(
-    val totalAllocatedInGoalCurrency: Double = 0.0,
-    val totalFundedInGoalCurrency: Double = 0.0,
-    val hasMissingExchangeRates: Boolean = false
+    val totalAllocatedInGoalCurrency: Double? = null,
+    val totalFundedInGoalCurrency: Double? = null,
+    val hasMissingExchangeRates: Boolean = false,
+    val financialDataIssue: String? = null
+)
+
+private data class AllocationInputs(
+    val goal: Goal?,
+    val assets: List<Asset>,
+    val allocations: List<Allocation>,
+    val transactions: List<Transaction>
+)
+
+private data class AllocationFinancialSnapshot(
+    val goal: Goal? = null,
+    val allocations: List<AllocationWithDetails> = emptyList(),
+    val totals: AllocationTotals = AllocationTotals(),
+    val isLoading: Boolean = true,
+    val error: String? = null
 )

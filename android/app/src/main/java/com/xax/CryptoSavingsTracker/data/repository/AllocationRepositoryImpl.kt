@@ -20,6 +20,10 @@ class AllocationRepositoryImpl @Inject constructor(
     private val allocationDao: AllocationDao
 ) : AllocationRepository {
 
+    override fun getAllAllocationsFlow(): Flow<List<Allocation>> {
+        return allocationDao.getAllAllocations().map { it.toDomainList() }
+    }
+
     override suspend fun getTotalAllocatedForGoal(goalId: String): Double {
         return allocationDao.getTotalAllocatedForGoal(goalId) ?: 0.0
     }

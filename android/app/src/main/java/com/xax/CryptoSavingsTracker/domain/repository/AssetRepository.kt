@@ -2,6 +2,7 @@ package com.xax.CryptoSavingsTracker.domain.repository
 
 import com.xax.CryptoSavingsTracker.domain.model.Asset
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 /**
  * Repository interface for Asset operations.
@@ -31,6 +32,19 @@ interface AssetRepository {
      * Get asset by wallet address
      */
     suspend fun getAssetByAddress(address: String): Asset?
+
+    /**
+     * Get an addressed asset by its persistence identity.
+     */
+    suspend fun getAssetByOnChainIdentity(
+        address: String,
+        chainId: String,
+        currency: String
+    ): Asset? = getAllAssets().first().firstOrNull { asset ->
+        asset.address == address &&
+            asset.chainId == chainId &&
+            asset.currency == currency
+    }
 
     /**
      * Insert a new asset

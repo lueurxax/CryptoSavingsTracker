@@ -34,10 +34,11 @@ data class AssetSharingAllocationRow(
 data class AssetSharingUiState(
     val isLoading: Boolean = true,
     val asset: Asset? = null,
-    val totalBalance: Double = 0.0,
+    val totalBalance: Double? = null,
     val totalAllocated: Double = 0.0,
-    val unallocatedAmount: Double = 0.0,
-    val isOverAllocated: Boolean = false,
+    val unallocatedAmount: Double? = null,
+    val isOverAllocated: Boolean? = null,
+    val balanceIssue: String? = null,
     val allocations: List<AssetSharingAllocationRow> = emptyList(),
     val activeGoals: List<Goal> = emptyList(),
     val currentGoalId: String? = null,
@@ -113,16 +114,18 @@ class AssetSharingViewModel @Inject constructor(
                 AssetSharingUiState(
                     isLoading = false,
                     asset = asset,
-                    totalBalance = status?.totalBalance ?: 0.0,
+                    totalBalance = status?.totalBalance,
                     totalAllocated = status?.totalAllocated ?: 0.0,
-                    unallocatedAmount = status?.unallocatedAmount ?: 0.0,
-                    isOverAllocated = status?.isOverAllocated ?: false,
+                    unallocatedAmount = status?.unallocatedAmount,
+                    isOverAllocated = status?.isOverAllocated,
+                    balanceIssue = status?.balanceIssue
+                        ?: if (asset == null) "Asset is unavailable." else null,
                     allocations = allocationRows,
                     activeGoals = sortedActiveGoals,
                     currentGoalId = currentGoalId,
                     closeMonthSuggestions = closeMonthSuggestions,
                     conversionWarning = if (hasConversionWarning) {
-                        "Some goals could not be converted with the current exchange rates."
+                        "Some goals are missing a valid frozen execution rate for this asset."
                     } else {
                         null
                     },
@@ -175,7 +178,15 @@ class AssetSharingViewModel @Inject constructor(
     }
 
     fun setMaxAmount() {
-        val max = _uiState.value.unallocatedAmount
+        val max = _uiState.value.unallocatedAmount ?: run {
+            _uiState.update {
+                it.copy(
+                    amountError = it.balanceIssue
+                        ?: "Asset balance is unavailable. Refresh the wallet balance and retry."
+                )
+            }
+            return
+        }
         _uiState.update { it.copy(amountInput = AmountFormatters.formatInputAmount(max, isCrypto = _uiState.value.asset?.isCryptoAsset == true)) }
     }
 
@@ -221,7 +232,17 @@ class AssetSharingViewModel @Inject constructor(
             _uiState.update { it.copy(isSaving = true, closeMonthWarning = null) }
 
             val status = allocationValidationService.getAssetAllocationStatus(assetId)
-            val available = status?.unallocatedAmount ?: 0.0
+            val available = status?.unallocatedAmount
+            if (available == null) {
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        closeMonthWarning = status?.balanceIssue
+                            ?: "Asset balance is unavailable. Refresh the wallet balance and retry."
+                    )
+                }
+                return@launch
+            }
             if (available <= 0.0) {
                 _uiState.update {
                     it.copy(
@@ -273,6 +294,7 @@ class AssetSharingViewModel @Inject constructor(
         asset: Asset?
     ): Pair<Map<String, Double>, Boolean> {
         if (session == null || asset == null) return emptyMap<String, Double>() to false
+        if (!session.isProgressAvailable) return emptyMap<String, Double>() to true
 
         val suggestions = mutableMapOf<String, Double>()
         var hasWarning = false
@@ -281,10 +303,10 @@ class AssetSharingViewModel @Inject constructor(
             val remaining = executionContributionCalculator.remainingToClose(goal)
             if (remaining <= 0.0) continue
 
-            val converted = executionContributionCalculator.convertAmount(
-                amount = remaining,
-                from = goal.snapshot.currency,
-                to = asset.currency
+            val converted = executionContributionCalculator.remainingToCloseInAsset(
+                goalProgress = goal,
+                assetId = asset.id,
+                assetRates = session.assetRates
             )
 
             if (converted != null && converted > 0.0) {

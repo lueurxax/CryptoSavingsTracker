@@ -10,9 +10,269 @@ import Combine
 import SwiftData
 import SwiftUI
 
-private struct DashboardGoalSnapshot: Equatable {
-    let currentTotal: Double
-    let progress: Double
+struct DashboardGoalSnapshot: Equatable {
+    let calculationResult: GoalCurrentTotalResult
+    let currentTotal: Double?
+    let progress: Double?
+
+    init(calculationResult: GoalCurrentTotalResult, targetAmount: Double) {
+        self.calculationResult = calculationResult
+        guard calculationResult.isComplete else {
+            currentTotal = nil
+            progress = nil
+            return
+        }
+
+        currentTotal = calculationResult.total
+        progress = targetAmount > 0 ? min(calculationResult.total / targetAmount, 1.0) : 0
+    }
+}
+
+struct DashboardPortfolioEntry: Equatable {
+    let amount: Double
+    let currency: String
+    let isComplete: Bool
+
+    init(amount: Double, currency: String) {
+        self.amount = amount
+        self.currency = currency
+        self.isComplete = true
+    }
+
+    init(calculationResult: GoalCurrentTotalResult, currency: String) {
+        self.amount = calculationResult.total
+        self.currency = currency
+        self.isComplete = calculationResult.isComplete
+    }
+}
+
+struct DashboardActivityEntry: Equatable {
+    let amount: Double
+    let currency: String
+    let date: Date
+}
+
+enum DashboardTrendState {
+    case loading
+    case loaded([BalanceHistoryPoint])
+    case unavailable
+}
+
+struct DashboardPortfolioRefreshFingerprint: Hashable {
+    let displayCurrency: String
+    let goals: [DashboardGoalRefreshFingerprint]
+
+    init(displayCurrency: String, goals: [Goal]) {
+        self.displayCurrency = displayCurrency.uppercased()
+        self.goals = goals
+            .filter { $0.lifecycleStatus == .active }
+            .map(DashboardGoalRefreshFingerprint.init)
+            .sorted { $0.id.uuidString < $1.id.uuidString }
+    }
+}
+
+struct DashboardRefreshRequestID: Hashable {
+    let portfolioFingerprint: DashboardPortfolioRefreshFingerprint
+    let exchangeRateGeneration: UInt64
+    let calendarDayStart: Date
+}
+
+struct DashboardGoalRefreshFingerprint: Hashable {
+    let id: UUID
+    let currency: String
+    let targetAmount: Double
+    let deadline: Date
+    let lifecycleStatusRawValue: String
+    let lastModifiedDate: Date
+    let allocations: [DashboardAllocationRefreshFingerprint]
+
+    init(goal: Goal) {
+        id = goal.id
+        currency = goal.currency.uppercased()
+        targetAmount = goal.targetAmount
+        deadline = goal.deadline
+        lifecycleStatusRawValue = goal.lifecycleStatusRawValue
+        lastModifiedDate = goal.lastModifiedDate
+        allocations = (goal.allocations ?? [])
+            .map(DashboardAllocationRefreshFingerprint.init)
+            .sorted { $0.id.uuidString < $1.id.uuidString }
+    }
+}
+
+struct DashboardAllocationRefreshFingerprint: Hashable {
+    let id: UUID
+    let amount: Double
+    let lastModifiedDate: Date
+    let assetID: UUID?
+    let assetCurrency: String?
+    let assetCurrentAmount: Double
+    let transactions: [DashboardTransactionRefreshFingerprint]
+
+    init(allocation: AssetAllocation) {
+        id = allocation.id
+        amount = allocation.amountValue
+        lastModifiedDate = allocation.lastModifiedDate
+        assetID = allocation.asset?.id
+        assetCurrency = allocation.asset?.currency.uppercased()
+        assetCurrentAmount = allocation.asset?.currentAmount ?? 0
+        transactions = (allocation.asset?.transactions ?? [])
+            .map(DashboardTransactionRefreshFingerprint.init)
+            .sorted { $0.id.uuidString < $1.id.uuidString }
+    }
+}
+
+struct DashboardTransactionRefreshFingerprint: Hashable {
+    let id: UUID
+    let amount: Double
+    let date: Date
+    let sourceRawValue: String
+
+    init(transaction: Transaction) {
+        id = transaction.id
+        amount = transaction.amount
+        date = transaction.date
+        sourceRawValue = transaction.sourceRawValue
+    }
+}
+
+@MainActor
+final class DashboardRefreshGenerationGuard {
+    struct Generation: Equatable {
+        fileprivate let value: UInt64
+    }
+
+    private var nextValue: UInt64 = 0
+    private var currentGeneration: Generation?
+
+    func begin() -> Generation {
+        nextValue &+= 1
+        let generation = Generation(value: nextValue)
+        currentGeneration = generation
+        return generation
+    }
+
+    @discardableResult
+    func commitIfCurrent(
+        _ generation: Generation,
+        _ commit: () -> Void
+    ) -> Bool {
+        guard !Task.isCancelled, generation == currentGeneration else {
+            return false
+        }
+
+        commit()
+        return true
+    }
+}
+
+enum DashboardPortfolioTotalCalculator {
+    static func total(
+        entries: [DashboardPortfolioEntry],
+        displayCurrency: String,
+        exchangeRateService: ExchangeRateServiceProtocol
+    ) async throws -> Double {
+        guard entries.allSatisfy(\.isComplete) else {
+            throw DashboardPortfolioTotalError.incompleteGoalTotal
+        }
+
+        let targetCurrency = displayCurrency.uppercased()
+        var convertedTotal = 0.0
+
+        for entry in entries {
+            let sourceCurrency = entry.currency.uppercased()
+            if sourceCurrency == targetCurrency {
+                convertedTotal += entry.amount
+            } else {
+                let rate = try await exchangeRateService.fetchRate(
+                    from: sourceCurrency,
+                    to: targetCurrency
+                )
+                convertedTotal += entry.amount * rate
+            }
+        }
+
+        return convertedTotal
+    }
+}
+
+enum DashboardPortfolioTotalError: Error {
+    case incompleteGoalTotal
+}
+
+enum DashboardActivityTrendCalculator {
+    static func points(
+        entries: [DashboardActivityEntry],
+        displayCurrency: String,
+        endDate: Date = Date(),
+        calendar: Calendar = .current,
+        exchangeRateService: ExchangeRateServiceProtocol
+    ) async throws -> [BalanceHistoryPoint] {
+        let targetCurrency = displayCurrency.uppercased()
+        let endDay = calendar.startOfDay(for: endDate)
+        guard let startDay = calendar.date(byAdding: .day, value: -6, to: endDay) else {
+            return []
+        }
+
+        let windowEntries = entries.filter { entry in
+            let day = calendar.startOfDay(for: entry.date)
+            return day >= startDay && day <= endDay && !entry.currency.isEmpty
+        }
+
+        var ratesByCurrency: [String: Double] = [targetCurrency: 1]
+        for sourceCurrency in Set(windowEntries.map { $0.currency.uppercased() })
+        where sourceCurrency != targetCurrency {
+            ratesByCurrency[sourceCurrency] = try await exchangeRateService.fetchRate(
+                from: sourceCurrency,
+                to: targetCurrency
+            )
+        }
+
+        let convertedByDay = Dictionary(grouping: windowEntries) {
+            calendar.startOfDay(for: $0.date)
+        }.mapValues { dayEntries in
+            dayEntries.reduce(0.0) { total, entry in
+                let sourceCurrency = entry.currency.uppercased()
+                return total + entry.amount * (ratesByCurrency[sourceCurrency] ?? 0)
+            }
+        }
+
+        var runningTotal = 0.0
+        return (0..<7).compactMap { offset in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: startDay) else {
+                return nil
+            }
+            runningTotal += convertedByDay[day, default: 0]
+            return BalanceHistoryPoint(
+                date: day,
+                balance: runningTotal,
+                currency: targetCurrency
+            )
+        }
+    }
+}
+
+enum DashboardActivityTrendLoader {
+    static func load(
+        entries: [DashboardActivityEntry],
+        displayCurrency: String,
+        endDate: Date = Date(),
+        calendar: Calendar = .current,
+        exchangeRateService: ExchangeRateServiceProtocol
+    ) async -> DashboardTrendState {
+        do {
+            return .loaded(
+                try await DashboardActivityTrendCalculator.points(
+                    entries: entries,
+                    displayCurrency: displayCurrency,
+                    endDate: endDate,
+                    calendar: calendar,
+                    exchangeRateService: exchangeRateService
+                )
+            )
+        } catch {
+            return .unavailable
+        }
+    }
 }
 
 private enum DashboardPrimaryAction {
@@ -56,8 +316,15 @@ private enum DashboardPrimaryAction {
 
 struct DashboardView: View {
     @Query(sort: \Goal.deadline) private var goals: [Goal]
+    @AppStorage("mvp.settings.displayCurrency") private var displayCurrency = "USD"
+    @Environment(\.scenePhase) private var scenePhase
     @State private var snapshots: [UUID: DashboardGoalSnapshot] = [:]
+    @State private var portfolioTotal: Double?
+    @State private var trendState: DashboardTrendState = .loading
     @State private var isLoadingSnapshots = false
+    @State private var refreshGenerationGuard = DashboardRefreshGenerationGuard()
+    @State private var exchangeRateGeneration: UInt64 = 0
+    @State private var calendarDayStart = Calendar.current.startOfDay(for: Date())
 
     private var activeGoals: [Goal] {
         goals
@@ -68,6 +335,21 @@ struct DashboardView: View {
                 }
                 return lhs.deadline < rhs.deadline
             }
+    }
+
+    private var portfolioRefreshFingerprint: DashboardPortfolioRefreshFingerprint {
+        DashboardPortfolioRefreshFingerprint(
+            displayCurrency: displayCurrency,
+            goals: goals
+        )
+    }
+
+    private var refreshRequestID: DashboardRefreshRequestID {
+        DashboardRefreshRequestID(
+            portfolioFingerprint: portfolioRefreshFingerprint,
+            exchangeRateGeneration: exchangeRateGeneration,
+            calendarDayStart: calendarDayStart
+        )
     }
 
     private var activeAssets: [Asset] {
@@ -85,12 +367,6 @@ struct DashboardView: View {
             .flatMap { $0.transactions ?? [] }
             .filter { seenIDs.insert($0.id).inserted }
             .sorted { $0.date > $1.date }
-    }
-
-    private var portfolioTotal: Double {
-        activeGoals.reduce(0) { partialResult, goal in
-            partialResult + (snapshots[goal.id]?.currentTotal ?? 0)
-        }
     }
 
     private var primaryAction: DashboardPrimaryAction {
@@ -113,25 +389,6 @@ struct DashboardView: View {
         return .addAsset(firstGoal)
     }
 
-    private var recentTrendPoints: [BalanceHistoryPoint] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let recentWindow = (0..<7).reversed().compactMap { offset in
-            calendar.date(byAdding: .day, value: -offset, to: today)
-        }
-
-        var runningTotal = 0.0
-        let groupedTransactions = Dictionary(grouping: recentTransactions) {
-            calendar.startOfDay(for: $0.date)
-        }
-
-        return recentWindow.map { day in
-            let dayTotal = groupedTransactions[day, default: []].reduce(0.0) { $0 + $1.amount }
-            runningTotal += dayTotal
-            return BalanceHistoryPoint(date: day, balance: runningTotal, currency: activeGoals.first?.currency ?? "USD")
-        }
-    }
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -140,13 +397,14 @@ struct DashboardView: View {
                 } else {
                     PortfolioSummaryCard(
                         portfolioTotal: portfolioTotal,
+                        displayCurrency: displayCurrency,
                         goalCount: activeGoals.count,
                         isLoading: isLoadingSnapshots
                     )
 
                     ActiveGoalsSection(goals: activeGoals, snapshots: snapshots)
 
-                    DashboardTrendCard(dataPoints: recentTrendPoints)
+                    DashboardTrendCard(state: trendState)
 
                     RecentActivityCard(transactions: Array(recentTransactions.prefix(4)))
 
@@ -160,12 +418,20 @@ struct DashboardView: View {
         .navigationBarTitleDisplayMode(.inline)
 #endif
         .accessibilityIdentifier("mvpRootDashboard")
-        .task {
+        .task(id: refreshRequestID) {
             await loadSnapshots()
         }
-        .onChange(of: goals.count) { _, _ in
-            Task {
-                await loadSnapshots()
+        .onReceive(
+            NotificationCenter.default.publisher(for: .exchangeRatesDidRefresh)
+                .receive(on: RunLoop.main)
+        ) { _ in exchangeRateGeneration &+= 1 }
+        .onReceive(
+            NotificationCenter.default.publisher(for: Notification.Name.NSCalendarDayChanged)
+                .receive(on: RunLoop.main)
+        ) { _ in updateCalendarDay() }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                updateCalendarDay()
             }
         }
         .refreshable {
@@ -173,25 +439,95 @@ struct DashboardView: View {
         }
     }
 
-    private func loadSnapshots() async {
-        isLoadingSnapshots = true
+    private func updateCalendarDay() {
+        let updatedDayStart = Calendar.current.startOfDay(for: Date())
+        if updatedDayStart != calendarDayStart {
+            calendarDayStart = updatedDayStart
+        }
+    }
 
-        var updatedSnapshots: [UUID: DashboardGoalSnapshot] = [:]
-        for goal in activeGoals {
-            let total = await GoalCalculationService.getCurrentTotal(for: goal)
-            let progress = goal.targetAmount > 0 ? min(total / goal.targetAmount, 1.0) : 0
-            updatedSnapshots[goal.id] = DashboardGoalSnapshot(currentTotal: total, progress: progress)
+    private func loadSnapshots() async {
+        guard !Task.isCancelled else {
+            return
         }
 
-        snapshots = updatedSnapshots
-        isLoadingSnapshots = false
+        let generation = refreshGenerationGuard.begin()
+        let refreshedGoals = activeGoals
+        let refreshedDisplayCurrency = displayCurrency
+        let refreshedCalendarDayStart = calendarDayStart
+        let refreshedActivityEntries = recentTransactions.compactMap { transaction -> DashboardActivityEntry? in
+            guard let currency = transaction.asset?.currency else {
+                return nil
+            }
+            return DashboardActivityEntry(
+                amount: transaction.amount,
+                currency: currency,
+                date: transaction.date
+            )
+        }
+        isLoadingSnapshots = true
+        portfolioTotal = nil
+        trendState = .loading
+
+        var updatedSnapshots: [UUID: DashboardGoalSnapshot] = [:]
+        for goal in refreshedGoals {
+            let result = await GoalCalculationService.getCurrentTotalResult(for: goal)
+            updatedSnapshots[goal.id] = DashboardGoalSnapshot(
+                calculationResult: result,
+                targetAmount: goal.targetAmount
+            )
+        }
+
+        let updatedPortfolioTotal: Double?
+        do {
+            let entries = refreshedGoals.compactMap { goal in
+                updatedSnapshots[goal.id].map {
+                    DashboardPortfolioEntry(
+                        calculationResult: $0.calculationResult,
+                        currency: goal.currency
+                    )
+                }
+            }
+            updatedPortfolioTotal = try await DashboardPortfolioTotalCalculator.total(
+                entries: entries,
+                displayCurrency: refreshedDisplayCurrency,
+                exchangeRateService: DIContainer.shared.exchangeRateService
+            )
+        } catch {
+            updatedPortfolioTotal = nil
+        }
+
+        let updatedTrendState = await DashboardActivityTrendLoader.load(
+            entries: refreshedActivityEntries,
+            displayCurrency: refreshedDisplayCurrency,
+            endDate: refreshedCalendarDayStart,
+            exchangeRateService: DIContainer.shared.exchangeRateService
+        )
+
+        refreshGenerationGuard.commitIfCurrent(generation) {
+            snapshots = updatedSnapshots
+            portfolioTotal = updatedPortfolioTotal
+            trendState = updatedTrendState
+            isLoadingSnapshots = false
+        }
     }
 }
 
 private struct PortfolioSummaryCard: View {
-    let portfolioTotal: Double
+    let portfolioTotal: Double?
+    let displayCurrency: String
     let goalCount: Int
     let isLoading: Bool
+
+    private var balanceText: String {
+        if isLoading {
+            return "Updating balances..."
+        }
+        guard let portfolioTotal else {
+            return "Balance unavailable"
+        }
+        return portfolioTotal.formatted(.currency(code: displayCurrency))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -200,7 +536,7 @@ private struct PortfolioSummaryCard: View {
 
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(isLoading ? "Updating balances..." : portfolioTotal.formatted(.currency(code: "USD")))
+                    Text(balanceText)
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
                     Text("Saved balances across your active goals")
@@ -247,19 +583,25 @@ private struct GoalOverviewRow: View {
     let goal: Goal
     let snapshot: DashboardGoalSnapshot?
 
-    private var progress: Double {
-        snapshot?.progress ?? 0
+    private var progress: Double? {
+        snapshot?.progress
     }
 
-    private var currentTotal: Double {
-        snapshot?.currentTotal ?? 0
+    private var currentTotal: Double? {
+        snapshot?.currentTotal
     }
 
     private var statusLabel: String {
+        guard let snapshot else {
+            return "Updating"
+        }
+        guard snapshot.calculationResult.isComplete else {
+            return "Balance unavailable"
+        }
         if goal.allocatedAssets.isEmpty {
             return "Needs asset"
         }
-        if currentTotal <= 0 {
+        if snapshot.calculationResult.total <= 0 {
             return "Needs first contribution"
         }
         if goal.daysRemaining <= 14 {
@@ -269,10 +611,16 @@ private struct GoalOverviewRow: View {
     }
 
     private var statusTint: Color {
+        guard let snapshot else {
+            return AccessibleColors.primaryInteractive
+        }
+        guard snapshot.calculationResult.isComplete else {
+            return AccessibleColors.warning
+        }
         if goal.allocatedAssets.isEmpty {
             return AccessibleColors.warning
         }
-        if currentTotal <= 0 {
+        if snapshot.calculationResult.total <= 0 {
             return AccessibleColors.primaryInteractive
         }
         if goal.daysRemaining <= 14 {
@@ -303,13 +651,25 @@ private struct GoalOverviewRow: View {
                     .background(statusTint.opacity(0.12), in: Capsule())
             }
 
-            ProgressView(value: progress)
-                .tint(statusTint)
+            if let progress {
+                ProgressView(value: progress)
+                    .tint(statusTint)
+            } else {
+                Text(snapshot == nil ? "Updating progress..." : "Progress unavailable")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             HStack {
-                Text(currentTotal.formatted(.currency(code: goal.currency)))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
+                if let currentTotal {
+                    Text(currentTotal.formatted(.currency(code: goal.currency)))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                } else {
+                    Text(snapshot == nil ? "Updating balance..." : "Balance unavailable")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
                 Text("of \(goal.targetAmount.formatted(.currency(code: goal.currency)))")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -326,27 +686,42 @@ private struct GoalOverviewRow: View {
 }
 
 private struct DashboardTrendCard: View {
-    let dataPoints: [BalanceHistoryPoint]
+    let state: DashboardTrendState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Recent Activity Trend")
                 .font(.headline)
 
-            if dataPoints.count > 1 && dataPoints.contains(where: { $0.balance != 0 }) {
-                SimpleTrendChart(dataPoints: dataPoints)
-                    .frame(height: 72)
-
-                Text("Last 7 days of recorded contribution activity.")
-                    .font(.caption)
+            switch state {
+            case .loading:
+                Text("Updating activity...")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
-            } else {
+            case .unavailable:
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("No recent activity yet")
+                    Text("Activity unavailable")
                         .font(.subheadline.weight(.semibold))
-                    Text("Record a contribution to start building a balance trend on the dashboard.")
+                    Text("Some activity could not be converted into your display currency. Retry when rates are available.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                }
+            case .loaded(let dataPoints):
+                if dataPoints.count > 1 && dataPoints.contains(where: { $0.balance != 0 }) {
+                    SimpleTrendChart(dataPoints: dataPoints)
+                        .frame(height: 72)
+
+                    Text("Last 7 days of recorded contribution activity.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("No recent activity yet")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Record a contribution to start building a balance trend on the dashboard.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
