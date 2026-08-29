@@ -12,6 +12,11 @@ enum AssetAllocationEditorWarning: Equatable {
     case reservedAllocationDataConflict
 }
 
+struct AssetAllocationEditorEntryID: Hashable {
+    let goalID: UUID
+    let allocationID: UUID
+}
+
 struct AssetAllocationEditorEntry: Equatable, Identifiable {
     let allocationID: UUID
     let assetID: UUID
@@ -39,7 +44,9 @@ struct AssetAllocationEditorEntry: Equatable, Identifiable {
         self.finishedState = finishedState
     }
 
-    var id: UUID { allocationID }
+    var id: AssetAllocationEditorEntryID {
+        AssetAllocationEditorEntryID(goalID: goalID, allocationID: allocationID)
+    }
 }
 
 struct AssetAllocationEditorBreakdown: Equatable {

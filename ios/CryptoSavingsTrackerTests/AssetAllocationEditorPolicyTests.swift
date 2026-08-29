@@ -5,6 +5,48 @@ import XCTest
 
 @MainActor
 final class AssetAllocationEditorPolicyTests: XCTestCase {
+    func testEntryIdentityIsStableGoalAndAllocationCompositeWhenAllocationUUIDRepeats() {
+        let allocationID = UUID()
+        let assetID = UUID()
+        let firstGoalID = UUID()
+        let secondGoalID = UUID()
+        let firstEntry = AssetAllocationEditorEntry(
+            allocationID: allocationID,
+            assetID: assetID,
+            goalID: firstGoalID,
+            goalName: "First",
+            status: .finished,
+            amount: 10,
+            finishedState: .pendingReview
+        )
+        let secondEntry = AssetAllocationEditorEntry(
+            allocationID: allocationID,
+            assetID: assetID,
+            goalID: secondGoalID,
+            goalName: "Second",
+            status: .finished,
+            amount: 10,
+            finishedState: .pendingReview
+        )
+        let transitionedFirstEntry = AssetAllocationEditorEntry(
+            allocationID: allocationID,
+            assetID: assetID,
+            goalID: firstGoalID,
+            goalName: "First",
+            status: .finished,
+            amount: 10,
+            finishedState: .reservedAsSpent
+        )
+
+        XCTAssertEqual(
+            firstEntry.id,
+            AssetAllocationEditorEntryID(goalID: firstGoalID, allocationID: allocationID)
+        )
+        XCTAssertNotEqual(firstEntry.id, secondEntry.id)
+        XCTAssertEqual(firstEntry.id, transitionedFirstEntry.id)
+        XCTAssertEqual(Set([firstEntry.id, secondEntry.id]).count, 2)
+    }
+
     func testExactSnapshotEntryClassifiesAllocationAsReservedAndCarriesIdentity() {
         let allocationID = UUID()
         let goalID = UUID()
