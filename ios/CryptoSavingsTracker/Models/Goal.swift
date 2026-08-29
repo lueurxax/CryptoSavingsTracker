@@ -47,6 +47,7 @@ final class Goal {
     // Lifecycle and modification tracking
     var lifecycleStatusRawValue: String = GoalLifecycleStatus.active.rawValue
     var lifecycleStatusChangedAt: Date?
+    var completionSnapshotData: Data?
     var lastModifiedDate: Date = Date()
     
     // Reminder properties
@@ -67,6 +68,11 @@ final class Goal {
     var lifecycleStatus: GoalLifecycleStatus {
         get { GoalLifecycleStatus(rawValue: lifecycleStatusRawValue) ?? .active }
         set { lifecycleStatusRawValue = newValue.rawValue }
+    }
+
+    var completionSnapshot: GoalCompletionSnapshot? {
+        guard let completionSnapshotData else { return nil }
+        return try? GoalCompletionSnapshotCodec.decode(completionSnapshotData)
     }
     
     var manualTotal: Double {
