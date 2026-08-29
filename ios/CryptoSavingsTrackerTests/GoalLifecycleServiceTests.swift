@@ -9,12 +9,14 @@ struct GoalLifecycleServiceTests {
     @MainActor
     private final class SpyNotificationManager: NotificationManager {
         var cancelledGoalIDs: [UUID] = []
+        var onCancel: ((Goal) -> Void)?
 
         init() {
             super.init(runtimeMode: .publicMVP, isUITestRunProvider: { false })
         }
 
         override func cancelNotifications(for goal: Goal) async {
+            onCancel?(goal)
             cancelledGoalIDs.append(goal.id)
         }
 
@@ -53,12 +55,27 @@ struct GoalLifecycleServiceTests {
         let goal = makeGoal(name: "Finish Goal")
         context.insert(goal)
         try context.save()
+        var observedPersistedSnapshotBeforeCancellation = false
+        notificationManager.onCancel = { cancelledGoal in
+            let verificationContext = ModelContext(container)
+            let persistedGoal = try? verificationContext.fetch(FetchDescriptor<Goal>())
+                .first { $0.id == cancelledGoal.id }
+            observedPersistedSnapshotBeforeCancellation = persistedGoal?.completionSnapshotData != nil
+        }
 
-        await service.finishGoal(goal, at: timestamp)
+        let plan = try service.prepareFinishGoal(goal)
+        let snapshot = try await service.finishGoal(
+            goal,
+            plan: plan,
+            decisions: [],
+            at: timestamp
+        )
 
         #expect(goal.lifecycleStatus == .finished)
         #expect(goal.lifecycleStatusChangedAt == timestamp)
+        #expect(goal.completionSnapshot == snapshot)
         #expect(notificationManager.cancelledGoalIDs == [goal.id])
+        #expect(observedPersistedSnapshotBeforeCancellation)
         assertReminderFieldsCleared(goal)
     }
 

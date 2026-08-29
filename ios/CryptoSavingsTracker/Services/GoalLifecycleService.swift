@@ -35,17 +35,33 @@ struct GoalLifecycleService {
         NotificationCenter.default.post(name: .goalUpdated, object: goal, userInfo: ["goalId": goal.id])
     }
 
-    /// Finish a goal: goal is preserved for history and excluded from current execution tracking.
-    /// Allocations remain, so funds are treated as "spent"/not reusable.
+    func prepareFinishGoal(_ goal: Goal) throws -> GoalCompletionSettlementPlan {
+        try GoalCompletionSettlementService(modelContext: modelContext).prepareNewCompletion(for: goal)
+    }
+
+    func finishGoal(
+        _ goal: Goal,
+        plan: GoalCompletionSettlementPlan,
+        decisions: [GoalCompletionSettlementDecision],
+        at timestamp: Date = Date()
+    ) async throws -> GoalCompletionSnapshot {
+        try await GoalCompletionSettlementService(
+            modelContext: modelContext,
+            notificationManager: notificationManager
+        ).apply(
+            GoalCompletionSettlementCommand(plan: plan, decisions: decisions),
+            at: timestamp
+        )
+    }
+
     func finishGoal(_ goal: Goal, at timestamp: Date = Date()) async {
-        await retireLegacyReminderRuntime(for: goal)
-
-        goal.markFinished(at: timestamp)
-        removeGoalFromActiveExecution(goalId: goal.id)
-        try? modelContext.save()
-
-        NotificationCenter.default.post(name: .goalDeleted, object: goal)
-        NotificationCenter.default.post(name: .goalUpdated, object: goal, userInfo: ["goalId": goal.id])
+        do {
+            let plan = try prepareFinishGoal(goal)
+            guard plan.unresolvedAllocationIDs.isEmpty else { return }
+            _ = try await finishGoal(goal, plan: plan, decisions: [], at: timestamp)
+        } catch {
+            AppLog.error("Could not finish goal: \(error)", category: .swiftData)
+        }
     }
 
     /// Delete a goal (soft delete): remove it from current tracking and free its allocations so funds are not locked.
