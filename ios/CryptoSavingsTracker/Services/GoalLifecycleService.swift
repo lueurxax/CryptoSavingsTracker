@@ -24,6 +24,8 @@ struct GoalLifecycleService {
 
     /// Cancel a goal: allocations become unallocated/reusable, goal is excluded from current execution tracking.
     func cancelGoal(_ goal: Goal, at timestamp: Date = Date()) async {
+        guard goal.lifecycleStatus == .active else { return }
+
         await retireLegacyReminderRuntime(for: goal)
         freeAllocations(for: goal)
 

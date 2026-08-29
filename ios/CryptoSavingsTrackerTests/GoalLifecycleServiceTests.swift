@@ -98,12 +98,97 @@ struct GoalLifecycleServiceTests {
         assertReminderFieldsCleared(goal)
     }
 
+    @Test("snapshot-backed finished retained allocation cannot be cancelled")
+    func snapshotBackedFinishedGoalCancelIsNoOp() async throws {
+        try await assertFinishedGoalCancelIsNoOp(snapshotBacked: true)
+    }
+
+    @Test("legacy finished allocation cannot be cancelled")
+    func legacyFinishedGoalCancelIsNoOp() async throws {
+        try await assertFinishedGoalCancelIsNoOp(snapshotBacked: false)
+    }
+
     private func makeGoal(name: String) -> Goal {
         let goal = TestDataFactory.createSampleGoal(name: name)
         goal.reminderFrequency = ReminderFrequency.weekly.rawValue
         goal.reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())
         goal.firstReminderDate = Date().addingTimeInterval(3_600)
         return goal
+    }
+
+    private func assertFinishedGoalCancelIsNoOp(snapshotBacked: Bool) async throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let notificationManager = SpyNotificationManager()
+        let service = GoalLifecycleService(modelContext: context, notificationManager: notificationManager)
+        let finishedAt = Date(timeIntervalSince1970: 4_000)
+        let goal = makeGoal(name: snapshotBacked ? "Settled Finished" : "Legacy Finished")
+        let asset = Asset(currency: "USD")
+        let allocation = AssetAllocation(asset: asset, goal: goal, amount: 40)
+        asset.allocations = [allocation]
+        goal.allocations = [allocation]
+        goal.markFinished(at: finishedAt)
+        if snapshotBacked {
+            goal.completionSnapshotData = try GoalCompletionSnapshotCodec.encode(
+                GoalCompletionSnapshot(
+                    id: UUID(),
+                    schemaVersion: GoalCompletionSnapshot.currentSchemaVersion,
+                    goalID: goal.id,
+                    goalName: goal.name,
+                    goalCurrency: goal.currency,
+                    goalTargetAmount: goal.targetAmount,
+                    goalCompletedAt: finishedAt,
+                    snapshotCreatedAt: finishedAt,
+                    entries: [
+                        GoalCompletionSnapshot.Entry(
+                            allocationID: allocation.id,
+                            assetID: asset.id,
+                            assetCurrency: asset.currency,
+                            amount: 40,
+                            accountingMode: .manual,
+                            settlement: .keepAsSpent,
+                            bestKnownBalance: 100,
+                            balanceCapturedAt: finishedAt,
+                            balanceTiming: .completionTime
+                        )
+                    ]
+                )
+            )
+        }
+        context.insert(goal)
+        context.insert(asset)
+        context.insert(allocation)
+        try context.save()
+        let baselineHistoryCount = try context.fetchCount(FetchDescriptor<AllocationHistory>())
+        let originalSnapshotData = goal.completionSnapshotData
+        let originalLastModifiedDate = goal.lastModifiedDate
+        var lifecycleNotifications: [Notification.Name] = []
+        let center = NotificationCenter.default
+        let tokens = [Notification.Name.goalDeleted, .goalUpdated].map { name in
+            center.addObserver(forName: name, object: nil, queue: nil) { notification in
+                guard (notification.object as? Goal)?.id == goal.id else { return }
+                lifecycleNotifications.append(notification.name)
+            }
+        }
+        defer {
+            tokens.forEach(center.removeObserver)
+        }
+
+        await service.cancelGoal(goal, at: Date(timeIntervalSince1970: 5_000))
+
+        #expect(goal.lifecycleStatus == .finished)
+        #expect(goal.lifecycleStatusChangedAt == finishedAt)
+        #expect(goal.lastModifiedDate == originalLastModifiedDate)
+        #expect(goal.completionSnapshotData == originalSnapshotData)
+        #expect(goal.reminderFrequency == ReminderFrequency.weekly.rawValue)
+        #expect(goal.reminderTime != nil)
+        #expect(goal.firstReminderDate != nil)
+        #expect(goal.allocations?.contains { $0.id == allocation.id } == true)
+        #expect(asset.allocations?.contains { $0.id == allocation.id } == true)
+        #expect(try context.fetchCount(FetchDescriptor<AssetAllocation>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<AllocationHistory>()) == baselineHistoryCount)
+        #expect(notificationManager.cancelledGoalIDs.isEmpty)
+        #expect(lifecycleNotifications.isEmpty)
     }
 
     private func assertReminderFieldsCleared(_ goal: Goal) {

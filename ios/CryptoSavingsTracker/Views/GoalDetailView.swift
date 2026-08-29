@@ -9,6 +9,18 @@ import SwiftUI
 import SwiftData
 import Foundation
 
+enum GoalDetailDestructiveAction: Equatable {
+    case delete
+    case cancel
+    case finish
+}
+
+enum GoalDetailDestructiveActionPolicy {
+    static func actions(for lifecycleStatus: GoalLifecycleStatus) -> [GoalDetailDestructiveAction] {
+        lifecycleStatus == .active ? [.delete, .cancel, .finish] : [.delete]
+    }
+}
+
 struct GoalDetailView: View {
     @Environment(\.modelContext) private var modelContext
     let goal: Goal
@@ -23,6 +35,17 @@ struct GoalDetailView: View {
             lifecycleStatus: goal.lifecycleStatus,
             snapshot: goal.completionSnapshot
         )
+    }
+
+    private var destructiveActions: [GoalDetailDestructiveAction] {
+        GoalDetailDestructiveActionPolicy.actions(for: goal.lifecycleStatus)
+    }
+
+    private var destructiveDialogMessage: String {
+        if destructiveActions.contains(.finish) {
+            return "Finish records how this goal was funded. Wallet-tracked balances are released automatically; mixed balances may need one choice."
+        }
+        return "Delete permanently removes this goal and frees any remaining allocations."
     }
 
     private var goalActionsMenu: some View {
@@ -141,8 +164,12 @@ struct GoalDetailView: View {
                 titleVisibility: .visible
             ) {
                 Button("Delete Goal", role: .destructive) { deleteGoal() }
-                Button("Cancel Goal (free allocations)", role: .destructive) { cancelGoal() }
-                Button("Finish Goal") { goalPendingCompletion = goal }
+                if destructiveActions.contains(.cancel) {
+                    Button("Cancel Goal (free allocations)", role: .destructive) { cancelGoal() }
+                }
+                if destructiveActions.contains(.finish) {
+                    Button("Finish Goal") { goalPendingCompletion = goal }
+                }
                 Button("Cancel", role: .cancel) {
                     DIContainer.shared.navigationTelemetryTracker.cancelled(
                         journeyID: NavigationJourney.destructiveDeleteConfirmation,
@@ -151,7 +178,7 @@ struct GoalDetailView: View {
                     )
                 }
             } message: {
-                Text("Finish records how this goal was funded. Wallet-tracked balances are released automatically; mixed balances may need one choice.")
+                Text(destructiveDialogMessage)
             }
             // NAV-MOD: MOD-01
             .sheet(item: $editingGoal) { goal in

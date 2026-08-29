@@ -120,6 +120,19 @@ struct FinishedGoalFundingPresentationTests {
         #expect(branch.rendersLiveGoalData)
     }
 
+    @Test("active goal detail offers delete cancel and finish")
+    func activeGoalDestructiveActions() {
+        #expect(
+            GoalDetailDestructiveActionPolicy.actions(for: .active)
+                == [.delete, .cancel, .finish]
+        )
+    }
+
+    @Test("finished goal detail offers delete only")
+    func finishedGoalDestructiveActions() {
+        #expect(GoalDetailDestructiveActionPolicy.actions(for: .finished) == [.delete])
+    }
+
     @Test("goal detail root delegates live data ownership to the active child")
     func rootDoesNotOwnLiveGoalData() throws {
         let source = try String(
