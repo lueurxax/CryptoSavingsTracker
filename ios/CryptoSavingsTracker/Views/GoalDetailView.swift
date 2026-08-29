@@ -43,6 +43,10 @@ struct GoalDetailView: View {
         }
     }
 
+    private var isFinishedGoal: Bool {
+        goal.lifecycleStatus == .finished
+    }
+
     private var goalTransactions: [Transaction] {
         let goalAssetIDs = Set(goalAssets.map(\.id))
         return allTransactions
@@ -118,43 +122,66 @@ struct GoalDetailView: View {
     private var goalSummarySection: some View {
         Section("Goal Summary") {
             summaryRow(label: "Target", value: currencyAmount(goal.targetAmount))
-            summaryRow(label: "Current", value: currencyAmount(goalViewModel.currentTotal))
-            summaryRow(
-                label: "Deadline",
-                value: "\(goal.deadline.formatted(date: .abbreviated, time: .omitted)) (\(goal.daysRemaining) days remaining)"
-            )
-            summaryRow(label: "Suggested deposit", value: currencyAmount(goalViewModel.suggestedDeposit))
-
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Refresh balances")
-                    if let lastRefresh {
-                        Text("Updated \(lastRefresh, format: .relative(presentation: .named))")
-                            .font(.caption)
-                            .foregroundStyle(AccessibleColors.secondaryText)
-                    }
+            if isFinishedGoal {
+                summaryRow(label: "Status", value: "Finished")
+                if let completedAt = goal.completionSnapshot?.goalCompletedAt {
+                    summaryRow(
+                        label: "Completed",
+                        value: completedAt.formatted(date: .abbreviated, time: .omitted)
+                    )
+                } else {
+                    summaryRow(label: "Completed", value: "Pending funding history review")
                 }
-                Spacer()
-                Button {
-                    Task { await refreshBalances() }
-                } label: {
-                    Label("Refresh", systemImage: goalViewModel.isLoading ? "arrow.clockwise.circle.fill" : "arrow.clockwise.circle")
-                }
-                .disabled(goalViewModel.isLoading)
-                .buttonStyle(.bordered)
-            }
-
-            if let balanceRefreshError = goalViewModel.balanceRefreshError {
-                ErrorBannerView(
-                    error: balanceRefreshError,
-                    onRetry: { await refreshBalances() },
-                    onDismiss: { goalViewModel.balanceRefreshError = nil }
+            } else {
+                summaryRow(label: "Current", value: currencyAmount(goalViewModel.currentTotal))
+                summaryRow(
+                    label: "Deadline",
+                    value: "\(goal.deadline.formatted(date: .abbreviated, time: .omitted)) (\(goal.daysRemaining) days remaining)"
                 )
+                summaryRow(label: "Suggested deposit", value: currencyAmount(goalViewModel.suggestedDeposit))
+
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Refresh balances")
+                        if let lastRefresh {
+                            Text("Updated \(lastRefresh, format: .relative(presentation: .named))")
+                                .font(.caption)
+                                .foregroundStyle(AccessibleColors.secondaryText)
+                        }
+                    }
+                    Spacer()
+                    Button {
+                        Task { await refreshBalances() }
+                    } label: {
+                        Label("Refresh", systemImage: goalViewModel.isLoading ? "arrow.clockwise.circle.fill" : "arrow.clockwise.circle")
+                    }
+                    .disabled(goalViewModel.isLoading)
+                    .buttonStyle(.bordered)
+                }
+
+                if let balanceRefreshError = goalViewModel.balanceRefreshError {
+                    ErrorBannerView(
+                        error: balanceRefreshError,
+                        onRetry: { await refreshBalances() },
+                        onDismiss: { goalViewModel.balanceRefreshError = nil }
+                    )
+                }
             }
         }
     }
 
+    @ViewBuilder
     private var assetsSection: some View {
+        if isFinishedGoal {
+            FinishedGoalFundingSection(
+                content: FinishedGoalFundingContent.make(snapshot: goal.completionSnapshot)
+            )
+        } else {
+            activeAssetsSection
+        }
+    }
+
+    private var activeAssetsSection: some View {
         Section("Assets") {
             if goalAssets.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
@@ -280,23 +307,31 @@ struct GoalDetailView: View {
             .onChange(of: goal.id) { _, _ in
                 goalViewModel = GoalViewModel(goal: goal)
                 goalViewModel.setModelContext(modelContext)
-                Task {
-                    await goalViewModel.refreshValues()
+                if !isFinishedGoal {
+                    Task {
+                        await goalViewModel.refreshValues()
+                    }
                 }
             }
             .onChange(of: goalAssets.count) { _, _ in
-                Task {
-                    try? await Task.sleep(for: .milliseconds(100))
-                    await goalViewModel.refreshValues()
+                if !isFinishedGoal {
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(100))
+                        await goalViewModel.refreshValues()
+                    }
                 }
             }
             .onChange(of: allAssets.count) { _, _ in
-                Task { await goalViewModel.refreshValues() }
+                if !isFinishedGoal {
+                    Task { await goalViewModel.refreshValues() }
+                }
             }
             .onChange(of: allTransactions.count) { _, _ in
-                Task {
-                    try? await Task.sleep(for: .milliseconds(100))
-                    await goalViewModel.refreshValues()
+                if !isFinishedGoal {
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(100))
+                        await goalViewModel.refreshValues()
+                    }
                 }
             }
             .onChange(of: showingDeleteConfirmation) { _, isPresented in
@@ -409,7 +444,9 @@ struct GoalDetailView: View {
             }
             .task(id: goal.id) {
                 goalViewModel.setModelContext(modelContext)
-                await goalViewModel.refreshValues()
+                if !isFinishedGoal {
+                    await goalViewModel.refreshValues()
+                }
             }
     }
     
