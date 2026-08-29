@@ -7,6 +7,8 @@ import SwiftUI
 
 struct SimplePieChart: View {
     let allocations: [(goal: Goal, percentage: Double)]
+    let pendingReviewPercentage: Double
+    let finishedReservedPercentage: Double
     let unallocatedPercentage: Double
     
     private let colors: [Color] = [
@@ -24,6 +26,31 @@ struct SimplePieChart: View {
                         .stroke(colors[index % colors.count], lineWidth: 40)
                         .rotationEffect(.degrees(-90))
                 }
+
+                if pendingReviewPercentage > 0.0000001 {
+                    Circle()
+                        .trim(
+                            from: activeAllocatedPercentage,
+                            to: min(1, activeAllocatedPercentage + pendingReviewPercentage)
+                        )
+                        .stroke(AccessibleColors.error, lineWidth: 40)
+                        .rotationEffect(.degrees(-90))
+                }
+
+                if finishedReservedPercentage > 0.0000001 {
+                    Circle()
+                        .trim(
+                            from: activeAllocatedPercentage + pendingReviewPercentage,
+                            to: min(
+                                1,
+                                activeAllocatedPercentage
+                                    + pendingReviewPercentage
+                                    + finishedReservedPercentage
+                            )
+                        )
+                        .stroke(AccessibleColors.warning, lineWidth: 40)
+                        .rotationEffect(.degrees(-90))
+                }
                 
                 if unallocatedPercentage > 0 {
                     Circle()
@@ -34,7 +61,10 @@ struct SimplePieChart: View {
                 
                 // Center text
                 VStack(spacing: 2) {
-                    Text("\(Int((1.0 - unallocatedPercentage) * 100))%")
+                    Text(
+                        1.0 - unallocatedPercentage,
+                        format: .percent.precision(.fractionLength(0...1))
+                    )
                         .font(.title2)
                         .fontWeight(.bold)
                     Text("Allocated")
@@ -58,7 +88,52 @@ struct SimplePieChart: View {
                         
                         Spacer()
                         
-                        Text("\(Int(item.percentage * 100))%")
+                        Text(
+                            item.percentage,
+                            format: .percent.precision(.fractionLength(0...1))
+                        )
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                if pendingReviewPercentage > 0.0000001 {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(AccessibleColors.error)
+                            .frame(width: 12, height: 12)
+
+                        Label("Pending review", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+
+                        Spacer()
+
+                        Text(
+                            pendingReviewPercentage,
+                            format: .percent.precision(.fractionLength(0...1))
+                        )
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                if finishedReservedPercentage > 0.0000001 {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(AccessibleColors.warning)
+                            .frame(width: 12, height: 12)
+
+                        Label("Reserved as spent", systemImage: "lock.fill")
+                            .font(.caption)
+
+                        Spacer()
+
+                        Text(
+                            finishedReservedPercentage,
+                            format: .percent.precision(.fractionLength(0...1))
+                        )
                             .font(.caption)
                             .fontWeight(.medium)
                             .foregroundColor(.secondary)
@@ -77,7 +152,10 @@ struct SimplePieChart: View {
                         
                         Spacer()
                         
-                        Text("\(Int(unallocatedPercentage * 100))%")
+                        Text(
+                            unallocatedPercentage,
+                            format: .percent.precision(.fractionLength(0...1))
+                        )
                             .font(.caption)
                             .fontWeight(.medium)
                             .foregroundColor(.secondary)
@@ -95,5 +173,9 @@ struct SimplePieChart: View {
     
     private func trimTo(for index: Int) -> CGFloat {
         return allocations.prefix(index + 1).map(\.percentage).reduce(0, +)
+    }
+
+    private var activeAllocatedPercentage: Double {
+        min(1, allocations.map(\.percentage).reduce(0, +))
     }
 }

@@ -9,13 +9,8 @@ import SwiftData
 struct AssetSharingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query(
-        filter: #Predicate<Goal> { goal in
-            goal.lifecycleStatusRawValue == "active"
-        },
-        sort: \Goal.name
-    )
-    private var goals: [Goal]
+    @Query(sort: \Goal.name)
+    private var allGoals: [Goal]
     
     let asset: Asset
     let currentGoalId: UUID?
@@ -25,6 +20,7 @@ struct AssetSharingView: View {
     @State private var isLoadingBalance: Bool = false
     @State private var isSaving: Bool = false
     @State private var saveError: String?
+    @State private var legacyReviewCoordinator = LegacyFinishedAllocationReviewCoordinator()
 
     init(asset: Asset, currentGoalId: UUID? = nil) {
         self.asset = asset
@@ -46,16 +42,111 @@ struct AssetSharingView: View {
         return max(cached, asset.manualBalance + fetchedOnChainBalance)
     }
     
+    private var activeGoals: [Goal] {
+        allGoals.filter { $0.lifecycleStatus == .active }
+    }
+
+    private var existingAllocationEntries: [AssetAllocationEditorEntry] {
+        (asset.allocations ?? []).compactMap { allocation in
+            guard let goal = allocation.goal else { return nil }
+            let finishedState: FinishedAllocationEditorState?
+            if goal.lifecycleStatus != .finished {
+                finishedState = nil
+            } else if goal.completionSnapshotData == nil {
+                finishedState = .pendingReview
+            } else if goal.completionSnapshot?.entries.contains(where: {
+                $0.assetID == asset.id && $0.settlement == .keepAsSpent
+            }) == true {
+                finishedState = .reservedAsSpent
+            } else {
+                finishedState = nil
+            }
+            return AssetAllocationEditorEntry(
+                goalID: goal.id,
+                goalName: goal.name,
+                status: goal.lifecycleStatus,
+                amount: allocation.amountValue,
+                finishedState: finishedState
+            )
+        }
+    }
+
+    private var pendingReviewEntries: [AssetAllocationEditorEntry] {
+        existingAllocationEntries
+            .filter { $0.finishedState == .pendingReview && $0.amount > 0.0000001 }
+            .sorted { $0.goalName.localizedCaseInsensitiveCompare($1.goalName) == .orderedAscending }
+    }
+
+    private var reservedAsSpentEntries: [AssetAllocationEditorEntry] {
+        existingAllocationEntries
+            .filter { $0.finishedState == .reservedAsSpent && $0.amount > 0.0000001 }
+            .sorted { $0.goalName.localizedCaseInsensitiveCompare($1.goalName) == .orderedAscending }
+    }
+
+    private var invalidFinishedEntries: [AssetAllocationEditorEntry] {
+        existingAllocationEntries.filter {
+            $0.status == .finished && $0.finishedState == nil && $0.amount > 0.0000001
+        }
+    }
+
+    private var pendingReviewGoals: [Goal] {
+        let goalIDs = Set(pendingReviewEntries.map(\.goalID))
+        var seenGoalIDs = Set<UUID>()
+        return (asset.allocations ?? []).compactMap { allocation in
+            guard
+                let goal = allocation.goal,
+                goalIDs.contains(goal.id),
+                seenGoalIDs.insert(goal.id).inserted
+            else { return nil }
+            return goal
+        }
+    }
+
+    private var reviewGoalsByID: [UUID: Goal] {
+        Dictionary(uniqueKeysWithValues: pendingReviewGoals.map { ($0.id, $0) })
+    }
+
+    private var presentationEntries: [AssetAllocationEditorEntry] {
+        let activeEntries = activeGoals.compactMap { goal -> AssetAllocationEditorEntry? in
+            let amount = allocations[goal.id] ?? 0
+            guard amount > 0.0000001 else { return nil }
+            return AssetAllocationEditorEntry(
+                goalID: goal.id,
+                goalName: goal.name,
+                status: .active,
+                amount: amount,
+                finishedState: nil
+            )
+        }
+        return activeEntries + pendingReviewEntries + reservedAsSpentEntries
+    }
+
+    private var breakdown: AssetAllocationEditorBreakdown {
+        AssetAllocationEditorPolicy.breakdown(
+            balance: bestKnownBalance,
+            entries: presentationEntries
+        )
+    }
+
     var totalAmount: Double {
-        allocations.values.reduce(0, +)
+        breakdown.activeAllocatedAmount
+            + breakdown.pendingReviewAmount
+            + breakdown.finishedReservedAmount
     }
     
     var remainingAmount: Double {
-        max(0, bestKnownBalance - totalAmount)
+        breakdown.unallocatedAmount
     }
     
     var isOverAllocated: Bool {
-        totalAmount > bestKnownBalance + 0.000001
+        editorWarning != .none
+    }
+
+    private var editorWarning: AssetAllocationEditorWarning {
+        AssetAllocationEditorPolicy.warning(
+            balance: bestKnownBalance,
+            entries: presentationEntries
+        )
     }
     
     var allocationData: [(goal: Goal, amount: Double)] {
@@ -65,15 +156,25 @@ struct AssetSharingView: View {
         }
     }
     
-    var pieData: (allocations: [(goal: Goal, percentage: Double)], unallocated: Double) {
+    var pieData: (
+        allocations: [(goal: Goal, percentage: Double)],
+        pendingReview: Double,
+        finishedReserved: Double,
+        unallocated: Double
+    ) {
         let totalForPie = max(bestKnownBalance, totalAmount)
         guard totalForPie > 0 else {
-            return ([], 1.0)
+            return ([], 0, 0, 1.0)
         }
-        let allocationsPercent = allocationData.map { (goal: $0.goal, percentage: max(0, $0.amount / totalForPie)) }
-        let used = allocationsPercent.map(\.percentage).reduce(0, +)
-        let unallocated = max(0, 1.0 - used)
-        return (allocationsPercent, unallocated)
+        let allocationsPercent = allocationData.map {
+            (goal: $0.goal, percentage: max(0, $0.amount / totalForPie))
+        }
+        return (
+            allocationsPercent,
+            breakdown.pendingReviewPercentage,
+            breakdown.finishedReservedPercentage,
+            breakdown.unallocatedPercentage
+        )
     }
     
     var body: some View {
@@ -87,6 +188,8 @@ struct AssetSharingView: View {
                     if isOverAllocated {
                         overAllocationWarning
                     }
+                    pendingReviewSection
+                    reservedAsSpentSection
                 }
                 .padding(.vertical)
             }
@@ -118,6 +221,17 @@ struct AssetSharingView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(saveError ?? "Please try again.")
+        }
+        .sheet(isPresented: Binding(
+            get: { legacyReviewCoordinator.isPresented },
+            set: { if !$0 { legacyReviewCoordinator.later() } }
+        )) {
+            LegacyFinishedAllocationReviewSheet(
+                coordinator: legacyReviewCoordinator,
+                goalsByID: reviewGoalsByID,
+                onApply: applyLegacyReview,
+                onLater: legacyReviewCoordinator.later
+            )
         }
         .onAppear {
             if !hasLoadedInitial {
@@ -156,6 +270,8 @@ struct AssetSharingView: View {
 
             SimplePieChart(
                 allocations: pieData.allocations,
+                pendingReviewPercentage: pieData.pendingReview,
+                finishedReservedPercentage: pieData.finishedReserved,
                 unallocatedPercentage: pieData.unallocated
             )
         }
@@ -170,7 +286,10 @@ struct AssetSharingView: View {
                 .font(.headline)
                 .foregroundColor(.blue)
 
-            Text("Assign fixed amounts in \(asset.currency) to each goal. The total cannot exceed the available balance.")
+            Text(
+                "Assign fixed amounts in \(asset.currency) to each active goal. "
+                    + "The total cannot exceed the available balance."
+            )
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -213,7 +332,7 @@ struct AssetSharingView: View {
     private var quickActionsSection: some View {
         VStack(spacing: 12) {
             Button(action: clearAll) {
-                Label("Clear Allocations", systemImage: "xmark.circle")
+                Label("Clear Active Allocations", systemImage: "xmark.circle")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
@@ -223,7 +342,7 @@ struct AssetSharingView: View {
     }
 
     private var overAllocationWarning: some View {
-        Label("Allocated amount exceeds balance. Please reduce allocations.", systemImage: "exclamationmark.triangle.fill")
+        Label(overAllocationWarningText, systemImage: "exclamationmark.triangle.fill")
             .font(.caption)
             .foregroundColor(.red)
             .padding()
@@ -232,17 +351,170 @@ struct AssetSharingView: View {
             .padding(.horizontal)
     }
 
+    private var overAllocationWarningText: String {
+        switch editorWarning {
+        case .reviewFinishedAllocations:
+            return "Finished allocations need review before the available balance can be calculated correctly."
+        case .reduceActiveAllocations:
+            return "Allocated amount exceeds balance. Please reduce allocations."
+        case .none:
+            return ""
+        }
+    }
+
+    @ViewBuilder
+    private var pendingReviewSection: some View {
+        if pendingReviewEntries.isEmpty == false {
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Pending review", systemImage: "exclamationmark.triangle.fill")
+                    .font(.headline)
+                    .foregroundStyle(AccessibleColors.error)
+
+                Text("\(breakdown.pendingReviewAmount, specifier: "%.4f") \(asset.currency) affected")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(
+                    "These legacy finished allocations remain unavailable until every allocation "
+                        + "of each affected goal has been reviewed."
+                )
+                    .font(.caption)
+                    .foregroundStyle(AccessibleColors.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button(action: reviewFinishedAllocations) {
+                    Label("Review finished allocations", systemImage: "checklist")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("reviewFinishedAllocations")
+
+                VStack(spacing: 8) {
+                    ForEach(pendingReviewEntries) { entry in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label(entry.goalName, systemImage: "clock.badge.exclamationmark")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text("\(entry.amount, specifier: "%.4f") \(asset.currency)")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .monospacedDigit()
+                            Text("Finished · Decision required")
+                                .font(.caption2)
+                                .foregroundStyle(AccessibleColors.secondaryText)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.gray.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("pendingReviewAllocation-\(entry.goalID.uuidString)")
+                    }
+                }
+            }
+            .padding()
+            .background(AccessibleColors.errorBackground.opacity(0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal)
+            .accessibilityIdentifier("pendingReviewAllocationsSection")
+        }
+    }
+
+    @ViewBuilder
+    private var reservedAsSpentSection: some View {
+        if reservedAsSpentEntries.isEmpty == false {
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Reserved as spent", systemImage: "lock.fill")
+                    .font(.headline)
+                    .foregroundStyle(AccessibleColors.warning)
+
+                Text("\(breakdown.finishedReservedAmount, specifier: "%.4f") \(asset.currency) reserved")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(
+                    "These finished allocations were confirmed as spent. They are read-only and "
+                        + "remain unavailable for new allocations."
+                )
+                    .font(.caption)
+                    .foregroundStyle(AccessibleColors.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                VStack(spacing: 8) {
+                    ForEach(reservedAsSpentEntries) { entry in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label(entry.goalName, systemImage: "checkmark.circle.fill")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text("\(entry.amount, specifier: "%.4f") \(asset.currency)")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .monospacedDigit()
+                            Text("Finished · Read-only")
+                                .font(.caption2)
+                                .foregroundStyle(AccessibleColors.secondaryText)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.gray.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("reservedAsSpentAllocation-\(entry.goalID.uuidString)")
+                    }
+                }
+            }
+            .padding()
+            .background(AccessibleColors.warningBackground.opacity(0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal)
+            .accessibilityIdentifier("reservedAsSpentAllocationsSection")
+        }
+    }
+
     private var orderedGoals: [Goal] {
-        guard let currentGoalId else { return goals }
-        if let currentGoal = goals.first(where: { $0.id == currentGoalId }) {
-            let remaining = goals.filter { $0.id != currentGoalId }
+        guard let currentGoalId else { return activeGoals }
+        if let currentGoal = activeGoals.first(where: { $0.id == currentGoalId }) {
+            let remaining = activeGoals.filter { $0.id != currentGoalId }
             return [currentGoal] + remaining
         }
-        return goals
+        return activeGoals
     }
     
     private func clearAll() {
-        allocations.removeAll()
+        allocations = AssetAllocationEditorPolicy.clearingActiveAllocations(
+            in: allocations,
+            activeGoalIDs: activeGoals.map(\.id)
+        )
+    }
+
+    private func reviewFinishedAllocations() {
+        let service = GoalCompletionSettlementService(modelContext: modelContext)
+        do {
+            try legacyReviewCoordinator.load(goals: pendingReviewGoals) {
+                try service.prepareLegacyReview(for: $0)
+            }
+        } catch {
+            saveError = error.localizedDescription
+        }
+    }
+
+    private func applyLegacyReview() {
+        let service = GoalCompletionSettlementService(modelContext: modelContext)
+        Task { @MainActor in
+            do {
+                try await legacyReviewCoordinator.apply {
+                    try await service.applyBatch($0)
+                }
+            } catch {
+                // The coordinator keeps the sheet open and exposes the retryable message.
+            }
+        }
     }
 
     private func allocationBinding(for goal: Goal) -> Binding<Double> {
@@ -261,6 +533,11 @@ struct AssetSharingView: View {
     
     private func saveAllocations() {
         guard !isSaving else { return }
+        guard invalidFinishedEntries.isEmpty else {
+            saveError = "A finished allocation no longer matches its completion record. "
+                + "Nothing was changed. Restore the data before saving."
+            return
+        }
         isSaving = true
         defer { isSaving = false }
 
@@ -269,8 +546,23 @@ struct AssetSharingView: View {
 
         do {
             let service = AllocationService(modelContext: modelContext)
-            let newAllocations = goals.map { goal in
-                (goal: goal, amount: allocations[goal.id] ?? 0)
+            let amounts = AssetAllocationEditorPolicy.amountsForSave(
+                activeGoalIDs: activeGoals.map(\.id),
+                draft: allocations,
+                existingEntries: existingAllocationEntries
+            )
+            var goalsByID: [UUID: Goal] = [:]
+            for goal in allGoals {
+                goalsByID[goal.id] = goal
+            }
+            for allocation in (asset.allocations ?? []) {
+                if let goal = allocation.goal {
+                    goalsByID[goal.id] = goal
+                }
+            }
+            let newAllocations: [(goal: Goal, amount: Double)] = amounts.compactMap { goalID, amount in
+                guard let goal = goalsByID[goalID] else { return nil }
+                return (goal, amount)
             }
             try service.updateAllocations(for: asset, newAllocations: newAllocations)
             dismiss()
