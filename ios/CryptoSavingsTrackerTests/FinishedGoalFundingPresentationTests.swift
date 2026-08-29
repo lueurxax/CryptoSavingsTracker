@@ -133,6 +133,18 @@ struct FinishedGoalFundingPresentationTests {
         #expect(GoalDetailDestructiveActionPolicy.actions(for: .finished) == [.delete])
     }
 
+    @Test("finished settlement UI fixture completes before review and after its transactions")
+    @MainActor
+    func finishedSettlementUITestFixtureTimelineIsPastAndOrdered() {
+        let reviewDate = Date(timeIntervalSince1970: 1_787_961_600)
+
+        #expect(
+            UITestFinishedSettlementFixtureTimeline.transactionDate
+                < UITestFinishedSettlementFixtureTimeline.completedAt
+        )
+        #expect(UITestFinishedSettlementFixtureTimeline.completedAt < reviewDate)
+    }
+
     @Test("goal detail root delegates live data ownership to the active child")
     func rootDoesNotOwnLiveGoalData() throws {
         let source = try String(

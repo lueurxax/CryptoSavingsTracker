@@ -14,6 +14,13 @@ import AppKit
 import UIKit
 #endif
 
+#if DEBUG
+enum UITestFinishedSettlementFixtureTimeline {
+    static let transactionDate = Date(timeIntervalSince1970: 1_750_000_000)
+    static let completedAt = Date(timeIntervalSince1970: 1_780_000_000)
+}
+#endif
+
 @main
 struct CryptoSavingsTrackerApp: App {
     static let previewModelContainer: ModelContainer = PersistenceStackFactory.makePreviewContainer()
@@ -139,8 +146,8 @@ struct CryptoSavingsTrackerApp: App {
             guard expectedNames.isSubset(of: existingNames) == false else { return }
 
             let deadline = Date(timeIntervalSince1970: 2_000_000_000)
-            let completedAt = Date(timeIntervalSince1970: 1_800_000_000)
-            let transactionDate = Date(timeIntervalSince1970: 1_750_000_000)
+            let completedAt = UITestFinishedSettlementFixtureTimeline.completedAt
+            let transactionDate = UITestFinishedSettlementFixtureTimeline.transactionDate
 
             let manualGoal = Goal(
                 name: "Manual Finish Goal",
