@@ -438,6 +438,66 @@ final class AssetAllocationEditorPolicyTests: XCTestCase {
         )
     }
 
+    func testWarningPrioritizesReservedConflictWhenPendingRowIsAlsoPresent() {
+        let entries = [
+            AssetAllocationEditorEntry(
+                goalID: UUID(),
+                goalName: "Reserved goal",
+                status: .finished,
+                amount: 110,
+                finishedState: .reservedAsSpent
+            ),
+            AssetAllocationEditorEntry(
+                goalID: UUID(),
+                goalName: "Active goal",
+                status: .active,
+                amount: 10
+            ),
+            AssetAllocationEditorEntry(
+                goalID: UUID(),
+                goalName: "Legacy finished goal",
+                status: .finished,
+                amount: 1,
+                finishedState: .pendingReview
+            )
+        ]
+
+        XCTAssertEqual(
+            AssetAllocationEditorPolicy.warning(balance: 100, entries: entries),
+            .reservedAllocationDataConflict
+        )
+    }
+
+    func testWarningPrioritizesReducibleActiveExcessWhenPendingRowIsAlsoPresent() {
+        let entries = [
+            AssetAllocationEditorEntry(
+                goalID: UUID(),
+                goalName: "Reserved goal",
+                status: .finished,
+                amount: 90,
+                finishedState: .reservedAsSpent
+            ),
+            AssetAllocationEditorEntry(
+                goalID: UUID(),
+                goalName: "Active goal",
+                status: .active,
+                amount: 20
+            ),
+            AssetAllocationEditorEntry(
+                goalID: UUID(),
+                goalName: "Legacy finished goal",
+                status: .finished,
+                amount: 1,
+                finishedState: .pendingReview
+            )
+        ]
+
+        XCTAssertEqual(
+            AssetAllocationEditorPolicy.warning(balance: 100, entries: entries),
+            .reduceActiveAllocations
+        )
+    }
+
     func testOverAllocatedBreakdownKeepsBalanceRelativeDisplayPercentagesAndNormalizesChartGeometry() {
         let entries = [
             AssetAllocationEditorEntry(

@@ -156,23 +156,26 @@ enum AssetAllocationEditorPolicy {
         guard normalizedEntries.reduce(0, +) > normalizedBalance + allocationEpsilon else {
             return .none
         }
-        if entries.contains(where: {
-            $0.status == .finished
-                && $0.finishedState == .pendingReview
-                && shouldPresentAllocation(amount: $0.amount)
-        }) {
-            return .reviewFinishedAllocations
-        }
         let reservedAmount = entries
             .filter { $0.status == .finished && $0.finishedState == .reservedAsSpent }
             .reduce(0) { $0 + max(0, $1.amount) }
         if reservedAmount > normalizedBalance + allocationEpsilon {
             return .reservedAllocationDataConflict
         }
-        if entries.contains(where: {
-            $0.status == .active && shouldPresentAllocation(amount: $0.amount)
-        }) {
+
+        let activeAmount = entries
+            .filter { $0.status == .active }
+            .reduce(0) { $0 + max(0, $1.amount) }
+        if activeAmount > allocationEpsilon,
+           reservedAmount + activeAmount > normalizedBalance + allocationEpsilon {
             return .reduceActiveAllocations
+        }
+
+        let pendingReviewAmount = entries
+            .filter { $0.status == .finished && $0.finishedState == .pendingReview }
+            .reduce(0) { $0 + max(0, $1.amount) }
+        if pendingReviewAmount > allocationEpsilon {
+            return .reviewFinishedAllocations
         }
         return .reservedAllocationDataConflict
     }
