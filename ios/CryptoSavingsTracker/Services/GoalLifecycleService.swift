@@ -26,13 +26,13 @@ struct GoalLifecycleService {
     func cancelGoal(_ goal: Goal, at timestamp: Date = Date()) async {
         guard goal.lifecycleStatus == .active else { return }
 
-        await retireLegacyReminderRuntime(for: goal)
+        clearReminderState(for: goal)
         freeAllocations(for: goal)
-
         goal.markCancelled(at: timestamp)
         removeGoalFromActiveExecution(goalId: goal.id)
         try? modelContext.save()
 
+        await notificationManager.cancelNotifications(for: goal)
         NotificationCenter.default.post(name: .goalDeleted, object: goal)
         NotificationCenter.default.post(name: .goalUpdated, object: goal, userInfo: ["goalId": goal.id])
     }
@@ -58,13 +58,13 @@ struct GoalLifecycleService {
 
     /// Delete a goal (soft delete): remove it from current tracking and free its allocations so funds are not locked.
     func deleteGoal(_ goal: Goal, at timestamp: Date = Date()) async {
-        await retireLegacyReminderRuntime(for: goal)
+        clearReminderState(for: goal)
         freeAllocations(for: goal)
-
         goal.softDelete(at: timestamp)
         removeGoalFromActiveExecution(goalId: goal.id)
         try? modelContext.save()
 
+        await notificationManager.cancelNotifications(for: goal)
         NotificationCenter.default.post(name: .goalDeleted, object: goal)
         NotificationCenter.default.post(name: .goalUpdated, object: goal, userInfo: ["goalId": goal.id])
     }
@@ -96,13 +96,7 @@ struct GoalLifecycleService {
         let updatedIds = record.goalIds.filter { $0 != goalId }
         if let encoded = try? JSONEncoder().encode(updatedIds) {
             record.trackedGoalIds = encoded
-            try? modelContext.save()
         }
-    }
-
-    private func retireLegacyReminderRuntime(for goal: Goal) async {
-        await notificationManager.cancelNotifications(for: goal)
-        clearReminderState(for: goal)
     }
 
     private func clearReminderState(for goal: Goal) {

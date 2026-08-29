@@ -26,6 +26,42 @@ struct GoalLifecycleServiceTests {
         }
     }
 
+    @MainActor
+    private final class SuspendingNotificationManager: NotificationManager {
+        private var cancellationStartedContinuation: CheckedContinuation<Void, Never>?
+        private var cancellationResumeContinuation: CheckedContinuation<Void, Never>?
+        private var cancellationStarted = false
+        private var shouldSuspendNextCancellation = true
+
+        init() {
+            super.init(runtimeMode: .publicMVP, isUITestRunProvider: { false })
+        }
+
+        override func cancelNotifications(for goal: Goal) async {
+            cancellationStarted = true
+            cancellationStartedContinuation?.resume()
+            cancellationStartedContinuation = nil
+
+            guard shouldSuspendNextCancellation else { return }
+            shouldSuspendNextCancellation = false
+            await withCheckedContinuation { continuation in
+                cancellationResumeContinuation = continuation
+            }
+        }
+
+        func waitUntilCancellationStarts() async {
+            guard !cancellationStarted else { return }
+            await withCheckedContinuation { continuation in
+                cancellationStartedContinuation = continuation
+            }
+        }
+
+        func resumeCancellation() {
+            cancellationResumeContinuation?.resume()
+            cancellationResumeContinuation = nil
+        }
+    }
+
     @Test("GoalLifecycleService clears reminder fields during cancel")
     func cancelGoalClearsReminderFields() async throws {
         let container = try TestContainer.create()
@@ -77,6 +113,48 @@ struct GoalLifecycleServiceTests {
         #expect(notificationManager.cancelledGoalIDs == [goal.id])
         #expect(observedPersistedSnapshotBeforeCancellation)
         assertReminderFieldsCleared(goal)
+    }
+
+    @Test("Cancel commits before notification suspension so concurrent finish cannot release a finished allocation")
+    func cancelCommitsBeforeNotificationSuspension() async throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let notificationManager = SuspendingNotificationManager()
+        let service = GoalLifecycleService(modelContext: context, notificationManager: notificationManager)
+        let goal = makeGoal(name: "Concurrent Cancel")
+        let asset = Asset(currency: "USD")
+        let allocation = AssetAllocation(asset: asset, goal: goal, amount: 40)
+        asset.allocations = [allocation]
+        goal.allocations = [allocation]
+        context.insert(goal)
+        context.insert(asset)
+        context.insert(allocation)
+        try context.save()
+        let finishPlan = try service.prepareFinishGoal(goal)
+
+        let cancelTask = Task {
+            await service.cancelGoal(goal, at: Date(timeIntervalSince1970: 3_000))
+        }
+        await notificationManager.waitUntilCancellationStarts()
+
+        #expect(goal.lifecycleStatus == .cancelled)
+        await #expect(throws: GoalCompletionSettlementError.invalidGoalState(goal.id)) {
+            try await service.finishGoal(
+                goal,
+                plan: finishPlan,
+                decisions: [],
+                at: Date(timeIntervalSince1970: 4_000)
+            )
+        }
+
+        notificationManager.resumeCancellation()
+        await cancelTask.value
+
+        #expect(goal.lifecycleStatus == .cancelled)
+        #expect(goal.completionSnapshotData == nil)
+        #expect((goal.allocations ?? []).isEmpty)
+        #expect((asset.allocations ?? []).isEmpty)
+        #expect(try context.fetchCount(FetchDescriptor<AssetAllocation>()) == 0)
     }
 
     @Test("GoalLifecycleService clears reminder fields during delete")
