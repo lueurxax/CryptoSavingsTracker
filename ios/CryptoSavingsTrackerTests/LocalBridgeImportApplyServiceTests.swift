@@ -693,6 +693,165 @@ struct LocalBridgeImportApplyServiceTests {
         #expect(finalSnapshot.assets.count == baseSnapshot.assets.count)
     }
 
+    @Test("retained and released completion payloads round-trip through export and import")
+    func completionPayloadsRoundTripThroughExportAndImport() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let retainedGoal = Goal(
+            name: "Retained Import Goal",
+            currency: "USD",
+            targetAmount: 120,
+            deadline: Date(timeIntervalSince1970: 1_900_000_000)
+        )
+        let releasedGoal = Goal(
+            name: "Released Import Goal",
+            currency: "USDT",
+            targetAmount: 80,
+            deadline: Date(timeIntervalSince1970: 1_900_000_100)
+        )
+        retainedGoal.lifecycleStatus = .finished
+        releasedGoal.lifecycleStatus = .finished
+        context.insert(retainedGoal)
+        context.insert(releasedGoal)
+        try context.save()
+
+        let exportService = LocalBridgeSnapshotExportService()
+        let baseSnapshot = try exportService.exportSnapshot(from: context)
+        let retainedPayload = try completionSnapshotData(
+            for: retainedGoal,
+            settlement: .keepAsSpent
+        )
+        let releasedPayload = try completionSnapshotData(
+            for: releasedGoal,
+            settlement: .balanceAlreadyDecreased
+        )
+        retainedGoal.completionSnapshotData = retainedPayload
+        releasedGoal.completionSnapshotData = releasedPayload
+        try context.save()
+        let editedSnapshot = try exportService.exportSnapshot(from: context)
+        let exportedByID = Dictionary(uniqueKeysWithValues: editedSnapshot.goals.map { ($0.id, $0) })
+        #expect(exportedByID[retainedGoal.id]?.completionSnapshotData == retainedPayload)
+        #expect(exportedByID[releasedGoal.id]?.completionSnapshotData == releasedPayload)
+
+        retainedGoal.completionSnapshotData = nil
+        releasedGoal.completionSnapshotData = nil
+        try context.save()
+        let currentSnapshot = try exportService.exportSnapshot(from: ModelContext(container))
+        #expect(currentSnapshot.manifest.baseDatasetFingerprint == baseSnapshot.manifest.baseDatasetFingerprint)
+
+        let signingService = TestBridgeSigningService()
+        let trustedDevice = signingService.makeTrustedDevice(displayName: "Bridge Mac")
+        let validationService = LocalBridgeImportValidationService(
+            snapshotExportService: exportService,
+            capabilityManifest: .current(),
+            signingService: signingService
+        )
+        let package = try makeSignedPackage(
+            from: editedSnapshot,
+            baseDatasetFingerprint: currentSnapshot.manifest.baseDatasetFingerprint,
+            trustedDevice: trustedDevice,
+            signingService: signingService
+        )
+        let review = try validationService.review(
+            package: package,
+            trustedDevice: trustedDevice,
+            currentSnapshot: currentSnapshot
+        )
+        let applyService = LocalBridgeImportApplyService(
+            snapshotExportService: exportService,
+            validationService: validationService,
+            receiptStore: InMemoryBridgeImportReceiptStore()
+        )
+
+        _ = try applyService.applyReviewedPackage(
+            package,
+            trustedDevice: trustedDevice,
+            reviewStatus: approved(review),
+            in: container
+        )
+
+        let importedGoals = try ModelContext(container).fetch(FetchDescriptor<Goal>())
+        let importedByID = Dictionary(uniqueKeysWithValues: importedGoals.map { ($0.id, $0) })
+        #expect(importedByID[retainedGoal.id]?.completionSnapshotData == retainedPayload)
+        #expect(importedByID[releasedGoal.id]?.completionSnapshotData == releasedPayload)
+    }
+
+    @Test("schema v1 goal without completion payload imports as nil")
+    func schemaV1MissingCompletionPayloadImportsAsNil() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let goal = Goal(
+            name: "Legacy Import Goal",
+            currency: "USD",
+            targetAmount: 42,
+            deadline: Date(timeIntervalSince1970: 1_900_000_000)
+        )
+        goal.lifecycleStatus = .finished
+        goal.completionSnapshotData = try completionSnapshotData(for: goal, settlement: .keepAsSpent)
+        context.insert(goal)
+        try context.save()
+
+        let exportService = LocalBridgeSnapshotExportService()
+        let baseSnapshot = try exportService.exportSnapshot(from: context)
+        let schemaV1Goals = baseSnapshot.goals.map {
+            BridgeGoalSnapshot(
+                id: $0.id,
+                recordState: $0.recordState,
+                name: $0.name,
+                currency: $0.currency,
+                targetAmount: $0.targetAmount,
+                deadline: $0.deadline,
+                startDate: $0.startDate,
+                lifecycleStatusRawValue: $0.lifecycleStatusRawValue,
+                emoji: $0.emoji,
+                goalDescription: $0.goalDescription,
+                link: $0.link,
+                completionSnapshotData: nil
+            )
+        }
+        let schemaV1Snapshot = try makeSnapshot(
+            from: baseSnapshot,
+            goals: schemaV1Goals,
+            snapshotSchemaVersion: 1,
+            appModelSchemaVersion: "cloudkit-model-v1"
+        )
+        let signingService = TestBridgeSigningService()
+        let trustedDevice = signingService.makeTrustedDevice(displayName: "Bridge Mac")
+        let validationService = LocalBridgeImportValidationService(
+            snapshotExportService: exportService,
+            capabilityManifest: .current(),
+            signingService: signingService
+        )
+        let package = try makeSignedPackage(
+            from: schemaV1Snapshot,
+            baseDatasetFingerprint: baseSnapshot.manifest.baseDatasetFingerprint,
+            trustedDevice: trustedDevice,
+            signingService: signingService
+        )
+        let review = try validationService.review(
+            package: package,
+            trustedDevice: trustedDevice,
+            currentSnapshot: baseSnapshot
+        )
+        let applyService = LocalBridgeImportApplyService(
+            snapshotExportService: exportService,
+            validationService: validationService,
+            receiptStore: InMemoryBridgeImportReceiptStore()
+        )
+
+        _ = try applyService.applyReviewedPackage(
+            package,
+            trustedDevice: trustedDevice,
+            reviewStatus: approved(review),
+            in: container
+        )
+
+        let importedGoal = try #require(
+            ModelContext(container).fetch(FetchDescriptor<Goal>()).first { $0.id == goal.id }
+        )
+        #expect(importedGoal.completionSnapshotData == nil)
+    }
+
     private func approved(_ review: BridgeImportReviewStatus) -> BridgeImportReviewStatus {
         var approvedReview = review
         approvedReview.operatorDecision = .approved
@@ -828,14 +987,16 @@ struct LocalBridgeImportApplyServiceTests {
 
     private func makeSnapshot(
         from baseSnapshot: SnapshotEnvelope,
-        goals: [BridgeGoalSnapshot]
+        goals: [BridgeGoalSnapshot],
+        snapshotSchemaVersion: Int? = nil,
+        appModelSchemaVersion: String? = nil
     ) throws -> SnapshotEnvelope {
         let manifest = SnapshotManifest(
             snapshotID: baseSnapshot.manifest.snapshotID,
             canonicalEncodingVersion: baseSnapshot.manifest.canonicalEncodingVersion,
-            snapshotSchemaVersion: baseSnapshot.manifest.snapshotSchemaVersion,
+            snapshotSchemaVersion: snapshotSchemaVersion ?? baseSnapshot.manifest.snapshotSchemaVersion,
             exportedAt: baseSnapshot.manifest.exportedAt,
-            appModelSchemaVersion: baseSnapshot.manifest.appModelSchemaVersion,
+            appModelSchemaVersion: appModelSchemaVersion ?? baseSnapshot.manifest.appModelSchemaVersion,
             entityCounts: [
                 BridgeEntityCount(name: "Goal", count: goals.count),
                 BridgeEntityCount(name: "Asset", count: baseSnapshot.assets.count),
@@ -864,6 +1025,38 @@ struct LocalBridgeImportApplyServiceTests {
             executionSnapshots: baseSnapshot.executionSnapshots,
             completionEvents: baseSnapshot.completionEvents
         ).withComputedFingerprint()
+    }
+
+    private func completionSnapshotData(
+        for goal: Goal,
+        settlement: FinishedAllocationSettlement
+    ) throws -> Data {
+        let completedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        return try GoalCompletionSnapshotCodec.encode(
+            GoalCompletionSnapshot(
+                id: UUID(),
+                schemaVersion: GoalCompletionSnapshot.currentSchemaVersion,
+                goalID: goal.id,
+                goalName: goal.name,
+                goalCurrency: goal.currency,
+                goalTargetAmount: goal.targetAmount,
+                goalCompletedAt: completedAt,
+                snapshotCreatedAt: completedAt,
+                entries: [
+                    GoalCompletionSnapshot.Entry(
+                        allocationID: UUID(),
+                        assetID: UUID(),
+                        assetCurrency: goal.currency,
+                        amount: goal.targetAmount,
+                        accountingMode: settlement == .keepAsSpent ? .manual : .onChain,
+                        settlement: settlement,
+                        bestKnownBalance: goal.targetAmount,
+                        balanceCapturedAt: completedAt,
+                        balanceTiming: .completionTime
+                    )
+                ]
+            )
+        )
     }
 
     private func makeStandaloneGoalSnapshot(id: UUID, name: String) -> BridgeGoalSnapshot {

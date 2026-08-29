@@ -59,7 +59,8 @@ final class LocalBridgeSnapshotExportService {
                     lifecycleStatusRawValue: $0.lifecycleStatusRawValue,
                     emoji: $0.emoji,
                     goalDescription: $0.goalDescription,
-                    link: $0.link
+                    link: $0.link,
+                    completionSnapshotData: $0.completionSnapshotData
                 )
             }
             .sorted {

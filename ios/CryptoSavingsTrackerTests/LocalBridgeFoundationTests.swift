@@ -233,8 +233,9 @@ struct LocalBridgeFoundationTests {
 
         #expect(manifest.bridgeProtocolVersion == 1)
         #expect(manifest.minimumSupportedCanonicalEncodingVersion == "bridge-snapshot-v1")
-        #expect(manifest.maximumSupportedSnapshotSchemaVersion == 1)
-        #expect(manifest.appModelSchemaVersion == "cloudkit-model-v1")
+        #expect(manifest.minimumSupportedSnapshotSchemaVersion == 1)
+        #expect(manifest.maximumSupportedSnapshotSchemaVersion == 2)
+        #expect(manifest.appModelSchemaVersion == "cloudkit-model-v2")
     }
 
     @Test("manual bootstrap token roundtrip restores trusted device identity")
@@ -314,5 +315,171 @@ struct LocalBridgeFoundationTests {
         let second = try exporter.exportSnapshot(from: ModelContext(container))
 
         #expect(first.manifest.baseDatasetFingerprint == second.manifest.baseDatasetFingerprint)
+    }
+
+    @Test("snapshot export preserves retained and released completion payloads")
+    func snapshotExportPreservesCompletionPayloads() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let retainedGoal = Goal(
+            name: "Retained Bridge Goal",
+            currency: "USD",
+            targetAmount: 120,
+            deadline: Date(timeIntervalSince1970: 1_900_000_000)
+        )
+        let releasedGoal = Goal(
+            name: "Released Bridge Goal",
+            currency: "USDT",
+            targetAmount: 80,
+            deadline: Date(timeIntervalSince1970: 1_900_000_100)
+        )
+        retainedGoal.lifecycleStatus = .finished
+        releasedGoal.lifecycleStatus = .finished
+        let retainedPayload = try completionSnapshotData(
+            for: retainedGoal,
+            settlement: .keepAsSpent
+        )
+        let releasedPayload = try completionSnapshotData(
+            for: releasedGoal,
+            settlement: .balanceAlreadyDecreased
+        )
+        retainedGoal.completionSnapshotData = retainedPayload
+        releasedGoal.completionSnapshotData = releasedPayload
+        context.insert(retainedGoal)
+        context.insert(releasedGoal)
+        try context.save()
+
+        let snapshot = try LocalBridgeSnapshotExportService().exportSnapshot(from: context)
+        let goalsByID = Dictionary(uniqueKeysWithValues: snapshot.goals.map { ($0.id, $0) })
+
+        #expect(snapshot.manifest.snapshotSchemaVersion == 2)
+        #expect(goalsByID[retainedGoal.id]?.completionSnapshotData == retainedPayload)
+        #expect(goalsByID[releasedGoal.id]?.completionSnapshotData == releasedPayload)
+    }
+
+    @Test("completion payload mutation changes the canonical dataset fingerprint")
+    func completionPayloadParticipatesInCanonicalFingerprint() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let goal = Goal(
+            name: "Canonical Bridge Goal",
+            currency: "USDT",
+            targetAmount: 35,
+            deadline: Date(timeIntervalSince1970: 1_900_000_000)
+        )
+        let retainedPayload = try completionSnapshotData(for: goal, settlement: .keepAsSpent)
+        goal.completionSnapshotData = retainedPayload
+        context.insert(goal)
+        try context.save()
+        let snapshot = try LocalBridgeSnapshotExportService().exportSnapshot(from: context)
+        let originalGoal = try #require(snapshot.goals.first { $0.id == goal.id })
+        let releasedPayload = try completionSnapshotData(
+            for: goal,
+            settlement: .balanceAlreadyDecreased
+        )
+        let mutatedGoal = BridgeGoalSnapshot(
+            id: originalGoal.id,
+            recordState: originalGoal.recordState,
+            name: originalGoal.name,
+            currency: originalGoal.currency,
+            targetAmount: originalGoal.targetAmount,
+            deadline: originalGoal.deadline,
+            startDate: originalGoal.startDate,
+            lifecycleStatusRawValue: originalGoal.lifecycleStatusRawValue,
+            emoji: originalGoal.emoji,
+            goalDescription: originalGoal.goalDescription,
+            link: originalGoal.link,
+            completionSnapshotData: releasedPayload
+        )
+        let mutatedSnapshot = SnapshotEnvelope(
+            manifest: snapshot.manifest,
+            goals: snapshot.goals.map { $0.id == goal.id ? mutatedGoal : $0 },
+            assets: snapshot.assets,
+            transactions: snapshot.transactions,
+            assetAllocations: snapshot.assetAllocations,
+            allocationHistories: snapshot.allocationHistories,
+            monthlyPlans: snapshot.monthlyPlans,
+            monthlyExecutionRecords: snapshot.monthlyExecutionRecords,
+            completedExecutions: snapshot.completedExecutions,
+            executionSnapshots: snapshot.executionSnapshots,
+            completionEvents: snapshot.completionEvents
+        )
+        let canonical = String(decoding: try snapshot.canonicalEncodingData(), as: UTF8.self)
+
+        #expect(canonical.contains(retainedPayload.base64EncodedString()))
+        #expect(try snapshot.computedDatasetFingerprint() != mutatedSnapshot.computedDatasetFingerprint())
+    }
+
+    @Test("schema v1 goal without completion payload decodes as nil with legacy canonical shape")
+    func schemaV1MissingCompletionPayloadIsBackwardReadable() throws {
+        let goal = BridgeGoalSnapshot(
+            id: UUID(),
+            name: "Legacy Bridge Goal",
+            currency: "USD",
+            targetAmount: 42,
+            deadline: Date(timeIntervalSince1970: 1_900_000_000),
+            startDate: Date(timeIntervalSince1970: 1_800_000_000),
+            lifecycleStatusRawValue: GoalLifecycleStatus.finished.rawValue,
+            emoji: nil,
+            goalDescription: nil,
+            link: nil,
+            completionSnapshotData: nil
+        )
+        let envelope = SnapshotEnvelope(
+            manifest: SnapshotManifest(
+                snapshotID: UUID(),
+                canonicalEncodingVersion: "bridge-snapshot-v1",
+                snapshotSchemaVersion: 1,
+                exportedAt: Date(timeIntervalSince1970: 1_700_000_000),
+                appModelSchemaVersion: "cloudkit-model-v1",
+                entityCounts: [BridgeEntityCount(name: "Goal", count: 1)],
+                baseDatasetFingerprint: ""
+            ),
+            goals: [goal],
+            assets: [],
+            transactions: [],
+            assetAllocations: [],
+            allocationHistories: [],
+            monthlyPlans: [],
+            monthlyExecutionRecords: []
+        )
+        let encoded = try JSONEncoder().encode(envelope)
+        let decoded = try JSONDecoder().decode(SnapshotEnvelope.self, from: encoded)
+        let canonical = String(decoding: try decoded.canonicalEncodingData(), as: UTF8.self)
+
+        #expect(try #require(decoded.goals.first).completionSnapshotData == nil)
+        #expect(canonical.contains("completionSnapshotData") == false)
+    }
+
+    private func completionSnapshotData(
+        for goal: Goal,
+        settlement: FinishedAllocationSettlement
+    ) throws -> Data {
+        let completedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        return try GoalCompletionSnapshotCodec.encode(
+            GoalCompletionSnapshot(
+                id: UUID(),
+                schemaVersion: GoalCompletionSnapshot.currentSchemaVersion,
+                goalID: goal.id,
+                goalName: goal.name,
+                goalCurrency: goal.currency,
+                goalTargetAmount: goal.targetAmount,
+                goalCompletedAt: completedAt,
+                snapshotCreatedAt: completedAt,
+                entries: [
+                    GoalCompletionSnapshot.Entry(
+                        allocationID: UUID(),
+                        assetID: UUID(),
+                        assetCurrency: goal.currency,
+                        amount: goal.targetAmount,
+                        accountingMode: settlement == .keepAsSpent ? .manual : .onChain,
+                        settlement: settlement,
+                        bestKnownBalance: goal.targetAmount,
+                        balanceCapturedAt: completedAt,
+                        balanceTiming: .completionTime
+                    )
+                ]
+            )
+        )
     }
 }

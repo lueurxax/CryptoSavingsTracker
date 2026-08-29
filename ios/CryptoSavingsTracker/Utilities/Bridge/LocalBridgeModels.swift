@@ -220,8 +220,8 @@ struct BridgeCapabilityManifest: Codable, Equatable, Sendable {
             minimumSupportedCanonicalEncodingVersion: "bridge-snapshot-v1",
             maximumSupportedCanonicalEncodingVersion: "bridge-snapshot-v1",
             minimumSupportedSnapshotSchemaVersion: 1,
-            maximumSupportedSnapshotSchemaVersion: 1,
-            appModelSchemaVersion: "cloudkit-model-v1",
+            maximumSupportedSnapshotSchemaVersion: 2,
+            appModelSchemaVersion: "cloudkit-model-v2",
             appBuild: build
         )
     }
@@ -367,6 +367,7 @@ struct BridgeGoalSnapshot: Codable, Equatable, Sendable {
     let emoji: String?
     let goalDescription: String?
     let link: String?
+    let completionSnapshotData: Data?
 
     init(
         id: UUID,
@@ -379,7 +380,8 @@ struct BridgeGoalSnapshot: Codable, Equatable, Sendable {
         lifecycleStatusRawValue: String,
         emoji: String?,
         goalDescription: String?,
-        link: String?
+        link: String?,
+        completionSnapshotData: Data? = nil
     ) {
         self.id = id
         self.recordState = recordState
@@ -392,6 +394,7 @@ struct BridgeGoalSnapshot: Codable, Equatable, Sendable {
         self.emoji = emoji
         self.goalDescription = goalDescription
         self.link = link
+        self.completionSnapshotData = completionSnapshotData
     }
 }
 

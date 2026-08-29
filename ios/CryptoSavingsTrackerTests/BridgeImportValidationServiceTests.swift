@@ -110,6 +110,61 @@ struct BridgeImportValidationServiceTests {
         #expect(status.blockingIssues.contains(where: { $0.contains("incompatible") || $0.contains("supported range") }))
     }
 
+    @Test("schema v2 is rejected by legacy max-v1 clients and future schemas remain rejected")
+    func unsupportedSnapshotSchemasFailValidation() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        _ = try TestDataFactory.createFullCutoverTestData(in: context)
+
+        let signingService = TestBridgePackageSigningService()
+        let exporter = LocalBridgeSnapshotExportService()
+        let currentSnapshot = try exporter.exportSnapshot(from: context)
+        let trusted = try makeTrustedDevice(displayName: "MacBook Pro", signingService: signingService)
+        let currentService = LocalBridgeImportValidationService(
+            snapshotExportService: exporter,
+            capabilityManifest: .current(),
+            signingService: signingService
+        )
+        let schemaV2Package = try currentService.makePlaceholderPackage(
+            from: currentSnapshot,
+            trustedDevice: trusted
+        )
+        let legacyService = LocalBridgeImportValidationService(
+            snapshotExportService: exporter,
+            capabilityManifest: BridgeCapabilityManifest(
+                bridgeProtocolVersion: 1,
+                minimumSupportedCanonicalEncodingVersion: "bridge-snapshot-v1",
+                maximumSupportedCanonicalEncodingVersion: "bridge-snapshot-v1",
+                minimumSupportedSnapshotSchemaVersion: 1,
+                maximumSupportedSnapshotSchemaVersion: 1,
+                appModelSchemaVersion: "cloudkit-model-v1",
+                appBuild: "legacy"
+            ),
+            signingService: signingService
+        )
+
+        let legacyStatus = try legacyService.review(
+            package: schemaV2Package,
+            trustedDevice: trusted,
+            currentSnapshot: currentSnapshot
+        )
+        #expect(legacyStatus.validationStatus == .failed)
+        #expect(legacyStatus.blockingIssues.contains { $0.contains("Snapshot schema v2") })
+
+        let futureSnapshot = try snapshot(currentSnapshot, withSchemaVersion: 3)
+        let futurePackage = try currentService.makePlaceholderPackage(
+            from: futureSnapshot,
+            trustedDevice: trusted
+        )
+        let futureStatus = try currentService.review(
+            package: futurePackage,
+            trustedDevice: trusted,
+            currentSnapshot: currentSnapshot
+        )
+        #expect(futureStatus.validationStatus == .failed)
+        #expect(futureStatus.blockingIssues.contains { $0.contains("Snapshot schema v3") })
+    }
+
     @Test("Validation detects drift when base fingerprint differs from current authoritative snapshot")
     func driftConflictDetected() throws {
         let container = try TestContainer.create()
@@ -333,6 +388,34 @@ struct BridgeImportValidationServiceTests {
         #expect(status.validationStatus == .failed)
         #expect(status.reviewSummaryDTO?.package.signatureStatus == .invalid)
         #expect(status.blockingIssues.contains(where: { $0.contains("signature verification failed") }))
+    }
+
+    private func snapshot(
+        _ base: SnapshotEnvelope,
+        withSchemaVersion schemaVersion: Int
+    ) throws -> SnapshotEnvelope {
+        let manifest = SnapshotManifest(
+            snapshotID: base.manifest.snapshotID,
+            canonicalEncodingVersion: base.manifest.canonicalEncodingVersion,
+            snapshotSchemaVersion: schemaVersion,
+            exportedAt: base.manifest.exportedAt,
+            appModelSchemaVersion: base.manifest.appModelSchemaVersion,
+            entityCounts: base.entityCounts,
+            baseDatasetFingerprint: ""
+        )
+        return try SnapshotEnvelope(
+            manifest: manifest,
+            goals: base.goals,
+            assets: base.assets,
+            transactions: base.transactions,
+            assetAllocations: base.assetAllocations,
+            allocationHistories: base.allocationHistories,
+            monthlyPlans: base.monthlyPlans,
+            monthlyExecutionRecords: base.monthlyExecutionRecords,
+            completedExecutions: base.completedExecutions,
+            executionSnapshots: base.executionSnapshots,
+            completionEvents: base.completionEvents
+        ).withComputedFingerprint()
     }
 }
 

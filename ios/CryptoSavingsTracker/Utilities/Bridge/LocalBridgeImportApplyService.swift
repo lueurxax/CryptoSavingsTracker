@@ -230,7 +230,10 @@ final class LocalBridgeImportApplyService {
         writeContext.processPendingChanges()
 
         let predictedSnapshot = try snapshotExportService.exportSnapshot(from: writeContext)
-        let expectedAuthoritativeEnvelope = try authoritativeEnvelopeAfterApply(effectiveEnvelope)
+        let expectedAuthoritativeEnvelope = try authoritativeEnvelopeAfterApply(
+            effectiveEnvelope,
+            exportedManifest: predictedSnapshot.manifest
+        )
         guard predictedSnapshot.manifest.baseDatasetFingerprint == expectedAuthoritativeEnvelope.manifest.baseDatasetFingerprint else {
             throw LocalBridgeImportApplyError.applyPlanFingerprintMismatch(
                 expected: expectedAuthoritativeEnvelope.manifest.baseDatasetFingerprint,
@@ -462,13 +465,16 @@ final class LocalBridgeImportApplyService {
         ).withComputedFingerprint()
     }
 
-    private func authoritativeEnvelopeAfterApply(_ envelope: SnapshotEnvelope) throws -> SnapshotEnvelope {
+    private func authoritativeEnvelopeAfterApply(
+        _ envelope: SnapshotEnvelope,
+        exportedManifest: SnapshotManifest
+    ) throws -> SnapshotEnvelope {
         let authoritativeManifest = SnapshotManifest(
-            snapshotID: envelope.manifest.snapshotID,
-            canonicalEncodingVersion: envelope.manifest.canonicalEncodingVersion,
-            snapshotSchemaVersion: envelope.manifest.snapshotSchemaVersion,
-            exportedAt: envelope.manifest.exportedAt,
-            appModelSchemaVersion: envelope.manifest.appModelSchemaVersion,
+            snapshotID: exportedManifest.snapshotID,
+            canonicalEncodingVersion: exportedManifest.canonicalEncodingVersion,
+            snapshotSchemaVersion: exportedManifest.snapshotSchemaVersion,
+            exportedAt: exportedManifest.exportedAt,
+            appModelSchemaVersion: exportedManifest.appModelSchemaVersion,
             entityCounts: [],
             baseDatasetFingerprint: ""
         )
@@ -715,6 +721,7 @@ final class LocalBridgeImportApplyService {
             goal.emoji = snapshot.emoji
             goal.goalDescription = snapshot.goalDescription
             goal.link = snapshot.link
+            goal.completionSnapshotData = snapshot.completionSnapshotData
 
             goalsByIncomingID[snapshot.id] = goal
             keptGoalIDs.insert(goal.id)

@@ -117,6 +117,10 @@ private func bridgeCanonicalNullableDecimal(_ value: Double?) -> BridgeCanonical
     value.map { .string(bridgeCanonicalDecimalString($0)) } ?? .null
 }
 
+private func bridgeCanonicalNullableData(_ value: Data?) -> BridgeCanonicalValue {
+    value.map { .string($0.base64EncodedString()) } ?? .null
+}
+
 private func bridgeCanonicalEntityCounts(_ counts: [BridgeEntityCount]) -> BridgeCanonicalValue {
     .array(counts.map { count in
         .object([
@@ -180,8 +184,8 @@ extension SnapshotManifest {
 }
 
 extension BridgeGoalSnapshot {
-    fileprivate func bridgeCanonicalValue() -> BridgeCanonicalValue {
-        bridgeCanonicalObject([
+    fileprivate func bridgeCanonicalValue(snapshotSchemaVersion: Int) -> BridgeCanonicalValue {
+        var pairs: [(String, BridgeCanonicalValue)] = [
             ("currency", .string(currency)),
             ("deadline", .integer(bridgeCanonicalMilliseconds(deadline))),
             ("emoji", bridgeCanonicalNullableString(emoji)),
@@ -193,7 +197,11 @@ extension BridgeGoalSnapshot {
             ("recordState", .string(recordState.rawValue)),
             ("startDate", .integer(bridgeCanonicalMilliseconds(startDate))),
             ("targetAmount", .string(bridgeCanonicalDecimalString(targetAmount)))
-        ])
+        ]
+        if snapshotSchemaVersion >= 2 {
+            pairs.append(("completionSnapshotData", bridgeCanonicalNullableData(completionSnapshotData)))
+        }
+        return bridgeCanonicalObject(pairs)
     }
 }
 
@@ -347,9 +355,12 @@ extension BridgeCompletionEventSnapshot {
 extension SnapshotEnvelope {
     func bridgeAppendixCanonicalData(forFingerprinting: Bool) -> Data {
         let normalized = forFingerprinting ? normalizedForFingerprinting() : normalizedForCanonicalEncoding()
+        let snapshotSchemaVersion = normalized.manifest.snapshotSchemaVersion
         let value = BridgeCanonicalValue.object([
             ("manifest", normalized.manifest.bridgeCanonicalValue()),
-            ("goals", .array(normalized.goals.map { $0.bridgeCanonicalValue() })),
+            ("goals", .array(normalized.goals.map {
+                $0.bridgeCanonicalValue(snapshotSchemaVersion: snapshotSchemaVersion)
+            })),
             ("assets", .array(normalized.assets.map { $0.bridgeCanonicalValue() })),
             ("transactions", .array(normalized.transactions.map { $0.bridgeCanonicalValue() })),
             ("assetAllocations", .array(normalized.assetAllocations.map { $0.bridgeCanonicalValue() })),
@@ -367,6 +378,7 @@ extension SnapshotEnvelope {
 extension SignedImportPackage {
     func bridgeAppendixCanonicalData(includePackageID: Bool, signatureValue: BridgeCanonicalValue?) -> Data {
         let normalizedEnvelope = snapshotEnvelope.normalizedForCanonicalEncoding()
+        let snapshotSchemaVersion = normalizedEnvelope.manifest.snapshotSchemaVersion
         var pairs: [(String, BridgeCanonicalValue)] = []
         if includePackageID {
             pairs.append(("packageID", .string(packageID)))
@@ -377,7 +389,9 @@ extension SignedImportPackage {
         pairs.append(("editedDatasetFingerprint", .string(editedDatasetFingerprint)))
         pairs.append(("snapshotEnvelope", .object([
             ("manifest", normalizedEnvelope.manifest.bridgeCanonicalValue()),
-            ("goals", .array(normalizedEnvelope.goals.map { $0.bridgeCanonicalValue() })),
+            ("goals", .array(normalizedEnvelope.goals.map {
+                $0.bridgeCanonicalValue(snapshotSchemaVersion: snapshotSchemaVersion)
+            })),
             ("assets", .array(normalizedEnvelope.assets.map { $0.bridgeCanonicalValue() })),
             ("transactions", .array(normalizedEnvelope.transactions.map { $0.bridgeCanonicalValue() })),
             ("assetAllocations", .array(normalizedEnvelope.assetAllocations.map { $0.bridgeCanonicalValue() })),
