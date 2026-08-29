@@ -120,6 +120,33 @@ struct FinishedGoalFundingPresentationTests {
         #expect(branch.rendersLiveGoalData)
     }
 
+    @Test("goal detail root delegates live data ownership to the active child")
+    func rootDoesNotOwnLiveGoalData() throws {
+        let source = try String(
+            contentsOf: URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appending(path: "CryptoSavingsTracker/Views/GoalDetailView.swift"),
+            encoding: .utf8
+        )
+        guard let activeChildStart = source.range(of: "private struct ActiveGoalDetailContent") else {
+            Issue.record("GoalDetailView must contain an active-only child")
+            return
+        }
+
+        let rootSource = String(source[..<activeChildStart.lowerBound])
+        let activeChildSource = String(source[activeChildStart.lowerBound...])
+
+        #expect(!rootSource.contains("@Query"))
+        #expect(!rootSource.contains("goalAssets"))
+        #expect(!rootSource.contains("goalTransactions"))
+        #expect(!rootSource.contains("showingAddAsset"))
+        #expect(activeChildSource.contains("@Query private var allAssets"))
+        #expect(activeChildSource.contains("@Query private var allTransactions"))
+        #expect(activeChildSource.contains("private var goalAssets: [Asset]"))
+        #expect(activeChildSource.contains("private var goalTransactions: [Transaction]"))
+    }
+
     private func makeSnapshot(entries: [GoalCompletionSnapshot.Entry]) -> GoalCompletionSnapshot {
         GoalCompletionSnapshot(
             id: UUID(),
