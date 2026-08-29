@@ -43,8 +43,15 @@ struct GoalDetailView: View {
         }
     }
 
+    private var fundingBranch: GoalDetailFundingBranch {
+        GoalDetailFundingBranch.make(
+            lifecycleStatus: goal.lifecycleStatus,
+            snapshot: goal.completionSnapshot
+        )
+    }
+
     private var isFinishedGoal: Bool {
-        goal.lifecycleStatus == .finished
+        !fundingBranch.rendersLiveGoalData
     }
 
     private var goalTransactions: [Transaction] {
@@ -170,17 +177,6 @@ struct GoalDetailView: View {
         }
     }
 
-    @ViewBuilder
-    private var assetsSection: some View {
-        if isFinishedGoal {
-            FinishedGoalFundingSection(
-                content: FinishedGoalFundingContent.make(snapshot: goal.completionSnapshot)
-            )
-        } else {
-            activeAssetsSection
-        }
-    }
-
     private var activeAssetsSection: some View {
         Section("Assets") {
             if goalAssets.isEmpty {
@@ -289,8 +285,13 @@ struct GoalDetailView: View {
     private var detailListContent: some View {
         List {
             goalSummarySection
-            assetsSection
-            transactionsSection
+            switch fundingBranch {
+            case .active:
+                activeAssetsSection
+                transactionsSection
+            case .finished(let content):
+                FinishedGoalFundingSection(content: content)
+            }
             if let description = goal.goalDescription, !description.isEmpty {
                 descriptionSection
             }
@@ -302,34 +303,85 @@ struct GoalDetailView: View {
         .navigationTitle(goal.name)
     }
 
+    @ViewBuilder
+    private var goalDetailWithLiveData: some View {
+        if fundingBranch.rendersLiveGoalData {
+            goalDetailCore
+                .onChange(of: goalAssets.count) { _, _ in
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(100))
+                        await goalViewModel.refreshValues()
+                    }
+                }
+                .onChange(of: allAssets.count) { _, _ in
+                    Task { await goalViewModel.refreshValues() }
+                }
+                .onChange(of: allTransactions.count) { _, _ in
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(100))
+                        await goalViewModel.refreshValues()
+                    }
+                }
+#if os(macOS)
+                // NAV-MOD: MOD-01
+                .popover(isPresented: $showingAddAsset) {
+                    AddAssetView(goal: goal)
+                        .frame(minWidth: 400, minHeight: 300)
+                }
+#else
+                // NAV-MOD: MOD-01
+                .sheet(isPresented: $showingAddAsset) {
+                    AddAssetView(goal: goal)
+                        .presentationDetents([.large])
+                }
+#endif
+                .sheet(item: $selectedAssetForAddTransaction) { asset in
+                    AddTransactionView(asset: asset)
+#if os(iOS)
+                        .presentationDetents([.large])
+#endif
+                }
+                .sheet(isPresented: $showingTransactionAssetPicker) {
+                    NavigationStack {
+                        List(goalAssets) { asset in
+                            Button {
+                                showingTransactionAssetPicker = false
+                                DispatchQueue.main.async {
+                                    selectedAssetForAddTransaction = asset
+                                }
+                            } label: {
+                                HStack {
+                                    Label(asset.currency, systemImage: "bitcoinsign.circle")
+                                    Spacer()
+                                    Text("\((asset.transactions ?? []).count) transactions")
+                                        .font(.footnote)
+                                        .foregroundStyle(AccessibleColors.secondaryText)
+                                }
+                            }
+                            .accessibilityIdentifier("goalDetailTransactionAsset-\(asset.currency)")
+                        }
+                        .navigationTitle("Choose Asset")
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Cancel") {
+                                    showingTransactionAssetPicker = false
+                                }
+                            }
+                        }
+                    }
+                }
+        } else {
+            goalDetailCore
+        }
+    }
+
     var body: some View {
-        goalDetailCore
+        goalDetailWithLiveData
             .onChange(of: goal.id) { _, _ in
                 goalViewModel = GoalViewModel(goal: goal)
                 goalViewModel.setModelContext(modelContext)
-                if !isFinishedGoal {
+                if fundingBranch.rendersLiveGoalData {
                     Task {
-                        await goalViewModel.refreshValues()
-                    }
-                }
-            }
-            .onChange(of: goalAssets.count) { _, _ in
-                if !isFinishedGoal {
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(100))
-                        await goalViewModel.refreshValues()
-                    }
-                }
-            }
-            .onChange(of: allAssets.count) { _, _ in
-                if !isFinishedGoal {
-                    Task { await goalViewModel.refreshValues() }
-                }
-            }
-            .onChange(of: allTransactions.count) { _, _ in
-                if !isFinishedGoal {
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(100))
                         await goalViewModel.refreshValues()
                     }
                 }
@@ -341,54 +393,6 @@ struct GoalDetailView: View {
                         journeyID: NavigationJourney.destructiveDeleteConfirmation,
                         entryPoint: "goal_detail_menu"
                     )
-                }
-            }
-#if os(macOS)
-            // NAV-MOD: MOD-01
-            .popover(isPresented: $showingAddAsset) {
-                AddAssetView(goal: goal)
-                    .frame(minWidth: 400, minHeight: 300)
-            }
-#else
-            // NAV-MOD: MOD-01
-            .sheet(isPresented: $showingAddAsset) {
-                AddAssetView(goal: goal)
-                    .presentationDetents([.large])
-            }
-#endif
-            .sheet(item: $selectedAssetForAddTransaction) { asset in
-                AddTransactionView(asset: asset)
-#if os(iOS)
-                    .presentationDetents([.large])
-#endif
-            }
-            .sheet(isPresented: $showingTransactionAssetPicker) {
-                NavigationStack {
-                    List(goalAssets) { asset in
-                        Button {
-                            showingTransactionAssetPicker = false
-                            DispatchQueue.main.async {
-                                selectedAssetForAddTransaction = asset
-                            }
-                        } label: {
-                            HStack {
-                                Label(asset.currency, systemImage: "bitcoinsign.circle")
-                                Spacer()
-                                Text("\((asset.transactions ?? []).count) transactions")
-                                    .font(.footnote)
-                                    .foregroundStyle(AccessibleColors.secondaryText)
-                            }
-                        }
-                        .accessibilityIdentifier("goalDetailTransactionAsset-\(asset.currency)")
-                    }
-                    .navigationTitle("Choose Asset")
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancel") {
-                                showingTransactionAssetPicker = false
-                            }
-                        }
-                    }
                 }
             }
             .goalCompletionFlow(request: $goalPendingCompletion) { finishedGoal in

@@ -49,6 +49,24 @@ enum FinishedGoalFundingContent: Equatable {
     }
 }
 
+enum GoalDetailFundingBranch: Equatable {
+    case active
+    case finished(FinishedGoalFundingContent)
+
+    var rendersLiveGoalData: Bool {
+        self == .active
+    }
+
+    static func make(
+        lifecycleStatus: GoalLifecycleStatus,
+        snapshot: GoalCompletionSnapshot?
+    ) -> Self {
+        lifecycleStatus == .finished
+            ? .finished(FinishedGoalFundingContent.make(snapshot: snapshot))
+            : .active
+    }
+}
+
 struct FinishedGoalFundingSection: View {
     let content: FinishedGoalFundingContent
 

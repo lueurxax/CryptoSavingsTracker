@@ -84,6 +84,42 @@ struct FinishedGoalFundingPresentationTests {
         #expect(presentation.rows[0].balanceEvidenceTitle == "Best-known balance at review")
     }
 
+    @Test("finished goal detail does not render live allocation or transaction content")
+    func finishedGoalDetailUsesSnapshotOnlyContent() {
+        let snapshot = makeSnapshot(
+            entries: [
+                makeEntry(
+                    assetCurrency: "USDT",
+                    amount: 40,
+                    settlement: .balanceAlreadyDecreased
+                )
+            ]
+        )
+
+        let branch = GoalDetailFundingBranch.make(
+            lifecycleStatus: .finished,
+            snapshot: snapshot
+        )
+
+        #expect(!branch.rendersLiveGoalData)
+        guard case .finished(.snapshot(let presentation)) = branch else {
+            Issue.record("Finished goals must use snapshot-backed content")
+            return
+        }
+        #expect(presentation.rows[0].amount == 40)
+    }
+
+    @Test("active goal detail retains live allocation and transaction content")
+    func activeGoalDetailUsesLiveContent() {
+        let branch = GoalDetailFundingBranch.make(
+            lifecycleStatus: .active,
+            snapshot: nil
+        )
+
+        #expect(branch == .active)
+        #expect(branch.rendersLiveGoalData)
+    }
+
     private func makeSnapshot(entries: [GoalCompletionSnapshot.Entry]) -> GoalCompletionSnapshot {
         GoalCompletionSnapshot(
             id: UUID(),
