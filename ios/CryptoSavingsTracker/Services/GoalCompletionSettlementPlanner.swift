@@ -21,11 +21,18 @@ struct GoalCompletionAllocationFingerprint: Equatable, Sendable {
     struct Entry: Equatable, Sendable {
         let allocationID: UUID
         let assetID: UUID
+        let assetCurrency: String
         let amount: Double
         let accountingMode: AssetBalanceAccountingMode
     }
 
     let entries: [Entry]
+}
+
+enum GoalCompletionAssetCurrency {
+    static func normalized(_ currency: String) -> String {
+        currency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    }
 }
 
 struct GoalCompletionSettlementDecision: Equatable, Sendable {
@@ -69,7 +76,18 @@ struct GoalCompletionSettlementPlanner {
         origin: GoalCompletionSettlementOrigin,
         allocations: [GoalCompletionAllocationInput]
     ) -> GoalCompletionSettlementPlan {
-        let sorted = allocations.sorted {
+        let normalizedAllocations = allocations.map { input in
+            GoalCompletionAllocationInput(
+                allocationID: input.allocationID,
+                assetID: input.assetID,
+                assetCurrency: GoalCompletionAssetCurrency.normalized(input.assetCurrency),
+                amount: input.amount,
+                accountingMode: input.accountingMode,
+                bestKnownBalance: input.bestKnownBalance,
+                balanceCapturedAt: input.balanceCapturedAt
+            )
+        }
+        let sorted = normalizedAllocations.sorted {
             if $0.assetCurrency != $1.assetCurrency {
                 return $0.assetCurrency < $1.assetCurrency
             }
@@ -102,6 +120,7 @@ struct GoalCompletionSettlementPlanner {
             GoalCompletionAllocationFingerprint.Entry(
                 allocationID: $0.allocationID,
                 assetID: $0.assetID,
+                assetCurrency: GoalCompletionAssetCurrency.normalized($0.assetCurrency),
                 amount: $0.amount,
                 accountingMode: $0.accountingMode
             )
@@ -150,7 +169,8 @@ struct GoalCompletionSettlementPlanner {
         let resolved = try resolve(plan: plan, decisions: decisions)
         let grouped = plan.items.reduce(into: [String: Double]()) { totals, item in
             guard resolved[item.id] == .balanceAlreadyDecreased else { return }
-            totals[item.input.assetCurrency, default: 0] += item.input.amount
+            let currency = GoalCompletionAssetCurrency.normalized(item.input.assetCurrency)
+            totals[currency, default: 0] += item.input.amount
         }
         return grouped.keys.sorted().map {
             GoalCompletionCurrencyAmount(currency: $0, amount: grouped[$0] ?? 0)

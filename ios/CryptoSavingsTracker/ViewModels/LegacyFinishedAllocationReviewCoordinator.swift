@@ -133,6 +133,7 @@ final class LegacyFinishedAllocationReviewCoordinator: LegacyFinishedAllocationR
                 GoalCompletionAllocationFingerprint.Entry(
                     allocationID: $0.input.allocationID,
                     assetID: $0.input.assetID,
+                    assetCurrency: GoalCompletionAssetCurrency.normalized($0.input.assetCurrency),
                     amount: $0.input.amount,
                     accountingMode: $0.input.accountingMode
                 )

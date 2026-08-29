@@ -279,6 +279,37 @@ struct GoalCompletionSettlementServiceTests {
         #expect(try context.fetchCount(FetchDescriptor<AllocationHistory>()) == baselineHistoryCount)
     }
 
+    @Test("asset currency change after planning rejects without mutation")
+    func assetCurrencyChangeAfterPlanningRejectsWithoutMutation() async throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let goal = makeGoal(name: "Changed Currency")
+        context.insert(goal)
+        let fixture = addAllocation(
+            to: goal,
+            currency: "USDT",
+            amount: 25,
+            address: "0xcurrency",
+            chainID: "ethereum",
+            in: context
+        )
+        try context.save()
+        let service = GoalCompletionSettlementService(modelContext: context)
+        let plan = try service.prepareNewCompletion(for: goal)
+        fixture.asset.currency = "EUR"
+        try context.save()
+        let baselineHistoryCount = try context.fetchCount(FetchDescriptor<AllocationHistory>())
+
+        await #expect(throws: GoalCompletionSettlementError.allocationsChanged(goal.id)) {
+            try await service.apply(GoalCompletionSettlementCommand(plan: plan, decisions: []))
+        }
+
+        #expect(goal.lifecycleStatus == .active)
+        #expect(goal.completionSnapshotData == nil)
+        #expect(fixture.allocation.amountValue == 25)
+        #expect(try context.fetchCount(FetchDescriptor<AllocationHistory>()) == baselineHistoryCount)
+    }
+
     @Test("second apply returns the existing snapshot without duplicate history")
     func secondApplyReturnsExistingSnapshotWithoutDuplicateHistory() async throws {
         let container = try TestContainer.create()

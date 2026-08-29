@@ -49,7 +49,7 @@ struct GoalCompletionSettlementPlannerTests {
     @Test("release summary is grouped by asset currency")
     func releaseSummaryGroupsCurrencies() throws {
         let first = input(currency: "USDT", amount: 20, mode: .mixed)
-        let second = input(currency: "USDT", amount: 15, mode: .mixed)
+        let second = input(currency: "usdt", amount: 15, mode: .mixed)
         let btc = input(currency: "BTC", amount: 0.1, mode: .mixed)
         let plan = planner.makePlan(goalID: UUID(), origin: .newCompletion, allocations: [first, second, btc])
         let decisions = [first, second, btc].map {
@@ -127,16 +127,68 @@ struct GoalCompletionSettlementPlannerTests {
             GoalCompletionAllocationFingerprint.Entry(
                 allocationID: btcAllocationID,
                 assetID: btcAssetID,
+                assetCurrency: "BTC",
                 amount: 0.1,
                 accountingMode: .onChain
             ),
             GoalCompletionAllocationFingerprint.Entry(
                 allocationID: usdtAllocationID,
                 assetID: usdtAssetID,
+                assetCurrency: "USDT",
                 amount: 20,
                 accountingMode: .manual
             )
         ]))
+    }
+
+    @Test("currency normalization ignores case but detects meaningful currency changes")
+    func currencyNormalizationIsCaseInsensitiveButMeaningful() {
+        let allocationID = UUID()
+        let assetID = UUID()
+        let goalID = UUID()
+        let initial = planner.makePlan(
+            goalID: goalID,
+            origin: .newCompletion,
+            allocations: [
+                input(
+                    allocationID: allocationID,
+                    assetID: assetID,
+                    currency: "USDT",
+                    amount: 20,
+                    mode: .onChain
+                )
+            ]
+        )
+        let caseOnly = planner.makePlan(
+            goalID: goalID,
+            origin: .newCompletion,
+            allocations: [
+                input(
+                    allocationID: allocationID,
+                    assetID: assetID,
+                    currency: "usdt",
+                    amount: 20,
+                    mode: .onChain
+                )
+            ]
+        )
+        let changed = planner.makePlan(
+            goalID: goalID,
+            origin: .newCompletion,
+            allocations: [
+                input(
+                    allocationID: allocationID,
+                    assetID: assetID,
+                    currency: "EUR",
+                    amount: 20,
+                    mode: .onChain
+                )
+            ]
+        )
+
+        #expect(initial.fingerprint == caseOnly.fingerprint)
+        #expect(initial.fingerprint != changed.fingerprint)
+        #expect(initial.fingerprint.entries.first?.assetCurrency == "USDT")
     }
 
     @Test("resolver rejects unknown and duplicate decisions")
