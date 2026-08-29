@@ -60,7 +60,8 @@ struct CryptoSavingsTrackerApp: App {
         guard !didRunUITestSeed else { return }
         let shouldSeedGoalsOnly = UITestFlags.shouldSeedGoals
         let shouldSeedManyGoals = UITestFlags.shouldSeedManyGoals
-        guard shouldSeedGoalsOnly || shouldSeedManyGoals else { return }
+        let shouldSeedFinishedSettlements = UITestFlags.shouldSeedFinishedSettlements
+        guard shouldSeedGoalsOnly || shouldSeedManyGoals || shouldSeedFinishedSettlements else { return }
         didRunUITestSeed = true
 
         OnboardingManager.shared.completeOnboarding()
@@ -71,6 +72,10 @@ struct CryptoSavingsTrackerApp: App {
 
         if shouldSeedManyGoals {
             await seedUITestGoals(context: context, count: 18)
+        }
+
+        if shouldSeedFinishedSettlements {
+            await seedUITestFinishedSettlements(context: context)
         }
 
     }
@@ -120,6 +125,129 @@ struct CryptoSavingsTrackerApp: App {
         }
     }
 
+    @MainActor
+    private static func seedUITestFinishedSettlements(context: ModelContext) async {
+        do {
+            let expectedNames: Set<String> = [
+                "Manual Finish Goal",
+                "On-chain Finish Goal",
+                "Mixed Finish Goal",
+                "Legacy Finished Goal",
+                "Legacy Review Host"
+            ]
+            let existingNames = Set(try context.fetch(FetchDescriptor<Goal>()).map(\.name))
+            guard expectedNames.isSubset(of: existingNames) == false else { return }
+
+            let deadline = Date(timeIntervalSince1970: 2_000_000_000)
+            let completedAt = Date(timeIntervalSince1970: 1_800_000_000)
+            let transactionDate = Date(timeIntervalSince1970: 1_750_000_000)
+
+            let manualGoal = Goal(
+                name: "Manual Finish Goal",
+                currency: "USD",
+                targetAmount: 400,
+                deadline: deadline
+            )
+            let onChainGoal = Goal(
+                name: "On-chain Finish Goal",
+                currency: "USD",
+                targetAmount: 250,
+                deadline: deadline
+            )
+            let mixedGoal = Goal(
+                name: "Mixed Finish Goal",
+                currency: "USD",
+                targetAmount: 175,
+                deadline: deadline
+            )
+            let legacyGoal = Goal(
+                name: "Legacy Finished Goal",
+                currency: "USD",
+                targetAmount: 500,
+                deadline: deadline
+            )
+            legacyGoal.markFinished(at: completedAt)
+            let legacyReviewHost = Goal(
+                name: "Legacy Review Host",
+                currency: "USD",
+                targetAmount: 1_000,
+                deadline: deadline
+            )
+
+            let manualAsset = Asset(currency: "USD")
+            let manualTransaction = Transaction(
+                amount: 1_000,
+                asset: manualAsset,
+                date: transactionDate,
+                source: .manual
+            )
+            manualAsset.transactions = [manualTransaction]
+            let manualAllocation = AssetAllocation(asset: manualAsset, goal: manualGoal, amount: 400)
+            manualAsset.allocations = [manualAllocation]
+            manualGoal.allocations = [manualAllocation]
+
+            let onChainAsset = Asset(
+                currency: "USDT",
+                address: "0x0000000000000000000000000000000000000001",
+                chainId: "ethereum"
+            )
+            let onChainAllocation = AssetAllocation(asset: onChainAsset, goal: onChainGoal, amount: 250)
+            onChainAsset.allocations = [onChainAllocation]
+            onChainGoal.allocations = [onChainAllocation]
+
+            let mixedAsset = Asset(
+                currency: "USDT",
+                address: "0x0000000000000000000000000000000000000002",
+                chainId: "ethereum"
+            )
+            let mixedTransaction = Transaction(
+                amount: 25,
+                asset: mixedAsset,
+                date: transactionDate,
+                source: .manual
+            )
+            mixedAsset.transactions = [mixedTransaction]
+            let mixedAllocation = AssetAllocation(asset: mixedAsset, goal: mixedGoal, amount: 175)
+            mixedAsset.allocations = [mixedAllocation]
+            mixedGoal.allocations = [mixedAllocation]
+
+            let legacyUSDT = Asset(
+                currency: "USDT",
+                address: "0x0000000000000000000000000000000000000003",
+                chainId: "ethereum"
+            )
+            let legacyBTC = Asset(
+                currency: "BTC",
+                address: "bc1qfinishedsettlementfixture",
+                chainId: "bitcoin"
+            )
+            let legacyUSDTAllocation = AssetAllocation(asset: legacyUSDT, goal: legacyGoal, amount: 200)
+            let legacyBTCAllocation = AssetAllocation(asset: legacyBTC, goal: legacyGoal, amount: 0.01)
+            let hostUSDTAllocation = AssetAllocation(asset: legacyUSDT, goal: legacyReviewHost, amount: 50)
+            legacyUSDT.allocations = [legacyUSDTAllocation, hostUSDTAllocation]
+            legacyBTC.allocations = [legacyBTCAllocation]
+            legacyGoal.allocations = [legacyUSDTAllocation, legacyBTCAllocation]
+            legacyReviewHost.allocations = [hostUSDTAllocation]
+
+            [manualGoal, onChainGoal, mixedGoal, legacyGoal, legacyReviewHost].forEach(context.insert)
+            [manualAsset, onChainAsset, mixedAsset, legacyUSDT, legacyBTC].forEach(context.insert)
+            [manualTransaction, mixedTransaction].forEach(context.insert)
+            [
+                manualAllocation,
+                onChainAllocation,
+                mixedAllocation,
+                legacyUSDTAllocation,
+                legacyBTCAllocation,
+                hostUSDTAllocation
+            ].forEach(context.insert)
+
+            try context.save()
+            AppLog.info("UITest finished settlement seed complete", category: .ui)
+        } catch {
+            AppLog.error("UITest finished settlement seed failed: \(error)", category: .ui)
+        }
+    }
+
     // MARK: - UITest reset
 
     private static var didRunUITestReset = false
@@ -161,6 +289,10 @@ struct CryptoSavingsTrackerApp: App {
             UserDefaults.standard.set("ui-test-household", forKey: "familyShare.shareID")
             UserDefaults.standard.set("UI Test Owner", forKey: "familyShare.ownerName")
             await DIContainer.shared.familyShareAcceptanceCoordinator.resetAllNamespaces()
+
+            if UITestFlags.shouldSeedFinishedSettlements {
+                await runUITestSeedIfNeeded(context: context)
+            }
             AppLog.info("UITEST_RESET_DATA cleared all entities", category: .ui)
         } catch {
             AppLog.error("UITEST_RESET_DATA failed: \(error)", category: .ui)

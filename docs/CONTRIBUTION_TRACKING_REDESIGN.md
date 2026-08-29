@@ -171,7 +171,7 @@ Goals have three distinct end states:
 | Action | Allocations | Goal Record | Use Case |
 |--------|-------------|-------------|----------|
 | **Cancel** | Freed for reuse | Marked cancelled | User abandons goal |
-| **Finish** | Marked as "spent" | Preserved for history | Goal achieved |
+| **Finish** | Manual retained as spent; on-chain released; mixed chosen once | Immutable completion snapshot | Goal achieved without double-counting |
 | **Delete** | Removed from tracking | Old finished plans unchanged | Cleanup |
 
 ```swift
@@ -186,6 +186,47 @@ enum GoalLifecycleStatus: String, Codable {
 - Active execution/planning: `WHERE status == .active`
 - Historical views: Include `.finished` goals
 - Cancelled goals: Hidden from active views, allocations freed
+
+#### Balance Accounting Modes at Finish
+
+Finished-allocation settlement follows the configured balance source rather than one universal retention rule:
+
+- **Manual:** the asset has no complete wallet address and chain configuration. The app ledger is the balance
+  authority, so the allocation is retained as spent.
+- **On-chain:** the asset has complete wallet tracking and no manual transactions. The tracked wallet balance has
+  already decreased after an external purchase, so the allocation is released.
+- **Mixed:** the asset has complete wallet tracking and at least one manual transaction. The source of the spent
+  amount is ambiguous, so the user chooses once between retaining it as spent and releasing it.
+
+The presence of manual transaction history makes an asset mixed even when its current net manual balance is zero.
+Wallet refresh success or freshness does not change the accounting mode.
+
+#### Immutable Completion Snapshot
+
+Before a goal is marked Finished or any current allocation is released, the app records one immutable completion
+snapshot. Its raw allocation quantities are the historical authority. Best-known balances and converted display
+values are optional context only: missing prices or wallet balances cannot block completion, and a balance observed
+during later legacy review must not be presented as the earlier completion-time balance.
+
+The snapshot and settlement changes are persisted atomically in one save. That save includes retained or released
+allocations, zero-value allocation-history records for releases, the Finished lifecycle state, and removal from
+active execution tracking. A failure leaves all of those states unchanged; lifecycle notifications are published
+only after the save succeeds.
+
+#### Legacy Finished Allocations
+
+A finished goal that still has allocations but has no completion snapshot is a legacy pending-review record. Its
+allocations remain unavailable and are never released automatically. `Later` makes no changes. Applying review
+resolves every allocation of each affected goal together, creates its immutable snapshot, and makes the selected
+retain-or-release decisions final.
+
+The allocation editor distinguishes legacy `Pending review` amounts from snapshot-confirmed `Reserved as spent`
+amounts. Released allocations are removed from current allocation totals and remain visible through the finished
+goal snapshot and history.
+
+These finish semantics and the snapshot format are a shared platform contract. The initial implementation is on
+iOS; Android must follow the same manual, on-chain, mixed, legacy-review, atomicity, and raw-quantity rules when its
+implementation is added.
 
 ### 4. Performance & Caching
 

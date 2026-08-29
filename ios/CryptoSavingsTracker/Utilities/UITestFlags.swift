@@ -49,6 +49,10 @@ enum UITestFlags {
         args.contains("UITEST_SEED_MANY_GOALS")
     }
 
+    static var shouldSeedFinishedSettlements: Bool {
+        args.contains("UITEST_SEED_FINISHED_SETTLEMENTS")
+    }
+
     static var shouldStartOnGoals: Bool {
         args.contains("UITEST_START_ON_GOALS")
     }
