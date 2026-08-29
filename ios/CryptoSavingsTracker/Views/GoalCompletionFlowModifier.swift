@@ -94,11 +94,16 @@ struct GoalCompletionFlowModifier: ViewModifier {
 
     private func presentErrorIfNeeded() {
         guard case let .failed(message) = coordinator.phase else { return }
+        guard coordinator.isDecisionSheetPresented == false else {
+            isErrorAlertPresented = false
+            return
+        }
         errorMessage = message
         isErrorAlertPresented = true
     }
 
     private func cancel() {
+        guard coordinator.phase != .applying else { return }
         isErrorAlertPresented = false
         coordinator.cancel()
         request = nil

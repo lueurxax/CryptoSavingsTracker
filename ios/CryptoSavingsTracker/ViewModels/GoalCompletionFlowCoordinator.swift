@@ -44,6 +44,7 @@ final class GoalCompletionFlowCoordinator: GoalCompletionFlowCoordinating {
     private(set) var isDecisionSheetPresented = false
 
     private var prepareAction: GoalCompletionPrepare?
+    private var flowID: UUID?
 
     var canApply: Bool {
         guard let plan else { return false }
@@ -55,10 +56,15 @@ final class GoalCompletionFlowCoordinator: GoalCompletionFlowCoordinating {
         prepare: @escaping GoalCompletionPrepare,
         apply: GoalCompletionApply
     ) async {
-        reset()
+        let flowID = UUID()
+        self.flowID = flowID
+        phase = .idle
         self.goal = goal
+        plan = nil
+        decisions = [:]
+        isDecisionSheetPresented = false
         prepareAction = prepare
-        await prepareAndAdvance(using: apply)
+        await prepareAndAdvance(using: apply, flowID: flowID)
     }
 
     func choose(allocationID: UUID, settlement: FinishedAllocationSettlement) {
@@ -67,7 +73,7 @@ final class GoalCompletionFlowCoordinator: GoalCompletionFlowCoordinating {
     }
 
     func apply(using apply: GoalCompletionApply) async {
-        guard let goal, let plan, canApply else { return }
+        guard phase != .applying, let flowID, let goal, let plan, canApply else { return }
         phase = .applying
         let orderedDecisions = plan.unresolvedAllocationIDs.compactMap { allocationID in
             decisions[allocationID].map {
@@ -77,24 +83,28 @@ final class GoalCompletionFlowCoordinator: GoalCompletionFlowCoordinating {
 
         do {
             _ = try await apply(goal, plan, orderedDecisions)
+            guard self.flowID == flowID else { return }
             reset()
         } catch GoalCompletionSettlementError.allocationsChanged {
+            guard self.flowID == flowID else { return }
             self.plan = nil
             decisions = [:]
             isDecisionSheetPresented = false
-            await prepareAndAdvance(using: apply)
+            await prepareAndAdvance(using: apply, flowID: flowID)
         } catch {
+            guard self.flowID == flowID else { return }
             phase = .failed(error.localizedDescription)
-            isDecisionSheetPresented = false
+            isDecisionSheetPresented = plan.unresolvedAllocationIDs.isEmpty == false
         }
     }
 
     func cancel() {
+        guard phase != .applying else { return }
         reset()
     }
 
-    private func prepareAndAdvance(using apply: GoalCompletionApply) async {
-        guard let goal, let prepareAction else { return }
+    private func prepareAndAdvance(using apply: GoalCompletionApply, flowID: UUID) async {
+        guard self.flowID == flowID, let goal, let prepareAction else { return }
         do {
             let preparedPlan = try prepareAction(goal)
             plan = preparedPlan
@@ -118,5 +128,6 @@ final class GoalCompletionFlowCoordinator: GoalCompletionFlowCoordinating {
         decisions = [:]
         isDecisionSheetPresented = false
         prepareAction = nil
+        flowID = nil
     }
 }

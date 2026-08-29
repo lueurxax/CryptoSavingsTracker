@@ -17,6 +17,16 @@ struct GoalCompletionSettlementSheet: View {
                     )
                 }
 
+                if let errorMessage {
+                    Section("Couldn’t Finish Goal") {
+                        Text(errorMessage)
+                            .foregroundStyle(.red)
+                        Button("Retry", action: onApply)
+                            .disabled(coordinator.phase == .applying)
+                            .accessibilityIdentifier("retryGoalCompletionSettlement")
+                    }
+                }
+
                 Section("Needs your choice") {
                     ForEach(unresolvedItems) { item in
                         VStack(alignment: .leading, spacing: 8) {
@@ -73,6 +83,8 @@ struct GoalCompletionSettlementSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancel)
+                        .disabled(coordinator.phase == .applying)
+                        .accessibilityIdentifier("cancelGoalCompletionSettlement")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Apply", action: onApply)
@@ -88,6 +100,11 @@ struct GoalCompletionSettlementSheet: View {
     private var unresolvedItems: [GoalCompletionSettlementItem] {
         guard coordinator.plan?.origin == .newCompletion else { return [] }
         return coordinator.plan?.items.filter { $0.automaticSettlement == nil } ?? []
+    }
+
+    private var errorMessage: String? {
+        guard case let .failed(message) = coordinator.phase else { return nil }
+        return message
     }
 
     private var automaticItems: [GoalCompletionSettlementItem] {
