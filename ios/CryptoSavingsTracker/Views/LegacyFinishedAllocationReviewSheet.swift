@@ -8,6 +8,13 @@ struct LegacyFinishedAllocationReviewSheet: View {
 
     private let planner = GoalCompletionSettlementPlanner()
 
+    static func settlementChoiceAccessibilityIdentifier(
+        goalID: UUID,
+        allocationID: UUID
+    ) -> String {
+        "legacySettlementChoice-\(goalID.uuidString)-\(allocationID.uuidString)"
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -125,7 +132,12 @@ struct LegacyFinishedAllocationReviewSheet: View {
                     .tag(Optional(FinishedAllocationSettlement.keepAsSpent))
             }
             .pickerStyle(.menu)
-            .accessibilityIdentifier("legacySettlementChoice-\(item.id.uuidString)")
+            .accessibilityIdentifier(
+                Self.settlementChoiceAccessibilityIdentifier(
+                    goalID: goalID,
+                    allocationID: item.id
+                )
+            )
         }
         .padding(.vertical, 4)
     }

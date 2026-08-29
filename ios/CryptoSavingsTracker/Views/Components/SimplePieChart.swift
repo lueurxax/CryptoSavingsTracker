@@ -6,10 +6,13 @@
 import SwiftUI
 
 struct SimplePieChart: View {
-    let allocations: [(goal: Goal, percentage: Double)]
+    let allocations: [(goal: Goal, percentage: Double, chartPercentage: Double)]
     let pendingReviewPercentage: Double
+    let pendingReviewChartPercentage: Double
     let finishedReservedPercentage: Double
+    let finishedReservedChartPercentage: Double
     let unallocatedPercentage: Double
+    let unallocatedChartPercentage: Double
     
     private let colors: [Color] = [
         .blue, .green, .orange, .purple, .pink,
@@ -27,34 +30,37 @@ struct SimplePieChart: View {
                         .rotationEffect(.degrees(-90))
                 }
 
-                if pendingReviewPercentage > 0.0000001 {
+                if pendingReviewChartPercentage > 0 {
                     Circle()
                         .trim(
-                            from: activeAllocatedPercentage,
-                            to: min(1, activeAllocatedPercentage + pendingReviewPercentage)
+                            from: activeAllocatedChartPercentage,
+                            to: min(
+                                1,
+                                activeAllocatedChartPercentage + pendingReviewChartPercentage
+                            )
                         )
                         .stroke(AccessibleColors.error, lineWidth: 40)
                         .rotationEffect(.degrees(-90))
                 }
 
-                if finishedReservedPercentage > 0.0000001 {
+                if finishedReservedChartPercentage > 0 {
                     Circle()
                         .trim(
-                            from: activeAllocatedPercentage + pendingReviewPercentage,
+                            from: activeAllocatedChartPercentage + pendingReviewChartPercentage,
                             to: min(
                                 1,
-                                activeAllocatedPercentage
-                                    + pendingReviewPercentage
-                                    + finishedReservedPercentage
+                                activeAllocatedChartPercentage
+                                    + pendingReviewChartPercentage
+                                    + finishedReservedChartPercentage
                             )
                         )
                         .stroke(AccessibleColors.warning, lineWidth: 40)
                         .rotationEffect(.degrees(-90))
                 }
                 
-                if unallocatedPercentage > 0 {
+                if unallocatedChartPercentage > 0 {
                     Circle()
-                        .trim(from: 1.0 - unallocatedPercentage, to: 1.0)
+                        .trim(from: 1.0 - unallocatedChartPercentage, to: 1.0)
                         .stroke(Color.gray.opacity(0.3), lineWidth: 40)
                         .rotationEffect(.degrees(-90))
                 }
@@ -62,7 +68,7 @@ struct SimplePieChart: View {
                 // Center text
                 VStack(spacing: 2) {
                     Text(
-                        1.0 - unallocatedPercentage,
+                        allocatedDisplayPercentage,
                         format: .percent.precision(.fractionLength(0...1))
                     )
                         .font(.title2)
@@ -98,7 +104,7 @@ struct SimplePieChart: View {
                     }
                 }
 
-                if pendingReviewPercentage > 0.0000001 {
+                if pendingReviewPercentage > 0 {
                     HStack(spacing: 8) {
                         Circle()
                             .fill(AccessibleColors.error)
@@ -119,7 +125,7 @@ struct SimplePieChart: View {
                     }
                 }
 
-                if finishedReservedPercentage > 0.0000001 {
+                if finishedReservedPercentage > 0 {
                     HStack(spacing: 8) {
                         Circle()
                             .fill(AccessibleColors.warning)
@@ -168,14 +174,20 @@ struct SimplePieChart: View {
     
     private func trimFrom(for index: Int) -> CGFloat {
         guard index > 0 else { return 0 }
-        return allocations.prefix(index).map(\.percentage).reduce(0, +)
+        return allocations.prefix(index).map(\.chartPercentage).reduce(0, +)
     }
     
     private func trimTo(for index: Int) -> CGFloat {
-        return allocations.prefix(index + 1).map(\.percentage).reduce(0, +)
+        return allocations.prefix(index + 1).map(\.chartPercentage).reduce(0, +)
     }
 
-    private var activeAllocatedPercentage: Double {
-        min(1, allocations.map(\.percentage).reduce(0, +))
+    private var activeAllocatedChartPercentage: Double {
+        min(1, allocations.map(\.chartPercentage).reduce(0, +))
+    }
+
+    private var allocatedDisplayPercentage: Double {
+        allocations.map(\.percentage).reduce(0, +)
+            + pendingReviewPercentage
+            + finishedReservedPercentage
     }
 }

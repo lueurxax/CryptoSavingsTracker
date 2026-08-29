@@ -37,7 +37,7 @@ struct AllocationService {
         try validateAllocations(newAllocations, for: asset)
 
         let timestamp = Date()
-        let epsilon = 0.0000001
+        let epsilon = 0.000000001 // 9 decimal places to safely handle 8-decimal satoshi precision
 
         // Snapshot old amounts before mutations.
         let existingAllocations = Array(asset.allocations ?? [])

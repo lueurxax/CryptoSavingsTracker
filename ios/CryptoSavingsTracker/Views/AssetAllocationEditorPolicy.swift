@@ -9,9 +9,12 @@ enum AssetAllocationEditorWarning: Equatable {
     case none
     case reviewFinishedAllocations
     case reduceActiveAllocations
+    case reservedAllocationDataConflict
 }
 
 struct AssetAllocationEditorEntry: Equatable, Identifiable {
+    let allocationID: UUID
+    let assetID: UUID
     let goalID: UUID
     let goalName: String
     let status: GoalLifecycleStatus
@@ -19,12 +22,16 @@ struct AssetAllocationEditorEntry: Equatable, Identifiable {
     let finishedState: FinishedAllocationEditorState?
 
     init(
+        allocationID: UUID,
+        assetID: UUID,
         goalID: UUID,
         goalName: String,
         status: GoalLifecycleStatus,
         amount: Double,
         finishedState: FinishedAllocationEditorState? = nil
     ) {
+        self.allocationID = allocationID
+        self.assetID = assetID
         self.goalID = goalID
         self.goalName = goalName
         self.status = status
@@ -32,7 +39,7 @@ struct AssetAllocationEditorEntry: Equatable, Identifiable {
         self.finishedState = finishedState
     }
 
-    var id: UUID { goalID }
+    var id: UUID { allocationID }
 }
 
 struct AssetAllocationEditorBreakdown: Equatable {
@@ -44,9 +51,40 @@ struct AssetAllocationEditorBreakdown: Equatable {
     let pendingReviewPercentage: Double
     let finishedReservedPercentage: Double
     let unallocatedPercentage: Double
+    let activeChartPercentage: Double
+    let pendingReviewChartPercentage: Double
+    let finishedReservedChartPercentage: Double
+    let unallocatedChartPercentage: Double
 }
 
 enum AssetAllocationEditorPolicy {
+    static let allocationEpsilon = 0.000000001
+
+    static func shouldPresentAllocation(amount: Double) -> Bool {
+        amount > allocationEpsilon
+    }
+
+    static func finishedState(
+        allocationID: UUID,
+        goalID: UUID,
+        assetID: UUID,
+        amount: Double,
+        goalStatus: GoalLifecycleStatus,
+        hasCompletionSnapshotData: Bool,
+        snapshot: GoalCompletionSnapshot?
+    ) -> FinishedAllocationEditorState? {
+        guard goalStatus == .finished else { return nil }
+        guard hasCompletionSnapshotData else { return .pendingReview }
+        guard let snapshot, snapshot.goalID == goalID else { return nil }
+        guard snapshot.entries.contains(where: {
+            $0.allocationID == allocationID
+                && $0.assetID == assetID
+                && $0.settlement == .keepAsSpent
+                && abs($0.amount - amount) <= allocationEpsilon
+        }) else { return nil }
+        return .reservedAsSpent
+    }
+
     static func breakdown(
         balance: Double,
         entries: [AssetAllocationEditorEntry]
@@ -62,10 +100,10 @@ enum AssetAllocationEditorPolicy {
             .filter { $0.status == .finished && $0.finishedState == .reservedAsSpent }
             .reduce(0) { $0 + max(0, $1.amount) }
         let totalAllocated = activeAllocated + pendingReview + finishedReserved
-        let totalForPresentation = max(normalizedBalance, totalAllocated)
+        let chartDenominator = max(normalizedBalance, totalAllocated)
         let unallocated = max(0, normalizedBalance - totalAllocated)
 
-        guard totalForPresentation > 0 else {
+        guard chartDenominator > 0 else {
             return AssetAllocationEditorBreakdown(
                 activeAllocatedAmount: 0,
                 pendingReviewAmount: 0,
@@ -74,19 +112,31 @@ enum AssetAllocationEditorPolicy {
                 activePercentage: 0,
                 pendingReviewPercentage: 0,
                 finishedReservedPercentage: 0,
-                unallocatedPercentage: 1
+                unallocatedPercentage: 1,
+                activeChartPercentage: 0,
+                pendingReviewChartPercentage: 0,
+                finishedReservedChartPercentage: 0,
+                unallocatedChartPercentage: 1
             )
         }
+
+        let displayDenominator = normalizedBalance > allocationEpsilon
+            ? normalizedBalance
+            : chartDenominator
 
         return AssetAllocationEditorBreakdown(
             activeAllocatedAmount: activeAllocated,
             pendingReviewAmount: pendingReview,
             finishedReservedAmount: finishedReserved,
             unallocatedAmount: unallocated,
-            activePercentage: activeAllocated / totalForPresentation,
-            pendingReviewPercentage: pendingReview / totalForPresentation,
-            finishedReservedPercentage: finishedReserved / totalForPresentation,
-            unallocatedPercentage: unallocated / totalForPresentation
+            activePercentage: activeAllocated / displayDenominator,
+            pendingReviewPercentage: pendingReview / displayDenominator,
+            finishedReservedPercentage: finishedReserved / displayDenominator,
+            unallocatedPercentage: unallocated / displayDenominator,
+            activeChartPercentage: activeAllocated / chartDenominator,
+            pendingReviewChartPercentage: pendingReview / chartDenominator,
+            finishedReservedChartPercentage: finishedReserved / chartDenominator,
+            unallocatedChartPercentage: unallocated / chartDenominator
         )
     }
 
@@ -96,17 +146,28 @@ enum AssetAllocationEditorPolicy {
     ) -> AssetAllocationEditorWarning {
         let normalizedBalance = max(0, balance)
         let normalizedEntries = entries.map { max(0, $0.amount) }
-        guard normalizedEntries.reduce(0, +) > normalizedBalance + 0.000001 else {
+        guard normalizedEntries.reduce(0, +) > normalizedBalance + allocationEpsilon else {
             return .none
         }
         if entries.contains(where: {
             $0.status == .finished
                 && $0.finishedState == .pendingReview
-                && $0.amount > 0.0000001
+                && shouldPresentAllocation(amount: $0.amount)
         }) {
             return .reviewFinishedAllocations
         }
-        return .reduceActiveAllocations
+        let reservedAmount = entries
+            .filter { $0.status == .finished && $0.finishedState == .reservedAsSpent }
+            .reduce(0) { $0 + max(0, $1.amount) }
+        if reservedAmount > normalizedBalance + allocationEpsilon {
+            return .reservedAllocationDataConflict
+        }
+        if entries.contains(where: {
+            $0.status == .active && shouldPresentAllocation(amount: $0.amount)
+        }) {
+            return .reduceActiveAllocations
+        }
+        return .reservedAllocationDataConflict
     }
 
     static func amountsForSave(

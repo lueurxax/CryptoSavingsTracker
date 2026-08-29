@@ -33,12 +33,24 @@ import SwiftUI
         deadline: Date().addingTimeInterval(-86_400 * 30)
     )
     reserved.lifecycleStatus = .finished
+    let tinyPending = Goal(
+        name: "Eight-decimal finished allocation",
+        currency: "EUR",
+        targetAmount: 0.00000001,
+        deadline: Date().addingTimeInterval(-86_400 * 60)
+    )
+    tinyPending.lifecycleStatus = .finished
 
     let asset = Asset(currency: "USDT")
     let deposit = Transaction(amount: 5_873.6673, asset: asset)
     let marriageAllocation = AssetAllocation(asset: asset, goal: marriage, amount: 695)
     let pendingAllocation = AssetAllocation(asset: asset, goal: pending, amount: 4_456)
     let reservedAllocation = AssetAllocation(asset: asset, goal: reserved, amount: 686)
+    let tinyPendingAllocation = AssetAllocation(
+        asset: asset,
+        goal: tinyPending,
+        amount: 0.00000001
+    )
 
     let settledAt = Date().addingTimeInterval(-86_400 * 30)
     reserved.completionSnapshotData = try? GoalCompletionSnapshotCodec.encode(
@@ -68,19 +80,27 @@ import SwiftUI
     )
 
     asset.transactions = [deposit]
-    asset.allocations = [marriageAllocation, pendingAllocation, reservedAllocation]
+    asset.allocations = [
+        marriageAllocation,
+        pendingAllocation,
+        reservedAllocation,
+        tinyPendingAllocation
+    ]
     marriage.allocations = [marriageAllocation]
     pending.allocations = [pendingAllocation]
     reserved.allocations = [reservedAllocation]
+    tinyPending.allocations = [tinyPendingAllocation]
 
     container.mainContext.insert(marriage)
     container.mainContext.insert(pending)
     container.mainContext.insert(reserved)
+    container.mainContext.insert(tinyPending)
     container.mainContext.insert(asset)
     container.mainContext.insert(deposit)
     container.mainContext.insert(marriageAllocation)
     container.mainContext.insert(pendingAllocation)
     container.mainContext.insert(reservedAllocation)
+    container.mainContext.insert(tinyPendingAllocation)
 
     return AssetSharingView(asset: asset, currentGoalId: marriage.id)
         .modelContainer(container)

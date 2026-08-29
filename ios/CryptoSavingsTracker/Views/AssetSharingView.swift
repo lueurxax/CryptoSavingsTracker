@@ -49,19 +49,18 @@ struct AssetSharingView: View {
     private var existingAllocationEntries: [AssetAllocationEditorEntry] {
         (asset.allocations ?? []).compactMap { allocation in
             guard let goal = allocation.goal else { return nil }
-            let finishedState: FinishedAllocationEditorState?
-            if goal.lifecycleStatus != .finished {
-                finishedState = nil
-            } else if goal.completionSnapshotData == nil {
-                finishedState = .pendingReview
-            } else if goal.completionSnapshot?.entries.contains(where: {
-                $0.assetID == asset.id && $0.settlement == .keepAsSpent
-            }) == true {
-                finishedState = .reservedAsSpent
-            } else {
-                finishedState = nil
-            }
+            let finishedState = AssetAllocationEditorPolicy.finishedState(
+                allocationID: allocation.id,
+                goalID: goal.id,
+                assetID: asset.id,
+                amount: allocation.amountValue,
+                goalStatus: goal.lifecycleStatus,
+                hasCompletionSnapshotData: goal.completionSnapshotData != nil,
+                snapshot: goal.completionSnapshot
+            )
             return AssetAllocationEditorEntry(
+                allocationID: allocation.id,
+                assetID: asset.id,
                 goalID: goal.id,
                 goalName: goal.name,
                 status: goal.lifecycleStatus,
@@ -73,19 +72,27 @@ struct AssetSharingView: View {
 
     private var pendingReviewEntries: [AssetAllocationEditorEntry] {
         existingAllocationEntries
-            .filter { $0.finishedState == .pendingReview && $0.amount > 0.0000001 }
+            .filter {
+                $0.finishedState == .pendingReview
+                    && AssetAllocationEditorPolicy.shouldPresentAllocation(amount: $0.amount)
+            }
             .sorted { $0.goalName.localizedCaseInsensitiveCompare($1.goalName) == .orderedAscending }
     }
 
     private var reservedAsSpentEntries: [AssetAllocationEditorEntry] {
         existingAllocationEntries
-            .filter { $0.finishedState == .reservedAsSpent && $0.amount > 0.0000001 }
+            .filter {
+                $0.finishedState == .reservedAsSpent
+                    && AssetAllocationEditorPolicy.shouldPresentAllocation(amount: $0.amount)
+            }
             .sorted { $0.goalName.localizedCaseInsensitiveCompare($1.goalName) == .orderedAscending }
     }
 
     private var invalidFinishedEntries: [AssetAllocationEditorEntry] {
         existingAllocationEntries.filter {
-            $0.status == .finished && $0.finishedState == nil && $0.amount > 0.0000001
+            $0.status == .finished
+                && $0.finishedState == nil
+                && AssetAllocationEditorPolicy.shouldPresentAllocation(amount: $0.amount)
         }
     }
 
@@ -109,8 +116,12 @@ struct AssetSharingView: View {
     private var presentationEntries: [AssetAllocationEditorEntry] {
         let activeEntries = activeGoals.compactMap { goal -> AssetAllocationEditorEntry? in
             let amount = allocations[goal.id] ?? 0
-            guard amount > 0.0000001 else { return nil }
+            guard AssetAllocationEditorPolicy.shouldPresentAllocation(amount: amount) else { return nil }
+            let allocationID = (asset.allocations ?? [])
+                .first(where: { $0.goal?.id == goal.id })?.id ?? goal.id
             return AssetAllocationEditorEntry(
+                allocationID: allocationID,
+                assetID: asset.id,
                 goalID: goal.id,
                 goalName: goal.name,
                 status: .active,
@@ -157,23 +168,36 @@ struct AssetSharingView: View {
     }
     
     var pieData: (
-        allocations: [(goal: Goal, percentage: Double)],
+        allocations: [(goal: Goal, percentage: Double, chartPercentage: Double)],
         pendingReview: Double,
+        pendingReviewChart: Double,
         finishedReserved: Double,
-        unallocated: Double
+        finishedReservedChart: Double,
+        unallocated: Double,
+        unallocatedChart: Double
     ) {
-        let totalForPie = max(bestKnownBalance, totalAmount)
-        guard totalForPie > 0 else {
-            return ([], 0, 0, 1.0)
+        let chartDenominator = max(bestKnownBalance, totalAmount)
+        guard chartDenominator > 0 else {
+            return ([], 0, 0, 0, 0, 1.0, 1.0)
         }
+        let displayDenominator = bestKnownBalance > AssetAllocationEditorPolicy.allocationEpsilon
+            ? bestKnownBalance
+            : chartDenominator
         let allocationsPercent = allocationData.map {
-            (goal: $0.goal, percentage: max(0, $0.amount / totalForPie))
+            (
+                goal: $0.goal,
+                percentage: max(0, $0.amount / displayDenominator),
+                chartPercentage: max(0, $0.amount / chartDenominator)
+            )
         }
         return (
             allocationsPercent,
             breakdown.pendingReviewPercentage,
+            breakdown.pendingReviewChartPercentage,
             breakdown.finishedReservedPercentage,
-            breakdown.unallocatedPercentage
+            breakdown.finishedReservedChartPercentage,
+            breakdown.unallocatedPercentage,
+            breakdown.unallocatedChartPercentage
         )
     }
     
@@ -271,8 +295,11 @@ struct AssetSharingView: View {
             SimplePieChart(
                 allocations: pieData.allocations,
                 pendingReviewPercentage: pieData.pendingReview,
+                pendingReviewChartPercentage: pieData.pendingReviewChart,
                 finishedReservedPercentage: pieData.finishedReserved,
-                unallocatedPercentage: pieData.unallocated
+                finishedReservedChartPercentage: pieData.finishedReservedChart,
+                unallocatedPercentage: pieData.unallocated,
+                unallocatedChartPercentage: pieData.unallocatedChart
             )
         }
         .padding()
@@ -357,6 +384,9 @@ struct AssetSharingView: View {
             return "Finished allocations need review before the available balance can be calculated correctly."
         case .reduceActiveAllocations:
             return "Allocated amount exceeds balance. Please reduce allocations."
+        case .reservedAllocationDataConflict:
+            return "Reserved finished allocations exceed the recorded balance. Active allocations cannot "
+                + "resolve this data conflict; restore the completion data before saving."
         case .none:
             return ""
         }
@@ -370,7 +400,10 @@ struct AssetSharingView: View {
                     .font(.headline)
                     .foregroundStyle(AccessibleColors.error)
 
-                Text("\(breakdown.pendingReviewAmount, specifier: "%.4f") \(asset.currency) affected")
+                Text(
+                    "\(formattedAllocationAmount(breakdown.pendingReviewAmount)) "
+                        + "\(asset.currency) affected"
+                )
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .monospacedDigit()
@@ -398,7 +431,7 @@ struct AssetSharingView: View {
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                                 .fixedSize(horizontal: false, vertical: true)
-                            Text("\(entry.amount, specifier: "%.4f") \(asset.currency)")
+                            Text("\(formattedAllocationAmount(entry.amount)) \(asset.currency)")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
                                 .monospacedDigit()
@@ -411,7 +444,10 @@ struct AssetSharingView: View {
                         .background(Color.gray.opacity(0.05))
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                         .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier("pendingReviewAllocation-\(entry.goalID.uuidString)")
+                        .accessibilityIdentifier(
+                            "pendingReviewAllocation-\(entry.goalID.uuidString)-"
+                                + entry.allocationID.uuidString
+                        )
                     }
                 }
             }
@@ -431,7 +467,10 @@ struct AssetSharingView: View {
                     .font(.headline)
                     .foregroundStyle(AccessibleColors.warning)
 
-                Text("\(breakdown.finishedReservedAmount, specifier: "%.4f") \(asset.currency) reserved")
+                Text(
+                    "\(formattedAllocationAmount(breakdown.finishedReservedAmount)) "
+                        + "\(asset.currency) reserved"
+                )
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .monospacedDigit()
@@ -452,7 +491,7 @@ struct AssetSharingView: View {
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                                 .fixedSize(horizontal: false, vertical: true)
-                            Text("\(entry.amount, specifier: "%.4f") \(asset.currency)")
+                            Text("\(formattedAllocationAmount(entry.amount)) \(asset.currency)")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
                                 .monospacedDigit()
@@ -465,7 +504,10 @@ struct AssetSharingView: View {
                         .background(Color.gray.opacity(0.05))
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                         .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier("reservedAsSpentAllocation-\(entry.goalID.uuidString)")
+                        .accessibilityIdentifier(
+                            "reservedAsSpentAllocation-\(entry.goalID.uuidString)-"
+                                + entry.allocationID.uuidString
+                        )
                     }
                 }
             }
@@ -525,10 +567,13 @@ struct AssetSharingView: View {
     }
 
     private func allocateRemaining(to goal: Goal) {
-        let epsilon = 0.0000001
         let remaining = remainingAmount
-        guard remaining > epsilon else { return }
+        guard AssetAllocationEditorPolicy.shouldPresentAllocation(amount: remaining) else { return }
         allocations[goal.id] = (allocations[goal.id] ?? 0) + remaining
+    }
+
+    private func formattedAllocationAmount(_ amount: Double) -> String {
+        amount.formatted(.number.precision(.fractionLength(0...8)))
     }
     
     private func saveAllocations() {

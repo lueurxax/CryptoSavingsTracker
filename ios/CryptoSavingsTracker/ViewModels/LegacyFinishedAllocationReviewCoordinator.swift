@@ -11,6 +11,22 @@ typealias LegacyReviewApply = @MainActor (
     [GoalCompletionSettlementCommand]
 ) async throws -> [GoalCompletionSnapshot]
 
+enum LegacyFinishedAllocationReviewError: Error, Equatable {
+    case invalidPreparedPlan(UUID)
+    case duplicateAllocationID(goalID: UUID, allocationID: UUID)
+}
+
+extension LegacyFinishedAllocationReviewError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .invalidPreparedPlan:
+            return "A finished goal produced an invalid review. Nothing was changed."
+        case .duplicateAllocationID:
+            return "A finished goal contains duplicate allocation data. Nothing was changed."
+        }
+    }
+}
+
 @MainActor
 protocol LegacyFinishedAllocationReviewCoordinating: AnyObject {
     var plansByGoalID: [UUID: GoalCompletionSettlementPlan] { get }
@@ -19,7 +35,7 @@ protocol LegacyFinishedAllocationReviewCoordinating: AnyObject {
     var errorMessage: String? { get }
     var canApply: Bool { get }
 
-    func load(goals: [Goal], prepare: LegacyReviewPrepare) throws
+    func load(goals: [Goal], prepare: @escaping LegacyReviewPrepare) throws
     func choose(
         goalID: UUID,
         allocationID: UUID,
@@ -37,14 +53,33 @@ final class LegacyFinishedAllocationReviewCoordinator: LegacyFinishedAllocationR
     private(set) var isPresented = false
     private(set) var errorMessage: String?
     private(set) var isApplying = false
+    private var reviewGoals: [Goal] = []
+    private var prepareAction: LegacyReviewPrepare?
 
     var canApply: Bool {
         guard isPresented, isApplying == false, plansByGoalID.isEmpty == false else { return false }
         return Set(expectedDecisionKeys) == Set(decisions.keys)
     }
 
-    func load(goals: [Goal], prepare: LegacyReviewPrepare) throws {
+    func load(goals: [Goal], prepare: @escaping LegacyReviewPrepare) throws {
         clearReview()
+        reviewGoals = goals
+        prepareAction = prepare
+
+        do {
+            try prepareReview(goals: goals, prepare: prepare)
+        } catch {
+            clearReview()
+            errorMessage = error.localizedDescription
+            throw error
+        }
+    }
+
+    private func prepareReview(goals: [Goal], prepare: LegacyReviewPrepare) throws {
+        plansByGoalID = [:]
+        decisions = [:]
+        isPresented = false
+        isApplying = false
 
         var seenGoalIDs = Set<UUID>()
         let reviewableGoals = goals
@@ -57,20 +92,52 @@ final class LegacyFinishedAllocationReviewCoordinator: LegacyFinishedAllocationR
                 return $0.id.uuidString < $1.id.uuidString
             }
 
-        do {
-            for goal in reviewableGoals {
-                let plan = try prepare(goal)
-                guard plan.origin == .legacyReview, plan.goalID == goal.id, plan.items.isEmpty == false else {
-                    continue
-                }
-                plansByGoalID[goal.id] = plan
+        var preparedPlans: [UUID: GoalCompletionSettlementPlan] = [:]
+        for goal in reviewableGoals {
+            let plan = try prepare(goal)
+            guard
+                goal.lifecycleStatus == .finished,
+                plan.origin == .legacyReview,
+                plan.goalID == goal.id,
+                plan.items.isEmpty == false,
+                plan.items.allSatisfy({
+                    $0.automaticSettlement == nil
+                        && $0.input.amount.isFinite
+                        && $0.input.amount > 0
+                        && $0.input.assetCurrency.isEmpty == false
+                }),
+                plan.fingerprint == fingerprint(for: plan.items)
+            else {
+                throw LegacyFinishedAllocationReviewError.invalidPreparedPlan(goal.id)
             }
-            isPresented = plansByGoalID.isEmpty == false
-        } catch {
-            clearReview()
-            errorMessage = error.localizedDescription
-            throw error
+            var seenAllocationIDs = Set<UUID>()
+            for item in plan.items {
+                guard seenAllocationIDs.insert(item.id).inserted else {
+                    throw LegacyFinishedAllocationReviewError.duplicateAllocationID(
+                        goalID: goal.id,
+                        allocationID: item.id
+                    )
+                }
+            }
+            preparedPlans[goal.id] = plan
         }
+        plansByGoalID = preparedPlans
+        isPresented = plansByGoalID.isEmpty == false
+    }
+
+    private func fingerprint(
+        for items: [GoalCompletionSettlementItem]
+    ) -> GoalCompletionAllocationFingerprint {
+        GoalCompletionAllocationFingerprint(
+            entries: items.map {
+                GoalCompletionAllocationFingerprint.Entry(
+                    allocationID: $0.input.allocationID,
+                    assetID: $0.input.assetID,
+                    amount: $0.input.amount,
+                    accountingMode: $0.input.accountingMode
+                )
+            }
+        )
     }
 
     func choose(
@@ -115,6 +182,15 @@ final class LegacyFinishedAllocationReviewCoordinator: LegacyFinishedAllocationR
         do {
             _ = try await applyBatch(commands)
             clearReview()
+        } catch let error as GoalCompletionSettlementError {
+            if case .allocationsChanged = error {
+                try reloadAfterAllocationsChanged(error)
+                throw error
+            }
+            isApplying = false
+            errorMessage = error.localizedDescription
+            isPresented = true
+            throw error
         } catch {
             isApplying = false
             errorMessage = error.localizedDescription
@@ -131,11 +207,32 @@ final class LegacyFinishedAllocationReviewCoordinator: LegacyFinishedAllocationR
         }
     }
 
+    private func reloadAfterAllocationsChanged(
+        _ error: GoalCompletionSettlementError
+    ) throws {
+        guard let prepareAction else {
+            clearReview()
+            errorMessage = error.localizedDescription
+            return
+        }
+
+        do {
+            try prepareReview(goals: reviewGoals, prepare: prepareAction)
+            errorMessage = error.localizedDescription
+        } catch {
+            clearReview()
+            errorMessage = error.localizedDescription
+            throw error
+        }
+    }
+
     private func clearReview() {
         plansByGoalID = [:]
         decisions = [:]
         isPresented = false
         errorMessage = nil
         isApplying = false
+        reviewGoals = []
+        prepareAction = nil
     }
 }
