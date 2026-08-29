@@ -118,6 +118,10 @@ final class LocalBridgeImportValidationService {
             incomingSchema > capabilityManifest.maximumSupportedSnapshotSchemaVersion {
             blockingIssues.append("Snapshot schema v\(incomingSchema) is outside the supported range \(capabilityManifest.minimumSupportedSnapshotSchemaVersion)-\(capabilityManifest.maximumSupportedSnapshotSchemaVersion).")
         }
+        if incomingSchema == 1,
+           package.snapshotEnvelope.goals.contains(where: { $0.completionSnapshotData != nil }) {
+            blockingIssues.append("Snapshot schema v1 cannot contain a goal completion snapshot payload.")
+        }
 
         if package.snapshotID != package.snapshotEnvelope.manifest.snapshotID {
             blockingIssues.append("Signed package snapshot identity does not match the embedded snapshot manifest.")

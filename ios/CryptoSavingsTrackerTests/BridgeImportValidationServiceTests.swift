@@ -165,6 +165,51 @@ struct BridgeImportValidationServiceTests {
         #expect(futureStatus.blockingIssues.contains { $0.contains("Snapshot schema v3") })
     }
 
+    @Test("Validation rejects an unsigned completion payload injected into a signed schema v1 package")
+    func schemaV1InjectedCompletionPayloadFailsValidation() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        _ = try TestDataFactory.createFullCutoverTestData(in: context)
+
+        let signingService = TestBridgePackageSigningService()
+        let exporter = LocalBridgeSnapshotExportService()
+        let currentSnapshot = try exporter.exportSnapshot(from: context)
+        let schemaV1Snapshot = try snapshot(currentSnapshot, withSchemaVersion: 1)
+        #expect(schemaV1Snapshot.goals.allSatisfy { $0.completionSnapshotData == nil })
+
+        let trusted = try makeTrustedDevice(displayName: "MacBook Pro", signingService: signingService)
+        let service = LocalBridgeImportValidationService(
+            snapshotExportService: exporter,
+            capabilityManifest: .current(),
+            signingService: signingService
+        )
+        let signedPackage = try service.makePlaceholderPackage(
+            from: schemaV1Snapshot,
+            trustedDevice: trusted
+        )
+        let injectedPackage = try injectSerializedCompletionPayload(
+            Data("unsigned-completion-payload".utf8),
+            into: signedPackage
+        )
+
+        #expect(injectedPackage.packageID == signedPackage.packageID)
+        #expect(injectedPackage.signature == signedPackage.signature)
+        #expect(injectedPackage.editedDatasetFingerprint == signedPackage.editedDatasetFingerprint)
+        #expect(injectedPackage.snapshotEnvelope.goals.contains { $0.completionSnapshotData != nil })
+
+        let status = try service.review(
+            package: injectedPackage,
+            trustedDevice: trusted,
+            currentSnapshot: schemaV1Snapshot
+        )
+
+        #expect(status.reviewSummaryDTO?.package.signatureStatus == .valid)
+        #expect(status.validationStatus == .failed)
+        #expect(status.blockingIssues.contains {
+            $0.contains("schema v1") && $0.contains("completion snapshot payload")
+        })
+    }
+
     @Test("Validation detects drift when base fingerprint differs from current authoritative snapshot")
     func driftConflictDetected() throws {
         let container = try TestContainer.create()
@@ -416,6 +461,25 @@ struct BridgeImportValidationServiceTests {
             executionSnapshots: base.executionSnapshots,
             completionEvents: base.completionEvents
         ).withComputedFingerprint()
+    }
+
+    private func injectSerializedCompletionPayload(
+        _ payload: Data,
+        into package: SignedImportPackage
+    ) throws -> SignedImportPackage {
+        let encodedPackage = try JSONEncoder().encode(package)
+        var packageObject = try #require(
+            JSONSerialization.jsonObject(with: encodedPackage) as? [String: Any]
+        )
+        var envelopeObject = try #require(packageObject["snapshotEnvelope"] as? [String: Any])
+        var goalObjects = try #require(envelopeObject["goals"] as? [[String: Any]])
+        #expect(goalObjects.isEmpty == false)
+        goalObjects[0]["completionSnapshotData"] = payload.base64EncodedString()
+        envelopeObject["goals"] = goalObjects
+        packageObject["snapshotEnvelope"] = envelopeObject
+
+        let injectedData = try JSONSerialization.data(withJSONObject: packageObject, options: [.sortedKeys])
+        return try JSONDecoder().decode(SignedImportPackage.self, from: injectedData)
     }
 }
 

@@ -852,11 +852,111 @@ struct LocalBridgeImportApplyServiceTests {
         #expect(importedGoal.completionSnapshotData == nil)
     }
 
+    @Test("Apply rejects an unsigned completion payload injected into a signed schema v1 package")
+    func applyRejectsSchemaV1InjectedCompletionPayloadBeforeMutation() throws {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        _ = try TestDataFactory.createFullCutoverTestData(in: context)
+
+        let exportService = LocalBridgeSnapshotExportService()
+        let currentSnapshot = try exportService.exportSnapshot(from: context)
+        let schemaV1Goals = currentSnapshot.goals.map {
+            BridgeGoalSnapshot(
+                id: $0.id,
+                recordState: $0.recordState,
+                name: $0.name,
+                currency: $0.currency,
+                targetAmount: $0.targetAmount,
+                deadline: $0.deadline,
+                startDate: $0.startDate,
+                lifecycleStatusRawValue: $0.lifecycleStatusRawValue,
+                emoji: $0.emoji,
+                goalDescription: $0.goalDescription,
+                link: $0.link,
+                completionSnapshotData: nil
+            )
+        }
+        let schemaV1Snapshot = try makeSnapshot(
+            from: currentSnapshot,
+            goals: schemaV1Goals,
+            snapshotSchemaVersion: 1,
+            appModelSchemaVersion: "cloudkit-model-v1"
+        )
+        let signingService = TestBridgeSigningService()
+        let trustedDevice = signingService.makeTrustedDevice(displayName: "Bridge Mac")
+        let validationService = LocalBridgeImportValidationService(
+            snapshotExportService: exportService,
+            capabilityManifest: .current(),
+            signingService: signingService
+        )
+        let signedPackage = try makeSignedPackage(
+            from: schemaV1Snapshot,
+            baseDatasetFingerprint: currentSnapshot.manifest.baseDatasetFingerprint,
+            trustedDevice: trustedDevice,
+            signingService: signingService
+        )
+        let injectedPackage = try injectSerializedCompletionPayload(
+            Data("unsigned-completion-payload".utf8),
+            into: signedPackage
+        )
+        let cleanReview = try validationService.review(
+            package: signedPackage,
+            trustedDevice: trustedDevice,
+            currentSnapshot: currentSnapshot
+        )
+        let applyService = LocalBridgeImportApplyService(
+            snapshotExportService: exportService,
+            validationService: validationService,
+            receiptStore: InMemoryBridgeImportReceiptStore()
+        )
+
+        do {
+            _ = try applyService.applyReviewedPackage(
+                injectedPackage,
+                trustedDevice: trustedDevice,
+                reviewStatus: approved(cleanReview),
+                in: container
+            )
+            Issue.record("Expected schema v1 completion payload injection to be rejected")
+        } catch let error as LocalBridgeImportApplyError {
+            guard case let .malformedPackage(issues) = error else {
+                Issue.record("Expected malformedPackage, got \(error)")
+                return
+            }
+            #expect(issues.contains {
+                $0.contains("schema v1") && $0.contains("completion snapshot payload")
+            })
+        }
+
+        let finalSnapshot = try exportService.exportSnapshot(from: ModelContext(container))
+        #expect(finalSnapshot.manifest.baseDatasetFingerprint == currentSnapshot.manifest.baseDatasetFingerprint)
+        #expect(finalSnapshot.goals.allSatisfy { $0.completionSnapshotData == nil })
+    }
+
     private func approved(_ review: BridgeImportReviewStatus) -> BridgeImportReviewStatus {
         var approvedReview = review
         approvedReview.operatorDecision = .approved
         approvedReview.requiresOperatorReview = false
         return approvedReview
+    }
+
+    private func injectSerializedCompletionPayload(
+        _ payload: Data,
+        into package: SignedImportPackage
+    ) throws -> SignedImportPackage {
+        let encodedPackage = try JSONEncoder().encode(package)
+        var packageObject = try #require(
+            JSONSerialization.jsonObject(with: encodedPackage) as? [String: Any]
+        )
+        var envelopeObject = try #require(packageObject["snapshotEnvelope"] as? [String: Any])
+        var goalObjects = try #require(envelopeObject["goals"] as? [[String: Any]])
+        #expect(goalObjects.isEmpty == false)
+        goalObjects[0]["completionSnapshotData"] = payload.base64EncodedString()
+        envelopeObject["goals"] = goalObjects
+        packageObject["snapshotEnvelope"] = envelopeObject
+
+        let injectedData = try JSONSerialization.data(withJSONObject: packageObject, options: [.sortedKeys])
+        return try JSONDecoder().decode(SignedImportPackage.self, from: injectedData)
     }
 
     private func makeEditedSnapshot(from baseSnapshot: SnapshotEnvelope) throws -> SnapshotEnvelope {

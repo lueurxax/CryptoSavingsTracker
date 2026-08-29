@@ -187,6 +187,11 @@ final class LocalBridgeImportApplyService {
             throw LocalBridgeImportApplyError.packageNotApproved
         }
 
+        let schemaShapeIssues = schemaSpecificPackageShapeIssues(package.snapshotEnvelope)
+        if !schemaShapeIssues.isEmpty {
+            throw LocalBridgeImportApplyError.malformedPackage(schemaShapeIssues)
+        }
+
         if let existingReceipt = try receiptStore.receipt(for: package.packageID) {
             guard existingReceipt.editedDatasetFingerprint == package.editedDatasetFingerprint else {
                 throw LocalBridgeImportApplyError.receiptConflict(packageID: package.packageID)
@@ -519,7 +524,7 @@ final class LocalBridgeImportApplyService {
     }
 
     private func validatePackageShape(_ envelope: SnapshotEnvelope) throws {
-        var issues: [String] = []
+        var issues = schemaSpecificPackageShapeIssues(envelope)
 
         issues.append(contentsOf: duplicateIDIssues(for: envelope.goals, entityName: "Goal", id: \.id))
         issues.append(contentsOf: duplicateIDIssues(for: envelope.assets, entityName: "Asset", id: \.id))
@@ -650,6 +655,14 @@ final class LocalBridgeImportApplyService {
         if !issues.isEmpty {
             throw LocalBridgeImportApplyError.malformedPackage(issues)
         }
+    }
+
+    private func schemaSpecificPackageShapeIssues(_ envelope: SnapshotEnvelope) -> [String] {
+        guard envelope.manifest.snapshotSchemaVersion == 1,
+              envelope.goals.contains(where: { $0.completionSnapshotData != nil }) else {
+            return []
+        }
+        return ["Snapshot schema v1 cannot contain a goal completion snapshot payload."]
     }
 
     private func makeApplyPlan(
