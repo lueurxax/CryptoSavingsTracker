@@ -54,16 +54,6 @@ struct GoalLifecycleService {
         )
     }
 
-    func finishGoal(_ goal: Goal, at timestamp: Date = Date()) async {
-        do {
-            let plan = try prepareFinishGoal(goal)
-            guard plan.unresolvedAllocationIDs.isEmpty else { return }
-            _ = try await finishGoal(goal, plan: plan, decisions: [], at: timestamp)
-        } catch {
-            AppLog.error("Could not finish goal: \(error)", category: .swiftData)
-        }
-    }
-
     /// Delete a goal (soft delete): remove it from current tracking and free its allocations so funds are not locked.
     func deleteGoal(_ goal: Goal, at timestamp: Date = Date()) async {
         await retireLegacyReminderRuntime(for: goal)

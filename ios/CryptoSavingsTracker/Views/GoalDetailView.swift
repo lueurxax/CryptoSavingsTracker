@@ -24,6 +24,7 @@ struct GoalDetailView: View {
     @State private var editingGoal: Goal?
     @State private var showingDeleteConfirmation = false
     @State private var hasStartedDestructiveJourney = false
+    @State private var goalPendingCompletion: Goal?
     
     init(goal: Goal) {
         self.goal = goal
@@ -355,6 +356,16 @@ struct GoalDetailView: View {
                     }
                 }
             }
+            .goalCompletionFlow(request: $goalPendingCompletion) { finishedGoal in
+                NotificationCenter.default.post(name: .goalProgressRefreshed, object: finishedGoal)
+                if hasStartedDestructiveJourney {
+                    DIContainer.shared.navigationTelemetryTracker.flowCompleted(
+                        journeyID: NavigationJourney.destructiveDeleteConfirmation,
+                        result: "finish_goal"
+                    )
+                    hasStartedDestructiveJourney = false
+                }
+            }
     } // End of body
 
     private var goalDetailCore: some View {
@@ -374,8 +385,8 @@ struct GoalDetailView: View {
                 Button("Cancel Goal (free allocations)", role: .destructive) {
                     cancelGoal()
                 }
-                Button("Mark Finished (keep allocations)") {
-                    finishGoal()
+                Button("Finish Goal") {
+                    goalPendingCompletion = goal
                 }
                 Button("Cancel", role: .cancel) {
                     DIContainer.shared.navigationTelemetryTracker.cancelled(
@@ -385,7 +396,7 @@ struct GoalDetailView: View {
                     )
                 }
             } message: {
-                Text("Choose how to archive '\(goal.name)'. Finished goals keep allocations (treated as spent). Cancel frees allocations back to unallocated.")
+                Text("Finish records how this goal was funded. Wallet-tracked balances are released automatically; mixed balances may need one choice.")
             }
             // NAV-MOD: MOD-01
             .sheet(item: $editingGoal) { goal in
@@ -506,16 +517,4 @@ struct GoalDetailView: View {
         }
     }
 
-    private func finishGoal() {
-        if hasStartedDestructiveJourney {
-            DIContainer.shared.navigationTelemetryTracker.flowCompleted(
-                journeyID: NavigationJourney.destructiveDeleteConfirmation,
-                result: "finish_goal"
-            )
-            hasStartedDestructiveJourney = false
-        }
-        Task { @MainActor in
-            await GoalLifecycleService(modelContext: modelContext).finishGoal(goal)
-        }
-    }
 }

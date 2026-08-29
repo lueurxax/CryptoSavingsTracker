@@ -27,6 +27,7 @@ struct GoalsListContainer: View {
     @State private var selectedGoalForLifecycleAction: Goal?
     @State private var selectedSharedGoal: FamilyShareInviteeGoalProjection?
     @State private var showingLifecycleActions = false
+    @State private var goalPendingCompletion: Goal?
     @AppStorage(PreviewFeaturesRuntime.userDefaultsKey) private var previewFeaturesEnabled = false
     @StateObject private var familyShareCoordinator = DIContainer.shared.familyShareAcceptanceCoordinator
 
@@ -145,10 +146,8 @@ struct GoalsListContainer: View {
                         await GoalLifecycleService(modelContext: modelContext).cancelGoal(goal)
                     }
                 }
-                Button("Mark Finished (keep allocations)") {
-                    Task { @MainActor in
-                        await GoalLifecycleService(modelContext: modelContext).finishGoal(goal)
-                    }
+                Button("Finish Goal") {
+                    goalPendingCompletion = goal
                 }
             }
             Button("Close", role: .cancel) { }
@@ -198,6 +197,9 @@ struct GoalsListContainer: View {
                         }
                     }
                 }
+            }
+            .goalCompletionFlow(request: $goalPendingCompletion) { finishedGoal in
+                NotificationCenter.default.post(name: .goalProgressRefreshed, object: finishedGoal)
             }
     }
 

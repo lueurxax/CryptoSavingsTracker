@@ -24,6 +24,7 @@ struct GoalsListView: View {
     @State private var selectedGoalForLifecycleAction: Goal?
     @State private var showingLifecycleActions = false
     @State private var showingOnboarding = false
+    @State private var goalPendingCompletion: Goal?
 
     var body: some View {
         Group {
@@ -118,10 +119,8 @@ struct GoalsListView: View {
                             await GoalLifecycleService(modelContext: modelContext).cancelGoal(goal)
                         }
                     }
-                    Button("Mark Finished (keep allocations)") {
-                        Task { @MainActor in
-                            await GoalLifecycleService(modelContext: modelContext).finishGoal(goal)
-                        }
+                    Button("Finish Goal") {
+                        goalPendingCompletion = goal
                     }
                 }
                 Button("Close", role: .cancel) { }
@@ -169,6 +168,9 @@ struct GoalsListView: View {
                             editingGoal = nil
                         }
                 }
+            }
+            .goalCompletionFlow(request: $goalPendingCompletion) { finishedGoal in
+                NotificationCenter.default.post(name: .goalProgressRefreshed, object: finishedGoal)
             }
     }
 
