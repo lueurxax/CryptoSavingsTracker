@@ -21,13 +21,11 @@ class GoalViewModel: ObservableObject, ErrorAwareViewModel {
     
     private let goal: Goal
     private var modelContext: ModelContext?
-    private let tatumService: TatumServiceProtocol
-    private let exchangeRateService: ExchangeRateServiceProtocol
+    private let balanceCalculator: GoalBalanceCalculator
     
     init(goal: Goal, tatumService: TatumServiceProtocol, exchangeRateService: ExchangeRateServiceProtocol) {
         self.goal = goal
-        self.tatumService = tatumService
-        self.exchangeRateService = exchangeRateService
+        self.balanceCalculator = GoalBalanceCalculator(tatumService: tatumService, exchangeRateService: exchangeRateService)
         self.currentTotal = goal.manualTotal
         self.progress = goal.manualProgress
         self.suggestedDeposit = goal.suggestedDailyDeposit
@@ -82,62 +80,9 @@ class GoalViewModel: ObservableObject, ErrorAwareViewModel {
     }
     
     private func calculateCurrentTotal() async -> (total: Double, error: UserFacingError?) {
-        var total: Double = 0
-        var firstRefreshError: UserFacingError?
-
-        for (_,  allocation) in (goal.allocations ?? []).enumerated() {
-            guard let asset = allocation.asset else { continue }
-            let balanceResult = await currentAmount(for: asset)
-            if balanceResult.error != nil, firstRefreshError == nil {
-                firstRefreshError = balanceRefreshUserError()
-            }
-
-            let assetBalance = balanceResult.amount
-            let allocatedPortion = min(max(0, allocation.amountValue), assetBalance)
-            guard allocatedPortion > 0 else { continue }
-
-            if asset.currency.uppercased() == goal.currency.uppercased() {
-                total += allocatedPortion
-            } else {
-                do {
-                    let rate = try await exchangeRateService.fetchRate(from: asset.currency, to: goal.currency)
-                    let convertedValue = allocatedPortion * rate
-                    total += convertedValue
-                } catch {
-                    AppLog.error("Exchange rate failed for \(asset.currency) → \(goal.currency). Skipping value to avoid wrong totals. Error: \(error.localizedDescription)", category: .exchangeRate)
-                    if firstRefreshError == nil {
-                        firstRefreshError = balanceRefreshUserError()
-                    }
-                    continue
-                }
-            }
-        }
-        
-        return (total, firstRefreshError)
-    }
-
-    private func currentAmount(for asset: Asset) async -> (amount: Double, error: Error?) {
-        var total = asset.manualBalance
-
-        guard let address = asset.address,
-              let chainId = asset.chainId,
-              !address.isEmpty else {
-            return (total, nil)
-        }
-
-        do {
-            let onChainBalance = try await tatumService.fetchBalance(
-                chainId: chainId,
-                address: address,
-                symbol: asset.currency,
-                forceRefresh: false
-            )
-            total += onChainBalance
-            return (total, nil)
-        } catch {
-            AppLog.warning("Goal detail balance refresh kept manual balance after on-chain fetch failed: \(error.localizedDescription)", category: .balanceService)
-            return (total, error)
-        }
+        let result = await balanceCalculator.calculateCurrentTotal(for: goal)
+        let error = result.hasConversionError ? balanceRefreshUserError() : nil
+        return (result.total, error)
     }
 
     private func balanceRefreshUserError() -> UserFacingError {

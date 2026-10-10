@@ -283,7 +283,7 @@ class DIContainer: ObservableObject {
         setInitializing("MonthlyPlanningService")
         defer { setInitialized("MonthlyPlanningService") }
         
-        return MonthlyPlanningService(exchangeRateService: exchangeRateService)
+        return MonthlyPlanningService(exchangeRateService: exchangeRateService, tatumService: tatumService)
     }
     
     
@@ -307,7 +307,7 @@ class DIContainer: ObservableObject {
     
     private func createFallbackMonthlyPlanningService() -> MonthlyPlanningServiceProtocol {
         AppLog.warning("Using fallback MonthlyPlanningService", category: .validation)
-        return MonthlyPlanningService(exchangeRateService: createFallbackExchangeRateService())
+        return MonthlyPlanningService(exchangeRateService: createFallbackExchangeRateService(), tatumService: createMockTatumService())
     }
     
     // MARK: - Flex Adjustment Service Factory

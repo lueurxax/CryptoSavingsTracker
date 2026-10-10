@@ -20,9 +20,11 @@ struct FamilyShareScopePreviewSheet: View {
                 }
                 .padding(16)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(SystemBackgrounds.grouped)
             .navigationTitle("Share with Family")
+            #if !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancel)
@@ -126,7 +128,7 @@ struct FamilyShareScopePreviewSheet: View {
     }
 
     private var actionBarBackground: some View {
-        Color(.secondarySystemBackground)
+        SystemBackgrounds.secondary
             .overlay(alignment: .top) {
                 Divider()
             }

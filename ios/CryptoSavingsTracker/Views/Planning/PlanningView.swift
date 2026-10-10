@@ -1292,7 +1292,9 @@ struct macOSControlsPanel: View {
                 Slider(value: Binding(
                     get: { viewModel.flexAdjustment },
                     set: { newValue in
-                        viewModel.flexAdjustment = newValue
+                        Task {
+                            await viewModel.applyFlexAdjustment(newValue)
+                        }
                     }
                 ), in: 0...1.5, step: 0.05)
                 .accentColor(AccessibleColors.primaryInteractive)

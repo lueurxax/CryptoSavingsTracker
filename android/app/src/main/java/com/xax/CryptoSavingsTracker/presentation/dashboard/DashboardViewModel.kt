@@ -212,15 +212,20 @@ class DashboardViewModel @Inject constructor(
         assets.forEach { asset ->
             val rate = ratesByCurrency[asset.currency.uppercase()] ?: return@forEach
             val txs = manualTxsByAssetId[asset.id].orEmpty()
-            var index = 0
-            var balance = onChainByAssetId[asset.id] ?: 0.0
 
-            days.forEachIndexed { dayIndex, day ->
-                while (index < txs.size && !txs[index].first.isAfter(day)) {
-                    balance += txs[index].second
-                    index++
+            // Start with the current total balance (on-chain + all manual transactions)
+            var currentAssetBalance = (onChainByAssetId[asset.id] ?: 0.0) + txs.sumOf { it.second }
+
+            // Reconstruct history by moving backward from today and subtracting transactions
+            var txIndex = txs.size - 1
+            for (dayIndex in 29 downTo 0) {
+                val day = days[dayIndex]
+                // While transactions happened after the current day being processed, subtract them
+                while (txIndex >= 0 && txs[txIndex].first.isAfter(day)) {
+                    currentAssetBalance -= txs[txIndex].second
+                    txIndex--
                 }
-                totals[dayIndex] += balance * rate
+                totals[dayIndex] += currentAssetBalance * rate
             }
         }
 

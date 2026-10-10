@@ -42,9 +42,8 @@ class StartExecutionUseCase @Inject constructor(
             throw IllegalStateException(ExecutionActionCopyCatalog.startBlockedMissingPlan())
         }
         val requirementsByGoalId = requirements.associateBy { it.goalId }
-        monthlyGoalPlanService.syncPlans(monthLabel, requirements)
         val perGoalPlans = monthlyGoalPlanService
-            .applyFlexAdjustment(monthLabel, monthlyPlanningService.flexAdjustment)
+            .syncPlans(monthLabel, requirements)
             .associateBy { it.goalId }
 
         val existing = executionRecordRepository.getRecordByMonthLabelOnce(monthLabel)

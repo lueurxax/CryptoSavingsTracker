@@ -35,6 +35,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -185,8 +186,9 @@ private fun MonthlyCycleActionStrip(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         BoxWithConstraints(modifier = Modifier.padding(12.dp)) {
-            val monthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())
-            val compactFormatter = DateTimeFormatter.ofPattern("MMM yyyy", Locale.getDefault())
+            val locale = LocalLocale.current.platformLocale
+            val monthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", locale)
+            val compactFormatter = DateTimeFormatter.ofPattern("MMM yyyy", locale)
             val fallbackMode = when {
                 maxWidth >= 360.dp -> 0
                 maxWidth >= 300.dp -> 1

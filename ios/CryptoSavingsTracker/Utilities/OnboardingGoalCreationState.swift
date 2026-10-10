@@ -18,6 +18,7 @@ struct OnboardingGoalCreationState {
         error = nil
     }
 
+    @MainActor
     mutating func handleSuccess(using onboardingFlow: OnboardingFlowStateControlling) {
         onboardingFlow.markFirstGoalCompleted()
         onboardingFlow.completeOnboarding()

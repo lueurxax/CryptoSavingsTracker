@@ -48,7 +48,7 @@ struct FamilyAccessView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 20)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(SystemBackgrounds.grouped)
         .sheet(isPresented: $isShowingScopePreview) {
             FamilyShareScopePreviewSheet(
                 model: model.scopePreview,

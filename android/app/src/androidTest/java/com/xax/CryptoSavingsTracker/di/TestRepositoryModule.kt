@@ -68,6 +68,8 @@ object TestRepositoryModule {
     @Singleton
     fun provideOnChainBalanceRepository(): OnChainBalanceRepository {
         return object : OnChainBalanceRepository {
+            override val balanceChanges = kotlinx.coroutines.flow.MutableStateFlow(0L)
+
             override suspend fun getBalance(asset: Asset, forceRefresh: Boolean): Result<OnChainBalance> {
                 val balance = if (asset.currency.equals("BTC", ignoreCase = true)) 0.004106 else 0.0
                 return Result.success(

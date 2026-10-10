@@ -115,7 +115,11 @@ struct GoalDetailView: View {
                 linkSection
             }
         }
+        #if os(macOS)
+        .listStyle(.inset)
+        #else
         .listStyle(.insetGrouped)
+        #endif
         .navigationTitle(goal.name)
     }
 
@@ -422,7 +426,11 @@ private struct ActiveGoalDetailContent: View {
             if let description = goal.goalDescription, !description.isEmpty { descriptionSection }
             if let linkString = goal.link, !linkString.isEmpty { linkSection }
         }
+        #if os(macOS)
+        .listStyle(.inset)
+        #else
         .listStyle(.insetGrouped)
+        #endif
         .navigationTitle(goal.name)
         .onChange(of: goal.id) { _, _ in
             goalViewModel = GoalViewModel(goal: goal)

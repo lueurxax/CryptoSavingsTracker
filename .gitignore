@@ -12,6 +12,7 @@
 /DerivedData/
 /DerivedDataSim/
 /DerivedDataCodex/
+/DerivedData*/
 
 # =============================================================================
 # iOS / macOS (Xcode)
@@ -72,6 +73,7 @@ ios/fastlane/test_output
 
 ## API Configuration (contains secrets)
 ios/Config.plist
+ios/Config.production.plist
 
 ## UI test artifacts
 ios/*.xcappdata/
@@ -149,6 +151,8 @@ credentials/
 # =============================================================================
 
 .chainworks/
+/.superpowers/
+/artifacts/appstore/
 .mcp.json
 .claude/settings.local.json
 .claude/settings.json.invalid-*.bak
@@ -162,3 +166,11 @@ tmp/
 tmp/freshness-review-derived/
 tmp/freshness-review-derived-r*/
 artifacts/**/DerivedData/
+
+# Tracked scratch files (removed)
+proposal.md
+AI_LOGS.md
+
+# Python bytecode
+__pycache__/
+*.pyc

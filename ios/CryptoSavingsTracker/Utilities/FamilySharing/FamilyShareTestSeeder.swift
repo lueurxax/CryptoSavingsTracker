@@ -23,6 +23,7 @@ enum FamilyShareTestScenario: String, CaseIterable, Sendable {
 struct FamilyShareTestSeeder {
     let registry: FamilyShareNamespaceRegistry
 
+    @MainActor
     init(registry: FamilyShareNamespaceRegistry? = nil) {
         self.registry = registry ?? FamilyShareNamespaceRegistry()
     }

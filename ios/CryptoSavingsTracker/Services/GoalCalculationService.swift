@@ -176,9 +176,9 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
             )
             return totalAssetValue * exchangeRate
         } catch {
-            print("Failed to get exchange rate from \(asset.currency) to \(goalCurrency): \(error)")
-            // Fallback to manual balance only if conversion fails
-            return asset.manualBalance
+            AppLog.error("Failed to get exchange rate from \(asset.currency) to \(goalCurrency): \(error.localizedDescription)", category: .exchangeRate)
+            // Skip adding to total to avoid incorrect fallback
+            return 0
         }
     }
     

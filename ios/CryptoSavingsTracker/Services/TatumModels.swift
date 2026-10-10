@@ -115,14 +115,23 @@ struct TatumBalanceResponse: Codable {
     let tokenSymbol: String?
     let tokenDecimals: Int?
 
-    /// Convert raw balance string to human-readable using token decimals (defaults to 18 for native tokens)
+    /// Convert raw balance string to human-readable using token decimals.
+    /// Uses explicit denomination info rather than a magnitude heuristic.
+    ///
+    /// IMPORTANT: This assumes the legacy Tatum `balance` field is always a raw base-unit
+    /// value whenever `tokenDecimals` is present, and never an already human-readable value.
+    /// If the API ever returns a human-readable balance alongside `tokenDecimals`, this will
+    /// silently under-report the balance. See `TatumBalanceResponseHumanReadableBalanceTests`
+    /// for the behavior this relies on.
     var humanReadableBalance: Double {
         guard let balanceValue = Double(balance) else { return 0 }
-        // If we see a very small number, assume it is already human-readable.
-        // If it looks like a large integer, scale by decimals.
-        if balanceValue > 1_000, let decimals = tokenDecimals {
+
+        if let decimals = tokenDecimals {
+            // Trust balance field as raw base-unit value when decimals are provided
             return balanceValue / pow(10, Double(decimals))
         }
+
+        // Native tokens without explicit decimals might already be human-readable or use default 18
         return balanceValue
     }
 }

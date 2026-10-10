@@ -27,8 +27,8 @@ interface MonthlyPlanDao {
     @Query("SELECT * FROM monthly_plans WHERE status = :status ORDER BY month_label DESC")
     fun getPlansByStatus(status: String): Flow<List<MonthlyPlanEntity>>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(plan: MonthlyPlanEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(plan: MonthlyPlanEntity): Long
 
     @Update
     suspend fun update(plan: MonthlyPlanEntity)

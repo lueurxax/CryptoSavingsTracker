@@ -50,7 +50,7 @@ xcodebuild -scheme CryptoSavingsTracker -configuration Debug build
 
 ```bash
 cd ios
-xcodebuild -scheme CryptoSavingsTracker -destination 'platform=iOS Simulator,name=iPhone 16' test
+xcodebuild -scheme CryptoSavingsTracker -destination 'platform=iOS Simulator,name=iPhone 15' test
 ```
 
 ### Open in Xcode

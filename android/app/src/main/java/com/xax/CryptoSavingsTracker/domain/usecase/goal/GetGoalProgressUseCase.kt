@@ -11,7 +11,6 @@ import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.util.AllocationFunding
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import kotlin.math.max
 
@@ -63,7 +62,7 @@ class GetGoalProgressUseCase @Inject constructor(
      * Get all goals with their progress.
      */
     operator fun invoke(): Flow<List<GoalWithProgress>> {
-        return goalRepository.getAllGoals().map { goals ->
+        return combine(goalRepository.getAllGoals(), fundingChanges()) { goals, _ ->
             goals.map { goal ->
                 calculateGoalProgress(goal)
             }
@@ -84,15 +83,24 @@ class GetGoalProgressUseCase @Inject constructor(
     fun getProgressFlow(goalId: String): Flow<GoalWithProgress?> {
         return combine(
             goalRepository.getGoalByIdFlow(goalId),
-            allocationRepository.getAllocationsForGoalListFlow(goalId)
-        ) { goal, allocations ->
+            fundingChanges()
+        ) { goal, _ ->
             if (goal == null) {
                 null
             } else {
-                calculateGoalProgressFromAllocations(goal, allocations)
+                calculateGoalProgress(goal)
             }
         }
     }
+
+    // A goal's funding also depends on allocations for other goals sharing its assets.
+    // Balance revisions are emitted only on cache writes, avoiding refresh loops on cache hits.
+    private fun fundingChanges(): Flow<Unit> = combine(
+        allocationRepository.getAllAllocations(),
+        transactionRepository.getAllTransactions(),
+        assetRepository.getAllAssets(),
+        onChainBalanceRepository.balanceChanges
+    ) { _, _, _, _ -> Unit }
 
     /**
      * Calculate progress for a goal using the iOS formula:

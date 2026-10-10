@@ -10,6 +10,9 @@ import Security
 
 /// Secure storage for sensitive data using iOS/macOS Keychain
 final class KeychainManager {
+    private static var tatumService: String {
+        TatumEnvironment.current.keychainService
+    }
     
     enum KeychainError: LocalizedError {
         case duplicateItem
@@ -159,7 +162,7 @@ final class KeychainManager {
            !tatumKey.isEmpty,
            tatumKey != "YOUR_TATUM_API_KEY" {
             do {
-                try storeAPIKey(tatumKey, for: "tatum")
+                try storeAPIKey(tatumKey, for: tatumService)
                 AppLog.info("Migrated Tatum API key to Keychain", category: .api)
             } catch {
                 AppLog.error(
@@ -178,6 +181,6 @@ extension KeychainManager {
     }
     
     static var tatumAPIKey: String? {
-        try? retrieveAPIKey(for: "tatum")
+        try? retrieveAPIKey(for: tatumService)
     }
 }

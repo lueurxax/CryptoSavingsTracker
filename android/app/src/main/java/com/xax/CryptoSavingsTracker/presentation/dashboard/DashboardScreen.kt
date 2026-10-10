@@ -336,7 +336,7 @@ private fun PortfolioLineChart(
         startAxis = VerticalAxis.rememberStart(),
         bottomAxis = HorizontalAxis.rememberBottom(
             valueFormatter = bottomAxisFormatter,
-            itemPlacer = remember { HorizontalAxis.ItemPlacer.aligned(spacing = 5) }
+            itemPlacer = remember { HorizontalAxis.ItemPlacer.aligned(spacing = { 5 }) }
         )
     )
 

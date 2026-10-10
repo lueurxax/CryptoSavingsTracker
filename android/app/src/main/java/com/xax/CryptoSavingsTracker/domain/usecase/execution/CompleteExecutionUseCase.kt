@@ -4,6 +4,7 @@ import com.xax.CryptoSavingsTracker.domain.model.CompletedExecution
 import com.xax.CryptoSavingsTracker.domain.model.CompletionEvent
 import com.xax.CryptoSavingsTracker.domain.repository.CompletedExecutionRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationHistoryRepository
+import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.CompletionEventRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionRecordRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionSnapshotRepository
@@ -11,6 +12,7 @@ import com.xax.CryptoSavingsTracker.domain.repository.ExecutionTransitionTransac
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionStatus
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CancellationException
 import java.security.MessageDigest
 import java.util.UUID
 import javax.inject.Inject
@@ -22,11 +24,19 @@ class CompleteExecutionUseCase @Inject constructor(
     private val completionEventRepository: CompletionEventRepository,
     private val allocationHistoryRepository: AllocationHistoryRepository,
     private val transactionRepository: TransactionRepository,
-    private val transactionRunner: ExecutionTransitionTransactionRunner
+    private val transactionRunner: ExecutionTransitionTransactionRunner,
+    private val assetRepository: AssetRepository,
+    private val calculateProgress: CalculateExecutionProgressUseCase
 ) {
-    private val calculator = ExecutionProgressCalculator()
+    suspend operator fun invoke(recordId: String): Result<Unit> = try {
+        Result.success(complete(recordId))
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (failure: Exception) {
+        Result.failure(failure)
+    }
 
-    suspend operator fun invoke(recordId: String): Result<Unit> = runCatching {
+    private suspend fun complete(recordId: String) {
         val record = executionRecordRepository.getRecordById(recordId)
             ?: throw IllegalStateException("Execution record not found")
         if (record.status != ExecutionStatus.EXECUTING) {
@@ -44,13 +54,17 @@ class CompleteExecutionUseCase @Inject constructor(
         val canUndoUntil = completedAt + 24L * 60L * 60L * 1000L
         val sequence = completionEventRepository.getNextSequence(recordId)
 
-        val progress = calculator.calculateForSnapshots(
+        val progress = calculateProgress(
             snapshots = snapshots,
             transactions = transactionRepository.getAllTransactions().first(),
             allocationHistory = allocationHistoryRepository.getAll().first(),
+            assets = assetRepository.getAllAssets().first(),
             startedAtMillis = startedAtMillis,
             nowMillis = completedAt
         )
+        progress.firstNotNullOfOrNull { it.conversionError }?.let { error ->
+            throw IllegalStateException(error)
+        }
 
         val completionRows = progress.map { item ->
             val snapshot = item.snapshot

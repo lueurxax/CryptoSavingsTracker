@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
+import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -79,8 +80,18 @@ internal fun ProgressHeaderCard(
     currentFocusGoal: com.xax.CryptoSavingsTracker.presentation.execution.ExecutionFocusGoal?,
     currencyPickerExpanded: Boolean,
     onToggleCurrencyPicker: () -> Unit,
-    onDisplayCurrencySelected: (String) -> Unit
+    onDisplayCurrencySelected: (String) -> Unit,
+    onRetryRates: () -> Unit
 ) {
+    session.conversionError?.let { error ->
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(error, color = MaterialTheme.colorScheme.error)
+                Button(onClick = onRetryRates) { Text("Retry") }
+            }
+        }
+        return
+    }
     val monthLabel = session.record.monthLabel
     val formattedMonth = remember(monthLabel) {
         try {
@@ -179,7 +190,7 @@ internal fun ProgressHeaderCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             // Progress bar
-            LinearProgressIndicator(
+            if (session.summaryCurrency != null) LinearProgressIndicator(
                 progress = { (progressPercent / 100.0).toFloat().coerceIn(0f, 1f) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -206,7 +217,7 @@ internal fun ProgressHeaderCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 // Percentage complete
-                Column(horizontalAlignment = Alignment.Start) {
+                if (session.summaryCurrency != null) Column(horizontalAlignment = Alignment.Start) {
                     Text(
                         text = "${progressPercent.toInt()}%",
                         style = MaterialTheme.typography.headlineMedium,
@@ -235,17 +246,19 @@ internal fun ProgressHeaderCard(
                 }
 
                 // Total planned
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = formatCurrency(session.totalPlanned),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = "planned",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                session.summaryCurrency?.let { currency ->
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = formatCurrency(session.totalPlanned, currency),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "planned",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 

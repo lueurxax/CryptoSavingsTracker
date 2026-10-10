@@ -89,6 +89,7 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.ownerState.lifecycleState, .sharedActive)
         XCTAssertNotNil(coordinator.pendingCloudSharingRequest)
         XCTAssertEqual(coordinator.pendingCloudSharingRequest?.namespaceID, coordinator.ownerNamespaceID)
+        XCTAssertEqual(coordinator.pendingCloudSharingRequest?.share.recordID.recordName, "stub-share")
 
         let familyAccessModel = coordinator.makeFamilyAccessModel(currentGoals: [goal])
         XCTAssertEqual(familyAccessModel.ownerSections.count, 1)
@@ -97,6 +98,7 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
         XCTAssertTrue(telemetry.events.contains(FamilyShareTelemetryEvent.createSucceeded.rawValue))
         XCTAssertEqual(cloudSync.publishProjectionCallCount, 1)
         XCTAssertEqual(cloudSync.prepareShareCallCount, 1)
+        XCTAssertEqual(cloudSync.containerResolutionCount, 0)
     }
 
     func testShareAllGoalsTracksCreateFailureTelemetryWhenCloudSyncIsMissing() async {
@@ -643,11 +645,13 @@ final class FamilyShareAcceptanceCoordinatorTests: XCTestCase {
     }
 }
 
+@MainActor
 private final class StubFamilyShareCloudSync: FamilyShareCloudSyncing {
     let ownerSnapshot: FamilyShareOwnerShareSnapshot
     let refreshProjectionResult: FamilyShareSeededNamespaceState?
     private(set) var publishProjectionCallCount = 0
     private(set) var prepareShareCallCount = 0
+    private(set) var containerResolutionCount = 0
     private(set) var refreshProjectionCallCount = 0
 
     init(
@@ -662,12 +666,17 @@ private final class StubFamilyShareCloudSync: FamilyShareCloudSyncing {
         publishProjectionCallCount += 1
     }
 
-    func prepareShare(for request: FamilyShareCloudSharingPreparationRequest) async throws -> (share: CKShare, container: CKContainer) {
+    func prepareShare(for request: FamilyShareCloudSharingPreparationRequest) async throws
+        -> (share: CKShare, containerProvider: FamilyShareContainerProvider) {
         prepareShareCallCount += 1
         let zoneID = CKRecordZone.ID(zoneName: "stub-zone", ownerName: CKCurrentUserDefaultName)
         let rootRecord = CKRecord(recordType: "FamilyShareProjectionRoot", recordID: CKRecord.ID(recordName: "stub-root", zoneID: zoneID))
         let share = CKShare(rootRecord: rootRecord, shareID: CKRecord.ID(recordName: "stub-share", zoneID: zoneID))
-        return (share, CKContainer.default())
+        // Preparing coordinator state must not resolve a client that requires iCloud entitlements.
+        return (share, {
+            self.containerResolutionCount += 1
+            return CKContainer(identifier: "iCloud.com.cryptosavingstracker.tests")
+        })
     }
 
     func acceptInvitation(metadata: CKShare.Metadata) async throws -> FamilyShareInvitationMetadataSnapshot {

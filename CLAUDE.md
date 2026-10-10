@@ -130,15 +130,19 @@ Always check `docs/COMPONENT_REGISTRY.md` before adding new components.
 ## Build and run
 
 ```bash
-# 1. Copy config template (only needed once)
+# 1. Create local development config (only needed once)
 cp ios/Config.example.plist ios/Config.plist
-# Fill in CoinGecko and Tatum API keys
+# Fill in the development CoinGecko and Tatum API keys
 
-# 2. Open in Xcode
+# 2. Create the TestFlight/App Store config
+cp ios/Config.example.plist ios/Config.production.plist
+# Fill in the production CoinGecko and Tatum API keys
+
+# 3. Open in Xcode
 open ios/CryptoSavingsTracker.xcodeproj
 
-# 3. Select scheme: CryptoSavingsTracker
-# Target: iPhone 16 simulator (iOS 18+) or physical device
+# 4. Select scheme: CryptoSavingsTracker
+# Target: iPhone 15 simulator (iOS 18+) or physical device
 ```
 
 The iOS app has no external package dependencies — it uses only Apple frameworks. The Android app uses standard Jetpack libraries (AndroidX, Compose, Room, Hilt, Retrofit, OkHttp, etc.) declared in `android/app/build.gradle.kts`.
@@ -150,11 +154,11 @@ The iOS app has no external package dependencies — it uses only Apple framewor
 ```bash
 # Unit tests
 xcodebuild test -scheme CryptoSavingsTracker \
-  -destination 'platform=iOS Simulator,name=iPhone 16'
+  -destination 'platform=iOS Simulator,name=iPhone 15'
 
 # UI tests (uses deterministic seed data)
 xcodebuild test -scheme CryptoSavingsTrackerUITests \
-  -destination 'platform=iOS Simulator,name=iPhone 16'
+  -destination 'platform=iOS Simulator,name=iPhone 15'
 ```
 
 Visual capture snapshots live in `docs/screenshots/` and `artifacts/visual-system/`.

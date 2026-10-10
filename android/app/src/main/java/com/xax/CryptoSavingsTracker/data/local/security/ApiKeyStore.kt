@@ -32,6 +32,9 @@ class ApiKeyStore @Inject constructor(
     }
 
     init {
+        // Migration relies only on fast local SharedPreferences reads/writes (no network or heavy
+        // disk I/O), so it is run synchronously here to guarantee it completes before this
+        // singleton is handed out to callers (e.g. NetworkModule) that read keys immediately.
         migrateBundledConfigIfNeeded()
         migrateLegacyIfNeeded()
     }

@@ -131,6 +131,7 @@ fun MonthlyExecutionScreen(
                         uiState = uiState,
                         onUndoStart = viewModel::undoStart,
                         onComplete = viewModel::showCompleteConfirmation,
+                        onRetryRates = viewModel::refresh,
                         onGoalClick = { goalId ->
                             navController.navigate("goal_detail/$goalId")
                         }
@@ -166,6 +167,7 @@ private fun MonthlyExecutionContent(
     uiState: MonthlyExecutionUiState,
     onUndoStart: () -> Unit,
     onComplete: () -> Unit,
+    onRetryRates: () -> Unit,
     onGoalClick: (String) -> Unit
 ) {
     var showCompleted by remember { mutableStateOf(false) }
@@ -186,13 +188,22 @@ private fun MonthlyExecutionContent(
 
         // Progress Header
         item {
-            ProgressHeader(
-                overallProgress = uiState.overallProgress,
-                totalPlanned = uiState.totalPlanned,
-                totalContributed = uiState.totalContributed,
-                fulfilledCount = uiState.fulfilledCount,
-                totalGoals = uiState.totalGoals
-            )
+            val conversionError = uiState.goalProgress.firstNotNullOfOrNull { it.conversionError }
+            if (conversionError != null) {
+                Column {
+                    Text(conversionError, color = MaterialTheme.colorScheme.error)
+                    Button(onClick = onRetryRates, enabled = !uiState.isProcessing) { Text("Retry") }
+                }
+            } else {
+                ProgressHeader(
+                    overallProgress = uiState.overallProgress,
+                    totalPlanned = uiState.totalPlanned,
+                    totalContributed = uiState.totalContributed,
+                    fulfilledCount = uiState.fulfilledCount,
+                    totalGoals = uiState.totalGoals,
+                    summaryCurrency = uiState.summaryCurrency
+                )
+            }
         }
 
         // Active Goals Section
@@ -290,7 +301,7 @@ private fun MonthlyExecutionContent(
             Button(
                 onClick = onComplete,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isProcessing
+                enabled = !uiState.isProcessing && uiState.goalProgress.none { it.conversionError != null }
             ) {
                 Icon(
                     imageVector = Icons.Default.Done,
@@ -357,7 +368,8 @@ private fun ProgressHeader(
     totalPlanned: Double,
     totalContributed: Double,
     fulfilledCount: Int,
-    totalGoals: Int
+    totalGoals: Int,
+    summaryCurrency: String?
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -378,7 +390,7 @@ private fun ProgressHeader(
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-                Text(
+                if (summaryCurrency != null) Text(
                     text = "${overallProgress.roundToInt()}%",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
@@ -388,7 +400,7 @@ private fun ProgressHeader(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            LinearProgressIndicator(
+            if (summaryCurrency != null) LinearProgressIndicator(
                 progress = { (overallProgress / 100).coerceIn(0.0, 1.0).toFloat() },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -410,9 +422,9 @@ private fun ProgressHeader(
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
-                Column(horizontalAlignment = Alignment.End) {
+                if (summaryCurrency != null) Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "${formatAmount(totalContributed)} / ${formatAmount(totalPlanned)}",
+                        text = "$summaryCurrency ${formatAmount(totalContributed)} / ${formatAmount(totalPlanned)}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -430,6 +442,15 @@ private fun GoalProgressCard(
     onClick: () -> Unit
 ) {
     val snapshot = goal.snapshot
+    if (goal.conversionError != null) {
+        Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(snapshot.goalName, fontWeight = FontWeight.SemiBold)
+                Text(goal.conversionError, color = MaterialTheme.colorScheme.error)
+            }
+        }
+        return
+    }
 
     Card(
         onClick = onClick,

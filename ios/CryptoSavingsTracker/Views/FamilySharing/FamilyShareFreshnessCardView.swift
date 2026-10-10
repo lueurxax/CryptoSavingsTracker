@@ -57,7 +57,7 @@ struct FamilyShareFreshnessCardView: View {
             }
         }
         .padding()
-        .background(Color(.secondarySystemGroupedBackground))
+        .background(SystemBackgrounds.secondaryGrouped)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityIdentifier("sharedGoalDetailFreshnessCard")
         .accessibilityAddTraits(isAccessibilitySize ? .isButton : [])

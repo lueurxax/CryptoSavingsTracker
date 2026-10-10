@@ -25,9 +25,11 @@ struct FamilyShareParticipantsView: View {
                 }
                 .padding(16)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(SystemBackgrounds.grouped)
             .navigationTitle("Participants")
+            #if !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done", action: onDismiss)

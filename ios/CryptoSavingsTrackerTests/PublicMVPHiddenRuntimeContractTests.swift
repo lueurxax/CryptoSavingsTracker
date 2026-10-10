@@ -47,7 +47,11 @@ struct PublicMVPHiddenRuntimeContractTests {
         #expect(qrScannerView.contains("#if DEBUG && os(iOS)"))
         #expect(localBridgeSyncView.contains("#elseif DEBUG\n        [.enterCodeManually, .scanQR, .pasteBootstrapToken]\n#else\n        [.enterCodeManually, .pasteBootstrapToken]\n#endif"))
         #expect(localBridgeSyncView.contains("#if DEBUG && os(iOS)\n        .sheet(isPresented: $presentsQRScanner)"))
-        #expect(localBridgeSyncView.contains("#if DEBUG && os(iOS)\n            presentsQRScanner = true\n#else\n            pairingTokenInput = \"\""))
+        let normalizedPairingSource = localBridgeSyncView
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .joined(separator: "\n")
+        #expect(normalizedPairingSource.contains("#if DEBUG && os(iOS)\npresentsQRScanner = true\n#else\npairingTokenInput = \"\""))
     }
 
     @Test("Settings exposes Preview Features with an explicit warning before opt-in")

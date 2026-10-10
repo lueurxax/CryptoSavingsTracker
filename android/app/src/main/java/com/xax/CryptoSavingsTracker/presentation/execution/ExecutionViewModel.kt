@@ -87,7 +87,11 @@ class ExecutionViewModel @Inject constructor(
         monthlyPlanningSettings.executionDisplayCurrency
     )
 
-    private val sessionFlow = getExecutionSessionUseCase.currentExecuting()
+    private val sessionFlow = getExecutionSessionUseCase.currentExecuting().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
     private val remainingDisplayFlow = sessionFlow.combine(_displayCurrency) { session, currency ->
         session to currency
     }.mapLatest { (session, currency) ->
@@ -138,7 +142,7 @@ class ExecutionViewModel @Inject constructor(
             undoableRecordId = undoableRecordId,
             canUndoStart = canUndoStart,
             isBusy = isBusy,
-            error = error,
+            error = error ?: session?.conversionError,
             displayCurrency = displayCurrency,
             remainingByGoalId = remainingDisplay.remainingByGoal,
             remainingCurrencyByGoalId = remainingDisplay.remainingCurrencyByGoal,
@@ -155,6 +159,10 @@ class ExecutionViewModel @Inject constructor(
 
     fun clearError() {
         _error.value = null
+    }
+
+    fun refresh() {
+        getExecutionSessionUseCase.refresh()
     }
 
     fun updateDisplayCurrency(currency: String) {
@@ -192,6 +200,7 @@ class ExecutionViewModel @Inject constructor(
         goal: ExecutionGoalProgress,
         assetCurrency: String
     ): Double? {
+        if (goal.conversionError != null) return null
         val remaining = executionContributionCalculator.remainingToClose(goal)
         if (remaining <= 0.0) return null
         return executionContributionCalculator.convertAmount(
@@ -278,6 +287,10 @@ class ExecutionViewModel @Inject constructor(
         var didFetchRates = false
 
         for (goal in session.goals) {
+            if (goal.conversionError != null) {
+                hasWarning = true
+                continue
+            }
             val remaining = max(0.0, goal.plannedAmount - goal.contributed)
             if (remaining <= 0.0) {
                 remainingByGoal[goal.snapshot.goalId] = 0.0

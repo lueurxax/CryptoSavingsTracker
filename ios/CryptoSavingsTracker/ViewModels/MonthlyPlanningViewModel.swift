@@ -25,6 +25,11 @@ final class MonthlyPlanningViewModel: ObservableObject {
     /// Total required amount in display currency
     @Published var totalRequired: Double = 0
     
+    /// True when `totalRequired` could not include every goal due to a currency conversion
+    /// failure (e.g. exchange rate fetch error). The UI should surface this so users don't
+    /// mistake an incomplete total for the real, full requirement.
+    @Published var totalRequiredIsPartial: Bool = false
+
     /// Settings for monthly planning configuration
     private let settings = MonthlyPlanningSettings.shared
     
@@ -105,25 +110,9 @@ final class MonthlyPlanningViewModel: ObservableObject {
         }
     }
     
-    /// Total after flex adjustment
+    /// Effective plan total in display currency, including persisted flex adjustments.
     var adjustedTotal: Double {
-        if flexAdjustment == 1.0 {
-            return totalRequired
-        }
-
-        var total: Double = 0
-        for requirement in monthlyRequirements {
-            if skippedGoalIds.contains(requirement.goalId) {
-                continue
-            }
-
-            if protectedGoalIds.contains(requirement.goalId) {
-                total += requirement.requiredMonthly
-            } else {
-                total += requirement.requiredMonthly * flexAdjustment
-            }
-        }
-        return total
+        totalRequired
     }
 
     /// Number of goals affected by flex adjustment (flexible, non-skipped goals)
@@ -247,6 +236,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
     private var currentPlans: [MonthlyPlan] = []
     private var isApplyingBudgetMigration = false
     private var latestBudgetRequestId: UUID?
+    private var latestFlexRequestId: UUID?
     private var budgetPreviewTask: Task<Void, Never>?
     private var latestPreviewGoalsSignature: String?
     private var latestPreviewCurrency: String?
@@ -260,11 +250,12 @@ final class MonthlyPlanningViewModel: ObservableObject {
     
     // MARK: - Initialization
     
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, exchangeRateService: ExchangeRateServiceProtocol? = nil) {
         self.modelContext = modelContext
         self.planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
-        self.exchangeRateService = DIContainer.shared.exchangeRateService
-        self.budgetCalculatorService = DIContainer.shared.budgetCalculatorService(modelContext: modelContext)
+        let resolvedExchangeRateService = exchangeRateService ?? DIContainer.shared.exchangeRateService
+        self.exchangeRateService = resolvedExchangeRateService
+        self.budgetCalculatorService = BudgetCalculatorService(exchangeRateService: resolvedExchangeRateService)
         self.planningMutationService = DIContainer.shared.makePlanningMutationService(modelContext: modelContext)
         self.flexService = DIContainer.shared.makeFlexAdjustmentService(modelContext: modelContext)
         self.planningMonthLabel = planService.currentMonthLabel()
@@ -323,13 +314,14 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 return requirement(from: plan, goal: goal)
             }
 
-            let total = await calculateTotalRequired(from: plans, displayCurrency: displayCurrency)
+            let totalResult = await calculateTotalRequired(from: plans, displayCurrency: displayCurrency)
             
             // Update UI on main thread
             await MainActor.run {
                 self.goals = goals
                 self.monthlyRequirements = requirements
-                self.totalRequired = total
+                self.totalRequired = totalResult.total
+                self.totalRequiredIsPartial = totalResult.isPartial
                 self.isLoading = false
                 // Refresh flex state sets from plan data
                 self.protectedGoalIds = Set(plans.filter { $0.flexState == .protected || $0.isProtected }.map { $0.goalId })
@@ -532,6 +524,8 @@ final class MonthlyPlanningViewModel: ObservableObject {
 
     /// Apply flex adjustment to persisted plans and refresh UI
     func applyFlexAdjustment(_ percentage: Double) async {
+        let requestId = UUID()
+        latestFlexRequestId = requestId
         let clamped = max(0.0, min(1.5, percentage))
         flexAdjustment = clamped
 
@@ -553,14 +547,17 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 guard let plan = currentPlans.first(where: { $0.goalId == goal.id }) else { return nil }
                 return requirement(from: plan, goal: goal)
             }
-            let total = await calculateTotalRequired(from: currentPlans, displayCurrency: displayCurrency)
+            let totalResult = await calculateTotalRequired(from: currentPlans, displayCurrency: displayCurrency)
 
-            await MainActor.run {
-                self.monthlyRequirements = requirements
-                self.totalRequired = total
-            }
+            // FX conversion may suspend while a newer slider update completes.
+            // Publish only the latest request's rows and converted total together.
+            guard latestFlexRequestId == requestId else { return }
+            self.monthlyRequirements = requirements
+            self.totalRequired = totalResult.total
+            self.totalRequiredIsPartial = totalResult.isPartial
             await refreshBudgetStatus()
         } catch {
+            guard latestFlexRequestId == requestId else { return }
             await MainActor.run {
                 self.error = error
             }
@@ -1041,9 +1038,13 @@ final class MonthlyPlanningViewModel: ObservableObject {
         }
     }
 
-    /// Calculate total required using plan effective amounts with currency conversion
-    private func calculateTotalRequired(from plans: [MonthlyPlan], displayCurrency: String) async -> Double {
+    /// Calculate total required using plan effective amounts with currency conversion.
+    /// Returns both the (possibly incomplete) total and whether it is partial, so callers
+    /// can surface an "incomplete total" state to the UI instead of silently presenting a
+    /// partial sum as if it were the full requirement.
+    private func calculateTotalRequired(from plans: [MonthlyPlan], displayCurrency: String) async -> (total: Double, isPartial: Bool) {
         var total = 0.0
+        var hasConversionError = false
 
         for plan in plans {
             if plan.currency == displayCurrency {
@@ -1057,15 +1058,22 @@ final class MonthlyPlanningViewModel: ObservableObject {
                     if let urlError = error as? URLError, urlError.code == .cancelled {
                         continue
                     }
-                    AppLog.warning(
+                    AppLog.error(
                         "Failed to convert \(plan.currency) to \(displayCurrency): \(error.localizedDescription)",
                         category: .monthlyPlanning
                     )
+                    hasConversionError = true
+                    // Skip adding to total to avoid incorrect totals
                 }
             }
         }
 
-        return total
+        if hasConversionError {
+            // Signal error to UI
+            self.error = MonthlyPlanningError.currencyConversionFailed("One or more goals failed currency conversion. Total is incomplete.")
+        }
+
+        return (total, hasConversionError)
     }
 }
 

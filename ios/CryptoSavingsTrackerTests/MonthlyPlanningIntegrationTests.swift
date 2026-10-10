@@ -21,7 +21,7 @@ struct MonthlyPlanningIntegrationTests {
         // Use shared TestContainer for consistent schema
         self.modelContainer = try TestContainer.create()
         self.mockExchangeRateService = MockExchangeRateService()
-        self.monthlyPlanningService = MonthlyPlanningService(exchangeRateService: mockExchangeRateService)
+        self.monthlyPlanningService = MonthlyPlanningService(exchangeRateService: mockExchangeRateService, tatumService: DIContainer.shared.tatumService)
     }
 
     @Test("Calculates requirements for goals with assets in different currencies")

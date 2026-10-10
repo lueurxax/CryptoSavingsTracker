@@ -60,8 +60,12 @@ final class FamilyShareRateDriftEvaluatorTests: XCTestCase {
         )
 
         let recorder = DirtyReasonRecorder()
+        let dirtyEventReceived = expectation(description: "material rate drift recorded")
         await evaluator.start(goalInputs: [input], lastPublished: [goalID: 100], handler: { reason in
-            Task { await recorder.append(reason) }
+            Task {
+                await recorder.append(reason)
+                dirtyEventReceived.fulfill()
+            }
         })
 
         source.emit(
@@ -71,12 +75,8 @@ final class FamilyShareRateDriftEvaluatorTests: XCTestCase {
                 rates: [CurrencyPair(from: "BTC", to: "USD").canonicalKey: 10_000]
             )
         )
-        for _ in 0..<50 {
-            if await recorder.first() != nil {
-                break
-            }
-            await flushAsyncWork(iterations: 2)
-        }
+        await fulfillment(of: [dirtyEventReceived], timeout: 1)
+        await evaluator.teardown()
 
         guard case .rateDrift(let goalIDs)? = await recorder.first() else {
             return XCTFail("Expected a rate-drift dirty event")
@@ -114,6 +114,7 @@ final class FamilyShareRateDriftEvaluatorTests: XCTestCase {
             )
         )
         await flushAsyncWork()
+        await evaluator.teardown()
 
         let isEmpty = await recorder.isEmpty()
         XCTAssertTrue(isEmpty)

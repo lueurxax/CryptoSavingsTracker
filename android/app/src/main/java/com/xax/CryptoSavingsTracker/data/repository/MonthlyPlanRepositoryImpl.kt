@@ -37,7 +37,13 @@ class MonthlyPlanRepositoryImpl @Inject constructor(
             totalRequired = 0.0,
             requirementsJson = json.encodeToString(MonthlyPlanSettings.serializer(), MonthlyPlanSettings())
         )
-        monthlyPlanDao.insert(plan)
+
+        val rowId = monthlyPlanDao.insert(plan)
+        if (rowId == -1L) {
+            // Conflict occurred (e.g., race condition), return the existing plan
+            return monthlyPlanDao.getPlanByMonthLabelOnce(monthLabel)?.toDomain() ?: plan.toDomain()
+        }
+
         return plan.toDomain()
     }
 
@@ -46,7 +52,20 @@ class MonthlyPlanRepositoryImpl @Inject constructor(
     }
 
     override suspend fun upsertPlan(plan: MonthlyPlan) {
-        monthlyPlanDao.insert(plan.toEntity())
+        val entity = plan.toEntity()
+        val rowId = monthlyPlanDao.insert(entity)
+        if (rowId == -1L) {
+            // The plan already exists (either same ID or same monthLabel).
+            // Query for the existing one by monthLabel to get the stable ID.
+            val existing = monthlyPlanDao.getPlanByMonthLabelOnce(plan.monthLabel)
+            if (existing != null) {
+                // Perform update using the stable ID found in the database
+                monthlyPlanDao.update(entity.copy(id = existing.id))
+            } else {
+                // Fallback to update by provided ID if monthLabel lookup failed
+                monthlyPlanDao.update(entity)
+            }
+        }
     }
 
     private fun MonthlyPlanEntity.toDomain(): MonthlyPlan {

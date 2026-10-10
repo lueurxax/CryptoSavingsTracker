@@ -21,7 +21,7 @@ struct MonthlyPlanningServiceTests {
         // Use shared TestContainer for consistent schema
         self.modelContainer = try TestContainer.create()
         self.mockExchangeRateService = MockExchangeRateService()
-        self.monthlyPlanningService = MonthlyPlanningService(exchangeRateService: mockExchangeRateService)
+        self.monthlyPlanningService = MonthlyPlanningService(exchangeRateService: mockExchangeRateService, tatumService: DIContainer.shared.tatumService)
     }
 
     /// Creates a deadline that reliably gives the expected months remaining.
@@ -365,9 +365,12 @@ struct MonthlyPlanningServiceTests {
         // When
         let totalUSD = await monthlyPlanningService.calculateTotalRequired(for: [goal], displayCurrency: "USD")
 
-        // Then - should fallback to original EUR amount when conversion fails
-        // requiredMonthly = (2000-500)/3 = 500 EUR, fallback keeps it as 500
-        #expect(totalUSD == 500)
+        // Then - a failed conversion must NOT silently fall back to a 1:1 rate, since that
+        // would misrepresent an EUR amount as USD and understate/overstate the real total.
+        // The unconvertible goal is skipped and the error is surfaced instead.
+        // requiredMonthly = (2000-500)/3 = 500 EUR, which cannot be safely added to the USD total.
+        #expect(totalUSD == 0)
+        #expect(monthlyPlanningService.lastCalculationError != nil)
     }
     
     @Test("Handle empty goals array")

@@ -1,5 +1,6 @@
 import java.io.FileInputStream
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
@@ -67,10 +68,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
@@ -87,6 +84,12 @@ android {
         getByName("androidTest") {
             assets.srcDir("$projectDir/schemas")
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
@@ -126,6 +129,7 @@ dependencies {
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.retrofit.kotlinx.serialization.converter)
+    implementation(libs.kotlinx.coroutines.android)
 
     // DataStore (preferences)
     implementation(libs.datastore.preferences)
@@ -142,11 +146,14 @@ dependencies {
 
     // ========== TESTING ==========
 
-    // Unit Tests (JUnit 5)
+    // Unit Tests (JUnit 4 and 5 on the JUnit Platform)
+    testImplementation(libs.junit)
     testImplementation(platform(libs.junit5.bom))
     testImplementation(libs.junit5.jupiter.api)
     testImplementation(libs.junit5.jupiter.params)
     testRuntimeOnly(libs.junit5.jupiter.engine)
+    testRuntimeOnly(libs.junit5.vintage.engine)
+    testRuntimeOnly(libs.junit5.platform.launcher)
 
     // Mocking & Assertions
     testImplementation(libs.mockk)
@@ -161,7 +168,7 @@ dependencies {
 
     // Network Mocking
     testImplementation(libs.mockwebserver)
-    testImplementation("com.networknt:json-schema-validator:1.5.6")
+    testImplementation(libs.json.schema.validator)
 
     // Android Instrumented Tests
     androidTestImplementation(platform(libs.compose.bom))

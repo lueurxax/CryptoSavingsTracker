@@ -251,8 +251,9 @@ android/
 ### iOS/macOS Initial Setup
 1. Clone the repository
 2. Open `CryptoSavingsTracker.xcodeproj`
-3. Configure API keys in `Config.plist`
-4. Build and run
+3. Copy `Config.example.plist` to `Config.plist` and configure development API keys
+4. Copy `Config.example.plist` to `Config.production.plist` and configure TestFlight/App Store API keys
+5. Build and run
 
 ### For New Developers
 
@@ -342,7 +343,7 @@ xcodebuild test -scheme CryptoSavingsTracker -destination "platform=macOS" \
 
 ### API Keys
 
-Configure external API keys in `Config.plist`:
+Configure external API keys in `Config.plist` for Debug and `Config.production.plist` for Release/Archive:
 
 - **CoinGecko API**: Currency exchange rates
 - **Tatum API**: Blockchain data

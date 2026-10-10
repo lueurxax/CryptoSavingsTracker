@@ -6,11 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		CED9DE6C2E362A1D00203A83 /* Config.plist in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE6B2E362A1D00203A83 /* Config.plist */; };
-		CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */ = {isa = PBXBuildFile; fileRef = CED9DE6D2E362A2C00203A83 /* Config.example.plist */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
 		CEF7B1F22E33FAB600FB26B3 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -46,6 +41,7 @@
 		CED9DE682E36232E00203A83 /* ../README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ../README.md; sourceTree = "<group>"; };
 		CED9DE6B2E362A1D00203A83 /* Config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.plist; sourceTree = "<group>"; };
 		CED9DE6D2E362A2C00203A83 /* Config.example.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.example.plist; sourceTree = "<group>"; };
+		CE8260022F60000100A1B2C3 /* Config.production.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.production.plist; sourceTree = "<group>"; };
 		CEDD1EDF2E4698B20026BFEF /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
 		CEDD1EE12E4698B20026BFEF /* sample-data.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "sample-data.md"; sourceTree = "<group>"; };
 		CEEA82ED2F54C56500CB8681 /* COMMIT_DOCK_SCROLL_COLLAPSE_PROPOSAL_TRIAD_REVIEW_R3.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = COMMIT_DOCK_SCROLL_COLLAPSE_PROPOSAL_TRIAD_REVIEW_R3.md; sourceTree = "<group>"; };
@@ -141,6 +137,7 @@
 				CEDD1EE32E4698B20026BFEF /* ../docs */,
 				CED9DE6D2E362A2C00203A83 /* Config.example.plist */,
 				CED9DE6B2E362A1D00203A83 /* Config.plist */,
+				CE8260022F60000100A1B2C3 /* Config.production.plist */,
 				CED9DE672E36232E00203A83 /* ../LICENSE */,
 				CED9DE682E36232E00203A83 /* ../README.md */,
 				CEF7B1E22E33FAB400FB26B3 /* CryptoSavingsTracker */,
@@ -176,6 +173,7 @@
 				CEF7B1DC2E33FAB400FB26B3 /* Sources */,
 				CEF7B1DD2E33FAB400FB26B3 /* Frameworks */,
 				CEF7B1DE2E33FAB400FB26B3 /* Resources */,
+				CE8260012F60000100A1B2C3 /* Copy environment Config.plist */,
 			);
 			buildRules = (
 			);
@@ -280,8 +278,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CED9DE6C2E362A1D00203A83 /* Config.plist in Resources */,
-				CED9DE6E2E362A2C00203A83 /* Config.example.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -300,6 +296,31 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		CE8260012F60000100A1B2C3 /* Copy environment Config.plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/$(APP_CONFIG_FILE)",
+				"$(PROJECT_DIR)/scripts/copy-app-config.sh",
+			);
+			name = "Copy environment Config.plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Config.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"$PROJECT_DIR/scripts/copy-app-config.sh\"";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		CEF7B1DC2E33FAB400FB26B3 /* Sources */ = {
@@ -342,6 +363,7 @@
 		CEF7B2052E33FAB600FB26B3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APP_CONFIG_FILE = Config.plist;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
@@ -349,7 +371,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 51;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_APP_SANDBOX = YES;
@@ -396,6 +418,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TATUM_ENVIRONMENT = development;
 				XROS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Debug;
@@ -403,6 +426,7 @@
 		CEF7B2062E33FAB600FB26B3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APP_CONFIG_FILE = Config.production.plist;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
@@ -410,7 +434,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 51;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = R859U8DTY9;
 				ENABLE_APP_SANDBOX = YES;
@@ -457,6 +481,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TATUM_ENVIRONMENT = production;
 				XROS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Release;

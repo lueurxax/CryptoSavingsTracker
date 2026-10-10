@@ -80,6 +80,7 @@ struct AppBootstrapPlan: Sendable {
         let shouldPerformDeferredCloudCleanup: Bool
         let shouldPerformLegacyLocalCleanup: Bool
 
+        @MainActor
         func run() {
             guard shouldPerformDeferredCloudCleanup || shouldPerformLegacyLocalCleanup else {
                 return

@@ -18,6 +18,7 @@ final class TatumClient {
     static let shared = TatumClient()
     
     private let apiKey: String
+    private let session: URLSession
     let baseURL = "https://api.tatum.io/v3"
     let v4BaseURL = "https://api.tatum.io/v4"
     let solanaRPCURL = "https://api.mainnet-beta.solana.com"
@@ -39,6 +40,7 @@ final class TatumClient {
     private let baseRetryDelay: TimeInterval = 1.0
     
     init() {
+        session = .shared
         // Try to get API key from Keychain first
         if let keychainKey = KeychainManager.tatumAPIKey {
             apiKey = keychainKey
@@ -47,10 +49,15 @@ final class TatumClient {
             apiKey = Self.loadAPIKeyFromPlist()
             if apiKey != "YOUR_TATUM_API_KEY" && !apiKey.isEmpty {
                 // Migrate to Keychain
-                try? KeychainManager.storeAPIKey(apiKey, for: "tatum")
+                try? KeychainManager.storeAPIKey(apiKey, for: TatumEnvironment.current.keychainService)
                 Self.log.info("Migrated Tatum API key to Keychain")
             }
         }
+    }
+
+    init(apiKey: String, session: URLSession) {
+        self.apiKey = apiKey
+        self.session = session
     }
     
     private static func loadAPIKeyFromPlist() -> String {
@@ -92,7 +99,7 @@ final class TatumClient {
                     }
                 }
                 
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (data, response) = try await session.data(for: request)
                 
                 let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
                 Self.log.debug("HTTP response received - Status: \(statusCode), Data size: \(data.count) bytes")

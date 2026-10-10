@@ -154,7 +154,7 @@ class DatabaseMigrationTest {
                 id, month_label, status, flex_percentage, total_required, requirements_json, created_at_utc_millis, last_modified_at_utc_millis
             ) VALUES(?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
-            arrayOf("plan-1", "2026-01", "draft", 1.0, 1000.0, "[]", created, created)
+            arrayOf<Any>("plan-1", "2026-01", "draft", 1.0, 1000.0, "[]", created, created)
         )
 
         db.execSQL(
@@ -163,7 +163,7 @@ class DatabaseMigrationTest {
                 id, plan_id, month_label, status, started_at_utc_millis, closed_at_utc_millis, can_undo_until_utc_millis, created_at_utc_millis, last_modified_at_utc_millis
             ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
-            arrayOf("record-1", "plan-1", "2026-01", "closed", created, created, created + 86_400_000L, created, created)
+            arrayOf<Any>("record-1", "plan-1", "2026-01", "closed", created, created, created + 86_400_000L, created, created)
         )
 
         db.execSQL(
@@ -174,7 +174,7 @@ class DatabaseMigrationTest {
                 created_at_utc_millis, last_modified_at_utc_millis
             ) VALUES(?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?)
             """.trimIndent(),
-            arrayOf("goal-1", "Goal 1", "USD", 5000.0, 21000, 20000, "active", created, created)
+            arrayOf<Any>("goal-1", "Goal 1", "USD", 5000.0, 21000, 20000, "active", created, created)
         )
         db.execSQL(
             """
@@ -184,7 +184,7 @@ class DatabaseMigrationTest {
                 created_at_utc_millis, last_modified_at_utc_millis
             ) VALUES(?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?)
             """.trimIndent(),
-            arrayOf("goal-2", "Goal 2", "USD", 7000.0, 21030, 20010, "active", created, created)
+            arrayOf<Any>("goal-2", "Goal 2", "USD", 7000.0, 21030, 20010, "active", created, created)
         )
 
         // Batch 1: two goal rows at same completion timestamp.
@@ -195,7 +195,7 @@ class DatabaseMigrationTest {
                 completed_at_utc_millis, can_undo_until_utc_millis, created_at_utc_millis, undone_at_utc_millis, undo_reason
             ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
             """.trimIndent(),
-            arrayOf("row-a1", "record-1", "goal-1", "Goal 1", "USD", 100.0, 100.0, 1_700_000_000_000L, 1_700_086_400_000L, created)
+            arrayOf<Any>("row-a1", "record-1", "goal-1", "Goal 1", "USD", 100.0, 100.0, 1_700_000_000_000L, 1_700_086_400_000L, created)
         )
         db.execSQL(
             """
@@ -204,7 +204,7 @@ class DatabaseMigrationTest {
                 completed_at_utc_millis, can_undo_until_utc_millis, created_at_utc_millis, undone_at_utc_millis, undo_reason
             ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
             """.trimIndent(),
-            arrayOf("row-a2", "record-1", "goal-2", "Goal 2", "USD", 200.0, 190.0, 1_700_000_000_000L, 1_700_086_400_000L, created)
+            arrayOf<Any>("row-a2", "record-1", "goal-2", "Goal 2", "USD", 200.0, 190.0, 1_700_000_000_000L, 1_700_086_400_000L, created)
         )
 
         // Batch 2: one row at newer completion timestamp.
@@ -215,7 +215,7 @@ class DatabaseMigrationTest {
                 completed_at_utc_millis, can_undo_until_utc_millis, created_at_utc_millis, undone_at_utc_millis, undo_reason
             ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
             """.trimIndent(),
-            arrayOf("row-b1", "record-1", "goal-1", "Goal 1", "USD", 120.0, 110.0, 1_700_100_000_000L, 1_700_186_400_000L, created)
+            arrayOf<Any>("row-b1", "record-1", "goal-1", "Goal 1", "USD", 120.0, 110.0, 1_700_100_000_000L, 1_700_186_400_000L, created)
         )
     }
 

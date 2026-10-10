@@ -2,6 +2,7 @@ package com.xax.CryptoSavingsTracker.domain.usecase.execution
 
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionRecord
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionSnapshot
+import java.util.Locale
 
 /**
  * Progress tracking for a single goal during execution.
@@ -9,12 +10,14 @@ import com.xax.CryptoSavingsTracker.domain.model.ExecutionSnapshot
  */
 data class ExecutionGoalProgress(
     val snapshot: ExecutionSnapshot,
-    /** Amount contributed to this goal since execution started (sum of transaction deltas) */
+    /** Positive funded deltas since execution started, converted into snapshot.currency. */
     val contributed: Double,
     /** Planned amount for this goal this month (from monthly plan/required amount) */
     val plannedAmount: Double,
     /** Whether contributed >= plannedAmount */
-    val isFulfilled: Boolean
+    val isFulfilled: Boolean,
+    /** Present when asset currency or exchange rates prevent a trustworthy contributed amount. */
+    val conversionError: String? = null
 ) {
     /** Progress percentage (0-100) */
     val progressPercent: Int
@@ -30,6 +33,13 @@ data class ExecutionSession(
     val record: ExecutionRecord,
     val goals: List<ExecutionGoalProgress>
 ) {
+    val conversionError: String?
+        get() = goals.firstNotNullOfOrNull { it.conversionError }
+
+    /** A monetary aggregate is meaningful only when every goal uses the same currency. */
+    val summaryCurrency: String?
+        get() = goals.map { it.snapshot.currency.trim().uppercase(Locale.ROOT) }.distinct().singleOrNull()
+
     /** Total planned amount across all goals */
     val totalPlanned: Double
         get() = goals.sumOf { it.plannedAmount }

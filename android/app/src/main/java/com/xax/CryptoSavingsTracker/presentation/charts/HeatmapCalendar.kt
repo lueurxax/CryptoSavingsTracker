@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.xax.CryptoSavingsTracker.presentation.theme.AccessibleGreen
@@ -22,7 +23,6 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
-import java.util.Locale
 
 /**
  * Heatmap day data matching iOS HeatmapDay
@@ -298,7 +298,7 @@ private fun MonthGrid(
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         // Month label
         Text(
-            text = yearMonth.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+            text = yearMonth.month.getDisplayName(TextStyle.SHORT, LocalLocale.current.platformLocale),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

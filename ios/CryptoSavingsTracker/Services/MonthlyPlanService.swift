@@ -385,16 +385,20 @@ final class MonthlyPlanService {
             for plan in plans {
                 if skippedGoalIds.contains(plan.goalId) {
                     // Mark as skipped
+                    plan.isProtected = false
                     plan.skipThisMonth(true)
                 } else if protectedGoalIds.contains(plan.goalId) {
-                    // Mark as protected
-                    if plan.flexState != .protected {
-                        plan.toggleProtection()
-                    }
+                    // Assign the requested state explicitly so re-protecting a skipped
+                    // plan cannot toggle an existing protection flag off.
+                    plan.isSkipped = false
+                    plan.isProtected = true
+                    plan.flexState = .protected
                     // Protected plans keep their original requiredMonthly or user override
                     // Do not clear customAmount to preserve user-entered overrides
                 } else {
                     // Flexible plan - apply adjustment
+                    plan.isSkipped = false
+                    plan.isProtected = false
                     plan.flexState = .flexible
                     // IMPORTANT: Always use requiredMonthly as the base, not customAmount
                     // This prevents compounding adjustments when slider is moved multiple times

@@ -30,9 +30,12 @@ enum FamilyShareCloudKitError: LocalizedError {
     }
 }
 
+typealias FamilyShareContainerProvider = @MainActor @Sendable () -> CKContainer
+
 protocol FamilyShareCloudSyncing {
     func publishProjection(_ payload: FamilyShareProjectionPayload) async throws
-    func prepareShare(for request: FamilyShareCloudSharingPreparationRequest) async throws -> (share: CKShare, container: CKContainer)
+    func prepareShare(for request: FamilyShareCloudSharingPreparationRequest) async throws
+        -> (share: CKShare, containerProvider: FamilyShareContainerProvider)
     func acceptInvitation(metadata: CKShare.Metadata) async throws -> FamilyShareInvitationMetadataSnapshot
     func ownerShareSnapshot(namespaceID: FamilyShareNamespaceID) async throws -> FamilyShareOwnerShareSnapshot
     func fetchAcceptedProjection(from snapshot: FamilyShareInvitationMetadataSnapshot) async throws -> FamilyShareSeededNamespaceState
@@ -202,14 +205,16 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
     /// Used to populate `projectionServerTimestamp` in the published payload.
     private(set) var lastPublishServerTimestamp: Date?
 
-    func prepareShare(for request: FamilyShareCloudSharingPreparationRequest) async throws -> (share: CKShare, container: CKContainer) {
+    func prepareShare(for request: FamilyShareCloudSharingPreparationRequest) async throws
+        -> (share: CKShare, containerProvider: FamilyShareContainerProvider) {
         guard rollout.isEnabled() else {
             throw FamilyShareCloudKitError.rolloutDisabled
         }
 
         telemetry.track(.sharePrepareStarted, payload: ["namespace": request.namespaceID.namespaceKey])
 
-        let database = container.privateCloudDatabase
+        let preparedContainer = container
+        let database = preparedContainer.privateCloudDatabase
         try await ensureZoneExists(for: request.namespaceID, in: database)
         let rootID = Self.rootRecordID(for: request.namespaceID)
         let rootRecord = try await fetchRecord(recordID: rootID, in: database)
@@ -219,7 +224,7 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
             if let existingShare = try? await fetchRecord(recordID: shareID, in: database) as? CKShare {
                 try await syncRootParticipantMetrics(rootRecord: rootRecord, share: existingShare, in: database)
                 telemetry.track(.sharePrepared, payload: ["namespace": request.namespaceID.namespaceKey, "mode": "existing"])
-                return (existingShare, container)
+                return (existingShare, { preparedContainer })
             }
         }
 
@@ -231,7 +236,7 @@ final class DefaultFamilyShareCloudKitStore: FamilyShareCloudSyncing {
         try await modify(recordsToSave: [rootRecord, share], recordIDsToDelete: [], in: database)
         try await syncRootParticipantMetrics(rootRecord: rootRecord, share: share, in: database)
         telemetry.track(.sharePrepared, payload: ["namespace": request.namespaceID.namespaceKey, "mode": "new"])
-        return (share, container)
+        return (share, { preparedContainer })
     }
 
     func acceptInvitation(metadata: CKShare.Metadata) async throws -> FamilyShareInvitationMetadataSnapshot {

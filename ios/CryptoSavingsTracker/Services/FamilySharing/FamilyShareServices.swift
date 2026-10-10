@@ -754,7 +754,9 @@ struct FamilyShareCloudSharingRequest: Identifiable {
     let shareTitle: String
     #if canImport(CloudKit)
     let share: CKShare
-    let container: CKContainer
+    let containerProvider: FamilyShareContainerProvider
+
+    var container: CKContainer { containerProvider() }
     #endif
 
     var id: String { namespaceID.namespaceKey }
@@ -1286,7 +1288,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 ownerDisplayName: normalizedOwnerDisplayName(),
                 shareTitle: "\(normalizedOwnerDisplayName())'s Shared Goals",
                 share: prepared.share,
-                container: prepared.container
+                containerProvider: prepared.containerProvider
             )
             telemetry.track(.createSucceeded, payload: ["namespace": ownerNamespaceID.namespaceKey])
             if let seededState = try? registry.seededState(for: ownerNamespaceID) {
@@ -1332,7 +1334,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
                 ownerDisplayName: normalizedOwnerDisplayName(),
                 shareTitle: "\(normalizedOwnerDisplayName())'s Shared Goals",
                 share: prepared.share,
-                container: prepared.container
+                containerProvider: prepared.containerProvider
             )
         } catch {
             latestErrorMessage = error.localizedDescription
@@ -2370,21 +2372,7 @@ final class FamilyShareAcceptanceCoordinator: ObservableObject, FamilyShareScene
     }
 }
 
-#if canImport(UIKit)
-import CloudKit
-
-@MainActor
-final class FamilyShareSceneDelegateBridge: NSObject, UIWindowSceneDelegate {
-    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
-        guard connectionOptions.cloudKitShareMetadata != nil else { return }
-        FamilyShareSceneBridgeHub.shared.acceptanceSink?.acceptPendingInvitation(from: connectionOptions)
-    }
-
-    func windowScene(_ windowScene: UIWindowScene, userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata) {
-        FamilyShareSceneBridgeHub.shared.acceptanceSink?.acceptInvitation(cloudKitShareMetadata)
-    }
-}
-
+#if canImport(CloudKit)
 extension FamilyShareInvitationMetadataSnapshot {
     init(metadata: CKShare.Metadata) {
         let rootRecordID = metadata.rootRecord?.recordID
@@ -2401,6 +2389,20 @@ extension FamilyShareInvitationMetadataSnapshot {
             hierarchicalRootZoneName: metadata.hierarchicalRootRecordID?.zoneID.zoneName,
             hierarchicalRootZoneOwnerName: metadata.hierarchicalRootRecordID?.zoneID.ownerName
         )
+    }
+}
+#endif
+
+#if canImport(UIKit)
+@MainActor
+final class FamilyShareSceneDelegateBridge: NSObject, UIWindowSceneDelegate {
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        guard connectionOptions.cloudKitShareMetadata != nil else { return }
+        FamilyShareSceneBridgeHub.shared.acceptanceSink?.acceptPendingInvitation(from: connectionOptions)
+    }
+
+    func windowScene(_ windowScene: UIWindowScene, userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata) {
+        FamilyShareSceneBridgeHub.shared.acceptanceSink?.acceptInvitation(cloudKitShareMetadata)
     }
 }
 #endif

@@ -36,22 +36,41 @@ class ExecutionProgressCalculator {
         transactions: List<Transaction>,
         allocationHistory: List<AllocationHistory>,
         startedAtMillis: Long,
-        nowMillis: Long = System.currentTimeMillis()
+        nowMillis: Long = System.currentTimeMillis(),
+        conversionRate: (assetId: String, goalCurrency: String) -> Double
     ): List<ExecutionGoalProgress> {
+        val contributions = calculateContributionsByAsset(
+            snapshots, transactions, allocationHistory, startedAtMillis, nowMillis
+        )
+        return snapshots.map { snapshot ->
+            val contributed = contributions.entries
+                .filter { it.key.goalId == snapshot.goalId }
+                .sumOf { (key, amount) -> amount * conversionRate(key.assetId, snapshot.currency) }
+            ExecutionGoalProgress(
+                snapshot = snapshot,
+                contributed = contributed,
+                plannedAmount = snapshot.requiredAmount,
+                isFulfilled = snapshot.requiredAmount > 0 && contributed >= snapshot.requiredAmount
+            )
+        }.sortedBy { it.snapshot.goalName }
+    }
+
+    internal data class ContributionKey(val assetId: String, val goalId: String)
+
+    /** Replay in asset units; currency conversion happens only after funding proportions are resolved. */
+    internal fun calculateContributionsByAsset(
+        snapshots: List<ExecutionSnapshot>,
+        transactions: List<Transaction>,
+        allocationHistory: List<AllocationHistory>,
+        startedAtMillis: Long,
+        nowMillis: Long
+    ): Map<ContributionKey, Double> {
         val goalIds = snapshots.map { it.goalId }.toSet()
         if (goalIds.isEmpty() || startedAtMillis <= 0L) {
-            return snapshots.map { snapshot ->
-                ExecutionGoalProgress(
-                    snapshot = snapshot,
-                    contributed = 0.0,
-                    plannedAmount = snapshot.requiredAmount,
-                    isFulfilled = false
-                )
-            }
+            return emptyMap()
         }
 
-        // Calculate contributions per goal by processing assets
-        val contributionsByGoal = mutableMapOf<String, Double>()
+        val contributionsByAsset = mutableMapOf<ContributionKey, Double>()
 
         // Group allocation history by asset
         val relevantHistory = allocationHistory.filter { it.goalId in goalIds }
@@ -63,6 +82,7 @@ class ExecutionProgressCalculator {
         for (assetId in assetIds) {
             val assetTransactions = transactions.filter { it.assetId == assetId && it.dateMillis <= nowMillis }
             val assetHistories = historyByAsset[assetId] ?: emptyList()
+            val contributionsByGoal = mutableMapOf<String, Double>()
 
             calculateAssetContributions(
                 assetId = assetId,
@@ -73,19 +93,11 @@ class ExecutionProgressCalculator {
                 nowMillis = nowMillis,
                 contributionsByGoal = contributionsByGoal
             )
+            contributionsByGoal.forEach { (goalId, amount) ->
+                contributionsByAsset[ContributionKey(assetId, goalId)] = amount
+            }
         }
-
-        return snapshots.map { snapshot ->
-            val contributed = contributionsByGoal[snapshot.goalId] ?: 0.0
-            val plannedAmount = snapshot.requiredAmount
-            val isFulfilled = plannedAmount > 0 && contributed >= plannedAmount
-            ExecutionGoalProgress(
-                snapshot = snapshot,
-                contributed = contributed,
-                plannedAmount = plannedAmount,
-                isFulfilled = isFulfilled
-            )
-        }.sortedBy { it.snapshot.goalName }
+        return contributionsByAsset
     }
 
     /**
@@ -218,7 +230,7 @@ class ExecutionProgressCalculator {
             val newAmount = newFunded[goalId] ?: 0.0
             val delta = newAmount - oldAmount
             // Only count positive deltas as contributions (deposits, not withdrawals)
-            if (delta > 0.0001) {
+            if (delta > 0.0) {
                 contributionsByGoal[goalId] = (contributionsByGoal[goalId] ?: 0.0) + delta
             }
         }

@@ -15,6 +15,7 @@ final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableOb
     
     // MARK: - Dependencies
     private let exchangeRateService: ExchangeRateServiceProtocol
+    private let balanceCalculator: GoalBalanceCalculator
     
     // MARK: - Performance Cache
     private var planCache: [UUID: CachedPlan] = [:]
@@ -26,8 +27,9 @@ final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableOb
     @Published var lastCalculationError: Error?
     
     // MARK: - Initialization
-    init(exchangeRateService: ExchangeRateServiceProtocol) {
+    init(exchangeRateService: ExchangeRateServiceProtocol, tatumService: TatumServiceProtocol) {
         self.exchangeRateService = exchangeRateService
+        self.balanceCalculator = GoalBalanceCalculator(tatumService: tatumService, exchangeRateService: exchangeRateService)
     }
     
     // MARK: - Public API
@@ -55,8 +57,13 @@ final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableOb
         let requirements = await calculateMonthlyRequirements(for: goals)
         
         var total: Double = 0
+        var conversionErrorOccurred = false
         
         for requirement in requirements {
+            if requirement.hasConversionError {
+                conversionErrorOccurred = true
+            }
+
             if requirement.currency == displayCurrency {
                 total += requirement.requiredMonthly
             } else {
@@ -64,12 +71,17 @@ final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableOb
                     let rate = try await exchangeRateService.fetchRate(from: requirement.currency, to: displayCurrency)
                     total += requirement.requiredMonthly * rate
                 } catch {
-                    AppLog.warning("Currency conversion failed for \(requirement.currency) to \(displayCurrency): \(error.localizedDescription)", category: .exchangeRate)
-                    total += requirement.requiredMonthly // Fallback to 1:1
+                    AppLog.error("Currency conversion failed for \(requirement.currency) to \(displayCurrency): \(error.localizedDescription)", category: .exchangeRate)
+                    conversionErrorOccurred = true
+                    // Skip adding to total to avoid incorrect 1:1 fallback
                 }
             }
         }
         
+        if conversionErrorOccurred {
+            lastCalculationError = MonthlyPlanningError.currencyConversionFailed("One or more goals failed currency conversion. Total is incomplete.")
+        }
+
         return total
     }
     
@@ -87,8 +99,11 @@ final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableOb
     
     /// Calculate requirement for a single goal
     private func calculateRequirementForGoal(_ goal: Goal) async -> MonthlyRequirement {
-        // Calculate current total
-        let currentTotal = await GoalCalculationService.getCurrentTotal(for: goal)
+        // Calculate current total using the shared domain calculator (no ViewModel needed)
+        let balanceResult = await balanceCalculator.calculateCurrentTotal(for: goal)
+        let currentTotal = balanceResult.total
+        let hasConversionError = balanceResult.hasConversionError
+
         let remaining = max(0, goal.targetAmount - currentTotal)
         let monthsRemaining = max(1, calculateMonthsRemaining(from: Date(), to: goal.deadline))
         let requiredMonthly = remaining / Double(monthsRemaining)
@@ -111,7 +126,8 @@ final class MonthlyPlanningService: MonthlyPlanningServiceProtocol, ObservableOb
             requiredMonthly: requiredMonthly,
             progress: progress,
             deadline: goal.deadline,
-            status: status
+            status: status,
+            hasConversionError: hasConversionError
         )
     }
     

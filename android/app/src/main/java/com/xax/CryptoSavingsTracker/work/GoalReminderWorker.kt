@@ -84,7 +84,11 @@ class GoalReminderWorker @AssistedInject constructor(
             .setContentIntent(pendingIntent)
             .build()
 
-        NotificationManagerCompat.from(applicationContext).notify(goalId.hashCode(), notification)
+        try {
+            NotificationManagerCompat.from(applicationContext).notify(goalId.hashCode(), notification)
+        } catch (_: SecurityException) {
+            // Permission can be revoked after the check in doWork.
+        }
     }
 
     companion object {

@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-01-04 |
+| Last Updated | 2026-08-26 |
 | Platform | Shared |
 | Audience | Developers |
 
@@ -40,12 +40,16 @@ This document provides an overview of the external APIs used in the CryptoSaving
 
 - **Website**: [tatum.io](https://tatum.io)
 - **Primary Use**: Blockchain data access (balances, transactions).
-- **API Key Location**: `Config.plist` -> `TATUM_API_KEY`
+- **Development API Key**: `ios/Config.plist` -> `TatumAPIKey`
+- **TestFlight/App Store API Key**: `ios/Config.production.plist` -> `TatumAPIKey`
 
 ### Implementation Details
 
 - The `TatumClient` class in `TatumClient.swift` is responsible for making requests to the Tatum API.
 - The `TatumService` class in `TatumService.swift` uses the `TatumClient` to fetch data.
+- Debug builds bundle only `Config.plist`; Release/Archive builds bundle only `Config.production.plist`.
+- Tatum credentials use separate `tatum.development` and `tatum.production` Keychain services.
+- Both configuration files are ignored by Git. Create them from `ios/Config.example.plist`.
 
 ---
 

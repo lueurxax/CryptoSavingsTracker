@@ -26,9 +26,11 @@ struct SharedGoalDetailView: View {
             }
             .padding(16)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(SystemBackgrounds.grouped)
         .navigationTitle(goal.goalName)
+        #if !os(macOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Close", action: onDismiss)

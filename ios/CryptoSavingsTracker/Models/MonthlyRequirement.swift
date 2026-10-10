@@ -21,8 +21,9 @@ struct MonthlyRequirement: Identifiable, Sendable, Codable {
     let progress: Double
     let deadline: Date
     let status: RequirementStatus
+    let hasConversionError: Bool
     
-    init(goalId: UUID, goalName: String, currency: String, targetAmount: Double, currentTotal: Double, remainingAmount: Double, monthsRemaining: Int, requiredMonthly: Double, progress: Double, deadline: Date, status: RequirementStatus) {
+    init(goalId: UUID, goalName: String, currency: String, targetAmount: Double, currentTotal: Double, remainingAmount: Double, monthsRemaining: Int, requiredMonthly: Double, progress: Double, deadline: Date, status: RequirementStatus, hasConversionError: Bool = false) {
         self.id = UUID()
         self.goalId = goalId
         self.goalName = goalName
@@ -35,6 +36,7 @@ struct MonthlyRequirement: Identifiable, Sendable, Codable {
         self.progress = progress
         self.deadline = deadline
         self.status = status
+        self.hasConversionError = hasConversionError
     }
     
     /// Time remaining description

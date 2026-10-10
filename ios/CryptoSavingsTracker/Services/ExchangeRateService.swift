@@ -403,7 +403,19 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
                 guard parts.count == 2 else { continue }
                 let from = String(parts[0])
                 let to = String(parts[1])
-                if getCachedRate(from: from, to: to) == nil {
+
+                // Read directly from properties to avoid nested sync call on same queue
+                let cacheKey = "\(from)-\(to)"
+                let isFresh: Bool
+                if let lastFetch = lastFetchTime[cacheKey],
+                   Date().timeIntervalSince(lastFetch) < cacheExpiration,
+                   cachedRates[from]?[to] != nil {
+                    isFresh = true
+                } else {
+                    isFresh = false
+                }
+
+                if !isFresh {
                     result.append((from, to))
                 }
             }

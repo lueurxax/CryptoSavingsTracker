@@ -8,6 +8,8 @@ import com.xax.CryptoSavingsTracker.domain.model.ExecutionSnapshot
 import com.xax.CryptoSavingsTracker.domain.model.ExecutionStatus
 import com.xax.CryptoSavingsTracker.domain.model.Transaction
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationHistoryRepository
+import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExchangeRateRepository
 import com.xax.CryptoSavingsTracker.domain.repository.CompletedExecutionRepository
 import com.xax.CryptoSavingsTracker.domain.repository.CompletionEventRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionRecordRepository
@@ -104,7 +106,9 @@ class CompleteExecutionUseCaseTest {
             completionEventRepository = completionEventRepository,
             allocationHistoryRepository = allocationHistoryRepository,
             transactionRepository = transactionRepository,
-            transactionRunner = transactionRunner
+            transactionRunner = transactionRunner,
+            assetRepository = emptyAssets(),
+            calculateProgress = CalculateExecutionProgressUseCase(mockk<ExchangeRateRepository>())
         )
 
         val result = useCase(record.id)
@@ -157,7 +161,9 @@ class CompleteExecutionUseCaseTest {
             completionEventRepository = completionEventRepository,
             allocationHistoryRepository = allocationHistoryRepository,
             transactionRepository = transactionRepository,
-            transactionRunner = transactionRunner
+            transactionRunner = transactionRunner,
+            assetRepository = emptyAssets(),
+            calculateProgress = CalculateExecutionProgressUseCase(mockk<ExchangeRateRepository>())
         )
 
         val result = useCase(record.id)
@@ -167,5 +173,9 @@ class CompleteExecutionUseCaseTest {
             .isEqualTo(ExecutionActionCopyCatalog.finishBlockedNoExecuting())
         coVerify(exactly = 0) { completionEventRepository.insert(any()) }
         coVerify(exactly = 0) { completedExecutionRepository.append(any()) }
+    }
+
+    private fun emptyAssets(): AssetRepository = mockk<AssetRepository>().also { repository ->
+        coEvery { repository.getAllAssets() } returns flowOf(emptyList())
     }
 }

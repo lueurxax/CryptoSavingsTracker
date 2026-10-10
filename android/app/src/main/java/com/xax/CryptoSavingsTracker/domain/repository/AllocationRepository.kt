@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.Flow
  * Provides access to asset-goal allocation data for progress calculation.
  */
 interface AllocationRepository {
+    /** Observe all allocations, including goals competing for the same asset balance. */
+    fun getAllAllocations(): Flow<List<Allocation>>
+
     /**
      * Get total amount allocated to a goal across all assets.
      * This is used for progress calculation.

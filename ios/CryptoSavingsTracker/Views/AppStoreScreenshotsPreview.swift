@@ -135,7 +135,7 @@ private extension View {
     func appStoreScreenshotFrame(_ size: CGSize) -> some View {
         self
             .frame(width: size.width, height: size.height)
-            .background(Color(.systemGroupedBackground))
+            .background(SystemBackgrounds.grouped)
             .clipped()
     }
 }

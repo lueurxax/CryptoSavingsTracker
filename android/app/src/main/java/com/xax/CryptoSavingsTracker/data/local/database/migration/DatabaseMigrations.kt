@@ -104,18 +104,23 @@ object DatabaseMigrations {
 
     private fun backfillCompletionEvents(db: SupportSQLiteDatabase) {
         val now = System.currentTimeMillis()
-        val groupedCursor = db.query(
+
+        // Fetch all needed records in a single query to avoid N+1 performance issues
+        val allRowsCursor = db.query(
             """
-            SELECT
-                ce.execution_record_id AS execution_record_id,
-                mer.month_label AS month_label,
-                ce.completed_at_utc_millis AS completed_at_utc_millis
+            SELECT ce.id, ce.goal_id, ce.execution_record_id, ce.completed_at_utc_millis, mer.month_label
             FROM completed_executions ce
-            INNER JOIN monthly_execution_records mer
-                ON mer.id = ce.execution_record_id
-            GROUP BY ce.execution_record_id, mer.month_label, ce.completed_at_utc_millis
-            ORDER BY ce.execution_record_id ASC, ce.completed_at_utc_millis ASC
+            INNER JOIN monthly_execution_records mer ON mer.id = ce.execution_record_id
+            ORDER BY ce.execution_record_id ASC, ce.completed_at_utc_millis ASC, ce.id ASC
             """.trimIndent()
+        )
+
+        data class TempGroup(
+            val recordId: String,
+            val monthLabel: String,
+            val completedAtMillis: Long,
+            val rowIds: MutableList<String> = mutableListOf(),
+            val goalIds: MutableList<String> = mutableListOf()
         )
 
         data class LegacyGroup(
@@ -126,68 +131,58 @@ object DatabaseMigrations {
             val completionSnapshotRef: String
         )
 
-        val groupedByRecord = mutableMapOf<String, MutableList<LegacyGroup>>()
+        val recordGroups = mutableMapOf<String, MutableList<TempGroup>>()
 
-        groupedCursor.use { cursor ->
+        allRowsCursor.use { cursor ->
+            val idxId = cursor.getColumnIndexOrThrow("id")
+            val idxGoalId = cursor.getColumnIndexOrThrow("goal_id")
             val idxRecordId = cursor.getColumnIndexOrThrow("execution_record_id")
             val idxMonthLabel = cursor.getColumnIndexOrThrow("month_label")
             val idxCompletedAt = cursor.getColumnIndexOrThrow("completed_at_utc_millis")
 
+            var lastKey: String? = null
+            var currentGroup: TempGroup? = null
+
             while (cursor.moveToNext()) {
                 val recordId = cursor.getString(idxRecordId)
-                val monthLabel = cursor.getString(idxMonthLabel)
-                val completedAtMillis = cursor.getLong(idxCompletedAt)
-                val rowsCursor = db.query(
-                    """
-                    SELECT id, goal_id
-                    FROM completed_executions
-                    WHERE execution_record_id = ? AND completed_at_utc_millis = ?
-                    ORDER BY id ASC
-                    """.trimIndent(),
-                    arrayOf(recordId, completedAtMillis)
-                )
+                val completedAt = cursor.getLong(idxCompletedAt)
+                val key = "$recordId|$completedAt"
 
-                val rowIds = mutableListOf<String>()
-                val goalIds = mutableListOf<String>()
-                rowsCursor.use { rows ->
-                    val idIdx = rows.getColumnIndexOrThrow("id")
-                    val goalIdIdx = rows.getColumnIndexOrThrow("goal_id")
-                    while (rows.moveToNext()) {
-                        rowIds.add(rows.getString(idIdx))
-                        goalIds.add(rows.getString(goalIdIdx))
-                    }
+                if (key != lastKey) {
+                    currentGroup = TempGroup(recordId, cursor.getString(idxMonthLabel), completedAt)
+                    recordGroups.getOrPut(recordId) { mutableListOf() }.add(currentGroup)
+                    lastKey = key
                 }
-
-                if (rowIds.isEmpty()) continue
-                val sourceDiscriminator = sha256(
-                    rowIds.sorted().joinToString(",") +
-                        "|" +
-                        goalIds.sorted().joinToString(",") +
-                        "|" +
-                        rowIds.size +
-                        "|" +
-                        completedAtMillis
-                )
-                val completionSnapshotRef = "batch:$recordId:$completedAtMillis:$sourceDiscriminator"
-                groupedByRecord.getOrPut(recordId) { mutableListOf() }
-                    .add(
-                        LegacyGroup(
-                            recordId = recordId,
-                            monthLabel = monthLabel,
-                            completedAtMillis = completedAtMillis,
-                            sourceDiscriminator = sourceDiscriminator,
-                            completionSnapshotRef = completionSnapshotRef
-                        )
-                    )
+                currentGroup?.rowIds?.add(cursor.getString(idxId))
+                currentGroup?.goalIds?.add(cursor.getString(idxGoalId))
             }
         }
 
-        groupedByRecord.forEach { (recordId, groups) ->
-            groups.sortWith(
+        recordGroups.forEach { (recordId, groups) ->
+            // Transform and sort according to original logic (by time, then by discriminator)
+            val legacyGroups = groups.map { group ->
+                val sourceDiscriminator = sha256(
+                    group.rowIds.sorted().joinToString(",") +
+                        "|" +
+                        group.goalIds.sorted().joinToString(",") +
+                        "|" +
+                        group.rowIds.size +
+                        "|" +
+                        group.completedAtMillis
+                )
+                LegacyGroup(
+                    recordId = group.recordId,
+                    monthLabel = group.monthLabel,
+                    completedAtMillis = group.completedAtMillis,
+                    sourceDiscriminator = sourceDiscriminator,
+                    completionSnapshotRef = "batch:${group.recordId}:${group.completedAtMillis}:$sourceDiscriminator"
+                )
+            }.sortedWith(
                 compareBy<LegacyGroup> { it.completedAtMillis }
                     .thenBy { it.sourceDiscriminator }
             )
-            groups.forEachIndexed { index, group ->
+
+            legacyGroups.forEachIndexed { index, group ->
                 val sequence = index + 1
                 val eventId = "legacy:$recordId:$sequence:${group.sourceDiscriminator.take(16)}"
                 db.execSQL(
@@ -205,7 +200,7 @@ object DatabaseMigrations {
                         undo_reason
                     ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
                     """.trimIndent(),
-                    arrayOf(
+                    arrayOf<Any>(
                         eventId,
                         group.recordId,
                         group.monthLabel,
@@ -224,7 +219,7 @@ object DatabaseMigrations {
                     WHERE execution_record_id = ?
                         AND completed_at_utc_millis = ?
                     """.trimIndent(),
-                    arrayOf(eventId, group.recordId, group.completedAtMillis)
+                    arrayOf<Any>(eventId, group.recordId, group.completedAtMillis)
                 )
             }
         }

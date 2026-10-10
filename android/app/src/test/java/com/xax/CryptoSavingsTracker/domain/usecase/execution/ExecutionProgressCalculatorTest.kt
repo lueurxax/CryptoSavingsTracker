@@ -97,6 +97,7 @@ class ExecutionProgressCalculatorTest {
             val transaction = createTransaction(amount = 500.0, dateMillis = startedAt) // Exact boundary
 
             val result = calculator.calculateForSnapshots(
+                conversionRate = { _, _ -> 1.0 },
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
@@ -116,6 +117,7 @@ class ExecutionProgressCalculatorTest {
             val transaction = createTransaction(amount = 500.0, dateMillis = startedAt - 1) // 1ms before
 
             val result = calculator.calculateForSnapshots(
+                conversionRate = { _, _ -> 1.0 },
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
@@ -136,6 +138,7 @@ class ExecutionProgressCalculatorTest {
             val transaction = createTransaction(amount = 500.0, dateMillis = now + 1000) // After now
 
             val result = calculator.calculateForSnapshots(
+                conversionRate = { _, _ -> 1.0 },
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
@@ -163,6 +166,7 @@ class ExecutionProgressCalculatorTest {
             val transaction = createTransaction(amount = 500.0, dateMillis = txTime)
 
             val result = calculator.calculateForSnapshots(
+                conversionRate = { _, _ -> 1.0 },
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
@@ -185,6 +189,7 @@ class ExecutionProgressCalculatorTest {
             val transaction = createTransaction(amount = 500.0, dateMillis = txTime)
 
             val result = calculator.calculateForSnapshots(
+                conversionRate = { _, _ -> 1.0 },
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
@@ -210,6 +215,7 @@ class ExecutionProgressCalculatorTest {
             )
 
             val result = calculator.calculateForSnapshots(
+                conversionRate = { _, _ -> 1.0 },
                 snapshots = listOf(snapshot),
                 transactions = transactions,
                 allocationHistory = listOf(allocation),
@@ -235,6 +241,7 @@ class ExecutionProgressCalculatorTest {
             val inWindowTx = createTransaction(amount = 200.0, dateMillis = startedAt + 60_000)
 
             val result = calculator.calculateForSnapshots(
+                conversionRate = { _, _ -> 1.0 },
                 snapshots = listOf(snapshot),
                 transactions = listOf(preStartTx, inWindowTx),
                 allocationHistory = listOf(allocation),
@@ -262,6 +269,7 @@ class ExecutionProgressCalculatorTest {
             val transaction = createTransaction(amount = 500.0, dateMillis = startedAt + 60_000)
 
             val result = calculator.calculateForSnapshots(
+                conversionRate = { _, _ -> 1.0 },
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
@@ -284,6 +292,7 @@ class ExecutionProgressCalculatorTest {
             val transaction = createTransaction(amount = 700.0, dateMillis = startedAt + 60_000)
 
             val result = calculator.calculateForSnapshots(
+                conversionRate = { _, _ -> 1.0 },
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
@@ -306,6 +315,7 @@ class ExecutionProgressCalculatorTest {
             val transaction = createTransaction(amount = 300.0, dateMillis = startedAt + 60_000)
 
             val result = calculator.calculateForSnapshots(
+                conversionRate = { _, _ -> 1.0 },
                 snapshots = listOf(snapshot),
                 transactions = listOf(transaction),
                 allocationHistory = listOf(allocation),
@@ -327,6 +337,7 @@ class ExecutionProgressCalculatorTest {
         @Test
         fun `empty snapshots returns empty list`() {
             val result = calculator.calculateForSnapshots(
+                conversionRate = { _, _ -> 1.0 },
                 snapshots = emptyList(),
                 transactions = emptyList(),
                 allocationHistory = emptyList(),
@@ -342,6 +353,7 @@ class ExecutionProgressCalculatorTest {
             val snapshot = createSnapshot()
 
             val result = calculator.calculateForSnapshots(
+                conversionRate = { _, _ -> 1.0 },
                 snapshots = listOf(snapshot),
                 transactions = emptyList(),
                 allocationHistory = emptyList(),
@@ -359,6 +371,7 @@ class ExecutionProgressCalculatorTest {
             val snapshot = createSnapshot(isSkipped = true, requiredAmount = 500.0)
 
             val result = calculator.calculateForSnapshots(
+                conversionRate = { _, _ -> 1.0 },
                 snapshots = listOf(snapshot),
                 transactions = emptyList(),
                 allocationHistory = emptyList(),

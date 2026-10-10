@@ -95,6 +95,15 @@ struct MonthlyPlanningWidget: View {
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundColor(statusColor)
+
+                        if viewModel.totalRequiredIsPartial {
+                            Label("Incomplete", systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                                .foregroundColor(AccessibleColors.warning)
+                                .labelStyle(.titleAndIcon)
+                                .accessibilityLabel("Total is incomplete due to a currency conversion error")
+                        }
                     }
                 }
             }
@@ -461,6 +470,10 @@ struct MonthlyPlanningWidget: View {
             context: "Total monthly requirement"
         )
         
+        if viewModel.totalRequiredIsPartial {
+            description += ". Warning: total is incomplete because one or more goals failed currency conversion"
+        }
+
         let stats = viewModel.statistics
         if stats.criticalCount > 0 {
             description += ". \(stats.criticalCount) goals need immediate attention"

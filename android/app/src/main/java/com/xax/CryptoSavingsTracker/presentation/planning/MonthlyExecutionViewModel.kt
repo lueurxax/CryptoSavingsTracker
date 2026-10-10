@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import java.util.Locale
 
 /**
  * UI State for Monthly Execution screen.
@@ -39,6 +40,10 @@ data class MonthlyExecutionUiState(
     val showCompleteConfirmDialog: Boolean = false,
     val completedSuccessfully: Boolean = false
 ) {
+    /** Null prevents the header from adding amounts with different units. */
+    val summaryCurrency: String?
+        get() = goalProgress.map { it.snapshot.currency.trim().uppercase(Locale.ROOT) }.distinct().singleOrNull()
+
     /** Goals that are not yet fulfilled */
     val activeGoals: List<ExecutionGoalProgress>
         get() = goalProgress.filter { !it.isFulfilled && !it.snapshot.isSkipped }
@@ -299,8 +304,8 @@ class MonthlyExecutionViewModel @Inject constructor(
      * Refresh execution data.
      */
     fun refresh() {
-        // The session is already being observed via Flow
-        // This method can be used to trigger manual refresh if needed
+        if (_uiState.value.record == null) return
         _uiState.update { it.copy(isLoading = true) }
+        getExecutionSessionUseCase.refresh()
     }
 }

@@ -116,23 +116,56 @@ final class BalanceService: BalanceServiceProtocol {
     }
     
     private func fetchV4PortfolioData(v4Chain: String, address: String, tokenTypes: [String]) async throws -> TatumV4PortfolioResponse {
-        let queryItems = [
+        let baseQueryItems = [
             URLQueryItem(name: "chain", value: v4Chain),
             URLQueryItem(name: "addresses", value: address),
-            URLQueryItem(name: "tokenTypes", value: tokenTypes.joined(separator: ","))
+            URLQueryItem(name: "tokenTypes", value: tokenTypes.joined(separator: ",")),
+            URLQueryItem(name: "pageSize", value: "50")
         ]
+        var balances: [TatumV4BalanceItem] = []
+        var offset = 0
 
-        guard let request = client.createV4Request(path: "/data/wallet/portfolio", queryItems: queryItems) else {
-            throw TatumError.invalidURL
+        while true {
+            let queryItems = baseQueryItems + [URLQueryItem(name: "offset", value: String(offset))]
+            guard let request = client.createV4Request(path: "/data/wallet/portfolio", queryItems: queryItems) else {
+                throw TatumError.invalidURL
+            }
+            let (data, _) = try await client.performRequest(request)
+            let page = try JSONDecoder().decode(TatumV4PortfolioResponse.self, from: data)
+            balances.append(contentsOf: page.result)
+
+            guard let nextPage = page.nextPage, !nextPage.isEmpty else {
+                return TatumV4PortfolioResponse(result: balances, prevPage: nil, nextPage: nil)
+            }
+            offset = try nextPortfolioOffset(nextPage, after: offset)
+        }
+    }
+
+    private func nextPortfolioOffset(_ nextPage: String, after currentOffset: Int) throws -> Int {
+        let nextOffset: Int?
+        if let numericOffset = Int(nextPage) {
+            nextOffset = numericOffset
+        } else {
+            guard let components = URLComponents(string: nextPage),
+                  (components.scheme == nil && components.host == nil)
+                    || (components.scheme?.lowercased() == "https"
+                        && components.host?.lowercased() == "api.tatum.io"),
+                  components.port == nil || components.port == 443,
+                  components.user == nil, components.password == nil, components.fragment == nil,
+                  ["", "/data/wallet/portfolio", "/v4/data/wallet/portfolio"].contains(components.path),
+                  let offsets = components.queryItems?.filter({ $0.name == "offset" }),
+                  offsets.count == 1 else {
+                throw TatumError.invalidResponse
+            }
+            nextOffset = offsets.first?.value.flatMap(Int.init)
         }
 
-        Self.log.debug("Fetching v4 portfolio data from: \(request.url?.absoluteString ?? "")")
-
-        let (data, _) = try await client.performRequest(request)
-
-        Self.log.debug("V4 portfolio response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
-
-        return try JSONDecoder().decode(TatumV4PortfolioResponse.self, from: data)
+        // Rebuild every page request against the fixed endpoint, preserving the wallet
+        // filters. A continuation URL must never redirect credentials or repeat a page.
+        guard let nextOffset, nextOffset > currentOffset else {
+            throw TatumError.invalidResponse
+        }
+        return nextOffset
     }
 
     private func fetchV4NativeBalance(v4Chain: String, address: String) async throws -> Double {
@@ -191,19 +224,24 @@ final class BalanceService: BalanceServiceProtocol {
 
     // MARK: - Helpers
 
-    /// Convert Tatum v4 balance item to a human-readable Double using decimals (falls back to balance when already human-readable).
-    private static func humanReadableBalance(from item: TatumV4BalanceItem) -> Double {
+    /// Convert Tatum v4 balance item to a human-readable Double using decimals.
+    /// Uses explicit denomination info rather than a magnitude heuristic.
+    ///
+    /// IMPORTANT: This assumes Tatum's v4 `denominatedBalance` field is always the raw,
+    /// base-unit balance (e.g. wei for ETH) and never a pre-scaled human-readable value.
+    /// If that assumption is ever violated by the API, this will silently under-report the
+    /// balance by dividing an already human-readable number by `10^decimals`. See
+    /// `BalanceServiceHumanReadableBalanceTests` for the behavior this relies on.
+    /// Internal (rather than private) so it can be exercised directly from unit tests.
+    static func humanReadableBalance(from item: TatumV4BalanceItem) -> Double {
         if let raw = Double(item.denominatedBalance) {
-            // If the denominated balance looks like a raw integer (usually >> 1_000), scale by decimals
-            if raw > 1_000 {
-                return raw / pow(10, Double(item.decimals))
-            } else {
-                // Already human-readable
-                return raw
-            }
+            // Trust denominatedBalance as raw base-unit value and scale by explicit decimals
+            return raw / pow(10, Double(item.decimals))
         }
-        if let raw = Double(item.balance) {
-            return raw
+
+        // Fallback to balance field if denominatedBalance is not a valid number
+        if let humanReadable = Double(item.balance) {
+            return humanReadable
         }
         return 0.0
     }

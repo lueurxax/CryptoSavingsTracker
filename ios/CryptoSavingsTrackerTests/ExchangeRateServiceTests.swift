@@ -15,29 +15,31 @@ import Foundation
     
     @Test @MainActor func sameCurrencyExchangeRate() async throws {
         // Same currency should always return 1.0
-        do {
-            let rate = try await ExchangeRateService.shared.fetchRate(from: "USD", to: "USD")
-            #expect(rate == 1.0)
-        } catch {
-            // If service fails, test the fallback behavior
-            #expect(true) // Service failure is acceptable in tests
-        }
+        // Refactored to use mock to avoid network dependency in unit test
+        let service: ExchangeRateServiceProtocol = MockExchangeRateService()
+        let rate = try await service.fetchRate(from: "USD", to: "USD")
+        #expect(rate == 1.0)
     }
     
     @Test @MainActor func exchangeRateErrorHandling() async throws {
         // Test with invalid currency codes
+        // Refactored to use mock to avoid network dependency and ensure deterministic error handling
+        let service = MockExchangeRateService()
+        service.shouldFail = true
+
         do {
-            let _ = try await ExchangeRateService.shared.fetchRate(from: "INVALID", to: "USD")
-            // If this succeeds, that's fine - just pass the test
-            #expect(true)
+            let _ = try await service.fetchRate(from: "INVALID", to: "USD")
+            Issue.record("Expected error for invalid currency, but request succeeded")
         } catch {
-            // Error is expected for invalid currencies - this is also fine
+            // Error is expected
             #expect(true)
         }
     }
     
     @Test @MainActor func exchangeRateCaching() async throws {
         // Test that the service has caching functionality
+        // NOTE: This test hits the live network via ExchangeRateService.shared.
+        // In a strictly decoupled environment, this should use a mock with timing support.
         let service = ExchangeRateService.shared
         
         // Make two requests for the same currency pair
@@ -60,35 +62,41 @@ import Foundation
             #expect(secondRequestTime <= firstRequestTime + 0.1) // Small tolerance
             
         } catch {
-            // If network requests fail in test environment, that's acceptable
-            #expect(true)
+            Issue.record("Exchange rate fetch failed: \(error)")
         }
     }
     
     @Test @MainActor func exchangeRatePositiveValues() async throws {
         // Test that valid exchange rates are positive
+        // Refactored to use mock to avoid network dependency
+        let service = MockExchangeRateService()
+        service.setRate(from: "USD", to: "EUR", rate: 0.85)
+
         do {
-            let rate = try await ExchangeRateService.shared.fetchRate(from: "USD", to: "EUR")
+            let rate = try await service.fetchRate(from: "USD", to: "EUR")
             #expect(rate > 0)
         } catch {
-            // Network failure is acceptable in test environment
-            #expect(true)
+            Issue.record("Exchange rate fetch failed: \(error)")
         }
     }
     
     @Test @MainActor func exchangeRateReciprocalConsistency() async throws {
         // Test that USD->EUR and EUR->USD are roughly reciprocals
+        // Refactored to use mock to avoid network dependency and ensure consistency
+        let service = MockExchangeRateService()
+        service.setRate(from: "USD", to: "EUR", rate: 0.85)
+        service.setRate(from: "EUR", to: "USD", rate: 1.0 / 0.85)
+
         do {
-            let usdToEur = try await ExchangeRateService.shared.fetchRate(from: "USD", to: "EUR")
-            let eurToUsd = try await ExchangeRateService.shared.fetchRate(from: "EUR", to: "USD")
+            let usdToEur = try await service.fetchRate(from: "USD", to: "EUR")
+            let eurToUsd = try await service.fetchRate(from: "EUR", to: "USD")
             
-            // They should be roughly reciprocals (within 5% tolerance for market fluctuations)
+            // They should be roughly reciprocals
             let product = usdToEur * eurToUsd
-            #expect(product > 0.95 && product < 1.05)
+            #expect(product > 0.99 && product < 1.01)
             
         } catch {
-            // Network failure is acceptable in test environment
-            #expect(true)
+            Issue.record("Exchange rate fetch failed: \(error)")
         }
     }
     
@@ -104,6 +112,7 @@ import Foundation
     
     @Test @MainActor func exchangeRateServicePerformance() async throws {
         // Test that exchange rate requests complete in reasonable time
+        // NOTE: This test hits the live network via ExchangeRateService.shared.
         let startTime = Date()
         
         do {
@@ -116,12 +125,12 @@ import Foundation
             #expect(requestTime < 10.0)
             
         } catch {
-            // Network failure is acceptable - the test is about performance when it works
             let endTime = Date()
             let requestTime = endTime.timeIntervalSince(startTime)
             
             // Even failed requests should timeout reasonably
             #expect(requestTime < 15.0)
+            Issue.record("Exchange rate fetch failed: \(error)")
         }
     }
     
@@ -136,7 +145,8 @@ import Foundation
                     do {
                         let _ = try await service.fetchRate(from: "USD", to: "EUR")
                     } catch {
-                        // Individual request failures are acceptable
+                        // Individual request failures are reported
+                        Issue.record("Concurrent exchange rate fetch failed: \(error)")
                     }
                 }
             }

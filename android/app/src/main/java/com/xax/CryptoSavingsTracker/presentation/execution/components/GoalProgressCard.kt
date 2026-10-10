@@ -36,6 +36,15 @@ internal fun GoalProgressCard(
     remainingCurrency: String?,
     onAddToCloseMonth: ((ExecutionGoalProgress) -> Unit)?
 ) {
+    if (goal.conversionError != null) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(goal.snapshot.goalName, fontWeight = FontWeight.Medium)
+                Text(goal.conversionError, color = MaterialTheme.colorScheme.error)
+            }
+        }
+        return
+    }
     val progressPercent = goal.progressPercent
     val progressColor = if (isFulfilled) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
     val backgroundColor = if (isFulfilled) {

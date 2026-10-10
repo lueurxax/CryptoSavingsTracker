@@ -157,6 +157,8 @@ class AssetListViewModelInstrumentedTest {
     private class TestOnChainBalanceRepository(
         private val balanceByAssetId: Map<String, Double>
     ) : OnChainBalanceRepository {
+        override val balanceChanges = kotlinx.coroutines.flow.MutableStateFlow(0L)
+
         override suspend fun getBalance(asset: Asset, forceRefresh: Boolean): Result<OnChainBalance> {
             val balance = balanceByAssetId[asset.id] ?: 0.0
             return Result.success(

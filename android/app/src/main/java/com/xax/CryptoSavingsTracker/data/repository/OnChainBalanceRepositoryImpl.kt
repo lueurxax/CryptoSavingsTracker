@@ -9,6 +9,8 @@ import com.xax.CryptoSavingsTracker.domain.model.OnChainBalance
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.util.TokenBucketRateLimiter
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
@@ -34,6 +36,9 @@ class OnChainBalanceRepositoryImpl @Inject constructor(
     private val apiKeyStore: ApiKeyStore,
     @ApplicationContext private val context: Context
 ) : OnChainBalanceRepository {
+
+    private val balanceRevision = MutableStateFlow(0L)
+    override val balanceChanges = balanceRevision.asStateFlow()
 
     private val mutex = Mutex()
     private val prefs: SharedPreferences by lazy {
@@ -103,7 +108,10 @@ class OnChainBalanceRepositoryImpl @Inject constructor(
     }
 
     override suspend fun clearCache() {
-        mutex.withLock { prefs.edit().clear().apply() }
+        mutex.withLock {
+            prefs.edit().clear().apply()
+            balanceRevision.value += 1
+        }
     }
 
     private suspend fun getCacheEntry(key: String): BalanceCacheEntry? {
@@ -115,6 +123,7 @@ class OnChainBalanceRepositoryImpl @Inject constructor(
     private suspend fun putCacheEntry(key: String, entry: BalanceCacheEntry) {
         mutex.withLock {
             prefs.edit().putString(key, json.encodeToString(entry)).apply()
+            balanceRevision.value += 1
         }
     }
 

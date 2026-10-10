@@ -164,6 +164,7 @@ fun ExecutionScreen(
                     onComplete = viewModel::completeExecution,
                     onUndoStart = viewModel::undoStartExecution,
                     onDisplayCurrencySelected = viewModel::updateDisplayCurrency,
+                    onRetryRates = viewModel::refresh,
                     onAddToCloseMonth = { goal ->
                         selectedGoal = goal
                         coroutineScope.launch {
@@ -237,6 +238,7 @@ private fun ActiveExecutionContent(
     onComplete: () -> Unit,
     onUndoStart: () -> Unit,
     onDisplayCurrencySelected: (String) -> Unit,
+    onRetryRates: () -> Unit,
     onAddToCloseMonth: (ExecutionGoalProgress) -> Unit,
     onAssetSelected: (ExecutionAssetOption) -> Unit,
     showAssetPicker: Boolean,
@@ -264,6 +266,7 @@ private fun ActiveExecutionContent(
                     currencyPickerExpanded = false
                 },
                 currencyPickerExpanded = currencyPickerExpanded,
+                onRetryRates = onRetryRates,
                 onToggleCurrencyPicker = { currencyPickerExpanded = !currencyPickerExpanded }
             )
         }
@@ -307,6 +310,7 @@ private fun ActiveExecutionContent(
             ActionButtonsSection(
                 monthLabel = session.record.monthLabel,
                 isBusy = isBusy,
+                canComplete = session.conversionError == null,
                 onComplete = onComplete
             )
         }
@@ -430,7 +434,8 @@ private fun CompletedGoalsSection(
 private fun ActionButtonsSection(
     monthLabel: String,
     isBusy: Boolean,
-    onComplete: () -> Unit
+    onComplete: () -> Unit,
+    canComplete: Boolean
 ) {
     val monthDisplay = formatMonthLabel(monthLabel)
     Column(
@@ -439,7 +444,7 @@ private fun ActionButtonsSection(
     ) {
         Button(
             onClick = onComplete,
-            enabled = !isBusy,
+            enabled = !isBusy && canComplete,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.secondary
             ),
