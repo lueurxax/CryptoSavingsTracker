@@ -6,6 +6,7 @@ import com.xax.CryptoSavingsTracker.domain.model.ExecutionRecord
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.CompleteExecutionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionGoalProgress
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionSession
+import com.xax.CryptoSavingsTracker.domain.usecase.execution.ExecutionActionCopyCatalog
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.GetExecutionSessionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.StartExecutionUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.execution.UndoExecutionUseCase
@@ -27,10 +28,14 @@ data class MonthlyExecutionUiState(
     val record: ExecutionRecord? = null,
     val goalProgress: List<ExecutionGoalProgress> = emptyList(),
     val overallProgress: Double = 0.0,
-    val totalPlanned: Double = 0.0,
-    val totalContributed: Double = 0.0,
+    val totalPlanned: Double? = null,
+    val totalContributed: Double? = null,
+    val totalsCurrency: String? = null,
     val fulfilledCount: Int = 0,
     val totalGoals: Int = 0,
+    val isProgressAvailable: Boolean = false,
+    val canComplete: Boolean = false,
+    val recoveryRequired: Boolean = false,
     val showUndoBanner: Boolean = false,
     val undoExpiresAt: Long? = null,
     val undoTimeRemaining: String = "",
@@ -58,7 +63,7 @@ data class MonthlyExecutionUiState(
 
     /** Whether all active goals are fulfilled */
     val allFulfilled: Boolean
-        get() = activeGoals.isEmpty() && completedGoals.isNotEmpty()
+        get() = isProgressAvailable && activeGoals.isEmpty() && completedGoals.isNotEmpty()
 
     /** Month label from record */
     val monthLabel: String
@@ -98,11 +103,18 @@ class MonthlyExecutionViewModel @Inject constructor(
                             record = null,
                             goalProgress = emptyList(),
                             overallProgress = 0.0,
-                            totalPlanned = 0.0,
-                            totalContributed = 0.0,
+                            totalPlanned = null,
+                            totalContributed = null,
+                            totalsCurrency = null,
                             fulfilledCount = 0,
                             totalGoals = 0,
+                            isProgressAvailable = false,
+                            canComplete = false,
+                            recoveryRequired = false,
                             showUndoBanner = false,
+                            undoExpiresAt = null,
+                            undoTimeRemaining = "",
+                            showCompleteConfirmDialog = false,
                             isLoading = false
                         )
                     }
@@ -118,19 +130,26 @@ class MonthlyExecutionViewModel @Inject constructor(
      */
     private fun updateFromSession(session: ExecutionSession) {
         val record = session.record
-        val showUndo = record.canUndo()
+        val recoveryRequired = !session.isProgressAvailable
+        val showUndo = record.canUndo() || recoveryRequired
 
         _uiState.update {
             it.copy(
                 record = record,
-                goalProgress = session.goals,
-                overallProgress = session.overallProgress,
-                totalPlanned = session.totalPlanned,
-                totalContributed = session.totalContributed,
-                fulfilledCount = session.fulfilledCount,
-                totalGoals = session.goals.size,
+                goalProgress = if (session.isProgressAvailable) session.goals else emptyList(),
+                overallProgress = if (session.isProgressAvailable) session.overallProgress else 0.0,
+                totalPlanned = if (session.isProgressAvailable) session.totalPlanned else null,
+                totalContributed = if (session.isProgressAvailable) session.totalContributed else null,
+                totalsCurrency = if (session.isProgressAvailable) session.totalsCurrency else null,
+                fulfilledCount = if (session.isProgressAvailable) session.fulfilledCount else 0,
+                totalGoals = if (session.isProgressAvailable) session.goals.size else 0,
+                isProgressAvailable = session.isProgressAvailable,
+                canComplete = session.isProgressAvailable && session.conversionError == null,
+                recoveryRequired = recoveryRequired,
                 showUndoBanner = showUndo,
                 undoExpiresAt = record.canUndoUntilMillis,
+                undoTimeRemaining = if (recoveryRequired) "" else it.undoTimeRemaining,
+                showCompleteConfirmDialog = if (recoveryRequired) false else it.showCompleteConfirmDialog,
                 isLoading = false
             )
         }
@@ -143,6 +162,12 @@ class MonthlyExecutionViewModel @Inject constructor(
         viewModelScope.launch {
             while (true) {
                 delay(1000L) // Update every second
+                if (_uiState.value.recoveryRequired) {
+                    _uiState.update {
+                        it.copy(showUndoBanner = true, undoTimeRemaining = "")
+                    }
+                    continue
+                }
                 val expiresAt = _uiState.value.undoExpiresAt
                 if (expiresAt != null) {
                     val remaining = expiresAt - System.currentTimeMillis()
@@ -202,7 +227,16 @@ class MonthlyExecutionViewModel @Inject constructor(
      * Show confirmation dialog before completing.
      */
     fun showCompleteConfirmation() {
-        _uiState.update { it.copy(showCompleteConfirmDialog = true) }
+        _uiState.update {
+            if (it.canComplete) {
+                it.copy(showCompleteConfirmDialog = true)
+            } else {
+                it.copy(
+                    showCompleteConfirmDialog = false,
+                    error = ExecutionActionCopyCatalog.progressUnavailable()
+                )
+            }
+        }
     }
 
     /**
@@ -216,7 +250,17 @@ class MonthlyExecutionViewModel @Inject constructor(
      * Complete the current month's execution.
      */
     fun completeExecution() {
-        val recordId = _uiState.value.record?.id ?: return
+        val state = _uiState.value
+        val recordId = state.record?.id ?: return
+        if (!state.canComplete) {
+            _uiState.update {
+                it.copy(
+                    showCompleteConfirmDialog = false,
+                    error = ExecutionActionCopyCatalog.progressUnavailable()
+                )
+            }
+            return
+        }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessing = true, showCompleteConfirmDialog = false, error = null) }

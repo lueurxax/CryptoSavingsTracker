@@ -13,7 +13,7 @@ import java.util.UUID
     tableName = "assets",
     indices = [
         Index(value = ["currency"]),
-        Index(value = ["address"], unique = true)
+        Index(value = ["address", "chain_id", "currency"], unique = true)
     ]
 )
 data class AssetEntity(

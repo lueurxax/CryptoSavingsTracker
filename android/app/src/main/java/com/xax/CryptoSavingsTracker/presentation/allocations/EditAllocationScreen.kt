@@ -112,6 +112,7 @@ fun EditAllocationScreen(
                         isCryptoAsset = uiState.asset?.isCryptoAsset == true,
                         assetBalance = uiState.assetBalance,
                         availableBalance = uiState.availableBalance,
+                        balanceIssue = uiState.balanceIssue,
                         amount = uiState.amount,
                         amountError = uiState.amountError,
                         isSaving = uiState.isSaving,
@@ -149,8 +150,9 @@ private fun EditAllocationContent(
     assetName: String,
     assetCurrency: String,
     isCryptoAsset: Boolean,
-    assetBalance: Double,
-    availableBalance: Double,
+    assetBalance: Double?,
+    availableBalance: Double?,
+    balanceIssue: String?,
     amount: String,
     amountError: String?,
     isSaving: Boolean,
@@ -177,15 +179,39 @@ private fun EditAllocationContent(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Balance: ${AmountFormatters.formatDisplayCurrencyAmount(assetBalance, assetCurrency, isCrypto = isCryptoAsset)}",
+                    text = assetBalance?.let {
+                        "Balance: ${
+                            AmountFormatters.formatDisplayCurrencyAmount(
+                                it,
+                                assetCurrency,
+                                isCrypto = isCryptoAsset
+                            )
+                        }"
+                    } ?: "Balance unavailable",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (assetBalance == null) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Available (unallocated): ${AmountFormatters.formatDisplayCurrencyAmount(availableBalance, assetCurrency, isCrypto = isCryptoAsset)}",
+                    text = availableBalance?.let {
+                        "Available (unallocated): ${
+                            AmountFormatters.formatDisplayCurrencyAmount(
+                                it,
+                                assetCurrency,
+                                isCrypto = isCryptoAsset
+                            )
+                        }"
+                    } ?: (balanceIssue ?: "Available balance unavailable"),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (availableBalance == null) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
             }
         }
@@ -217,7 +243,8 @@ private fun EditAllocationContent(
                 )
                 TextButton(
                     onClick = onMaxClicked,
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.padding(top = 8.dp),
+                    enabled = availableBalance != null
                 ) {
                     Text("MAX")
                 }
@@ -227,7 +254,7 @@ private fun EditAllocationContent(
         item {
             Button(
                 onClick = onSave,
-                enabled = !isSaving,
+                enabled = !isSaving && availableBalance != null,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (isSaving) {

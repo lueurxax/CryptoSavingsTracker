@@ -20,7 +20,7 @@ class AllocationRepositoryImpl @Inject constructor(
     private val allocationDao: AllocationDao
 ) : AllocationRepository {
 
-    override fun getAllAllocations(): Flow<List<Allocation>> {
+    override fun getAllAllocationsFlow(): Flow<List<Allocation>> {
         return allocationDao.getAllAllocations().map { it.toDomainList() }
     }
 

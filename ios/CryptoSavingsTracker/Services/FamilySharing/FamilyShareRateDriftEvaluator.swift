@@ -21,6 +21,12 @@ actor FamilyShareRateDriftEvaluator {
     /// Goal inputs for rate-drift evaluation.
     private var trackedGoalInputs: [GoalProgressInput] = []
 
+    /// Cumulative valid rates for the currently tracked goal set.
+    private var cumulativeRates: [String: Decimal] = [:]
+    private var rateTimestamps: [String: Date] = [:]
+    private var calculationRatePairs: Set<String> = []
+    private var requiredRatePairs: Set<String> = []
+
     /// Task running the rate-refresh listener.
     private var listenerTask: Task<Void, Never>?
 
@@ -40,12 +46,19 @@ actor FamilyShareRateDriftEvaluator {
     func start(
         goalInputs: [GoalProgressInput],
         lastPublished: [UUID: Decimal],
+        initialRateSnapshot: RateSnapshot? = nil,
         handler: @escaping (FamilyShareProjectionDirtyReason) -> Void
     ) {
         guard rollout.isFreshnessPipelineEnabled() else { return }
 
-        self.trackedGoalInputs = goalInputs
-        self.lastPublishedAmounts = lastPublished
+        listenerTask?.cancel()
+        cumulativeRates = [:]
+        rateTimestamps = [:]
+        configureTrackedGoals(
+            goalInputs,
+            lastPublished: lastPublished,
+            rateSnapshot: initialRateSnapshot
+        )
         self.onDirtyEvent = handler
 
         listenerTask = Task { [weak self] in
@@ -58,9 +71,16 @@ actor FamilyShareRateDriftEvaluator {
     }
 
     /// Update tracked goals (called when allocations change).
-    func updateTrackedGoals(_ inputs: [GoalProgressInput], lastPublished: [UUID: Decimal]) {
-        self.trackedGoalInputs = inputs
-        self.lastPublishedAmounts = lastPublished
+    func updateTrackedGoals(
+        _ inputs: [GoalProgressInput],
+        lastPublished: [UUID: Decimal],
+        rateSnapshot: RateSnapshot? = nil
+    ) {
+        configureTrackedGoals(
+            inputs,
+            lastPublished: lastPublished,
+            rateSnapshot: rateSnapshot
+        )
     }
 
     /// Teardown for rollback.
@@ -70,26 +90,51 @@ actor FamilyShareRateDriftEvaluator {
         onDirtyEvent = nil
         trackedGoalInputs = []
         lastPublishedAmounts = [:]
+        cumulativeRates = [:]
+        rateTimestamps = [:]
+        calculationRatePairs = []
+        requiredRatePairs = []
     }
 
     // MARK: - Private
 
     private func evaluateDrift(rateEvent: RateRefreshEvent) {
         guard rollout.isFreshnessPipelineEnabled() else { return }
+        let refreshedRates = rateEvent.rates.filter {
+            rateEvent.refreshedPairs.contains($0.key)
+        }
+        guard mergeRates(
+            refreshedRates,
+            timestamp: rateEvent.rateSnapshotTimestamp
+        ) else {
+            return
+        }
 
         let rateSnapshot = RateSnapshot(
-            rates: rateEvent.rates,
-            timestamp: rateEvent.rateSnapshotTimestamp
+            rates: cumulativeRates,
+            timestamp: calculationRatePairs
+                .compactMap { rateTimestamps[$0] }
+                .min() ?? rateEvent.rateSnapshotTimestamp
         )
 
         var materialGoalIDs: Set<UUID> = []
 
         for input in trackedGoalInputs {
             let result = calculator.calculateProgress(for: input, rates: rateSnapshot)
+            guard result.isComplete else {
+                continue
+            }
             let lastAmount = lastPublishedAmounts[input.goalID] ?? 0
 
             // Get USD-to-goal-currency rate for materiality check
-            let usdToGoalRate = rateEvent.rate(from: "USD", to: input.currency)
+            let usdToGoalRate: Decimal?
+            if input.currency.caseInsensitiveCompare("USD") == .orderedSame {
+                usdToGoalRate = 1
+            } else {
+                usdToGoalRate = cumulativeRates[
+                    CurrencyPair.canonicalKey(from: "USD", to: input.currency)
+                ]
+            }
 
             if materialityPolicy.isMaterial(
                 newAmount: result.currentAmount,
@@ -110,5 +155,46 @@ actor FamilyShareRateDriftEvaluator {
         } else {
             FamilyShareTelemetryTracker().track(.rateDriftBelowThreshold)
         }
+    }
+
+    private func configureTrackedGoals(
+        _ inputs: [GoalProgressInput],
+        lastPublished: [UUID: Decimal],
+        rateSnapshot: RateSnapshot?
+    ) {
+        trackedGoalInputs = inputs
+        lastPublishedAmounts = lastPublished
+
+        let requirements = FamilyShareRateRequirements(goalInputs: inputs)
+        calculationRatePairs = requirements.calculationPairs
+        requiredRatePairs = requirements.allPairs
+        cumulativeRates = cumulativeRates.filter {
+            requiredRatePairs.contains($0.key)
+        }
+        rateTimestamps = rateTimestamps.filter {
+            requiredRatePairs.contains($0.key)
+        }
+
+        if let rateSnapshot {
+            _ = mergeRates(
+                rateSnapshot.rates,
+                timestamp: rateSnapshot.timestamp
+            )
+        }
+    }
+
+    @discardableResult
+    private func mergeRates(
+        _ rates: [String: Decimal],
+        timestamp: Date
+    ) -> Bool {
+        var mergedRequiredRate = false
+        for pair in requiredRatePairs {
+            guard let rate = rates[pair], rate > 0 else { continue }
+            cumulativeRates[pair] = rate
+            rateTimestamps[pair] = timestamp
+            mergedRequiredRate = true
+        }
+        return mergedRequiredRate
     }
 }

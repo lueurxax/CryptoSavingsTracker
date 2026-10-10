@@ -495,10 +495,8 @@ private struct MonthlyPlanningContainerContent: View {
 
             // 2. Get MonthlyPlanService through DI
             let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
-            let planningMutationService = DIContainer.shared.makePlanningMutationService(modelContext: modelContext)
-            let monthLabel = planningViewModel.planningMonthLabel.isEmpty
-                ? planService.currentMonthLabel()
-                : planningViewModel.planningMonthLabel
+            let monthLabel = planningMonthLabelForStartTracking()
+            planningViewModel.planningMonthLabel = monthLabel
 
             AppLog.info("startTracking: Step 3 - Getting/creating plans for \(monthLabel)", category: .executionTracking)
             // 3. Get or create plans (serialized via AsyncSerialExecutor)
@@ -515,18 +513,12 @@ private struct MonthlyPlanningContainerContent: View {
             // - User's flex slider adjustments (applied when slider changes)
             // Calling it again would overwrite user's budget with calculated requiredMonthly values.
 
-            try planningMutationService.preparePlansForExecution(plans)
-
             AppLog.info("startTracking: Step 5 - Validating plans", category: .executionTracking)
             // 5. Validate plans before transition
             try planService.validatePlansForExecution(plans)
 
-            AppLog.info("startTracking: Step 6 - Starting execution", category: .executionTracking)
-            // 6. Transition plans from draft to executing
-            try planService.startExecution(for: plans)
-
-            AppLog.info("startTracking: Step 7 - Creating execution record", category: .executionTracking)
-            // 7. Create execution record with snapshot
+            AppLog.info("startTracking: Step 6 - Starting atomic execution", category: .executionTracking)
+            // Transition plans and create the execution record in one save.
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
 
             let record = try executionService.startTracking(
@@ -568,12 +560,7 @@ private struct MonthlyPlanningContainerContent: View {
         isLoading = true
 
         do {
-            // Reset plan states to draft for this month
-            let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
-            let plans = try planService.fetchPlans(for: record.monthLabel)
-            try DIContainer.shared.makePlanningMutationService(modelContext: modelContext).resetPlansToDraft(plans)
-
-            // Undo start tracking (respects undo window)
+            // Undo record and plan transitions in one persistence operation.
             let executionService = DIContainer.shared.executionTrackingService(modelContext: modelContext)
             try executionService.undoStartTracking(record)
             cycleState = .planning(
@@ -757,14 +744,6 @@ private struct MonthlyPlanningContainerContent: View {
     }
 
     private func nextMonthLabel(after monthLabel: String) -> String? {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        formatter.dateFormat = "yyyy-MM"
-        guard let date = formatter.date(from: monthLabel) else { return nil }
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
-        guard let next = calendar.date(byAdding: .month, value: 1, to: date) else { return nil }
-        return formatter.string(from: next)
+        try? PlanningMonthContract.nextLabel(after: monthLabel)
     }
 }

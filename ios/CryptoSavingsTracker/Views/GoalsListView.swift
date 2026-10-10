@@ -11,13 +11,7 @@ import Foundation
 
 struct GoalsListView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(
-        filter: #Predicate<Goal> { goal in
-            goal.lifecycleStatusRawValue == "active"
-        },
-        sort: [SortDescriptor(\Goal.deadline)]
-    )
-    private var goals: [Goal]
+    @Query private var goals: [Goal]
     @State private var refreshTrigger = UUID()
     @State private var showingAddGoal = false
     @State private var editingGoal: Goal?
@@ -25,6 +19,15 @@ struct GoalsListView: View {
     @State private var showingLifecycleActions = false
     @State private var showingOnboarding = false
     @State private var goalPendingCompletion: Goal?
+    @State private var lifecycleErrorMessage: String?
+
+    init() {
+        _goals = Query(
+            filter: GoalListQuery.activePredicate,
+            sort: \Goal.deadline,
+            order: .forward
+        )
+    }
 
     var body: some View {
         Group {
@@ -89,9 +92,7 @@ struct GoalsListView: View {
                                     }
 
                                     Button {
-                                        Task { @MainActor in
-                                            await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
-                                        }
+                                        deleteGoal(goal)
                                     } label: {
                                         HStack {
                                             Text("Delete Goal")
@@ -115,15 +116,30 @@ struct GoalsListView: View {
             ) {
                 if let goal = selectedGoalForLifecycleAction {
                     Button("Cancel Goal (free allocations)", role: .destructive) {
-                        Task { @MainActor in
-                            await GoalLifecycleService(modelContext: modelContext).cancelGoal(goal)
-                        }
+                        cancelGoal(goal)
                     }
                     Button("Finish Goal") {
                         goalPendingCompletion = goal
                     }
                 }
                 Button("Close", role: .cancel) { }
+            }
+            .alert(
+                "Goal Not Updated",
+                isPresented: Binding(
+                    get: { lifecycleErrorMessage != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            lifecycleErrorMessage = nil
+                        }
+                    }
+                )
+            ) {
+                Button("OK", role: .cancel) {
+                    lifecycleErrorMessage = nil
+                }
+            } message: {
+                Text(lifecycleErrorMessage ?? "Unable to update this goal right now.")
             }
             .onAppear {
                 // Debug log all loaded goals
@@ -175,12 +191,37 @@ struct GoalsListView: View {
     }
 
     private func deleteGoals(offsets: IndexSet) {
-        withAnimation(.default) {
-            for index in offsets {
-                let goal = goals[index]
-                Task { @MainActor in
-                    await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
-                }
+        for index in offsets {
+            deleteGoal(goals[index])
+        }
+    }
+
+    private func deleteGoal(_ goal: Goal) {
+        Task { @MainActor in
+            do {
+                try await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
+            } catch {
+                lifecycleErrorMessage = "Unable to delete this goal. Please try again."
+            }
+        }
+    }
+
+    private func cancelGoal(_ goal: Goal) {
+        Task { @MainActor in
+            do {
+                try await GoalLifecycleService(modelContext: modelContext).cancelGoal(goal)
+            } catch {
+                lifecycleErrorMessage = "Unable to cancel this goal. Please try again."
+            }
+        }
+    }
+
+    private func finishGoal(_ goal: Goal) {
+        Task { @MainActor in
+            do {
+                try await GoalLifecycleService(modelContext: modelContext).finishGoal(goal)
+            } catch {
+                lifecycleErrorMessage = "Unable to finish this goal. Please try again."
             }
         }
     }

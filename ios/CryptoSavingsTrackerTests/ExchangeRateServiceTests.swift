@@ -158,4 +158,23 @@ import Foundation
         // If we get here without crashing, the concurrent access is handled properly
         #expect(true)
     }
+
+    @Test("Real service tracked-pair refresh completes without cache queue re-entry")
+    func trackedPairRefreshCompletesWithoutDeadlock() async throws {
+        let suiteName = "ExchangeRateServiceTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let service = ExchangeRateService(
+            apiKey: "test-key",
+            userDefaults: defaults,
+            cacheExpiration: 0
+        )
+
+        _ = try await service.fetchRate(from: "USD", to: "USD")
+        let startedAt = ContinuousClock.now
+        await service.refreshRatesIfStale()
+        let duration = startedAt.duration(to: .now)
+
+        #expect(duration < .seconds(1))
+    }
 }

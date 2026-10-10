@@ -13,17 +13,53 @@ import Foundation
 final class ExecutionTrackingService {
     let modelContext: ModelContext
     private let exchangeRateService: ExchangeRateServiceProtocol
+    private let saveChanges: () throws -> Void
+    private let now: () -> Date
+    private let makeCompletionEvent: (
+        MonthlyExecutionRecord,
+        Int,
+        Date,
+        CompletedExecution
+    ) throws -> CompletionEvent
 
-    init(modelContext: ModelContext) {
+    init(
+        modelContext: ModelContext,
+        exchangeRateService: ExchangeRateServiceProtocol? = nil,
+        saveChanges: (() throws -> Void)? = nil,
+        now: @escaping () -> Date = Date.init,
+        makeCompletionEvent: ((
+            MonthlyExecutionRecord,
+            Int,
+            Date,
+            CompletedExecution
+        ) throws -> CompletionEvent)? = nil
+    ) {
         self.modelContext = modelContext
-        self.exchangeRateService = DIContainer.shared.exchangeRateService
+        self.exchangeRateService = exchangeRateService ?? DIContainer.shared.exchangeRateService
+        self.saveChanges = saveChanges ?? {
+            try modelContext.save()
+        }
+        self.now = now
+        self.makeCompletionEvent = makeCompletionEvent ?? {
+            record,
+            sequence,
+            completedAt,
+            snapshot in
+            CompletionEvent(
+                executionRecord: record,
+                sequence: sequence,
+                sourceDiscriminator: snapshot.id.uuidString,
+                completedAt: completedAt,
+                completionSnapshot: snapshot
+            )
+        }
     }
 
     // MARK: - Execution Record Management
 
     /// Get or create execution record for current month
     func getCurrentMonthRecord() throws -> MonthlyExecutionRecord? {
-        let monthLabel = MonthlyExecutionRecord.monthLabel(from: Date())
+        let monthLabel = MonthlyExecutionRecord.monthLabel(from: now())
         return try getRecord(for: monthLabel)
     }
 
@@ -120,19 +156,24 @@ final class ExecutionTrackingService {
 
         var didChange = false
         if record.startedAt == nil {
-            record.startedAt = Date()
-            record.canUndoUntil = Date().addingTimeInterval(24 * 3600)
+            let startedAt = now()
+            record.startedAt = startedAt
+            record.canUndoUntil = startedAt.addingTimeInterval(24 * 3600)
             didChange = true
         }
         if record.goalIds.isEmpty,
            let snapshot = record.snapshot,
-           let encoded = try? JSONEncoder().encode(snapshot.goalSnapshots.map { $0.goalId }) {
+           let encoded = try? JSONEncoder().encode(
+               canonicalActiveGoalIDs(
+                   from: snapshot.goalSnapshots.map(\.goalId)
+               )
+           ) {
             record.trackedGoalIds = encoded
             didChange = true
         }
 
         if didChange {
-            try modelContext.save()
+            try saveChanges()
         }
     }
 
@@ -145,170 +186,294 @@ final class ExecutionTrackingService {
         goals: [Goal]
     ) throws -> MonthlyExecutionRecord {
         AppLog.info("Starting execution tracking for month: \(monthLabel)", category: .executionTracking)
-
-        // Check if record already exists
-        if let existing = try getRecord(for: monthLabel) {
-            if existing.status == .draft || existing.status == .executing {
-                // Always refresh snapshot from current plans to reflect latest adjustments
-                let goalIds = plans.map { $0.goalId }
-                if let encoded = try? JSONEncoder().encode(goalIds) {
-                    existing.trackedGoalIds = encoded
-                }
-
-                let validPlans = plans.filter { plan in
-                    let hasValidAmount = plan.effectiveAmount > 0 || plan.requiredMonthly > 0
-                    return hasValidAmount
-                }
-
-                let snapshot = ExecutionSnapshot.create(from: validPlans, goals: goals)
-                existing.snapshot = snapshot
-
-                // Verify the snapshot
-                if let decodedSnapshots = try? JSONDecoder().decode([ExecutionGoalSnapshot].self, from: snapshot.snapshotData) {
-                    for _ in decodedSnapshots {
-                    }
-                }
-
-                // Transition to executing if needed
-                if existing.status == .draft {
-                    existing.startTracking(undoWindowHours: undoWindowHours())
-                } else if existing.status == .executing && existing.startedAt == nil {
-                    // Older records may not have start time/undo window populated
-                    existing.startedAt = Date()
-                    existing.canUndoUntil = Date().addingTimeInterval(TimeInterval(undoWindowHours() * 3600))
-                }
-
-                if let startedAt = existing.startedAt {
-                    seedAllocationHistoryBaseline(goals: goals, at: startedAt)
-                }
-
-                try modelContext.save()
-                return existing
-            } else {
-                throw ExecutionError.recordAlreadyExists
+        let suppliedGoalIDs = Set(goals.map(\.id))
+        let activeGoalDescriptor = FetchDescriptor<Goal>(
+            predicate: #Predicate { goal in
+                goal.lifecycleStatusRawValue == "active"
             }
+        )
+        let activeGoals = try modelContext.fetch(activeGoalDescriptor).filter {
+            suppliedGoalIDs.contains($0.id)
+        }
+        let activeGoalIDs = Set(activeGoals.map(\.id))
+        let activePlans = plans.filter {
+            $0.monthLabel == monthLabel && activeGoalIDs.contains($0.goalId)
+        }
+        guard !activePlans.isEmpty else {
+            throw ExecutionError.invalidState
+        }
+        guard activePlans.allSatisfy({
+            $0.state == .draft
+                && ($0.isSkipped || $0.effectiveAmount > 0)
+        }) else {
+            throw ExecutionError.invalidState
         }
 
-        // Create new record
-        let goalIds = plans.map { $0.goalId }
-        let record = MonthlyExecutionRecord(monthLabel: monthLabel, goalIds: goalIds)
-
-        // Create snapshot using factory method (ensures proper SwiftData initialization)
-
-        // Ensure we have valid plans with data
-        let validPlans = plans.filter { plan in
-            let hasValidAmount = plan.effectiveAmount > 0 || plan.requiredMonthly > 0
-            return hasValidAmount
+        let goalIDs = activePlans.map(\.goalId)
+        guard Set(goalIDs).count == goalIDs.count else {
+            throw ExecutionError.invalidState
         }
 
+        let executionSnapshot = try ExecutionSnapshot.create(
+            from: activePlans,
+            goals: activeGoals
+        )
+        let existing = try getRecord(for: monthLabel)
+        if let existing, existing.status == .closed {
+            throw ExecutionError.recordAlreadyExists
+        }
+        let record = existing ?? MonthlyExecutionRecord(
+            monthLabel: monthLabel,
+            goalIds: goalIDs
+        )
+        let recordState = existing.map(ExecutionRecordMutationSnapshot.init)
+        let planStates = activePlans.map(ExecutionPlanMutationSnapshot.init)
+        let oldSnapshot = existing?.snapshot
+        let startedAt = record.startedAt ?? now()
+        var insertedRecord = false
 
-        let snapshot = ExecutionSnapshot.create(from: validPlans, goals: goals)
+        let allowedModels: [any PersistentModel] =
+            activePlans.map { $0 as any PersistentModel }
+            + [existing].compactMap { $0 as (any PersistentModel)? }
+            + [oldSnapshot].compactMap { $0 as (any PersistentModel)? }
 
-        // Verify snapshot data
-        if let decodedSnapshots = try? JSONDecoder().decode([ExecutionGoalSnapshot].self, from: snapshot.snapshotData) {
-            for _ in decodedSnapshots {
+        let savedRecord = try PersistenceOperationTransaction.perform(
+            in: modelContext,
+            saveChanges: saveChanges,
+            allowingPreexistingChangesTo: allowedModels,
+            restoreTouchedState: {
+                planStates.forEach { $0.restore() }
+                if let recordState {
+                    recordState.restore()
+                }
+                if insertedRecord {
+                    PersistenceOperationTransaction.discardInserted(
+                        [record],
+                        from: self.modelContext
+                    )
+                }
+                PersistenceOperationTransaction.discardInserted(
+                    [executionSnapshot],
+                    from: self.modelContext
+                )
             }
-        } else {
-            AppLog.error("Failed to decode snapshot data for verification!", category: .executionTracking)
+        ) {
+            if existing == nil {
+                self.modelContext.insert(record)
+                insertedRecord = true
+            }
+
+            record.trackedGoalIds = try JSONEncoder().encode(goalIDs)
+            record.snapshot = executionSnapshot
+            if record.status == .draft {
+                record.startTracking(
+                    at: startedAt,
+                    undoWindowHours: self.undoWindowHours()
+                )
+            } else if record.status == .executing && record.startedAt == nil {
+                record.startedAt = startedAt
+                record.canUndoUntil = startedAt.addingTimeInterval(
+                    TimeInterval(self.undoWindowHours() * 3_600)
+                )
+            }
+
+            for plan in activePlans {
+                plan.state = .executing
+                plan.executionRecord = record
+            }
+            record.plans = activePlans
+
+            try self.seedAllocationHistoryBaseline(
+                goals: activeGoals,
+                monthLabel: monthLabel,
+                at: startedAt
+            )
+            return record
         }
-
-        record.snapshot = snapshot
-
-        // Start tracking
-        record.startTracking(undoWindowHours: undoWindowHours())
-
-        modelContext.insert(record)
-        if let startedAt = record.startedAt {
-            seedAllocationHistoryBaseline(goals: goals, at: startedAt)
-        }
-        try modelContext.save()
 
         AppLog.info("Execution tracking started successfully for \(monthLabel)", category: .executionTracking)
-        return record
+        return savedRecord
     }
 
-    private func seedAllocationHistoryBaseline(goals: [Goal], at timestamp: Date) {
+    private func seedAllocationHistoryBaseline(
+        goals: [Goal],
+        monthLabel: String,
+        at timestamp: Date
+    ) throws {
         let goalIds = Set(goals.map(\.id))
+        let allAssets = try modelContext.fetch(FetchDescriptor<Asset>())
+        let existingBaselinePredicate = #Predicate<AllocationHistory> { history in
+            history.monthLabel == monthLabel && history.timestamp == timestamp
+        }
+        let existingBaseline = try modelContext.fetch(
+            FetchDescriptor<AllocationHistory>(predicate: existingBaselinePredicate)
+        )
 
-        // Best-effort: don't fail start tracking if seeding fails.
-        do {
-            let allAssets = try modelContext.fetch(FetchDescriptor<Asset>())
-            let monthLabel = MonthlyExecutionRecord.monthLabel(from: timestamp)
-
-            let existingBaselinePredicate = #Predicate<AllocationHistory> { history in
-                history.monthLabel == monthLabel && history.timestamp == timestamp
+        var baselineEntries: [(asset: Asset, goal: Goal, amount: Double)] = []
+        baselineEntries.reserveCapacity(allAssets.count)
+        for asset in allAssets {
+            for allocation in (asset.allocations ?? []) {
+                guard let goal = allocation.goal, goalIds.contains(goal.id) else { continue }
+                baselineEntries.append(
+                    (asset: asset, goal: goal, amount: allocation.amountValue)
+                )
             }
-            let existingBaseline = (try? modelContext.fetch(FetchDescriptor<AllocationHistory>(predicate: existingBaselinePredicate))) ?? []
+        }
 
-            var baselineEntries: [(asset: Asset, goal: Goal, amount: Double)] = []
-            baselineEntries.reserveCapacity(allAssets.count)
-
-            for asset in allAssets {
-                for allocation in (asset.allocations ?? []) {
-                    guard let goal = allocation.goal, goalIds.contains(goal.id) else { continue }
-                    let amount = allocation.amountValue
-                    baselineEntries.append((asset: asset, goal: goal, amount: amount))
+        let expectedFingerprintCounts = Dictionary(
+            grouping: baselineEntries.map {
+                AllocationBaselineFingerprint(
+                    assetID: $0.asset.id,
+                    goalID: $0.goal.id,
+                    amount: $0.amount
+                )
+            },
+            by: { $0 }
+        ).mapValues(\.count)
+        let existingFingerprintCounts = Dictionary(
+            grouping: existingBaseline.compactMap {
+                history -> AllocationBaselineFingerprint? in
+                guard let assetID = history.assetId,
+                      let goalID = history.goalId
+                else {
+                    return nil
                 }
-            }
+                return AllocationBaselineFingerprint(
+                    assetID: assetID,
+                    goalID: goalID,
+                    amount: history.amount
+                )
+            },
+            by: { $0 }
+        ).mapValues(\.count)
+        if existingBaseline.count == baselineEntries.count,
+           existingFingerprintCounts == expectedFingerprintCounts {
+            return
+        }
 
-            let existingBaselineHasMissingIds = existingBaseline.contains { $0.assetId == nil || $0.goalId == nil }
-            if !baselineEntries.isEmpty, existingBaseline.count == baselineEntries.count, !existingBaselineHasMissingIds {
-                return
-            }
-
-            for history in existingBaseline {
-                modelContext.delete(history)
-            }
-
-            for entry in baselineEntries {
-                modelContext.insert(AllocationHistory(asset: entry.asset, goal: entry.goal, amount: entry.amount, timestamp: timestamp))
-            }
-        } catch {
-            AppLog.warning("AllocationHistory baseline seeding failed: \(error)", category: .executionTracking)
+        for history in existingBaseline {
+            modelContext.delete(history)
+        }
+        for entry in baselineEntries {
+            let history = AllocationHistory(
+                asset: entry.asset,
+                goal: entry.goal,
+                amount: entry.amount,
+                timestamp: timestamp
+            )
+            history.monthLabel = monthLabel
+            modelContext.insert(history)
         }
     }
 
     /// Mark month as complete
     func markComplete(_ record: MonthlyExecutionRecord) async throws {
-        #if DEBUG
-        if UITestFlags.isEnabled {
-            record.markComplete(undoWindowHours: undoWindowHours())
-            try modelContext.save()
-            // Post notification synchronously (we're already on MainActor)
-            NotificationCenter.default.post(name: .monthlyExecutionCompleted, object: record)
-            return
+        guard record.status == .executing else {
+            throw ExecutionError.invalidState
         }
-        #endif
+        let completedAt = now()
+        let canonicalGoalIDs = try canonicalActiveGoalIDs(from: record.goalIds)
+        let canonicalGoalIDSet = Set(canonicalGoalIDs)
+        let financialInputFingerprint = try completionFinancialInputFingerprint(
+            for: record
+        )
+        let canonicalGoalSnapshots = (record.snapshot?.goalSnapshots ?? []).filter {
+            canonicalGoalIDSet.contains($0.goalId)
+        }
 
-        record.markComplete(undoWindowHours: undoWindowHours())
-        let completedAt = record.completedAt ?? Date()
-
-        // Snapshot derived contributions for immutability in history views.
-        let (exchangeRatesSnapshot, contributionSnapshots) = try await buildCompletedExecutionSnapshot(for: record, end: completedAt)
+        // Derive every fallible financial input before mutating the record.
+        let (exchangeRatesSnapshot, contributionSnapshots) =
+            try await buildCompletedExecutionSnapshot(
+                for: record,
+                goalIDs: canonicalGoalIDSet,
+                end: completedAt
+            )
+        let refreshedCanonicalGoalIDs = try canonicalActiveGoalIDs(
+            from: record.goalIds
+        )
+        guard record.status == .executing,
+              refreshedCanonicalGoalIDs == canonicalGoalIDs
+        else {
+            throw ExecutionError.executionInputsChanged
+        }
         let completionSnapshot = CompletedExecution(
             monthLabel: record.monthLabel,
             completedAt: completedAt,
             exchangeRatesSnapshot: exchangeRatesSnapshot,
-            goalSnapshots: record.snapshot?.goalSnapshots ?? [],
+            goalSnapshots: canonicalGoalSnapshots,
             contributionSnapshots: contributionSnapshots
         )
-        record.completedExecution = completionSnapshot
 
-        let completionEvent = CompletionEvent(
-            executionRecord: record,
-            sequence: nextCompletionSequence(for: record),
-            sourceDiscriminator: completionSnapshot.id.uuidString,
-            completedAt: completedAt,
-            completionSnapshot: completionSnapshot
+        let plans = try fetchPlans(
+            for: record.monthLabel,
+            goalIDs: canonicalGoalIDSet
+        ).filter { $0.state == .executing }
+        let recordState = ExecutionRecordMutationSnapshot(record)
+        let planStates = plans.map(ExecutionPlanMutationSnapshot.init)
+        let executionSnapshotState = record.snapshot.map(
+            ExecutionSnapshotMutationSnapshot.init
         )
-        modelContext.insert(completionSnapshot)
-        modelContext.insert(completionEvent)
+        var insertedEvent: CompletionEvent?
 
-        try modelContext.save()
-        // Post notification on main actor for SwiftUI state updates
-        await MainActor.run {
-            NotificationCenter.default.post(name: .monthlyExecutionCompleted, object: record)
+        var allowedModels: [any PersistentModel] =
+            [record as any PersistentModel]
+            + plans.map { $0 as any PersistentModel }
+        if let snapshot = record.snapshot {
+            allowedModels.append(snapshot)
         }
+
+        guard try completionFinancialInputFingerprint(for: record)
+            == financialInputFingerprint
+        else {
+            throw ExecutionError.executionInputsChanged
+        }
+
+        try PersistenceOperationTransaction.perform(
+            in: modelContext,
+            saveChanges: saveChanges,
+            allowingPreexistingChangesTo: allowedModels,
+            restoreTouchedState: {
+                recordState.restore()
+                planStates.forEach { $0.restore() }
+                executionSnapshotState?.restore()
+                if let insertedEvent {
+                    PersistenceOperationTransaction.discardInserted(
+                        [insertedEvent],
+                        from: self.modelContext
+                    )
+                }
+                PersistenceOperationTransaction.discardInserted(
+                    [completionSnapshot],
+                    from: self.modelContext
+                )
+            }
+        ) {
+            record.trackedGoalIds = try JSONEncoder().encode(canonicalGoalIDs)
+            try record.snapshot?.replaceGoalSnapshots(
+                with: canonicalGoalSnapshots
+            )
+            record.markComplete(
+                at: completedAt,
+                undoWindowHours: self.undoWindowHours()
+            )
+            for plan in plans {
+                plan.state = .completed
+            }
+            record.completedExecution = completionSnapshot
+            self.modelContext.insert(completionSnapshot)
+
+            let event = try self.makeCompletionEvent(
+                record,
+                self.nextCompletionSequence(for: record),
+                completedAt,
+                completionSnapshot
+            )
+            insertedEvent = event
+            self.modelContext.insert(event)
+        }
+
+        // Post notification on main actor for SwiftUI state updates
+        NotificationCenter.default.post(name: .monthlyExecutionCompleted, object: record)
     }
 
     /// Undo completion (within grace period)
@@ -319,12 +484,39 @@ final class ExecutionTrackingService {
         guard record.status == .closed else {
             throw ExecutionError.invalidState
         }
-        record.undoCompletion()
-        if let latest = latestOpenCompletionEvent(for: record) {
-            latest.undoneAt = Date()
-            latest.undoReason = "manualUndo"
+        let goalIDs = Set(try canonicalActiveGoalIDs(from: record.goalIds))
+        let plans = try fetchPlans(
+            for: record.monthLabel,
+            goalIDs: goalIDs
+        ).filter { $0.state == .completed }
+        let latest = latestOpenCompletionEvent(for: record)
+        let recordState = ExecutionRecordMutationSnapshot(record)
+        let planStates = plans.map(ExecutionPlanMutationSnapshot.init)
+        let eventState = latest.map(CompletionEventMutationSnapshot.init)
+        var allowedModels: [any PersistentModel] =
+            [record as any PersistentModel]
+            + plans.map { $0 as any PersistentModel }
+        if let latest {
+            allowedModels.append(latest)
         }
-        try modelContext.save()
+
+        try PersistenceOperationTransaction.perform(
+            in: modelContext,
+            saveChanges: saveChanges,
+            allowingPreexistingChangesTo: allowedModels,
+            restoreTouchedState: {
+                recordState.restore()
+                planStates.forEach { $0.restore() }
+                eventState?.restore()
+            }
+        ) {
+            record.undoCompletion()
+            for plan in plans {
+                plan.state = .executing
+            }
+            latest?.undoneAt = self.now()
+            latest?.undoReason = "manualUndo"
+        }
     }
 
     /// Undo start tracking (within grace period)
@@ -332,8 +524,35 @@ final class ExecutionTrackingService {
         guard record.canUndo else {
             throw ExecutionError.undoPeriodExpired
         }
-        record.undoStartTracking()
-        try modelContext.save()
+        guard record.status == .executing else {
+            throw ExecutionError.invalidState
+        }
+        let plans = try fetchPlans(
+            for: record.monthLabel,
+            goalIDs: Set(record.goalIds)
+        ).filter { $0.state == .executing }
+        let recordState = ExecutionRecordMutationSnapshot(record)
+        let planStates = plans.map(ExecutionPlanMutationSnapshot.init)
+        let allowedModels: [any PersistentModel] =
+            [record as any PersistentModel]
+            + plans.map { $0 as any PersistentModel }
+
+        try PersistenceOperationTransaction.perform(
+            in: modelContext,
+            saveChanges: saveChanges,
+            allowingPreexistingChangesTo: allowedModels,
+            restoreTouchedState: {
+                recordState.restore()
+                planStates.forEach { $0.restore() }
+            }
+        ) {
+            record.undoStartTracking()
+            for plan in plans {
+                plan.state = .draft
+                plan.executionRecord = nil
+            }
+            record.plans = []
+        }
     }
 
     // MARK: - Contribution Totals (Timestamp-Based)
@@ -347,19 +566,16 @@ final class ExecutionTrackingService {
         }
         guard record.status == .executing else { return [:] }
         let calculator = ExecutionProgressCalculator(modelContext: modelContext, exchangeRateService: exchangeRateService)
-        return try await calculator.contributionTotalsInGoalCurrency(for: record, end: Date())
+        return try await calculator.contributionTotalsInGoalCurrency(for: record, end: now())
     }
 
     /// Calculate overall progress percentage for a record.
     func calculateProgress(for record: MonthlyExecutionRecord) async throws -> Double {
         let totals = try await getContributionTotals(for: record)
-        let totalContributed = totals.values.reduce(0, +)
 
         if record.status == .closed {
             guard let snapshot = record.snapshot else { return 0 }
-            return snapshot.totalPlanned > 0
-                ? (totalContributed / snapshot.totalPlanned) * 100
-                : 0
+            return snapshot.overallCompletion(with: totals)
         }
 
         guard record.status == .executing else { return 0 }
@@ -367,13 +583,20 @@ final class ExecutionTrackingService {
         // Active months: compute planned total from persisted MonthlyPlans
         let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
         let plans = try planService.fetchPlans(for: record.monthLabel)
-        let totalPlanned = plans
-            .filter { record.goalIds.contains($0.goalId) }
-            .reduce(0) { $0 + $1.effectiveAmount }
-
-        return totalPlanned > 0
-            ? (totalContributed / totalPlanned) * 100
-            : 0
+        let goalIDs = Set(try canonicalActiveGoalIDs(from: record.goalIds))
+        let targets = plans
+            .filter { goalIDs.contains($0.goalId) }
+            .map {
+                ExecutionProgressTarget(
+                    goalId: $0.goalId,
+                    plannedAmount: $0.effectiveAmount,
+                    isSkipped: $0.isSkipped
+                )
+            }
+        return ExecutionProgressAggregation.percentage(
+            targets: targets,
+            contributions: totals
+        )
     }
 
     /// Fetch goals matching a record's tracked goal IDs
@@ -383,6 +606,7 @@ final class ExecutionTrackingService {
 
         let predicate = #Predicate<Goal> { goal in
             trackedIds.contains(goal.id)
+                && goal.lifecycleStatusRawValue == "active"
         }
         let descriptor = FetchDescriptor<Goal>(predicate: predicate)
         return try modelContext.fetch(descriptor)
@@ -411,6 +635,7 @@ final class ExecutionTrackingService {
 
     private func buildCompletedExecutionSnapshot(
         for record: MonthlyExecutionRecord,
+        goalIDs: Set<UUID>,
         end: Date
     ) async throws -> ([String: Double], [CompletedExecutionContributionSnapshot]) {
         guard let startedAt = record.startedAt else { return ([:], []) }
@@ -425,7 +650,9 @@ final class ExecutionTrackingService {
         snapshots.reserveCapacity(events.count)
         let epsilon = 0.0000001
 
-        for event in events where abs(event.assetDelta) > epsilon {
+        for event in events where
+            goalIDs.contains(event.goalId) && abs(event.assetDelta) > epsilon
+        {
             let amountInGoalCurrency: Double
             let rateUsed: Double
 
@@ -437,11 +664,22 @@ final class ExecutionTrackingService {
                 if let cached = rateCache[key] {
                     rateUsed = cached
                 } else {
-                    // Best-effort: if rate fails, skip this event to avoid incorrect accounting.
-                    rateUsed = (try? await exchangeRateService.fetchRate(from: event.assetCurrency, to: event.goalCurrency)) ?? 0
-                    if rateUsed <= 0 {
-                        AppLog.warning("Exchange rate missing for \(key) during completion snapshot; skipping contribution event.", category: .exchangeRate)
-                        continue
+                    do {
+                        rateUsed = try await exchangeRateService.fetchRate(
+                            from: event.assetCurrency,
+                            to: event.goalCurrency
+                        )
+                    } catch {
+                        throw ExecutionProgressCalculator.CalculationError.exchangeRateUnavailable(
+                            from: event.assetCurrency,
+                            to: event.goalCurrency
+                        )
+                    }
+                    guard rateUsed.isFinite, rateUsed > 0 else {
+                        throw ExecutionProgressCalculator.CalculationError.exchangeRateUnavailable(
+                            from: event.assetCurrency,
+                            to: event.goalCurrency
+                        )
                     }
                     rateCache[key] = rateUsed
                 }
@@ -464,6 +702,96 @@ final class ExecutionTrackingService {
         }
 
         return (rateCache, snapshots.sorted(by: { $0.timestamp < $1.timestamp }))
+    }
+
+    private func canonicalActiveGoalIDs(from candidateIDs: [UUID]) throws -> [UUID] {
+        let candidateSet = Set(candidateIDs)
+        guard !candidateSet.isEmpty else { return [] }
+        let descriptor = FetchDescriptor<Goal>(
+            predicate: #Predicate { goal in
+                goal.lifecycleStatusRawValue == "active"
+            }
+        )
+        let activeIDs = Set(try modelContext.fetch(descriptor).map(\.id))
+        var seen: Set<UUID> = []
+        return candidateIDs.filter {
+            candidateSet.contains($0)
+                && activeIDs.contains($0)
+                && seen.insert($0).inserted
+        }
+    }
+
+    private func fetchPlans(
+        for monthLabel: String,
+        goalIDs: Set<UUID>
+    ) throws -> [MonthlyPlan] {
+        guard !goalIDs.isEmpty else { return [] }
+        let predicate = #Predicate<MonthlyPlan> { plan in
+            plan.monthLabel == monthLabel
+        }
+        return try modelContext.fetch(
+            FetchDescriptor<MonthlyPlan>(predicate: predicate)
+        ).filter { goalIDs.contains($0.goalId) }
+    }
+
+    private func completionFinancialInputFingerprint(
+        for record: MonthlyExecutionRecord
+    ) throws -> CompletionFinancialInputFingerprint {
+        modelContext.processPendingChanges()
+
+        let trackedGoalIDs = Set(record.goalIds)
+        let goals = try modelContext.fetch(FetchDescriptor<Goal>())
+            .filter { trackedGoalIDs.contains($0.id) }
+        let plans = try modelContext.fetch(FetchDescriptor<MonthlyPlan>())
+            .filter {
+                $0.monthLabel == record.monthLabel
+                    && trackedGoalIDs.contains($0.goalId)
+            }
+        let allocations = try modelContext.fetch(
+            FetchDescriptor<AssetAllocation>()
+        ).filter {
+            guard let goalID = $0.goal?.id else { return false }
+            return trackedGoalIDs.contains(goalID)
+        }
+        let histories = try modelContext.fetch(
+            FetchDescriptor<AllocationHistory>()
+        ).filter {
+            guard let goalID = $0.goalId else { return false }
+            return trackedGoalIDs.contains(goalID)
+        }
+        let relevantAssetIDs = Set(
+            allocations.compactMap { $0.asset?.id }
+                + histories.compactMap(\.assetId)
+        )
+        let assets = try modelContext.fetch(FetchDescriptor<Asset>())
+            .filter { relevantAssetIDs.contains($0.id) }
+        let transactions = try modelContext.fetch(FetchDescriptor<Transaction>())
+            .filter {
+                guard let assetID = $0.asset?.id else { return false }
+                return relevantAssetIDs.contains(assetID)
+            }
+
+        return CompletionFinancialInputFingerprint(
+            record: .init(record),
+            goals: goals.map(CompletionGoalInputFingerprint.init).sorted {
+                $0.id.uuidString < $1.id.uuidString
+            },
+            plans: plans.map(CompletionPlanInputFingerprint.init).sorted {
+                $0.id.uuidString < $1.id.uuidString
+            },
+            assets: assets.map(CompletionAssetInputFingerprint.init).sorted {
+                $0.id.uuidString < $1.id.uuidString
+            },
+            transactions: transactions
+                .map(CompletionTransactionInputFingerprint.init)
+                .sorted { $0.id.uuidString < $1.id.uuidString },
+            allocations: allocations
+                .map(CompletionAllocationInputFingerprint.init)
+                .sorted { $0.id.uuidString < $1.id.uuidString },
+            histories: histories
+                .map(CompletionAllocationHistoryInputFingerprint.init)
+                .sorted { $0.id.uuidString < $1.id.uuidString }
+        )
     }
 
     private func fetchAsset(id: UUID) throws -> Asset {
@@ -505,6 +833,268 @@ final class ExecutionTrackingService {
     }
 }
 
+private struct AllocationBaselineFingerprint: Hashable {
+    let assetID: UUID
+    let goalID: UUID
+    let amount: Double
+}
+
+private struct CompletionFinancialInputFingerprint: Equatable {
+    let record: CompletionRecordInputFingerprint
+    let goals: [CompletionGoalInputFingerprint]
+    let plans: [CompletionPlanInputFingerprint]
+    let assets: [CompletionAssetInputFingerprint]
+    let transactions: [CompletionTransactionInputFingerprint]
+    let allocations: [CompletionAllocationInputFingerprint]
+    let histories: [CompletionAllocationHistoryInputFingerprint]
+}
+
+private struct CompletionRecordInputFingerprint: Equatable {
+    let id: UUID
+    let monthLabel: String
+    let statusRawValue: String
+    let startedAt: Date?
+    let trackedGoalIDs: Data
+    let snapshotID: UUID?
+    let snapshotTotalPlannedBits: UInt64?
+    let snapshotData: Data?
+
+    init(_ record: MonthlyExecutionRecord) {
+        id = record.id
+        monthLabel = record.monthLabel
+        statusRawValue = record.statusRawValue
+        startedAt = record.startedAt
+        trackedGoalIDs = record.trackedGoalIds
+        snapshotID = record.snapshot?.id
+        snapshotTotalPlannedBits = record.snapshot?.totalPlanned.bitPattern
+        snapshotData = record.snapshot?.snapshotData
+    }
+}
+
+private struct CompletionGoalInputFingerprint: Equatable {
+    let id: UUID
+    let currency: String
+    let targetAmountBits: UInt64
+    let deadline: Date
+    let lifecycleStatusRawValue: String
+    let lifecycleStatusChangedAt: Date?
+
+    init(_ goal: Goal) {
+        id = goal.id
+        currency = goal.currency
+        targetAmountBits = goal.targetAmount.bitPattern
+        deadline = goal.deadline
+        lifecycleStatusRawValue = goal.lifecycleStatusRawValue
+        lifecycleStatusChangedAt = goal.lifecycleStatusChangedAt
+    }
+}
+
+private struct CompletionPlanInputFingerprint: Equatable {
+    let id: UUID
+    let goalID: UUID
+    let monthLabel: String
+    let requiredMonthlyBits: UInt64
+    let remainingAmountBits: UInt64
+    let monthsRemaining: Int
+    let currency: String
+    let statusRawValue: String
+    let stateRawValue: String
+    let customAmountBits: UInt64?
+    let flexStateRawValue: String
+    let isProtected: Bool
+    let isSkipped: Bool
+    let executionRecordID: UUID?
+
+    init(_ plan: MonthlyPlan) {
+        id = plan.id
+        goalID = plan.goalId
+        monthLabel = plan.monthLabel
+        requiredMonthlyBits = plan.requiredMonthly.bitPattern
+        remainingAmountBits = plan.remainingAmount.bitPattern
+        monthsRemaining = plan.monthsRemaining
+        currency = plan.currency
+        statusRawValue = plan.statusRawValue
+        stateRawValue = plan.stateRawValue
+        customAmountBits = plan.customAmount?.bitPattern
+        flexStateRawValue = plan.flexStateRawValue
+        isProtected = plan.isProtected
+        isSkipped = plan.isSkipped
+        executionRecordID = plan.executionRecord?.id
+    }
+}
+
+private struct CompletionAssetInputFingerprint: Equatable {
+    let id: UUID
+    let currency: String
+    let address: String?
+    let chainID: String?
+    let currentAmountBits: UInt64
+
+    init(_ asset: Asset) {
+        id = asset.id
+        currency = asset.currency
+        address = asset.address
+        chainID = asset.chainId
+        currentAmountBits = asset.currentAmount.bitPattern
+    }
+}
+
+private struct CompletionTransactionInputFingerprint: Equatable {
+    let id: UUID
+    let assetID: UUID?
+    let amountBits: UInt64
+    let date: Date
+    let sourceRawValue: String
+    let externalID: String?
+
+    init(_ transaction: Transaction) {
+        id = transaction.id
+        assetID = transaction.asset?.id
+        amountBits = transaction.amount.bitPattern
+        date = transaction.date
+        sourceRawValue = transaction.sourceRawValue
+        externalID = transaction.externalId
+    }
+}
+
+private struct CompletionAllocationInputFingerprint: Equatable {
+    let id: UUID
+    let assetID: UUID?
+    let goalID: UUID?
+    let amountBits: UInt64
+    let createdDate: Date
+    let lastModifiedDate: Date
+
+    init(_ allocation: AssetAllocation) {
+        id = allocation.id
+        assetID = allocation.asset?.id
+        goalID = allocation.goal?.id
+        amountBits = allocation.amountValue.bitPattern
+        createdDate = allocation.createdDate
+        lastModifiedDate = allocation.lastModifiedDate
+    }
+}
+
+private struct CompletionAllocationHistoryInputFingerprint: Equatable {
+    let id: UUID
+    let assetID: UUID?
+    let goalID: UUID?
+    let amountBits: UInt64
+    let timestamp: Date
+    let createdAt: Date
+    let monthLabel: String
+    let sourceTransactionID: UUID?
+    let sourcePreviousAmountBits: UInt64?
+
+    init(_ history: AllocationHistory) {
+        id = history.id
+        assetID = history.assetId
+        goalID = history.goalId
+        amountBits = history.amount.bitPattern
+        timestamp = history.timestamp
+        createdAt = history.createdAt
+        monthLabel = history.monthLabel
+        sourceTransactionID = history.sourceTransactionId
+        sourcePreviousAmountBits = history.sourcePreviousAmount?.bitPattern
+    }
+}
+
+@MainActor
+private struct ExecutionRecordMutationSnapshot {
+    private let record: MonthlyExecutionRecord
+    private let statusRawValue: String
+    private let startedAt: Date?
+    private let completedAt: Date?
+    private let canUndoUntil: Date?
+    private let trackedGoalIds: Data
+    private let snapshot: ExecutionSnapshot?
+    private let completedExecution: CompletedExecution?
+    private let plans: [MonthlyPlan]?
+    private let completionEvents: [CompletionEvent]?
+
+    init(_ record: MonthlyExecutionRecord) {
+        self.record = record
+        statusRawValue = record.statusRawValue
+        startedAt = record.startedAt
+        completedAt = record.completedAt
+        canUndoUntil = record.canUndoUntil
+        trackedGoalIds = record.trackedGoalIds
+        snapshot = record.snapshot
+        completedExecution = record.completedExecution
+        plans = record.plans
+        completionEvents = record.completionEvents
+    }
+
+    func restore() {
+        record.statusRawValue = statusRawValue
+        record.startedAt = startedAt
+        record.completedAt = completedAt
+        record.canUndoUntil = canUndoUntil
+        record.trackedGoalIds = trackedGoalIds
+        record.snapshot = snapshot
+        record.completedExecution = completedExecution
+        record.plans = plans
+        record.completionEvents = completionEvents
+    }
+}
+
+@MainActor
+private struct ExecutionPlanMutationSnapshot {
+    private let plan: MonthlyPlan
+    private let stateRawValue: String
+    private let lastModifiedDate: Date
+    private let executionRecord: MonthlyExecutionRecord?
+
+    init(_ plan: MonthlyPlan) {
+        self.plan = plan
+        stateRawValue = plan.stateRawValue
+        lastModifiedDate = plan.lastModifiedDate
+        executionRecord = plan.executionRecord
+    }
+
+    func restore() {
+        plan.stateRawValue = stateRawValue
+        plan.lastModifiedDate = lastModifiedDate
+        plan.executionRecord = executionRecord
+    }
+}
+
+@MainActor
+private struct ExecutionSnapshotMutationSnapshot {
+    private let snapshot: ExecutionSnapshot
+    private let totalPlanned: Double
+    private let snapshotData: Data
+
+    init(_ snapshot: ExecutionSnapshot) {
+        self.snapshot = snapshot
+        totalPlanned = snapshot.totalPlanned
+        snapshotData = snapshot.snapshotData
+    }
+
+    func restore() {
+        snapshot.totalPlanned = totalPlanned
+        snapshot.snapshotData = snapshotData
+    }
+}
+
+@MainActor
+private struct CompletionEventMutationSnapshot {
+    private let event: CompletionEvent
+    private let undoneAt: Date?
+    private let undoReason: String?
+
+    init(_ event: CompletionEvent) {
+        self.event = event
+        undoneAt = event.undoneAt
+        undoReason = event.undoReason
+    }
+
+    func restore() {
+        event.undoneAt = undoneAt
+        event.undoReason = undoReason
+    }
+}
+
 // MARK: - Errors
 
 extension ExecutionTrackingService {
@@ -513,6 +1103,7 @@ extension ExecutionTrackingService {
         case recordNotFound
         case undoPeriodExpired
         case invalidState
+        case executionInputsChanged
 
         var errorDescription: String? {
             switch self {
@@ -524,6 +1115,8 @@ extension ExecutionTrackingService {
                 return "The undo grace period has expired"
             case .invalidState:
                 return "Invalid state for this operation"
+            case .executionInputsChanged:
+                return "Execution inputs changed while completion was being prepared. Review the active goals and retry."
             }
         }
     }

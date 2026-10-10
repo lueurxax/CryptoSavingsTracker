@@ -1,6 +1,9 @@
 import SwiftUI
 import SwiftData
 import Foundation
+#if canImport(AppKit)
+import AppKit
+#endif
 
 private enum AppStoreScreenshotFrame {
     static let iPhone65 = CGSize(width: 414, height: 896)
@@ -132,6 +135,14 @@ private func makeSettingsPreview() -> some View {
 }
 
 private extension View {
+    var appStoreScreenshotBackground: Color {
+        #if os(macOS)
+        Color(NSColor.windowBackgroundColor)
+        #else
+        Color(.systemGroupedBackground)
+        #endif
+    }
+
     func appStoreScreenshotFrame(_ size: CGSize) -> some View {
         self
             .frame(width: size.width, height: size.height)

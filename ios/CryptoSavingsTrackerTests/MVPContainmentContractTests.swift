@@ -8,6 +8,52 @@ import Testing
 @testable import CryptoSavingsTracker
 
 struct MVPContainmentContractTests {
+    @Test("Dashboard converts each goal total before summing the portfolio")
+    @MainActor
+    func dashboardConvertsGoalTotalsBeforeSumming() async throws {
+        let exchangeRates = MockExchangeRateService()
+        exchangeRates.setRate(from: "EUR", to: "USD", rate: 1.25)
+
+        let total = try await DashboardPortfolioTotalCalculator.total(
+            entries: [
+                DashboardPortfolioEntry(amount: 100, currency: "USD"),
+                DashboardPortfolioEntry(amount: 80, currency: "EUR")
+            ],
+            displayCurrency: "USD",
+            exchangeRateService: exchangeRates
+        )
+
+        #expect(total == 200)
+    }
+
+    @Test("Dashboard delegates portfolio aggregation in the selected display currency")
+    func dashboardUsesSelectedCurrencyForPortfolioAggregation() throws {
+        let root = repositoryRoot()
+        let dashboardView = try readSource(root, "ios/CryptoSavingsTracker/Views/DashboardView.swift")
+        let normalizedDashboardView = dashboardView
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+
+        #expect(normalizedDashboardView.contains("@AppStorage(\"mvp.settings.displayCurrency\")"))
+        #expect(normalizedDashboardView.contains("DashboardPortfolioTotalCalculator.total("))
+        #expect(normalizedDashboardView.contains(".currency(code: displayCurrency)"))
+        #expect(normalizedDashboardView.contains(".receive(on: RunLoop.main)"))
+        #expect(normalizedDashboardView.contains("Notification.Name.NSCalendarDayChanged"))
+        #expect(normalizedDashboardView.contains("@Environment(\\.scenePhase)"))
+    }
+
+    @Test("Dashboard and Planning root tabs provide navigation contexts")
+    func rootTabsProvideNavigationContexts() throws {
+        let root = repositoryRoot()
+        let contentView = try readSource(root, "ios/CryptoSavingsTracker/Views/ContentView.swift")
+        let normalizedContentView = contentView
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+
+        #expect(normalizedContentView.contains("NavigationStack { DashboardView() }"))
+        #expect(normalizedContentView.contains("NavigationStack { MonthlyPlanningContainer() }"))
+    }
+
     @Test("Retained Apple hosts no longer embed monthly planning widgets")
     func retainedHostsExcludeMonthlyPlanningWidget() throws {
         let root = repositoryRoot()
@@ -106,6 +152,10 @@ struct MVPContainmentContractTests {
     func retainedAssetMutationPathsExcludePlannerAssetSignal() throws {
         let root = repositoryRoot()
         let allocationService = try readSource(root, "ios/CryptoSavingsTracker/Services/AllocationService.swift")
+        let persistenceMutations = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Services/PersistenceMutationServices.swift"
+        )
         let assetViewModel = try readSource(root, "ios/CryptoSavingsTracker/ViewModels/AssetViewModel.swift")
         let assetRowView = try readSource(root, "ios/CryptoSavingsTracker/Views/AssetRowView.swift")
 
@@ -114,7 +164,8 @@ struct MVPContainmentContractTests {
         #expect(!assetRowView.contains("name: .monthlyPlanningAssetUpdated"))
 
         #expect(allocationService.contains("name: .sharedGoalDataDidChange"))
-        #expect(assetViewModel.contains("name: .sharedGoalDataDidChange"))
+        #expect(persistenceMutations.contains("name: .sharedGoalDataDidChange"))
+        #expect(!assetViewModel.contains("func deleteTransaction"))
         #expect(assetRowView.contains("name: .sharedGoalDataDidChange"))
     }
 
@@ -182,11 +233,15 @@ struct MVPContainmentContractTests {
         #expect(assetDetailView.contains("publicCryptoTrackingStatus"))
     }
 
-    @Test("Goal edit flow excludes planner recalculation and reminder-state restoration")
+    @Test("Goal edit flow delegates retired reminder cleanup to its mutation boundary")
     func goalEditFlowExcludesPlannerAndReminderRevival() throws {
         let root = repositoryRoot()
         let goalEditViewModel = try readSource(root, "ios/CryptoSavingsTracker/ViewModels/GoalEditViewModel.swift")
         let editGoalView = try readSource(root, "ios/CryptoSavingsTracker/Views/EditGoalView.swift")
+        let mutationServices = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Services/PersistenceMutationServices.swift"
+        )
 
         #expect(!goalEditViewModel.contains("recalculateMonthlyPlan"))
         #expect(!goalEditViewModel.contains("makeMonthlyPlanService"))
@@ -194,7 +249,7 @@ struct MVPContainmentContractTests {
         #expect(!goalEditViewModel.contains("originalSnapshot.reminderFrequency"))
         #expect(!goalEditViewModel.contains("originalSnapshot.reminderTime"))
         #expect(!goalEditViewModel.contains("notificationUpdateFailed"))
-        #expect(goalEditViewModel.contains("goal.clearRetiredReminderState()"))
+        #expect(mutationServices.contains("goal.clearRetiredReminderState()"))
         #expect(editGoalView.contains("Basic Information"))
         #expect(!editGoalView.contains("ReminderConfigurationView"))
     }
@@ -292,7 +347,29 @@ struct MVPContainmentContractTests {
         #expect(mutationServices.contains("await notificationManager.cancelNotifications(for: goal)"))
     }
 
-    @Test("Reminder retirement uses the shared goal helper in active MVP write paths")
+    @Test("macOS goals sidebar exposes archived goals through a retryable restore action")
+    func macOSGoalsSidebarExposesArchivedGoals() throws {
+        let root = repositoryRoot()
+        let container = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Views/Goals/GoalsSidebarContainer.swift"
+        )
+        let sidebar = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Views/Components/GoalsSidebarView.swift"
+        )
+
+        #expect(container.contains("@Query private var archivedGoals: [Goal]"))
+        #expect(container.contains("filter: GoalListQuery.archivedPredicate"))
+        #expect(container.contains("archivedGoals: archivedGoals"))
+        #expect(sidebar.contains("Section(\"Archived Goals\")"))
+        #expect(sidebar.contains("makeGoalMutationService(modelContext: modelContext)"))
+        #expect(sidebar.contains(".restoreGoal(goal)"))
+        #expect(sidebar.contains("\"Goal Not Restored\""))
+        #expect(sidebar.contains("restoreGoalButton-\\(goal.name)"))
+    }
+
+    @Test("Reminder retirement uses the shared helper inside persistence boundaries")
     func reminderRetirementUsesSharedGoalHelper() throws {
         let root = repositoryRoot()
         let goalEditing = try readSource(root, "ios/CryptoSavingsTracker/Models/Goal+Editing.swift")
@@ -305,8 +382,8 @@ struct MVPContainmentContractTests {
 
         #expect(goalEditing.contains("func clearRetiredReminderState()"))
         #expect(goalModel.contains("frequency: ReminderFrequency? = nil"))
-        #expect(addGoalView.contains("newGoal.clearRetiredReminderState()"))
-        #expect(goalEditViewModel.contains("goal.clearRetiredReminderState()"))
+        #expect(!addGoalView.contains("newGoal.clearRetiredReminderState()"))
+        #expect(goalEditViewModel.contains("func cancel()"))
         #expect(goalLifecycleService.contains("goal.clearRetiredReminderState()"))
         #expect(mutationServices.contains("goal.clearRetiredReminderState()"))
         #expect(goalRepository.contains("goal.clearRetiredReminderState()"))

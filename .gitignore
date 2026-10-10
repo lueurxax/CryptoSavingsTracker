@@ -75,6 +75,11 @@ ios/fastlane/test_output
 ios/Config.plist
 ios/Config.production.plist
 
+## Local App Store archives (signed bundles may embed secrets and profiles)
+artifacts/appstore/*.xcarchive/
+artifacts/appstore/**/*.ipa
+artifacts/appstore/export/
+
 ## UI test artifacts
 ios/*.xcappdata/
 ios/*.xcresult/

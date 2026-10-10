@@ -67,7 +67,7 @@ struct FamilyShareMaterialityPolicy: Sendable {
             return 8
         case "ETH":
             return 8
-        case "SOL", "DOGE", "ADA", "DOT", "AVAX", "MATIC", "XRP":
+        case "SOL", "DOGE", "ADA", "DOT", "AVAX", "POL", "MATIC", "XRP":
             return 6
         default:
             return 2  // Most fiat currencies

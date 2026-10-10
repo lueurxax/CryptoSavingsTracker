@@ -1,0 +1,115 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Corner radii</title>
+<link rel="stylesheet" href="_card.css">
+<link rel="stylesheet" href="_glass.css">
+<style>
+  .card {
+    border-radius: 18px;
+    padding: 22px 24px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin-top: 8px;
+  }
+  .tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .shape {
+    width: 88px;
+    height: 88px;
+    background: linear-gradient(180deg, #FFD884 0%, #F5A623 60%, #C7821A 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,232,180,0.55),
+      0 6px 14px rgba(245,166,35,0.30),
+      0 1px 2px rgba(120,70,0,0.30);
+    position: relative;
+  }
+  /* Corner tick markers to make the curvature unmistakable */
+  .shape::before, .shape::after {
+    content:'';
+    position:absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events:none;
+  }
+  .shape::before {
+    border: 1.5px dashed rgba(60,30,0,0.30);
+    border-radius: inherit;
+    inset: 4px;
+    width: auto; height: auto;
+  }
+
+  .pill-shape { width: 120px; height: 48px; border-radius: 999px !important; }
+
+  .r-10 { border-radius: 10px; }
+  .r-12 { border-radius: 12px; }
+  .r-16 { border-radius: 16px; }
+  .r-20 { border-radius: 20px; }
+
+  .tok-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .tok-name { font: 600 11px var(--font-mono); color: var(--fg-1); letter-spacing: 0; }
+  .tok-use  { font: 500 11px var(--font-sans); color: var(--fg-3); letter-spacing: 0; }
+
+  .hero { font: 700 15px var(--font-sans); color: var(--fg-1); letter-spacing: -0.2px; }
+  .sub  { font: 500 12px var(--font-sans); color: var(--fg-2); margin-top: 2px; }
+</style>
+</head>
+<body class="glass">
+
+<div class="card glass-surface">
+  <div class="hero">Corner radii</div>
+  <div class="sub">Five tokens — the same curvature vocabulary across every surface</div>
+
+  <div class="grid">
+    <div class="tile">
+      <div class="shape r-10"></div>
+      <div class="tok-label">
+        <div class="tok-name">10 px</div>
+        <div class="tok-use">settings&nbsp;row</div>
+      </div>
+    </div>
+    <div class="tile">
+      <div class="shape r-12"></div>
+      <div class="tok-label">
+        <div class="tok-name">12 px</div>
+        <div class="tok-use">card / planning</div>
+      </div>
+    </div>
+    <div class="tile">
+      <div class="shape r-16"></div>
+      <div class="tok-label">
+        <div class="tok-name">16 px</div>
+        <div class="tok-use">dashboard hero</div>
+      </div>
+    </div>
+    <div class="tile">
+      <div class="shape r-20"></div>
+      <div class="tok-label">
+        <div class="tok-name">20 px</div>
+        <div class="tok-use">bottom sheet</div>
+      </div>
+    </div>
+    <div class="tile">
+      <div class="shape pill-shape"></div>
+      <div class="tok-label">
+        <div class="tok-name">999 px</div>
+        <div class="tok-use">capsule / pill</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:14px"><span class="caption-pill">Never hand-roll a radius — match the surface's role to the closest token. The dashed inner outline shows the curve's tightness.</span></div>
+
+</body></html>

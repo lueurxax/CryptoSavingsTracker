@@ -3,6 +3,11 @@
 ## Status
 Draft (Phase 2 design track; hard-cutover storage prerequisite already satisfied; read-only family sharing is now a required higher-priority prerequisite before further bridge rollout)
 
+The implemented signed-file baseline currently negotiates only
+`bridge-snapshot-v2` with snapshot schema 2. Version 2 adds automatic-allocation
+provenance required for safe transaction replay; v1 packages are rejected
+rather than accepted with those fields missing.
+
 ## Goal
 Enable a CloudKit-only iPhone app to exchange editable snapshots with the existing macOS surface of CryptoSavingsTracker through a signed file-based manual bridge, without introducing backend infrastructure and without building a second replication engine on top of CloudKit.
 
@@ -368,8 +373,8 @@ Session-scoped validation metadata:
 ```json
 {
   "snapshotID": "uuid",
-  "canonicalEncodingVersion": "bridge-snapshot-v1",
-  "snapshotSchemaVersion": 1,
+  "canonicalEncodingVersion": "bridge-snapshot-v2",
+  "snapshotSchemaVersion": 2,
   "exportedAt": 1773504000000,
   "appModelSchemaVersion": "cloudkit-model-v1",
   "entityCounts": [
@@ -412,7 +417,7 @@ Edited snapshot returned to iPhone:
 {
   "packageID": "sha256-of-canonical-package-body",
   "snapshotID": "uuid",
-  "canonicalEncodingVersion": "bridge-snapshot-v1",
+  "canonicalEncodingVersion": "bridge-snapshot-v2",
   "baseDatasetFingerprint": "sha256-of-original-export",
   "editedDatasetFingerprint": "sha256-of-canonical-edited-snapshot",
   "snapshotEnvelope": {},
@@ -444,7 +449,7 @@ Current implemented operator-facing summary generated on iPhone after validation
   "package": {
     "packageID": "sha256-of-canonical-package-body",
     "packageVersion": "bridge-import-v1",
-    "canonicalEncodingVersion": "bridge-snapshot-v1",
+    "canonicalEncodingVersion": "bridge-snapshot-v2",
     "sourceDeviceName": "MacBook-Andrey",
     "sourceDeviceFingerprint": "ABCD1234EFGH5678",
     "producedAt": 1773507600000,
@@ -526,10 +531,10 @@ Handshake-time compatibility contract:
 ```json
 {
   "bridgeProtocolVersion": 1,
-  "minimumSupportedCanonicalEncodingVersion": "bridge-snapshot-v1",
-  "maximumSupportedCanonicalEncodingVersion": "bridge-snapshot-v1",
-  "minimumSupportedSnapshotSchemaVersion": 1,
-  "maximumSupportedSnapshotSchemaVersion": 1
+  "minimumSupportedCanonicalEncodingVersion": "bridge-snapshot-v2",
+  "maximumSupportedCanonicalEncodingVersion": "bridge-snapshot-v2",
+  "minimumSupportedSnapshotSchemaVersion": 2,
+  "maximumSupportedSnapshotSchemaVersion": 2
 }
 ```
 
@@ -553,7 +558,10 @@ This appendix is mandatory for any implementation of the bridge. The bridge must
 
 ### Canonical Ordering Rules
 - `goals`: sort by `id`.
-- `assets`: sort by `(currency, chainId, address, id)` after normalization of `currency` to uppercase and `chainId` / `address` to lowercase.
+- `assets`: sort by `(currency, chainId, address, id)` after applying the
+  shared chain-aware addressed-asset identity policy. Currency and chain IDs
+  are canonicalized; address case is folded only for chains whose identity
+  contract is case-insensitive.
 - `transactions`: sort by `(assetId, dateMs, amount, sourceRawValue, externalId, id)`.
 - `assetAllocations`: sort by `(goalId, assetId, id)`.
 - `allocationHistories`: sort by `(timestampMs, assetId, goalId, createdAtMs, id)`.
@@ -583,7 +591,9 @@ Import matching always follows the same sequence:
 
 Logical-key table:
 - `Goal`: `(normalizedName, currency, targetAmount, deadlineMs)`
-- `Asset`: `(currency, normalizedChainId, normalizedAddress)`
+- `Asset`: the shared chain-aware addressed identity
+  `(currency, normalizedChainId, normalizedAddress)`; addressless accounts use
+  stable record ID and never collapse merely because currency matches
 - `Transaction`: if `externalId` is present, `(assetId, externalId)`; otherwise `(assetId, dateMs, amount, sourceRawValue, normalizedCounterparty, normalizedComment)`
 - `AssetAllocation`: `(assetId, goalId)`
 - `AllocationHistory`: `(assetId, goalId, timestampMs, createdAtMs, amount)`
@@ -596,7 +606,23 @@ Logical-key table:
 Normalization used by logical keys:
 - `normalizedName`, `normalizedCounterparty`, and `normalizedComment` use Unicode NFC and trim only leading/trailing whitespace.
 - `currency` is uppercased.
-- `chainId` and `address` are lowercased when present.
+- `chainId` uses the canonical route identifier. `address` uses chain-specific
+  normalization: EVM and supported UTXO aliases fold only where the persistence
+  identity policy permits it, while case-sensitive address families retain
+  their original identity.
+
+Snapshot schema 2 adds these explicit nullable fields to every
+`AllocationHistory` row:
+
+- `sourceTransactionId`: durable source transaction ID for an automatic
+  allocation change.
+- `sourcePreviousAmount`: exact non-negative allocation target immediately
+  before that source movement.
+
+`sourcePreviousAmount` without `sourceTransactionId` is invalid. A referenced
+transaction must be active, unique, and belong to the same asset as the
+history. Missing, ambiguous, cross-asset, non-finite, or negative provenance
+rejects validation before review or apply.
 
 ### Apply Rules
 - Import is all-or-nothing.

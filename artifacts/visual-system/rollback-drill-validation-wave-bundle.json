@@ -1,15 +1,15 @@
 {
-  "reportPath": "/Users/user/Documents/CryptoSavingsTracker/docs/release/visual-system/wave1/rollback-drill-report.json",
+  "reportPath": "/var/folders/43/6b8z356950q2rsbvnjmp8jd40000gn/T/tmp0ouusfop/wave1/rollback-drill-report.json",
   "schemaPath": "docs/design/schemas/visual-rollback-drill-report.schema.json",
-  "passed": true,
-  "issueCount": 0,
+  "passed": false,
+  "issueCount": 1,
   "summary": {
     "wave": "wave1",
     "executedAt": "2026-03-04",
     "runbookPath": "docs/runbooks/visual-system-rollback.md",
     "runbookExists": true,
     "slaBusinessDaysMax": 1.0,
-    "slaBusinessDaysActual": 0.5,
+    "slaBusinessDaysActual": 0.4,
     "checklist": {
       "regressionConfirmed": true,
       "flagsDisabled": true,
@@ -20,9 +20,11 @@
     "telemetryMarkers": {
       "triggeredEvent": "vsu_wave_rollback_triggered",
       "completedEvent": "vsu_wave_rollback_completed",
-      "markerTimestamp": "2026-03-04T08:30:00Z"
+      "markerTimestamp": "2026-03-04T08:00:00Z"
     },
-    "evidenceLinkCount": 3
+    "evidenceLinkCount": 1
   },
-  "issues": []
+  "issues": [
+    "schema file not found: /Users/user/Documents/CryptoSavingsTracker/docs/design/schemas/visual-rollback-drill-report.schema.json"
+  ]
 }

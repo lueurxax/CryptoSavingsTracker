@@ -29,6 +29,7 @@ struct GoalDetailView: View {
     @State private var showingDeleteConfirmation = false
     @State private var hasStartedDestructiveJourney = false
     @State private var goalPendingCompletion: Goal?
+    @State private var lifecycleErrorMessage: String?
 
     private var fundingBranch: GoalDetailFundingBranch {
         GoalDetailFundingBranch.make(
@@ -208,6 +209,17 @@ struct GoalDetailView: View {
                     hasStartedDestructiveJourney = false
                 }
             }
+            .alert(
+                "Goal Not Updated",
+                isPresented: Binding(
+                    get: { lifecycleErrorMessage != nil },
+                    set: { if !$0 { lifecycleErrorMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { lifecycleErrorMessage = nil }
+            } message: {
+                Text(lifecycleErrorMessage ?? "Unable to update this goal right now.")
+            }
     }
 
     private func currencyAmount(_ amount: Double) -> String {
@@ -220,36 +232,59 @@ struct GoalDetailView: View {
     }
 
     private func deleteGoal() {
-        if hasStartedDestructiveJourney {
-            DIContainer.shared.navigationTelemetryTracker.flowCompleted(
-                journeyID: NavigationJourney.destructiveDeleteConfirmation,
-                result: "delete_goal"
-            )
-            hasStartedDestructiveJourney = false
-        }
-        withAnimation {
-            Task { @MainActor in
-                await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
+        Task { @MainActor in
+            do {
+                try await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
+                completeDestructiveJourney(result: "delete_goal")
+            } catch {
+                failLifecycleAction(message: "Unable to delete this goal. Please try again.")
             }
-            NotificationCenter.default.post(name: .goalDeleted, object: goal)
         }
     }
 
     private func cancelGoal() {
+        Task { @MainActor in
+            do {
+                try await GoalLifecycleService(modelContext: modelContext).cancelGoal(goal)
+                completeDestructiveJourney(result: "cancel_goal")
+            } catch {
+                failLifecycleAction(message: "Unable to cancel this goal. Please try again.")
+            }
+        }
+    }
+
+    private func completeDestructiveJourney(result: String) {
         if hasStartedDestructiveJourney {
             DIContainer.shared.navigationTelemetryTracker.flowCompleted(
                 journeyID: NavigationJourney.destructiveDeleteConfirmation,
-                result: "cancel_goal"
+                result: result
             )
             hasStartedDestructiveJourney = false
         }
-        Task { @MainActor in
-            await GoalLifecycleService(modelContext: modelContext).cancelGoal(goal)
-        }
     }
+
+    private func failLifecycleAction(message: String) {
+        hasStartedDestructiveJourney = false
+        lifecycleErrorMessage = message
+    }
+
 }
 
 private struct ActiveGoalDetailContent: View {
+    private enum AssetMutationAction {
+        case deleteSingle(Asset)
+        case deleteMultiple([Asset])
+
+        var assetIDs: [UUID] {
+            switch self {
+            case .deleteSingle(let asset):
+                return [asset.id]
+            case .deleteMultiple(let assets):
+                return assets.map(\.id)
+            }
+        }
+    }
+
     @Environment(\.modelContext) private var modelContext
     let goal: Goal
 
@@ -259,15 +294,17 @@ private struct ActiveGoalDetailContent: View {
     @State private var showingTransactionAssetPicker = false
     @State private var selectedAssetForAddTransaction: Asset?
     @State private var expandedAssets: Set<UUID> = []
-    @State private var goalViewModel: GoalViewModel
+    @StateObject private var goalViewModel: GoalViewModel
     @State private var lastRefresh: Date?
+    @State private var assetMutationRetryState =
+        PersistenceMutationRetryPresentationState<AssetMutationAction>()
 
     init(goal: Goal) {
         self.goal = goal
         // #Predicate cannot traverse optional to-many arrays, so fetch all assets
         // and filter in the computed property instead.
         self._allAssets = Query(sort: \Asset.currency)
-        self._goalViewModel = State(initialValue: GoalViewModel(goal: goal))
+        self._goalViewModel = StateObject(wrappedValue: GoalViewModel(goal: goal))
     }
 
     private var goalAssets: [Asset] {
@@ -292,6 +329,11 @@ private struct ActiveGoalDetailContent: View {
         Section("Goal Summary") {
             summaryRow(label: "Target", value: currencyAmount(goal.targetAmount))
             summaryRow(label: "Current", value: currencyAmount(goalViewModel.currentTotal))
+            AdaptiveSummaryRow(
+                label: "Progress",
+                value: "\(Int((goalViewModel.progress * 100).rounded()))%"
+            )
+            .accessibilityIdentifier("goalSummaryProgress")
             summaryRow(
                 label: "Deadline",
                 value: "\(goal.deadline.formatted(date: .abbreviated, time: .omitted)) (\(goal.daysRemaining) days remaining)"
@@ -354,10 +396,7 @@ private struct ActiveGoalDetailContent: View {
                             }
                         },
                         onDelete: {
-                            withAnimation(.default) {
-                                expandedAssets.remove(asset.id)
-                                try? DIContainer.shared.makeAssetMutationService(modelContext: modelContext).deleteAsset(asset)
-                            }
+                            performAssetMutation(.deleteSingle(asset))
                         }
                     )
                     .listRowInsets(EdgeInsets())
@@ -433,7 +472,7 @@ private struct ActiveGoalDetailContent: View {
         #endif
         .navigationTitle(goal.name)
         .onChange(of: goal.id) { _, _ in
-            goalViewModel = GoalViewModel(goal: goal)
+            goalViewModel.updateGoal(goal)
             goalViewModel.setModelContext(modelContext)
             Task { await goalViewModel.refreshValues() }
         }
@@ -497,8 +536,29 @@ private struct ActiveGoalDetailContent: View {
             }
         }
         .task(id: goal.id) {
+            goalViewModel.updateGoal(goal)
             goalViewModel.setModelContext(modelContext)
             await goalViewModel.refreshValues()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .goalProgressRefreshed)) { notification in
+            if let changedGoal = notification.object as? Goal, changedGoal.id != goal.id {
+                return
+            }
+            Task { await goalViewModel.refreshValues() }
+        }
+        .alert(
+            "Asset Not Deleted",
+            isPresented: Binding(
+                get: { assetMutationRetryState.isPresented },
+                set: { isPresented in
+                    if !isPresented { assetMutationRetryState.presentationDismissed() }
+                }
+            )
+        ) {
+            Button("Retry") { retryAssetMutation() }
+            Button("Cancel", role: .cancel) { assetMutationRetryState.cancel() }
+        } message: {
+            Text(assetMutationRetryState.errorMessage ?? "Please try again.")
         }
     }
 
@@ -556,12 +616,50 @@ private struct ActiveGoalDetailContent: View {
     }
 
     private func deleteAssets(offsets: IndexSet) {
-        withAnimation(.default) {
-            let assetsToDelete = offsets.map { goalAssets[$0] }
-            for asset in assetsToDelete {
-                expandedAssets.remove(asset.id)
+        let assetsToDelete = offsets.map { goalAssets[$0] }
+        performAssetMutation(.deleteMultiple(assetsToDelete))
+    }
+
+    private func performAssetMutation(_ action: AssetMutationAction) {
+        var retryState = assetMutationRetryState
+        let didSucceed = retryState.perform(action) {
+            try executeAssetMutation(action)
+        }
+        assetMutationRetryState = retryState
+        if didSucceed {
+            removeExpandedAssetIDs(action.assetIDs)
+        }
+    }
+
+    private func retryAssetMutation() {
+        Task { @MainActor in
+            var retryState = assetMutationRetryState
+            let action = retryState.action
+            let didSucceed = await retryState.retryAfterDismissal { action in
+                try executeAssetMutation(action)
             }
-            try? DIContainer.shared.makeAssetMutationService(modelContext: modelContext).deleteAssets(assetsToDelete)
+            assetMutationRetryState = retryState
+            if didSucceed, let action {
+                removeExpandedAssetIDs(action.assetIDs)
+            }
+        }
+    }
+
+    private func executeAssetMutation(_ action: AssetMutationAction) throws {
+        let service = DIContainer.shared.makeAssetMutationService(modelContext: modelContext)
+        switch action {
+        case .deleteSingle(let asset):
+            try service.deleteAsset(asset)
+        case .deleteMultiple(let assets):
+            try service.deleteAssets(assets)
+        }
+    }
+
+    private func removeExpandedAssetIDs(_ assetIDs: [UUID]) {
+        withAnimation(.default) {
+            for assetID in assetIDs {
+                expandedAssets.remove(assetID)
+            }
         }
     }
 }

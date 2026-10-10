@@ -76,11 +76,14 @@ final class BalanceServicePaginationTests: XCTestCase {
         let (service, session) = makeService(fixture)
         defer { session.invalidateAndCancel(); PortfolioURLProtocol.remove(fixture) }
 
-        let balance = try await service.fetchBalance(
-            chainId: "ETH", address: fixture.address, symbol: "USDT", forceRefresh: true
-        )
-
-        XCTAssertEqual(balance, 7)
+        do {
+            _ = try await service.fetchBalance(
+                chainId: "ETH", address: fixture.address, symbol: "USDT", forceRefresh: true
+            )
+            XCTFail("An incomplete refresh must report failure instead of presenting cached funds as current")
+        } catch TatumError.httpError(400) {
+            // Retain the last balance for degraded presentation without treating it as a successful refresh.
+        }
         XCTAssertEqual(BalanceCacheManager.shared.getFallbackBalance(for: fixture.cacheKey), 7)
     }
 
@@ -171,7 +174,8 @@ private final class PortfolioFixture: @unchecked Sendable {
                 let items = symbols.map {
                     TatumV4BalanceItem(chain: "ethereum-mainnet", address: address, balance: "1",
                                        denominatedBalance: amount, decimals: decimals, type: type,
-                                       tokenAddress: "0x\($0)", tokenName: $0, tokenSymbol: $0)
+                                       tokenAddress: $0 == "USDT" ? "0xdAC17F958D2ee523a2206206994597C13D831ec7" : "0x\($0)",
+                                       tokenName: $0, tokenSymbol: $0)
                 }
                 let response = TatumV4PortfolioResponse(result: items, prevPage: "", nextPage: nextPage)
                 return (200, try JSONEncoder().encode(response))

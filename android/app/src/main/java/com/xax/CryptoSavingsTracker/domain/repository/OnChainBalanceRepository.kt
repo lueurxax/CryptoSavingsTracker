@@ -2,13 +2,27 @@ package com.xax.CryptoSavingsTracker.domain.repository
 
 import com.xax.CryptoSavingsTracker.domain.model.Asset
 import com.xax.CryptoSavingsTracker.domain.model.OnChainBalance
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 interface OnChainBalanceRepository {
-    /** Changes after a successful cache refresh or invalidation; cache reads do not emit. */
-    val balanceChanges: StateFlow<Long>
+    /** Compatibility observation of the same cache/provider invalidation stream. */
+    val balanceChanges: Flow<Long>
+        get() = observeBalanceInvalidations()
 
     suspend fun getBalance(asset: Asset, forceRefresh: Boolean = false): Result<OnChainBalance>
-    suspend fun clearCache()
-}
 
+    /**
+     * Fetches a fresh provider snapshot for transactional validation without
+     * publishing that snapshot to the shared balance cache.
+     */
+    suspend fun getFreshBalanceForPreflight(asset: Asset): Result<OnChainBalance>
+
+    suspend fun clearCache()
+
+    /**
+     * Monotonic cache/provider data version used to invalidate derived
+     * financial views without polling.
+     */
+    fun observeBalanceInvalidations(): Flow<Long> = flowOf(0L)
+}

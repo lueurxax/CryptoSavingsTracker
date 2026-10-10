@@ -42,16 +42,18 @@ struct PublicMVPHiddenRuntimeContractTests {
         let infoPlist = try readSource(root, "ios/CryptoSavingsTracker/Info.plist")
         let localBridgeSyncView = try readSource(root, "ios/CryptoSavingsTracker/Views/Settings/LocalBridgeSyncView.swift")
         let qrScannerView = try readSource(root, "ios/CryptoSavingsTracker/Views/Settings/LocalBridgeQRScannerView.swift")
+        let normalizedLocalBridgeSyncView = localBridgeSyncView
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .joined(separator: "\n")
 
         #expect(!infoPlist.contains("NSCameraUsageDescription"))
         #expect(qrScannerView.contains("#if DEBUG && os(iOS)"))
         #expect(localBridgeSyncView.contains("#elseif DEBUG\n        [.enterCodeManually, .scanQR, .pasteBootstrapToken]\n#else\n        [.enterCodeManually, .pasteBootstrapToken]\n#endif"))
         #expect(localBridgeSyncView.contains("#if DEBUG && os(iOS)\n        .sheet(isPresented: $presentsQRScanner)"))
-        let normalizedPairingSource = localBridgeSyncView
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .joined(separator: "\n")
-        #expect(normalizedPairingSource.contains("#if DEBUG && os(iOS)\npresentsQRScanner = true\n#else\npairingTokenInput = \"\""))
+        #expect(normalizedLocalBridgeSyncView.contains(
+            "#if DEBUG && os(iOS)\npresentsQRScanner = true\n#else\npairingTokenInput = \"\""
+        ))
     }
 
     @Test("Settings exposes Preview Features with an explicit warning before opt-in")

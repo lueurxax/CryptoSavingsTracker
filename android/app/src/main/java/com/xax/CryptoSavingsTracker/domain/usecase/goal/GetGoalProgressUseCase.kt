@@ -9,8 +9,13 @@ import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import com.xax.CryptoSavingsTracker.domain.util.AllocationFunding
+import com.xax.CryptoSavingsTracker.domain.usecase.balance.AssetBalanceCompletenessResolver
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.mapLatest
 import javax.inject.Inject
 import kotlin.math.max
 
@@ -23,19 +28,23 @@ import kotlin.math.max
  */
 data class GoalWithProgress(
     val goal: Goal,
-    val allocatedAmount: Double,  // Total allocated value in goal currency
-    val fundedAmount: Double,     // Total funded value in goal currency
-    val progress: Double          // 0.0 to 1.0 (capped at 1.0), based on fundedAmount
+    val allocatedAmount: Double?,  // Null when one or more required exchange rates are unavailable
+    val fundedAmount: Double?,     // Null when a required balance or exchange rate is unavailable
+    val progress: Double?,         // Null when fundedAmount is unavailable
+    val financialDataIssue: String? = null
 ) {
-    val progressPercent: Int get() = (progress * 100).toInt().coerceIn(0, 100)
-    val progressPercentExact: Double get() = progress * 100
+    val progressPercent: Int?
+        get() = progress?.let { (it * 100).toInt().coerceIn(0, 100) }
+    val progressPercentExact: Double?
+        get() = progress?.times(100)
 
     // Convenience constructor for backwards compatibility
     constructor(goal: Goal, allocatedAmount: Double, progress: Double) : this(
         goal = goal,
         allocatedAmount = allocatedAmount,
         fundedAmount = allocatedAmount,
-        progress = progress
+        progress = progress,
+        financialDataIssue = null
     )
 }
 
@@ -50,6 +59,7 @@ data class GoalWithProgress(
  *
  * This ensures progress reflects actual available funds, not just allocations.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class GetGoalProgressUseCase @Inject constructor(
     private val goalRepository: GoalRepository,
     private val allocationRepository: AllocationRepository,
@@ -62,7 +72,12 @@ class GetGoalProgressUseCase @Inject constructor(
      * Get all goals with their progress.
      */
     operator fun invoke(): Flow<List<GoalWithProgress>> {
-        return combine(goalRepository.getAllGoals(), fundingChanges()) { goals, _ ->
+        return combine(
+            goalRepository.getAllGoals(),
+            financialDataInvalidations()
+        ) { goals, _ ->
+            goals
+        }.mapLatest { goals ->
             goals.map { goal ->
                 calculateGoalProgress(goal)
             }
@@ -83,24 +98,43 @@ class GetGoalProgressUseCase @Inject constructor(
     fun getProgressFlow(goalId: String): Flow<GoalWithProgress?> {
         return combine(
             goalRepository.getGoalByIdFlow(goalId),
-            fundingChanges()
-        ) { goal, _ ->
+            allocationRepository.getAllocationsForGoalListFlow(goalId),
+            financialDataInvalidations()
+        ) { goal, allocations, _ ->
+            goal to allocations
+        }.mapLatest { (goal, allocations) ->
             if (goal == null) {
                 null
             } else {
-                calculateGoalProgress(goal)
+                calculateGoalProgressFromAllocations(goal, allocations)
             }
+        }.catch { error ->
+            if (error is CancellationException) throw error
+            val goal = goalRepository.getGoalById(goalId) ?: throw error
+            emit(
+                GoalWithProgress(
+                    goal = goal,
+                    allocatedAmount = null,
+                    fundedAmount = null,
+                    progress = null,
+                    financialDataIssue = "Goal financial data source is unavailable. " +
+                        "Refresh data and retry."
+                )
+            )
         }
     }
 
-    // A goal's funding also depends on allocations for other goals sharing its assets.
-    // Balance revisions are emitted only on cache writes, avoiding refresh loops on cache hits.
-    private fun fundingChanges(): Flow<Unit> = combine(
-        allocationRepository.getAllAllocations(),
-        transactionRepository.getAllTransactions(),
-        assetRepository.getAllAssets(),
-        onChainBalanceRepository.balanceChanges
-    ) { _, _, _, _ -> Unit }
+    private fun financialDataInvalidations(): Flow<Unit> {
+        return combine(
+            allocationRepository.getAllAllocationsFlow(),
+            transactionRepository.getAllTransactions(),
+            assetRepository.getAllAssets(),
+            onChainBalanceRepository.observeBalanceInvalidations(),
+            exchangeRateRepository.observeRateInvalidations()
+        ) { _, _, _, _, _ ->
+            Unit
+        }
+    }
 
     /**
      * Calculate progress for a goal using the iOS formula:
@@ -122,23 +156,52 @@ class GetGoalProgressUseCase @Inject constructor(
     ): GoalWithProgress {
         var totalAllocatedInGoalCurrency = 0.0
         var totalFundedInGoalCurrency = 0.0
+        var allocatedAmountComplete = true
+        var fundedAmountComplete = true
+        val financialIssues = linkedSetOf<String>()
 
         for (allocation in allocations) {
             val asset = assetRepository.getAssetById(allocation.assetId)
-            val assetCurrency = asset?.currency ?: goal.currency
+            if (asset == null) {
+                allocatedAmountComplete = false
+                fundedAmountComplete = false
+                financialIssues +=
+                    "Asset for allocation ${allocation.id} is unavailable. Restore the asset and retry."
+                continue
+            }
+            val assetCurrency = asset.currency
 
             val assetManualBalance = transactionRepository.getManualBalanceForAsset(allocation.assetId)
-            val onChainBalance = runCatching {
-                if (asset != null && !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()) {
-                    onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0
-                } else {
-                    0.0
-                }
-            }.getOrElse { 0.0 }
-            val assetBalance = assetManualBalance + onChainBalance
+            val balanceResolution = AssetBalanceCompletenessResolver.resolve(
+                asset = asset,
+                manualBalance = assetManualBalance,
+                repository = onChainBalanceRepository,
+                forceRefresh = false
+            )
+            val assetBalance = balanceResolution.totalBalanceOrNull
 
             val allAssetAllocations = allocationRepository.getAllocationsForAsset(allocation.assetId)
             val totalAllocatedForAsset = allAssetAllocations.sumOf { max(0.0, it.amount) }
+
+            val allocatedValue = convertToGoalCurrency(
+                amount = allocation.amount,
+                fromCurrency = assetCurrency,
+                goalCurrency = goal.currency
+            )
+            if (allocatedValue == null) {
+                allocatedAmountComplete = false
+                fundedAmountComplete = false
+                financialIssues += exchangeRateIssue(assetCurrency, goal.currency)
+                continue
+            }
+            totalAllocatedInGoalCurrency += allocatedValue
+
+            if (assetBalance == null) {
+                fundedAmountComplete = false
+                financialIssues += balanceResolution.issueOrNull
+                    ?: "Asset balance is unavailable. Refresh wallet balances and retry."
+                continue
+            }
 
             // Under/over-funded assets distribute balance proportionally across targets.
             val fundedPortion = AllocationFunding.fundedPortion(
@@ -146,29 +209,29 @@ class GetGoalProgressUseCase @Inject constructor(
                 assetBalance = assetBalance,
                 totalAllocatedForAsset = totalAllocatedForAsset
             )
-
-            val allocatedValue = convertToGoalCurrency(
-                amount = allocation.amount,
-                fromCurrency = assetCurrency,
-                goalCurrency = goal.currency
-            ) ?: continue
             val fundedValue = convertToGoalCurrency(
                 amount = fundedPortion,
                 fromCurrency = assetCurrency,
                 goalCurrency = goal.currency
-            ) ?: continue
-
-            totalAllocatedInGoalCurrency += allocatedValue
+            )
+            if (fundedValue == null) {
+                fundedAmountComplete = false
+                financialIssues += exchangeRateIssue(assetCurrency, goal.currency)
+                continue
+            }
             totalFundedInGoalCurrency += fundedValue
         }
 
-        val progress = goal.progressFromFunded(totalFundedInGoalCurrency)
+        val allocatedAmount = totalAllocatedInGoalCurrency.takeIf { allocatedAmountComplete }
+        val fundedAmount = totalFundedInGoalCurrency.takeIf { fundedAmountComplete }
+        val progress = fundedAmount?.let(goal::progressFromFunded)
 
         return GoalWithProgress(
             goal = goal,
-            allocatedAmount = totalAllocatedInGoalCurrency,
-            fundedAmount = totalFundedInGoalCurrency,
-            progress = progress
+            allocatedAmount = allocatedAmount,
+            fundedAmount = fundedAmount,
+            progress = progress,
+            financialDataIssue = financialIssues.takeIf { it.isNotEmpty() }?.joinToString(" ")
         )
     }
 
@@ -179,6 +242,13 @@ class GetGoalProgressUseCase @Inject constructor(
     ): Double? {
         if (fromCurrency.equals(goalCurrency, ignoreCase = true)) return amount
         val rate = runCatching { exchangeRateRepository.fetchRate(fromCurrency, goalCurrency) }.getOrNull()
-        return rate?.let { amount * it }
+        return rate
+            ?.takeIf { it.isFinite() && it > 0.0 }
+            ?.let { amount * it }
+            ?.takeIf(Double::isFinite)
+    }
+
+    private fun exchangeRateIssue(fromCurrency: String, goalCurrency: String): String {
+        return "Exchange rate $fromCurrency → $goalCurrency is unavailable. Refresh rates and retry."
     }
 }

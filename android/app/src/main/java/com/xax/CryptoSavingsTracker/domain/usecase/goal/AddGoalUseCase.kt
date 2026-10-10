@@ -8,8 +8,12 @@ import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
-import java.util.UUID
 import javax.inject.Inject
+
+enum class ExistingGoalRetryPolicy {
+    APPLY_LATEST_INPUT,
+    KEEP_PERSISTED
+}
 
 /**
  * Use case for adding a new goal.
@@ -33,14 +37,19 @@ class AddGoalUseCase @Inject constructor(
         link: String? = null,
         reminderFrequency: ReminderFrequency? = null,
         reminderTimeMillis: Long? = null,
-        firstReminderDate: LocalDate? = null
+        firstReminderDate: LocalDate? = null,
+        goalId: String,
+        existingGoalRetryPolicy: ExistingGoalRetryPolicy =
+            ExistingGoalRetryPolicy.APPLY_LATEST_INPUT
     ): Result<Goal> {
         // Validation
         if (name.isBlank()) {
             return Result.failure(IllegalArgumentException("Goal name cannot be empty"))
         }
-        if (targetAmount <= 0) {
-            return Result.failure(IllegalArgumentException("Target amount must be greater than 0"))
+        if (!targetAmount.isFinite() || targetAmount <= 0) {
+            return Result.failure(
+                IllegalArgumentException("Target amount must be finite and greater than 0")
+            )
         }
         if (deadline.isBefore(startDate)) {
             return Result.failure(IllegalArgumentException("Deadline must be after start date"))
@@ -62,7 +71,7 @@ class AddGoalUseCase @Inject constructor(
 
         val now = System.currentTimeMillis()
         val goal = Goal(
-            id = UUID.randomUUID().toString(),
+            id = goalId,
             name = name.trim(),
             currency = currency,
             targetAmount = targetAmount,
@@ -81,6 +90,18 @@ class AddGoalUseCase @Inject constructor(
         )
 
         return try {
+            repository.getGoalById(goalId)?.let { existing ->
+                val reconciled = when (existingGoalRetryPolicy) {
+                    ExistingGoalRetryPolicy.APPLY_LATEST_INPUT -> goal.copy(
+                        createdAt = existing.createdAt,
+                        lifecycleStatus = existing.lifecycleStatus,
+                        lifecycleStatusChangedAt = existing.lifecycleStatusChangedAt
+                    ).also { repository.updateGoal(it) }
+                    ExistingGoalRetryPolicy.KEEP_PERSISTED -> existing
+                }
+                reminderScheduler.schedule(reconciled)
+                return Result.success(reconciled)
+            }
             repository.insertGoal(goal)
             reminderScheduler.schedule(goal)
             Result.success(goal)

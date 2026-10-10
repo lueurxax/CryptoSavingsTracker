@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xax.CryptoSavingsTracker.domain.model.Goal
+import com.xax.CryptoSavingsTracker.domain.model.ExchangeRateCurrencyCatalog
 import com.xax.CryptoSavingsTracker.domain.model.ReminderFrequency
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.AddGoalUseCase
 import com.xax.CryptoSavingsTracker.domain.usecase.goal.GetGoalByIdUseCase
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -45,9 +47,7 @@ data class AddEditGoalUiState(
 /**
  * Available currencies for selection
  */
-val availableCurrencies = listOf(
-    "USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "CNY", "INR", "BRL"
-)
+val availableCurrencies = ExchangeRateCurrencyCatalog.goalCurrencies
 
 /**
  * ViewModel for Add/Edit Goal screen
@@ -61,6 +61,11 @@ class AddEditGoalViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val goalId: String? = savedStateHandle["goalId"]
+    private val createSessionGoalId: String =
+        savedStateHandle.get<String>(CREATE_SESSION_GOAL_ID_KEY)
+            ?: UUID.randomUUID().toString().also { generatedId ->
+                savedStateHandle[CREATE_SESSION_GOAL_ID_KEY] = generatedId
+            }
 
     private val _uiState = MutableStateFlow(AddEditGoalUiState())
     val uiState: StateFlow<AddEditGoalUiState> = _uiState.asStateFlow()
@@ -174,7 +179,7 @@ class AddEditGoalViewModel @Inject constructor(
         }
 
         val targetAmount = state.targetAmount.toDoubleOrNull()
-        if (targetAmount == null || targetAmount <= 0) {
+        if (targetAmount == null || !targetAmount.isFinite() || targetAmount <= 0) {
             _uiState.update { it.copy(targetAmountError = "Enter a valid amount greater than 0") }
             hasErrors = true
         }
@@ -213,7 +218,8 @@ class AddEditGoalViewModel @Inject constructor(
                     emoji = state.emoji,
                     description = state.description.trim().takeIf { it.isNotEmpty() },
                     link = state.link.trim().takeIf { it.isNotEmpty() },
-                    reminderFrequency = if (state.reminderEnabled) state.reminderFrequency else null
+                    reminderFrequency = if (state.reminderEnabled) state.reminderFrequency else null,
+                    goalId = createSessionGoalId
                 )
             }
 
@@ -228,5 +234,9 @@ class AddEditGoalViewModel @Inject constructor(
                 }
             )
         }
+    }
+
+    private companion object {
+        const val CREATE_SESSION_GOAL_ID_KEY = "createSessionGoalId"
     }
 }

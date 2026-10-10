@@ -12,9 +12,11 @@ interface ExecutionRecordRepository {
     suspend fun getRecordById(id: String): ExecutionRecord?
     fun getRecordsByStatus(status: ExecutionStatus): Flow<List<ExecutionRecord>>
     fun getAllRecords(): Flow<List<ExecutionRecord>>
-    suspend fun upsert(record: ExecutionRecord)
+    suspend fun insert(record: ExecutionRecord)
+    suspend fun update(record: ExecutionRecord)
     suspend fun close(recordId: String, closedAtMillis: Long, canUndoUntilMillis: Long?)
     suspend fun reopen(recordId: String)
     suspend fun revertToDraft(recordId: String)
+    suspend fun clearLegacyRateSnapshotPending(recordId: String)
     suspend fun updateCanUndoUntil(recordId: String, canUndoUntilMillis: Long)
 }

@@ -232,7 +232,8 @@ struct LocalBridgeFoundationTests {
         let manifest = BridgeCapabilityManifest.current(bundle: .main)
 
         #expect(manifest.bridgeProtocolVersion == 1)
-        #expect(manifest.minimumSupportedCanonicalEncodingVersion == "bridge-snapshot-v1")
+        #expect(manifest.minimumSupportedCanonicalEncodingVersion == "bridge-snapshot-v2")
+        #expect(manifest.maximumSupportedCanonicalEncodingVersion == "bridge-snapshot-v2")
         #expect(manifest.minimumSupportedSnapshotSchemaVersion == 1)
         #expect(manifest.maximumSupportedSnapshotSchemaVersion == 2)
         #expect(manifest.appModelSchemaVersion == "cloudkit-model-v2")
@@ -481,5 +482,191 @@ struct LocalBridgeFoundationTests {
                 ]
             )
         )
+    }
+
+    @Test("Snapshot export preserves transaction-linked allocation provenance")
+    func snapshotExportPreservesAllocationProvenance() throws {
+        let fixture = try makeAllocationProvenanceFixture()
+
+        let snapshot = try LocalBridgeSnapshotExportService()
+            .exportSnapshot(from: ModelContext(fixture.container))
+        let history = try #require(snapshot.allocationHistories.first(where: { $0.id == fixture.historyID }))
+
+        #expect(history.sourceTransactionId == fixture.transactionID)
+        #expect(history.sourcePreviousAmount == 12.5)
+    }
+
+    @Test("Canonical allocation history encodes provenance as explicit ordered fields")
+    func canonicalAllocationHistoryEncodesProvenance() throws {
+        let fixture = try makeAllocationProvenanceFixture()
+        let snapshot = try LocalBridgeSnapshotExportService()
+            .exportSnapshot(from: ModelContext(fixture.container))
+
+        let canonical = String(
+            decoding: try snapshot.canonicalEncodingData(forFingerprinting: false),
+            as: UTF8.self
+        )
+        let historyStart = try (#require(canonical.range(of: "\"allocationHistories\":[{"))).upperBound
+        let historyTail = String(canonical[historyStart...])
+        let historyEnd = try #require(historyTail.firstIndex(of: "}"))
+        let historyObject = String(historyTail[..<historyEnd]) as NSString
+        let previousRange = historyObject.range(of: "\"sourcePreviousAmount\":\"12.5\"")
+        let transactionRange = historyObject.range(
+            of: "\"sourceTransactionId\":\"00000000-0000-0000-0000-000000000042\""
+        )
+        let timestampRange = historyObject.range(of: "\"timestamp\":")
+
+        #expect(previousRange.location != NSNotFound)
+        #expect(transactionRange.location != NSNotFound)
+        #expect(timestampRange.location != NSNotFound)
+        #expect(previousRange.location < transactionRange.location)
+        #expect(transactionRange.location < timestampRange.location)
+    }
+
+    @Test("Canonical workspace round-trip preserves allocation provenance")
+    func canonicalWorkspaceRoundTripPreservesAllocationProvenance() throws {
+        let fixture = try makeAllocationProvenanceFixture()
+        let snapshot = try LocalBridgeSnapshotExportService()
+            .exportSnapshot(from: ModelContext(fixture.container))
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("bridge-provenance-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let store = LocalBridgeTransientWorkspaceStore(appSupportURL: rootURL)
+
+        _ = try store.save(
+            snapshot,
+            workspaceID: UUID(uuidString: "00000000-0000-0000-0000-000000000099"),
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        let decoded = try store.load().snapshot
+        let history = try #require(decoded.allocationHistories.first(where: { $0.id == fixture.historyID }))
+
+        #expect(history.sourceTransactionId == fixture.transactionID)
+        #expect(history.sourcePreviousAmount == 12.5)
+    }
+
+    @Test("Snapshot export rejects a previous allocation amount without a source transaction")
+    func snapshotExportRejectsPreviousAmountWithoutSourceTransaction() throws {
+        let fixture = try makeAllocationProvenanceFixture()
+        fixture.history.sourceTransactionId = nil
+        try fixture.context.save()
+
+        try expectProvenanceExportFailure(
+            fixture.container,
+            containing: "has sourcePreviousAmount without sourceTransactionId"
+        )
+    }
+
+    @Test("Snapshot export rejects negative and non-finite previous allocation amounts")
+    func snapshotExportRejectsInvalidPreviousAmounts() throws {
+        for invalidAmount in [-0.01, Double.infinity] {
+            let fixture = try makeAllocationProvenanceFixture()
+            fixture.history.sourcePreviousAmount = invalidAmount
+            try fixture.context.save()
+
+            try expectProvenanceExportFailure(
+                fixture.container,
+                containing: "has invalid sourcePreviousAmount"
+            )
+        }
+    }
+
+    @Test("Snapshot export rejects a missing provenance transaction")
+    func snapshotExportRejectsMissingProvenanceTransaction() throws {
+        let fixture = try makeAllocationProvenanceFixture()
+        fixture.history.sourceTransactionId = UUID(
+            uuidString: "00000000-0000-0000-0000-000000000777"
+        )
+        try fixture.context.save()
+
+        try expectProvenanceExportFailure(
+            fixture.container,
+            containing: "references missing source transaction"
+        )
+    }
+
+    @Test("Snapshot export rejects provenance linked to a transaction from another asset")
+    func snapshotExportRejectsCrossAssetProvenanceTransaction() throws {
+        let fixture = try makeAllocationProvenanceFixture()
+        let context = fixture.context
+        let otherAsset = Asset(currency: "ETH")
+        otherAsset.id = UUID(uuidString: "00000000-0000-0000-0000-000000000006")!
+        let otherTransaction = Transaction(
+            amount: 3,
+            asset: otherAsset,
+            date: Date(timeIntervalSince1970: 1_700_000_020)
+        )
+        otherTransaction.id = UUID(uuidString: "00000000-0000-0000-0000-000000000043")!
+        context.insert(otherAsset)
+        context.insert(otherTransaction)
+        fixture.history.sourceTransactionId = otherTransaction.id
+        try context.save()
+
+        try expectProvenanceExportFailure(
+            fixture.container,
+            containing: "references a source transaction from another asset"
+        )
+    }
+
+    private func makeAllocationProvenanceFixture() throws -> (
+        container: ModelContainer,
+        context: ModelContext,
+        transactionID: UUID,
+        historyID: UUID,
+        history: AllocationHistory
+    ) {
+        let container = try TestContainer.create()
+        let context = ModelContext(container)
+        let goal = Goal(
+            name: "Bridge provenance",
+            currency: "USD",
+            targetAmount: 100,
+            deadline: Date(timeIntervalSince1970: 1_900_000_000)
+        )
+        goal.id = UUID(uuidString: "00000000-0000-0000-0000-000000000004")!
+        let asset = Asset(currency: "USD")
+        asset.id = UUID(uuidString: "00000000-0000-0000-0000-000000000005")!
+        let transactionID = UUID(uuidString: "00000000-0000-0000-0000-000000000042")!
+        let transaction = Transaction(
+            amount: 7.5,
+            asset: asset,
+            date: Date(timeIntervalSince1970: 1_700_000_010)
+        )
+        transaction.id = transactionID
+        let history = AllocationHistory(
+            asset: asset,
+            goal: goal,
+            amount: 20,
+            timestamp: Date(timeIntervalSince1970: 1_700_000_010),
+            sourceTransactionId: transactionID,
+            sourcePreviousAmount: 12.5
+        )
+        let historyID = UUID(uuidString: "00000000-0000-0000-0000-000000000044")!
+        history.id = historyID
+        history.createdAt = Date(timeIntervalSince1970: 1_700_000_011)
+        history.monthLabel = "2023-11"
+        context.insert(goal)
+        context.insert(asset)
+        context.insert(transaction)
+        context.insert(history)
+        try context.save()
+        return (container, context, transactionID, historyID, history)
+    }
+
+    private func expectProvenanceExportFailure(
+        _ container: ModelContainer,
+        containing expectedIssue: String
+    ) throws {
+        do {
+            _ = try LocalBridgeSnapshotExportService()
+                .exportSnapshot(from: ModelContext(container))
+            Issue.record("Expected Local Bridge provenance validation to reject the export.")
+        } catch let error as LocalBridgeSnapshotExportError {
+            guard case let .invalidAuthoritativeDataset(issues) = error else {
+                Issue.record("Expected invalidAuthoritativeDataset, got \(error).")
+                return
+            }
+            #expect(issues.contains(where: { $0.contains(expectedIssue) }))
+        }
     }
 }

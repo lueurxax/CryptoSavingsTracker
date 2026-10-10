@@ -9,7 +9,16 @@ import kotlinx.coroutines.flow.Flow
  */
 interface AllocationRepository {
     /** Observe all allocations, including goals competing for the same asset balance. */
-    fun getAllAllocations(): Flow<List<Allocation>>
+    fun getAllAllocations(): Flow<List<Allocation>> = getAllAllocationsFlow()
+
+    /**
+     * Observe the complete allocation graph.
+     *
+     * Goal funding for one allocation depends on every allocation sharing the
+     * same asset, so per-goal observations are not a complete invalidation
+     * source.
+     */
+    fun getAllAllocationsFlow(): Flow<List<Allocation>>
 
     /**
      * Get total amount allocated to a goal across all assets.

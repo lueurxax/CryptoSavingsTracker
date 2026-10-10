@@ -349,7 +349,7 @@ struct MonthlyPlanningServiceTests {
     
     // MARK: - Error Handling Tests
     
-    @Test("Handle currency conversion failure")
+    @Test("Currency conversion failure makes the total unavailable")
     func testCurrencyConversionFailure() async throws {
         // Given
         mockExchangeRateService.shouldFail = true
@@ -365,10 +365,7 @@ struct MonthlyPlanningServiceTests {
         // When
         let totalUSD = await monthlyPlanningService.calculateTotalRequired(for: [goal], displayCurrency: "USD")
 
-        // Then - a failed conversion must NOT silently fall back to a 1:1 rate, since that
-        // would misrepresent an EUR amount as USD and understate/overstate the real total.
-        // The unconvertible goal is skipped and the error is surfaced instead.
-        // requiredMonthly = (2000-500)/3 = 500 EUR, which cannot be safely added to the USD total.
+        // Then - no EUR amount is mislabeled as USD.
         #expect(totalUSD == 0)
         #expect(monthlyPlanningService.lastCalculationError != nil)
     }

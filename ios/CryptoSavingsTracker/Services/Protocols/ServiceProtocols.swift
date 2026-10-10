@@ -7,6 +7,110 @@
 
 import Foundation
 
+enum ProviderRefreshCommitOutcome<Value> {
+    case committed(Value)
+    case superseded
+}
+
+struct ProviderRefreshGenerationToken: @unchecked Sendable {
+    fileprivate let gate: ProviderRefreshGenerationGate
+    fileprivate let routeKey: String
+    fileprivate let generation: UInt64
+}
+
+/// Linearizes publication for provider requests that target the same canonical
+/// route. A response may perform durable/cache/UI publication only while its
+/// token is still the latest generation for that route.
+final class ProviderRefreshGenerationGate: @unchecked Sendable {
+    static let shared = ProviderRefreshGenerationGate()
+
+    private let lock = NSLock()
+    private var generationsByRoute: [String: UInt64] = [:]
+    private var committedGenerationsByRoute: [String: UInt64] = [:]
+
+    func begin(routeKey: String) -> ProviderRefreshGenerationToken {
+        lock.lock()
+        defer { lock.unlock() }
+
+        var generation = (generationsByRoute[routeKey] ?? 0) &+ 1
+        if generation == 0 {
+            generation = 1
+        }
+        generationsByRoute[routeKey] = generation
+        // The latest generation is now in flight. A value committed by an
+        // earlier generation must not masquerade as this request's result.
+        committedGenerationsByRoute.removeValue(forKey: routeKey)
+        return ProviderRefreshGenerationToken(
+            gate: self,
+            routeKey: routeKey,
+            generation: generation
+        )
+    }
+
+    func performIfCurrent<Value>(
+        _ token: ProviderRefreshGenerationToken,
+        _ operation: () throws -> Value
+    ) rethrows -> ProviderRefreshCommitOutcome<Value> {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard token.gate === self,
+              generationsByRoute[token.routeKey] == token.generation
+        else {
+            return .superseded
+        }
+        let value = try operation()
+        committedGenerationsByRoute[token.routeKey] = token.generation
+        return .committed(value)
+    }
+
+    /// Resolves a superseded request only when the route's latest generation
+    /// has already committed. The operation runs under the same lock as
+    /// publication, so a newly-started generation cannot make an older cache
+    /// entry look authoritative between the check and the read.
+    func performIfLatestGenerationCommitted<Value>(
+        after token: ProviderRefreshGenerationToken,
+        _ operation: () throws -> Value
+    ) rethrows -> ProviderRefreshCommitOutcome<Value> {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard token.gate === self,
+              let latestGeneration = generationsByRoute[token.routeKey],
+              latestGeneration != token.generation,
+              committedGenerationsByRoute[token.routeKey] == latestGeneration
+        else {
+            return .superseded
+        }
+        return .committed(try operation())
+    }
+}
+
+struct ProviderTransactionHistoryBatch {
+    let transactions: [TatumTransaction]
+    let publicationToken: ProviderRefreshGenerationToken?
+
+    init(
+        transactions: [TatumTransaction],
+        publicationToken: ProviderRefreshGenerationToken? = nil
+    ) {
+        self.transactions = transactions
+        self.publicationToken = publicationToken
+    }
+
+    func commitIfCurrent<Value>(
+        _ operation: () throws -> Value
+    ) rethrows -> ProviderRefreshCommitOutcome<Value> {
+        guard let publicationToken else {
+            return .committed(try operation())
+        }
+        return try publicationToken.gate.performIfCurrent(
+            publicationToken,
+            operation
+        )
+    }
+}
+
 protocol BalanceServiceProtocol {
     func fetchBalance(chainId: String, address: String, symbol: String, forceRefresh: Bool) async throws -> Double
 }
@@ -38,6 +142,22 @@ extension CoinGeckoServiceProtocol {
     var currencyCacheStale: Bool { false }
 }
 
+/// Exact, synchronous evidence for a rate that is already authoritative in a service.
+/// Reading this evidence must never trigger a provider request.
+struct ExchangeRateSnapshotEvidence: Equatable, Sendable {
+    let from: String
+    let to: String
+    let rate: UInt64
+    let timestamp: UInt64?
+
+    init(from: String, to: String, rate: Double, timestamp: Date?) {
+        self.from = from.uppercased()
+        self.to = to.uppercased()
+        self.rate = rate.bitPattern
+        self.timestamp = timestamp?.timeIntervalSinceReferenceDate.bitPattern
+    }
+}
+
 protocol ExchangeRateServiceProtocol {
     func fetchRate(from: String, to: String) async throws -> Double
     func hasValidConfiguration() -> Bool
@@ -51,10 +171,14 @@ protocol ExchangeRateServiceProtocol {
     /// Returns the conservative snapshot timestamp for the supplied rate pairs.
     /// For mixed-age batches this is the oldest available pair timestamp.
     func rateSnapshotTimestamp(for pairs: Set<String>) -> Date?
+
+    /// Returns current in-memory evidence without fetching or refreshing a rate.
+    func rateSnapshotEvidence(from: String, to: String) -> ExchangeRateSnapshotEvidence?
 }
 
 extension ExchangeRateServiceProtocol {
     func rateSnapshotTimestamp(for pairs: Set<String>) -> Date? { nil }
+    func rateSnapshotEvidence(from: String, to: String) -> ExchangeRateSnapshotEvidence? { nil }
 }
 
 protocol FlexAdjustmentServiceProtocol {
@@ -86,11 +210,13 @@ protocol FlexAdjustmentServiceProtocol {
 
 protocol GoalCalculationServiceProtocol {
     // Instance methods (preferred for DI/mocking)
+    func getCurrentTotalResult(for goal: Goal) async -> GoalCurrentTotalResult
     func getCurrentTotal(for goal: Goal) async -> Double
     func getProgress(for goal: Goal) async -> Double
     func getSuggestedDeposit(for goal: Goal) async -> Double
 
     // Static helpers (backward compatibility)
+    static func getCurrentTotalResult(for goal: Goal) async -> GoalCurrentTotalResult
     static func getCurrentTotal(for goal: Goal) async -> Double
     static func getProgress(for goal: Goal) async -> Double
     static func getSuggestedDeposit(for goal: Goal) async -> Double
@@ -116,12 +242,92 @@ protocol TatumServiceProtocol {
     func predictChain(for symbol: String) -> TatumChain?
     func fetchBalance(chainId: String, address: String, symbol: String, forceRefresh: Bool) async throws -> Double
     func fetchTransactionHistory(chainId: String, address: String, currency: String?, limit: Int, forceRefresh: Bool) async throws -> [TatumTransaction]
+    func fetchTransactionHistoryBatch(
+        chainId: String,
+        address: String,
+        currency: String?,
+        limit: Int,
+        forceRefresh: Bool
+    ) async throws -> ProviderTransactionHistoryBatch
+    func commitImportedTransactionHistory(
+        _ transactions: [TatumTransaction],
+        chainId: String,
+        address: String,
+        currency: String?
+    )
     func hasValidConfiguration() -> Bool
     func setOfflineMode(_ offline: Bool)
 }
 
 protocol TransactionServiceProtocol {
     func fetchTransactionHistory(chainId: String, address: String, currency: String?, limit: Int, forceRefresh: Bool) async throws -> [TatumTransaction]
+    func fetchTransactionHistoryBatch(
+        chainId: String,
+        address: String,
+        currency: String?,
+        limit: Int,
+        forceRefresh: Bool
+    ) async throws -> ProviderTransactionHistoryBatch
+    func commitImportedTransactionHistory(
+        _ transactions: [TatumTransaction],
+        chainId: String,
+        address: String,
+        currency: String?
+    )
+}
+
+extension TatumServiceProtocol {
+    func fetchTransactionHistoryBatch(
+        chainId: String,
+        address: String,
+        currency: String?,
+        limit: Int,
+        forceRefresh: Bool
+    ) async throws -> ProviderTransactionHistoryBatch {
+        ProviderTransactionHistoryBatch(
+            transactions: try await fetchTransactionHistory(
+                chainId: chainId,
+                address: address,
+                currency: currency,
+                limit: limit,
+                forceRefresh: forceRefresh
+            )
+        )
+    }
+
+    func commitImportedTransactionHistory(
+        _ transactions: [TatumTransaction],
+        chainId: String,
+        address: String,
+        currency: String?
+    ) {}
+}
+
+extension TransactionServiceProtocol {
+    func fetchTransactionHistoryBatch(
+        chainId: String,
+        address: String,
+        currency: String?,
+        limit: Int,
+        forceRefresh: Bool
+    ) async throws -> ProviderTransactionHistoryBatch {
+        ProviderTransactionHistoryBatch(
+            transactions: try await fetchTransactionHistory(
+                chainId: chainId,
+                address: address,
+                currency: currency,
+                limit: limit,
+                forceRefresh: forceRefresh
+            )
+        )
+    }
+
+    func commitImportedTransactionHistory(
+        _ transactions: [TatumTransaction],
+        chainId: String,
+        address: String,
+        currency: String?
+    ) {}
 }
 
 enum PersistenceMutationError: LocalizedError {
@@ -188,11 +394,44 @@ protocol PlanningMutationServiceProtocol {
     func applyBudgetPlan(
         _ plan: BudgetCalculatorPlan,
         currentPlans: [MonthlyPlan],
-        budgetCurrency: String
+        budgetCurrency: String,
+        validateBeforeCommit: @MainActor () -> Bool
     ) async throws
+}
+
+extension PlanningMutationServiceProtocol {
+    func applyBudgetPlan(
+        _ plan: BudgetCalculatorPlan,
+        currentPlans: [MonthlyPlan],
+        budgetCurrency: String
+    ) async throws {
+        try await applyBudgetPlan(
+            plan,
+            currentPlans: currentPlans,
+            budgetCurrency: budgetCurrency,
+            validateBeforeCommit: { true }
+        )
+    }
 }
 
 @MainActor
 protocol OnboardingMutationServiceProtocol {
-    func createGoalFromTemplate(_ template: GoalTemplate, userProfile: UserProfile) async throws
+    func createGoalFromTemplate(
+        _ template: GoalTemplate,
+        userProfile: UserProfile,
+        selectedAssetCurrencies: Set<String>
+    ) async throws
+}
+
+extension OnboardingMutationServiceProtocol {
+    func createGoalFromTemplate(
+        _ template: GoalTemplate,
+        userProfile: UserProfile
+    ) async throws {
+        try await createGoalFromTemplate(
+            template,
+            userProfile: userProfile,
+            selectedAssetCurrencies: Set(template.recommendedAssets.map(\.currency))
+        )
+    }
 }

@@ -22,6 +22,8 @@ final class GoalProgressCalculatorTests: XCTestCase {
 
         XCTAssertEqual(result.currentAmount, 500)
         XCTAssertEqual(result.progressRatio, 0.5, accuracy: 0.001)
+        XCTAssertTrue(result.isComplete)
+        XCTAssertTrue(result.missingRatePairs.isEmpty)
     }
 
     // MARK: - Multi-Currency Conversion
@@ -45,6 +47,8 @@ final class GoalProgressCalculatorTests: XCTestCase {
         // 0.1 BTC * 50000 = 5000 + 2000 USD = 7000
         XCTAssertEqual(result.currentAmount, 7000)
         XCTAssertEqual(result.progressRatio, 0.7, accuracy: 0.001)
+        XCTAssertTrue(result.isComplete)
+        XCTAssertTrue(result.missingRatePairs.isEmpty)
     }
 
     // MARK: - Zero Target
@@ -66,7 +70,7 @@ final class GoalProgressCalculatorTests: XCTestCase {
 
     // MARK: - Missing Rate
 
-    func testMissingRate_returnsZeroForThatAllocation() {
+    func testMissingRate_marksResultIncompleteAndIdentifiesRequiredPair() {
         let input = GoalProgressInput(
             goalID: UUID(),
             currency: "EUR",
@@ -79,6 +83,35 @@ final class GoalProgressCalculatorTests: XCTestCase {
         let result = calculator.calculateProgress(for: input, rates: rates)
 
         XCTAssertEqual(result.currentAmount, 0)
+        XCTAssertFalse(result.isComplete)
+        XCTAssertEqual(
+            result.missingRatePairs,
+            [CurrencyPair.canonicalKey(from: "XYZ_UNKNOWN", to: "EUR")]
+        )
+    }
+
+    func testMissingRate_preservesKnownSubtotalButStillMarksResultIncomplete() {
+        let input = GoalProgressInput(
+            goalID: UUID(),
+            currency: "USD",
+            targetAmount: 1_000,
+            allocations: [
+                AllocationInput(assetCurrency: "USD", allocatedAmount: 250),
+                AllocationInput(assetCurrency: "BTC", allocatedAmount: 1)
+            ]
+        )
+        let result = calculator.calculateProgress(
+            for: input,
+            rates: RateSnapshot(rates: [:], timestamp: Date())
+        )
+
+        XCTAssertEqual(result.currentAmount, 250)
+        XCTAssertEqual(result.progressRatio, 0.25, accuracy: 0.001)
+        XCTAssertFalse(result.isComplete)
+        XCTAssertEqual(
+            result.missingRatePairs,
+            [CurrencyPair.canonicalKey(from: "BTC", to: "USD")]
+        )
     }
 
     // MARK: - Batch Calculation
@@ -119,6 +152,8 @@ final class GoalProgressCalculatorTests: XCTestCase {
 
         // 2 ETH / 0.0005 = 4000 USD
         XCTAssertEqual(result.currentAmount, 4000)
+        XCTAssertTrue(result.isComplete)
+        XCTAssertTrue(result.missingRatePairs.isEmpty)
     }
 
     // MARK: - Progress Capped at 1.0

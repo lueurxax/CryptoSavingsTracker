@@ -1,0 +1,175 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Progress ring</title>
+<link rel="stylesheet" href="_card.css">
+<link rel="stylesheet" href="_glass.css">
+<style>
+  body.glass { padding: 28px 20px 20px; }
+
+  .ring-wrap {
+    display: flex;
+    gap: 36px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .ring-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .ring-tile .lbl {
+    font: 600 12px var(--font-sans);
+    color: var(--fg-2);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  .ring-tile .sub {
+    font: 500 11px var(--font-sans);
+    color: var(--fg-3);
+    margin-top: -4px;
+  }
+
+  .ring-outer {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+  }
+  /* Frosted disk behind the ring */
+  .ring-outer::before {
+    content:'';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.28));
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    box-shadow:
+      0 1px 2px rgba(0,40,90,0.08),
+      0 8px 20px rgba(0,40,90,0.10),
+      inset 0 1px 0 rgba(255,255,255,0.6);
+    border: 0.5px solid rgba(255,255,255,0.55);
+  }
+  .ring-svg {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 120px;
+    height: 120px;
+  }
+  .ring-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 700 24px var(--font-sans);
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    z-index: 2;
+  }
+
+  /* Shared ring geometry:
+     viewBox 120×120, center (60,60), r=48, stroke-width=10
+     circumference = 2π·48 ≈ 301.59 */
+</style>
+</head>
+<body class="glass">
+<div class="col gap-3" style="position:relative;z-index:2">
+  <div class="ring-wrap">
+
+    <div class="ring-tile">
+      <div class="ring-outer">
+        <svg class="ring-svg" viewBox="0 0 120 120">
+          <defs>
+            <linearGradient id="g-on" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#3FD19B"/>
+              <stop offset="1" stop-color="#0E9A68"/>
+            </linearGradient>
+          </defs>
+          <circle cx="60" cy="60" r="48" fill="none"
+                  stroke="rgba(10,80,55,0.14)" stroke-width="10"/>
+          <circle cx="60" cy="60" r="48" fill="none"
+                  stroke="url(#g-on)" stroke-width="10" stroke-linecap="round"
+                  stroke-dasharray="301.59"
+                  stroke-dashoffset="90.48"
+                  transform="rotate(-90 60 60)"
+                  style="filter: drop-shadow(0 1px 3px rgba(14,154,104,0.40))"/>
+        </svg>
+        <div class="ring-label" style="color:#0B5E3E">70<tspan style="font-size:0.62em;font-weight:600">%</tspan></div>
+      </div>
+      <div class="lbl">On Track</div>
+      <div class="sub">$7,000 / $10,000</div>
+    </div>
+
+    <div class="ring-tile">
+      <div class="ring-outer">
+        <svg class="ring-svg" viewBox="0 0 120 120">
+          <defs>
+            <linearGradient id="g-warn" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#F3A44A"/>
+              <stop offset="1" stop-color="#C86A1E"/>
+            </linearGradient>
+          </defs>
+          <circle cx="60" cy="60" r="48" fill="none"
+                  stroke="rgba(120,60,0,0.14)" stroke-width="10"/>
+          <circle cx="60" cy="60" r="48" fill="none"
+                  stroke="url(#g-warn)" stroke-width="10" stroke-linecap="round"
+                  stroke-dasharray="301.59"
+                  stroke-dashoffset="180.95"
+                  transform="rotate(-90 60 60)"
+                  style="filter: drop-shadow(0 1px 3px rgba(200,106,30,0.40))"/>
+        </svg>
+        <div class="ring-label" style="color:#6E2F00">40<tspan style="font-size:0.62em;font-weight:600">%</tspan></div>
+      </div>
+      <div class="lbl">At Risk</div>
+      <div class="sub">$4,000 / $10,000</div>
+    </div>
+
+    <div class="ring-tile">
+      <div class="ring-outer">
+        <svg class="ring-svg" viewBox="0 0 120 120">
+          <defs>
+            <linearGradient id="g-err" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#EC6A6A"/>
+              <stop offset="1" stop-color="#B42C2C"/>
+            </linearGradient>
+          </defs>
+          <circle cx="60" cy="60" r="48" fill="none"
+                  stroke="rgba(120,0,0,0.14)" stroke-width="10"/>
+          <circle cx="60" cy="60" r="48" fill="none"
+                  stroke="url(#g-err)" stroke-width="10" stroke-linecap="round"
+                  stroke-dasharray="301.59"
+                  stroke-dashoffset="256.35"
+                  transform="rotate(-90 60 60)"
+                  style="filter: drop-shadow(0 1px 3px rgba(180,44,44,0.40))"/>
+        </svg>
+        <div class="ring-label" style="color:#7A0A0A">15<tspan style="font-size:0.62em;font-weight:600">%</tspan></div>
+      </div>
+      <div class="lbl">Off Track</div>
+      <div class="sub">$1,500 / $10,000</div>
+    </div>
+
+    <div class="ring-tile">
+      <div class="ring-outer">
+        <svg class="ring-svg" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="48" fill="none"
+                  stroke="rgba(20,40,80,0.10)" stroke-width="10"/>
+          <circle cx="60" cy="60" r="48" fill="none"
+                  stroke="rgba(20,40,80,0.28)" stroke-width="10" stroke-linecap="round"
+                  stroke-dasharray="301.59"
+                  stroke-dashoffset="301.59"
+                  transform="rotate(-90 60 60)"/>
+        </svg>
+        <div class="ring-label" style="color:#4A556B;font-weight:600;font-size:15px;letter-spacing:0">Not&nbsp;set</div>
+      </div>
+      <div class="lbl">Empty</div>
+      <div class="sub">No contributions yet</div>
+    </div>
+
+  </div>
+  <div style="margin-top:4px"><span class="caption-pill">Ring geometry shared: r=48, stroke 10, circumference 301.59. Rotated −90° so 0% starts at 12 o'clock. Status color mapped from the On Track / At Risk / Off Track tint palette.</span></div>
+</div>
+</body></html>

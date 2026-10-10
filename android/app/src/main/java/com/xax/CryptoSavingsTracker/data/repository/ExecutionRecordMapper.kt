@@ -14,7 +14,8 @@ object ExecutionRecordMapper {
         closedAtMillis = closedAtUtcMillis,
         canUndoUntilMillis = canUndoUntilUtcMillis,
         createdAtMillis = createdAtUtcMillis,
-        updatedAtMillis = lastModifiedAtUtcMillis
+        updatedAtMillis = lastModifiedAtUtcMillis,
+        legacyRateSnapshotPending = legacyRateSnapshotPending
     )
 
     fun ExecutionRecord.toEntity(): MonthlyExecutionRecordEntity = MonthlyExecutionRecordEntity(
@@ -25,8 +26,8 @@ object ExecutionRecordMapper {
         startedAtUtcMillis = startedAtMillis,
         closedAtUtcMillis = closedAtMillis,
         canUndoUntilUtcMillis = canUndoUntilMillis,
+        legacyRateSnapshotPending = legacyRateSnapshotPending,
         createdAtUtcMillis = createdAtMillis,
         lastModifiedAtUtcMillis = updatedAtMillis
     )
 }
-

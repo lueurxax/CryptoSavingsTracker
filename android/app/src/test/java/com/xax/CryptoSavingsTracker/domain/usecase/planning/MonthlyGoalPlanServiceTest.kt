@@ -18,6 +18,69 @@ class MonthlyGoalPlanServiceTest {
     private val flexAdjustmentService = mockk<FlexAdjustmentService>(relaxed = true)
 
     @Test
+    fun `custom amount rejects non-finite and negative values before persistence`() = runTest {
+        val repo = mockk<MonthlyGoalPlanRepository>(relaxed = true)
+        val service = MonthlyGoalPlanService(repo, flexAdjustmentService)
+        val monthLabel = "2025-12"
+        coEvery { repo.getPlanOnce(monthLabel, "g1") } returns plan(
+            goalId = "g1",
+            requiredMonthly = 100.0,
+            customAmount = null,
+            isProtected = false,
+            isSkipped = false
+        )
+
+        listOf(
+            -1.0,
+            Double.NaN,
+            Double.POSITIVE_INFINITY,
+            Double.NEGATIVE_INFINITY
+        ).forEach { invalidAmount ->
+            val failure = runCatching {
+                service.setCustomAmount(monthLabel, "g1", invalidAmount)
+            }.exceptionOrNull()
+
+            assertThat(failure).isInstanceOf(IllegalArgumentException::class.java)
+        }
+
+        coVerify(exactly = 0) { repo.upsert(any()) }
+    }
+
+    @Test
+    fun `bulk custom amounts reject invalid map atomically`() = runTest {
+        val repo = mockk<MonthlyGoalPlanRepository>(relaxed = true)
+        val service = MonthlyGoalPlanService(repo, flexAdjustmentService)
+
+        val failure = runCatching {
+            service.applyCustomAmounts(
+                monthLabel = "2025-12",
+                customAmounts = mapOf(
+                    "g1" to 10.0,
+                    "g2" to Double.NaN
+                )
+            )
+        }.exceptionOrNull()
+
+        assertThat(failure).isInstanceOf(IllegalArgumentException::class.java)
+        coVerify(exactly = 0) { repo.getPlansOnce(any()) }
+        coVerify(exactly = 0) { repo.upsertAll(any()) }
+    }
+
+    @Test
+    fun `flex adjustment rejects non-finite input before persistence`() = runTest {
+        val repo = mockk<MonthlyGoalPlanRepository>(relaxed = true)
+        val service = MonthlyGoalPlanService(repo, flexAdjustmentService)
+
+        val failure = runCatching {
+            service.applyFlexAdjustment("2025-12", Double.NaN)
+        }.exceptionOrNull()
+
+        assertThat(failure).isInstanceOf(IllegalArgumentException::class.java)
+        coVerify(exactly = 0) { repo.getPlansOnce(any()) }
+        coVerify(exactly = 0) { repo.upsertAll(any()) }
+    }
+
+    @Test
     fun syncPlans_preservesUserPreferencesWhileUpdatingCalculations() = runTest {
         val repo = mockk<MonthlyGoalPlanRepository>()
         val service = MonthlyGoalPlanService(repo, flexAdjustmentService)
@@ -192,4 +255,3 @@ class MonthlyGoalPlanServiceTest {
         )
     }
 }
-

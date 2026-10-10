@@ -85,3 +85,42 @@ final class FamilyShareDirtyStateStore: @unchecked Sendable {
         }
     }
 }
+
+/// Durable owner-revocation intent.
+///
+/// A remote projection publish can complete after the owner's first revoke
+/// request has already deleted the records. This marker survives relaunch so
+/// the app keeps access locally disabled until a later revoke is acknowledged.
+final class FamilyShareRevocationTombstoneStore: @unchecked Sendable {
+    private nonisolated static let storeKey = "com.cryptosavings.familyshare.revocation-tombstones"
+
+    private nonisolated(unsafe) let defaults: UserDefaults
+
+    nonisolated init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    nonisolated func markPending(namespaceKey: String) {
+        var namespaceKeys = pendingNamespaceKeys()
+        namespaceKeys.insert(namespaceKey)
+        persist(namespaceKeys)
+    }
+
+    nonisolated func isPending(namespaceKey: String) -> Bool {
+        pendingNamespaceKeys().contains(namespaceKey)
+    }
+
+    nonisolated func clear(namespaceKey: String) {
+        var namespaceKeys = pendingNamespaceKeys()
+        namespaceKeys.remove(namespaceKey)
+        persist(namespaceKeys)
+    }
+
+    private nonisolated func pendingNamespaceKeys() -> Set<String> {
+        Set(defaults.stringArray(forKey: Self.storeKey) ?? [])
+    }
+
+    private nonisolated func persist(_ namespaceKeys: Set<String>) {
+        defaults.set(namespaceKeys.sorted(), forKey: Self.storeKey)
+    }
+}

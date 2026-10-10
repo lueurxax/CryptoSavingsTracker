@@ -55,6 +55,12 @@ internal fun formatCurrency(amount: Double, currency: String = "USD"): String {
     return "$currency ${String.format("%,.2f", amount)}"
 }
 
+internal fun executionPlannedTotalLabel(session: ExecutionSession): String {
+    val currency = session.totalsCurrency ?: return "Mixed currencies"
+    val total = session.totalPlanned ?: return "Mixed currencies"
+    return formatCurrency(total, currency)
+}
+
 internal fun formatRelativeTime(millis: Long): String {
     val now = Instant.now()
     val then = Instant.ofEpochMilli(millis)
@@ -190,7 +196,7 @@ internal fun ProgressHeaderCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             // Progress bar
-            if (session.summaryCurrency != null) LinearProgressIndicator(
+            LinearProgressIndicator(
                 progress = { (progressPercent / 100.0).toFloat().coerceIn(0f, 1f) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -217,7 +223,7 @@ internal fun ProgressHeaderCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 // Percentage complete
-                if (session.summaryCurrency != null) Column(horizontalAlignment = Alignment.Start) {
+                Column(horizontalAlignment = Alignment.Start) {
                     Text(
                         text = "${progressPercent.toInt()}%",
                         style = MaterialTheme.typography.headlineMedium,
@@ -246,19 +252,17 @@ internal fun ProgressHeaderCard(
                 }
 
                 // Total planned
-                session.summaryCurrency?.let { currency ->
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = formatCurrency(session.totalPlanned, currency),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "planned",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = executionPlannedTotalLabel(session),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "planned",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 

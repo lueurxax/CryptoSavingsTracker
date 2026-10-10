@@ -148,8 +148,12 @@ struct MonthlyPlanningFlexRegressionTests {
 
         #expect(viewModel.flexAdjustment == 0.75)
         #expect(viewModel.getEffectiveAmount(for: goal.id) == 75)
-        #expect(viewModel.monthlyRequirements.first?.requiredMonthly == 75)
+        #expect(viewModel.monthlyRequirements.first?.requiredMonthly == 100)
         #expect(viewModel.adjustedTotal == 90)
+        let verificationContext = ModelContext(container)
+        let persistedPlans = try verificationContext.fetch(FetchDescriptor<MonthlyPlan>())
+        let persistedPlan = try #require(persistedPlans.first { $0.goalId == goal.id })
+        #expect(persistedPlan.customAmount == 75)
     }
 
     @MainActor

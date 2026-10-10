@@ -8,6 +8,62 @@
 import Foundation
 import SwiftData
 
+struct GoalFinancialInputEvidence: Equatable, Sendable {
+    struct AssetBalance: Equatable, Sendable {
+        let allocationID: UUID
+        let assetID: UUID
+        let consumedAmount: UInt64
+        let authoritativeAmount: UInt64
+        let balanceCache: BalanceCacheSnapshotEvidence?
+    }
+
+    struct ExchangeRate: Equatable, Sendable {
+        let allocationID: UUID
+        let from: String
+        let to: String
+        let consumedRate: UInt64
+        let authoritativeSnapshot: ExchangeRateSnapshotEvidence?
+    }
+
+    let goalID: UUID
+    let assetBalances: [AssetBalance]
+    let exchangeRates: [ExchangeRate]
+
+    init(
+        goalID: UUID,
+        assetBalances: [AssetBalance],
+        exchangeRates: [ExchangeRate]
+    ) {
+        self.goalID = goalID
+        self.assetBalances = assetBalances.sorted {
+            $0.allocationID.uuidString < $1.allocationID.uuidString
+        }
+        self.exchangeRates = exchangeRates.sorted {
+            $0.allocationID.uuidString < $1.allocationID.uuidString
+        }
+    }
+}
+
+struct GoalCurrentTotalResult: Equatable, Sendable {
+    let total: Double
+    let error: UserFacingError?
+    let financialInputEvidence: GoalFinancialInputEvidence?
+
+    init(
+        total: Double,
+        error: UserFacingError?,
+        financialInputEvidence: GoalFinancialInputEvidence? = nil
+    ) {
+        self.total = total
+        self.error = error
+        self.financialInputEvidence = financialInputEvidence
+    }
+
+    var isComplete: Bool {
+        error == nil
+    }
+}
+
 /// Service for performing goal calculations with proper separation of concerns
 /// This avoids having model objects directly instantiate ViewModels
 @MainActor
@@ -35,14 +91,86 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     }
 
     // Instance methods prefer injected services (better for testing)
-    func getCurrentTotal(for goal: Goal) async -> Double {
-        let viewModel = GoalViewModel(
-            goal: goal,
+    func getCurrentTotalResult(for goal: Goal) async -> GoalCurrentTotalResult {
+        await GoalBalanceCalculator(
             tatumService: tatumService,
             exchangeRateService: exchangeRateService
+        ).calculateCurrentTotal(for: goal).currentTotalResult
+    }
+
+    /// Validates only already-consumed financial inputs. It performs synchronous
+    /// model/cache reads and never asks either provider to refresh.
+    func financialInputEvidenceIsCurrent(
+        _ evidence: GoalFinancialInputEvidence,
+        for goal: Goal
+    ) -> Bool {
+        guard evidence.goalID == goal.id else { return false }
+
+        for balance in evidence.assetBalances {
+            guard
+                let allocation = (goal.allocations ?? []).first(where: {
+                    $0.id == balance.allocationID
+                }),
+                let asset = allocation.asset,
+                asset.id == balance.assetID,
+                balance.consumedAmount == balance.authoritativeAmount,
+                asset.currentAmount.bitPattern == balance.authoritativeAmount,
+                balanceCacheEvidence(for: asset) == balance.balanceCache
+            else {
+                return false
+            }
+        }
+
+        for rate in evidence.exchangeRates {
+            guard
+                let allocation = (goal.allocations ?? []).first(where: {
+                    $0.id == rate.allocationID
+                }),
+                let asset = allocation.asset,
+                asset.currency.uppercased() == rate.from,
+                goal.currency.uppercased() == rate.to
+            else {
+                return false
+            }
+
+            let currentSnapshot = exchangeRateService.rateSnapshotEvidence(
+                from: rate.from,
+                to: rate.to
+            )
+            if let authoritativeSnapshot = rate.authoritativeSnapshot {
+                guard
+                    authoritativeSnapshot.rate == rate.consumedRate,
+                    currentSnapshot == authoritativeSnapshot
+                else {
+                    return false
+                }
+            } else if currentSnapshot != nil {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private func balanceCacheEvidence(for asset: Asset) -> BalanceCacheSnapshotEvidence? {
+        guard
+            let chainID = asset.chainId,
+            let address = asset.address,
+            !chainID.isEmpty,
+            !address.isEmpty
+        else {
+            return nil
+        }
+        let cacheKey = BalanceCacheManager.balanceCacheKey(
+            chainId: chainID,
+            address: address,
+            symbol: asset.currency
         )
-        await viewModel.refreshValues()
-        return viewModel.currentTotal
+        return BalanceCacheManager.shared.balanceSnapshotEvidence(for: cacheKey)
+    }
+
+    func getCurrentTotal(for goal: Goal) async -> Double {
+        await getCurrentTotalResult(for: goal).total
     }
 
     func getProgress(for goal: Goal) async -> Double {
@@ -75,11 +203,18 @@ class GoalCalculationService: GoalCalculationServiceProtocol {
     // - getCurrentTotal(for:) for asset-only totals
     // - Separate contribution queries for monthly plan tracking
 
-    /// Calculate current total for a goal using proper ViewModel delegation
+    /// Calculate current total through the shared domain calculator.
+    @MainActor static func getCurrentTotalResult(for goal: Goal) async -> GoalCurrentTotalResult {
+        let container = DIContainer.shared
+        return await GoalBalanceCalculator(
+            tatumService: container.tatumService,
+            exchangeRateService: container.exchangeRateService
+        ).calculateCurrentTotal(for: goal).currentTotalResult
+    }
+
+    /// Calculate current total through the shared domain calculator.
     @MainActor static func getCurrentTotal(for goal: Goal) async -> Double {
-        let viewModel = GoalViewModel(goal: goal)
-        await viewModel.refreshValues()
-        return viewModel.currentTotal
+        await getCurrentTotalResult(for: goal).total
     }
     
     /// Calculate progress percentage for a goal

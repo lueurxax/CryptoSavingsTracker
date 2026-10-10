@@ -1,0 +1,193 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Status colors</title>
+<link rel="stylesheet" href="_card.css">
+<link rel="stylesheet" href="_glass.css">
+<style>
+  body { background: transparent; color: #fff; }
+  .stage { position: relative; z-index: 2; padding: 4px; }
+
+  /* Vertical stack of generously-sized status rows.
+     Each row is its own midnight-glass card with a single colored spill,
+     plenty of horizontal breathing room, and no crowded micro-chips. */
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    background: linear-gradient(180deg, rgba(20,28,52,0.78) 0%, rgba(10,15,31,0.90) 100%);
+    border: 0.5px solid rgba(120,175,255,0.16);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .row::before {
+    content:'';
+    position: absolute;
+    left: -40px; bottom: -60px;
+    width: 220px; height: 220px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .row > * { position: relative; z-index: 1; }
+
+  /* Color chip — solid square with the role's hue, white icon */
+  .chip {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.22),
+      0 4px 10px rgba(0,0,0,0.35);
+  }
+  .chip svg { width: 22px; height: 22px; display: block; }
+
+  .text { min-width: 0; }
+  .role {
+    font: 700 15px var(--font-sans);
+    color: #fff;
+    letter-spacing: -0.2px;
+    line-height: 1.2;
+    margin-bottom: 2px;
+  }
+  .use {
+    font: 500 12px var(--font-sans);
+    color: rgba(255,255,255,0.62);
+    line-height: 1.3;
+  }
+
+  .meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    text-align: right;
+  }
+  .token {
+    font: 600 11px var(--font-mono);
+    color: rgba(255,255,255,0.45);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .hex {
+    font: 500 11px var(--font-mono);
+    color: rgba(255,255,255,0.75);
+  }
+
+  /* Per-role colors */
+  .row.brand   .chip { background: linear-gradient(180deg, #FFD884 0%, #F5A623 60%, #C7821A 100%); color: #1A0F00; }
+  .row.brand   .chip { box-shadow: inset 0 1px 0 rgba(255,232,180,0.55), 0 4px 12px rgba(245,166,35,0.32); }
+  .row.brand::before  { background: radial-gradient(closest-side, rgba(245,166,35,0.40), transparent 70%); }
+
+  .row.success .chip { background: linear-gradient(180deg, #00A36F, #00875A); }
+  .row.success::before{ background: radial-gradient(closest-side, rgba(0,135,90,0.32), transparent 70%); }
+
+  .row.warning .chip { background: linear-gradient(180deg, #D96A00, #B84D00); }
+  .row.warning::before{ background: radial-gradient(closest-side, rgba(184,77,0,0.34), transparent 70%); }
+
+  .row.error   .chip { background: linear-gradient(180deg, #E5333D, #B00020); }
+  .row.error::before  { background: radial-gradient(closest-side, rgba(204,0,0,0.32), transparent 70%); }
+
+  .row.info    .chip { background: linear-gradient(180deg, #3D7BD9, #1F5BBF); }
+  .row.info::before   { background: radial-gradient(closest-side, rgba(120,175,255,0.30), transparent 70%); }
+
+  .footnote {
+    margin-top: 14px;
+    font: 500 12px var(--font-sans);
+    color: rgba(255,255,255,0.55);
+    line-height: 1.45;
+    max-width: 640px;
+  }
+  .footnote .gold { color: #F5A623; }
+</style>
+</head>
+<body class="glass">
+<div class="stage col gap-3">
+
+  <div class="stack">
+    <div class="row brand">
+      <div class="chip">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg>
+      </div>
+      <div class="text">
+        <div class="role">Brand · Primary</div>
+        <div class="use">Banner liquid · CTA buttons · key totals</div>
+      </div>
+      <div class="meta">
+        <div class="token">primary</div>
+        <div class="hex">#F5A623</div>
+      </div>
+    </div>
+
+    <div class="row success">
+      <div class="chip">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="text">
+        <div class="role">On Track</div>
+        <div class="use">Goal pacing healthy · contribution succeeded</div>
+      </div>
+      <div class="meta">
+        <div class="token">success</div>
+        <div class="hex">#00875A</div>
+      </div>
+    </div>
+
+    <div class="row warning">
+      <div class="chip">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 4l9 16H3L12 4z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M12 10v4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.5" r="1.1" fill="currentColor"/></svg>
+      </div>
+      <div class="text">
+        <div class="role">At Risk</div>
+        <div class="use">Pacing slipping · forecast misses target date</div>
+      </div>
+      <div class="meta">
+        <div class="token">warning</div>
+        <div class="hex">#B84D00</div>
+      </div>
+    </div>
+
+    <div class="row error">
+      <div class="chip">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+      </div>
+      <div class="text">
+        <div class="role">Off Track</div>
+        <div class="use">Sync failed · validation error · destructive</div>
+      </div>
+      <div class="meta">
+        <div class="token">error</div>
+        <div class="hex">#CC0000</div>
+      </div>
+    </div>
+
+    <div class="row info">
+      <div class="chip">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.2"/><path d="M12 11v6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.5" r="1.2" fill="currentColor"/></svg>
+      </div>
+      <div class="text">
+        <div class="role">Info</div>
+        <div class="use">Helper text · syncing · neutral system message</div>
+      </div>
+      <div class="meta">
+        <div class="token">info</div>
+        <div class="hex">#3D7BD9</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footnote">
+    Brand <span class="gold">amber</span> is the primary action color (the banner liquid). Status colors carry semantic meaning only — every status pairs <em>icon + text</em>, never color alone.
+  </div>
+</div>
+</body></html>

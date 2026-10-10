@@ -18,11 +18,12 @@ object UnallocatedAssetsMapper {
 
     fun fromStatuses(statuses: List<AssetAllocationStatus>): List<UnallocatedAssetWarning> {
         return statuses
-            .filter { it.unallocatedAmount > EPSILON }
+            .filter { (it.unallocatedAmount ?: 0.0) > EPSILON }
             .map { status ->
-                val balance = status.totalBalance
+                val balance = checkNotNull(status.totalBalance)
+                val unallocatedAmount = checkNotNull(status.unallocatedAmount)
                 val percent = if (balance > 0.0) {
-                    (min(1.0, max(0.0, status.unallocatedAmount / balance)) * 100).toInt()
+                    (min(1.0, max(0.0, unallocatedAmount / balance)) * 100).toInt()
                 } else {
                     0
                 }
@@ -32,7 +33,7 @@ object UnallocatedAssetsMapper {
                     address = status.asset.address,
                     chainId = status.asset.chainId,
                     unallocatedPercentage = percent,
-                    unallocatedAmount = status.unallocatedAmount
+                    unallocatedAmount = unallocatedAmount
                 )
             }
             .sortedWith(
@@ -41,4 +42,3 @@ object UnallocatedAssetsMapper {
             )
     }
 }
-

@@ -29,13 +29,13 @@ enum class ChainType {
 object ChainService {
 
     private val chains = listOf(
-        // EVM Chains (support v4 API)
+        // EVM Chains (v4ApiName is null when Tatum V4 does not support the chain)
         Chain("ETH", "Ethereum", "ETH", ChainType.EVM, "ethereum-mainnet"),
         Chain("BSC", "BNB Smart Chain", "BNB", ChainType.EVM, "bsc-mainnet"),
-        Chain("POLYGON", "Polygon", "MATIC", ChainType.EVM, "polygon-mainnet"),
-        Chain("AVAX", "Avalanche", "AVAX", ChainType.EVM, "avalanche-c-mainnet"),
-        Chain("FTM", "Fantom", "FTM", ChainType.EVM, "fantom-mainnet"),
-        Chain("ARBITRUM", "Arbitrum", "ETH", ChainType.EVM, "arbitrum-mainnet"),
+        Chain("POLYGON", "Polygon", "POL", ChainType.EVM, "polygon-mainnet"),
+        Chain("AVAX", "Avalanche", "AVAX", ChainType.EVM, "avax-mainnet"),
+        Chain("FTM", "Fantom", "FTM", ChainType.EVM),
+        Chain("ARBITRUM", "Arbitrum", "ETH", ChainType.EVM, "arb-one-mainnet"),
         Chain("OPTIMISM", "Optimism", "ETH", ChainType.EVM, "optimism-mainnet"),
         Chain("BASE", "Base", "ETH", ChainType.EVM, "base-mainnet"),
 

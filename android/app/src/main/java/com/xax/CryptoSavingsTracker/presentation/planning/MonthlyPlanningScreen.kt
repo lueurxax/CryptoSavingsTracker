@@ -229,6 +229,7 @@ fun MonthlyPlanningScreen(
                 currentBudgetCurrency = uiState.budgetCurrency,
                 minimumBudget = uiState.budgetMinimum,
                 isMinimumLoading = uiState.isBudgetMinimumLoading,
+                minimumError = uiState.budgetMinimumError,
                 availableCurrencies = planningDisplayCurrencies,
                 onDismiss = { viewModel.dismissSettings() },
                 onRequestMinimum = viewModel::loadBudgetMinimum,
@@ -319,8 +320,8 @@ fun MonthlyPlanningScreen(
 private fun MonthlyPlanningContent(
     requirements: List<MonthlyRequirementRow>,
     flexAdjustment: Double,
-    totalRequired: Double,
-    baseTotalRequired: Double,
+    totalRequired: Double?,
+    baseTotalRequired: Double?,
     displayCurrency: String,
     paymentDay: Int,
     activeExecutionMonthLabel: String?,
@@ -489,8 +490,8 @@ private fun TrackingModeBanner(
 
 @Composable
 private fun TotalRequirementCard(
-    totalRequired: Double,
-    baseTotalRequired: Double,
+    totalRequired: Double?,
+    baseTotalRequired: Double?,
     displayCurrency: String,
     paymentDay: Int,
     flexAdjustment: Double,
@@ -530,12 +531,18 @@ private fun TotalRequirementCard(
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "$displayCurrency ${String.format("%,.2f", totalRequired)}",
+                text = totalRequired?.let {
+                    "$displayCurrency ${String.format("%,.2f", it)}"
+                } ?: "Monthly total unavailable",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            if (kotlin.math.abs(totalRequired - baseTotalRequired) > 0.01) {
+            if (
+                totalRequired != null &&
+                baseTotalRequired != null &&
+                kotlin.math.abs(totalRequired - baseTotalRequired) > 0.01
+            ) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "Base: $displayCurrency ${String.format("%,.2f", baseTotalRequired)}",
@@ -858,7 +865,14 @@ private fun CustomAmountDialog(
         mutableStateOf(currentAmount?.let { String.format("%.2f", it) } ?: "")
     }
     val parsed = value.toDoubleOrNull()
-    val error = if (value.isNotEmpty() && (parsed == null || parsed < 0.0)) "Enter a valid amount" else null
+    val error = if (
+        value.isNotEmpty() &&
+        (parsed == null || !parsed.isFinite() || parsed < 0.0)
+    ) {
+        "Enter a finite non-negative amount"
+    } else {
+        null
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -887,7 +901,7 @@ private fun CustomAmountDialog(
         confirmButton = {
             TextButton(
                 onClick = { onConfirm(parsed ?: 0.0) },
-                enabled = parsed != null && parsed >= 0.0 && error == null
+                enabled = parsed != null && parsed.isFinite() && parsed >= 0.0 && error == null
             ) {
                 Text("Save")
             }
@@ -943,6 +957,7 @@ private fun PlanningSettingsDialog(
     currentBudgetCurrency: String,
     minimumBudget: Double?,
     isMinimumLoading: Boolean,
+    minimumError: String?,
     availableCurrencies: List<String>,
     onDismiss: () -> Unit,
     onRequestMinimum: (String) -> Unit,
@@ -957,7 +972,14 @@ private fun PlanningSettingsDialog(
     var budgetCurrencyExpanded by remember { mutableStateOf(false) }
     var budgetCurrency by remember { mutableStateOf(currentBudgetCurrency) }
     val parsedBudget = budgetText.toDoubleOrNull()
-    val budgetError = if (budgetText.isNotEmpty() && parsedBudget == null) "Enter a valid number" else null
+    val budgetError = when {
+        budgetText.isEmpty() -> null
+        parsedBudget == null || !parsedBudget.isFinite() -> "Enter a finite number"
+        parsedBudget <= 0.0 -> "Budget must be greater than 0"
+        !parsedBudget.toFloat().isFinite() || parsedBudget.toFloat() <= 0f ->
+            "Budget is outside the supported range"
+        else -> null
+    }
 
     LaunchedEffect(budgetCurrency) {
         onRequestMinimum(budgetCurrency)
@@ -1093,6 +1115,13 @@ private fun PlanningSettingsDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                } else if (minimumError != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = minimumError,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 } else if (minimumBudget != null && minimumBudget > 0) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -1114,7 +1143,8 @@ private fun PlanningSettingsDialog(
                     val budgetValue = if (budgetText.isBlank()) null else parsedBudget
                     onConfirm(sliderValue.roundToInt(), selectedCurrency, budgetValue, budgetCurrency)
                 },
-                enabled = budgetError == null
+                enabled = budgetError == null &&
+                    (budgetText.isBlank() || parsedBudget != null)
             ) {
                 Text("Save")
             }

@@ -233,7 +233,8 @@ private fun AddAllocationContent(
                     )
                     TextButton(
                         onClick = onMaxClicked,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = 8.dp),
+                        enabled = selectedAsset.availableBalance != null
                     ) {
                         Text("MAX")
                     }
@@ -241,17 +242,26 @@ private fun AddAllocationContent(
             }
 
             item {
-                Text(
-                    text = "Available: ${
-                        AmountFormatters.formatDisplayCurrencyAmount(
-                            selectedAsset.availableBalance,
-                            selectedAsset.asset.currency,
-                            isCrypto = selectedAsset.asset.isCryptoAsset
-                        )
-                    }",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                val availableBalance = selectedAsset.availableBalance
+                if (availableBalance != null) {
+                    Text(
+                        text = "Available: ${
+                            AmountFormatters.formatDisplayCurrencyAmount(
+                                availableBalance,
+                                selectedAsset.asset.currency,
+                                isCrypto = selectedAsset.asset.isCryptoAsset
+                            )
+                        }",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Text(
+                        text = selectedAsset.balanceIssue ?: "Balance unavailable",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
 
             // Save button
@@ -260,7 +270,9 @@ private fun AddAllocationContent(
                 Button(
                     onClick = onSave,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isSaving && amount.isNotEmpty()
+                    enabled = !isSaving &&
+                        amount.isNotEmpty() &&
+                        selectedAsset.availableBalance != null
                 ) {
                     if (isSaving) {
                         CircularProgressIndicator(
@@ -290,7 +302,10 @@ private fun AssetSelectionCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(
+                enabled = assetForAllocation.availableBalance != null,
+                onClick = onClick
+            ),
         border = if (isSelected) {
             BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
         } else {
@@ -330,16 +345,25 @@ private fun AssetSelectionCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    val availableBalance = assetForAllocation.availableBalance
                     Text(
-                        text = "Available: ${
-                            AmountFormatters.formatDisplayCurrencyAmount(
-                                assetForAllocation.availableBalance,
-                                asset.currency,
-                                isCrypto = asset.isCryptoAsset
-                            )
-                        }",
+                        text = if (availableBalance != null) {
+                            "Available: ${
+                                AmountFormatters.formatDisplayCurrencyAmount(
+                                    availableBalance,
+                                    asset.currency,
+                                    isCrypto = asset.isCryptoAsset
+                                )
+                            }"
+                        } else {
+                            assetForAllocation.balanceIssue ?: "Balance unavailable"
+                        },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (availableBalance != null) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        }
                     )
                     if (assetForAllocation.alreadyAllocated > 0) {
                         Text(

@@ -1,0 +1,148 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Buttons</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  body {
+    padding: 0;
+    background: #050810;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+  /* Dark scene with banner-style warm spill */
+  body::before {
+    content:''; position: fixed; inset: 0; z-index: 0;
+    background:
+      radial-gradient(40% 60% at 18% 70%, rgba(245,166,35,0.32), transparent 65%),
+      radial-gradient(30% 50% at 85% 20%, rgba(120,175,255,0.18), transparent 70%),
+      linear-gradient(180deg, #050810 0%, #0A0F1F 100%);
+    pointer-events: none;
+  }
+  .stage {
+    position: relative;
+    z-index: 1;
+    padding: 22px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .btn {
+    font: 600 15px var(--font-sans);
+    padding: 12px 22px;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    transition: transform 160ms cubic-bezier(0.2,0,0.2,1), filter 160ms;
+    letter-spacing: -0.01em;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:hover { filter: brightness(1.07); }
+  .btn:active { transform: scale(0.975); filter: brightness(0.94); }
+
+  /* Primary — amber, the brand CTA */
+  .btn-primary {
+    background: linear-gradient(180deg, #FFD884 0%, #F5A623 60%, #C7821A 100%);
+    color: #1A0F00;
+    text-shadow: 0 0.5px 0 rgba(255,224,160,0.5);
+    box-shadow:
+      0 1px 0 rgba(255,232,180,0.65) inset,
+      0 -1px 0 rgba(120,70,0,0.35) inset,
+      0 4px 12px rgba(245,166,35,0.35),
+      0 1px 2px rgba(0,0,0,0.35);
+  }
+
+  /* Secondary — dark glass, white label */
+  .btn-secondary {
+    background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04));
+    color: #FFFFFF;
+    border: 0.5px solid rgba(255,255,255,0.18);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.12) inset, 0 4px 12px rgba(0,0,0,0.25);
+  }
+
+  /* Tertiary — text only on dark */
+  .btn-tertiary {
+    padding: 12px 16px;
+    background: transparent;
+    color: #F5A623;
+  }
+  .btn-tertiary:hover { background: rgba(245,166,35,0.08); }
+
+  /* Destructive */
+  .btn-destructive {
+    background: linear-gradient(180deg, #FF7A6B 0%, #D43A3A 100%);
+    color: #fff;
+    box-shadow:
+      0 1px 0 rgba(255,180,170,0.5) inset,
+      0 4px 12px rgba(204,0,0,0.35),
+      0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  /* Disabled */
+  .btn-disabled {
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.35);
+    cursor: not-allowed;
+    border: 0.5px solid rgba(255,255,255,0.08);
+  }
+  .btn-disabled:hover, .btn-disabled:active { filter: none; transform: none; }
+
+  /* Icon button */
+  .btn-icon {
+    width: 44px; height: 44px;
+    padding: 0;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    border: 0.5px solid rgba(255,255,255,0.14);
+    justify-content: center;
+  }
+
+  .label {
+    font: 500 11px var(--font-sans);
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="label">Primary actions</div>
+  <div class="row">
+    <button class="btn btn-primary">Log contribution</button>
+    <button class="btn btn-primary">Save plan · $1,060</button>
+    <button class="btn btn-icon" aria-label="Add">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <div class="label">Secondary &amp; tertiary</div>
+  <div class="row">
+    <button class="btn btn-secondary">Plan this month</button>
+    <button class="btn btn-tertiary">Cancel</button>
+    <button class="btn btn-destructive">Delete goal</button>
+    <button class="btn btn-disabled" disabled>Saving…</button>
+  </div>
+
+  <div style="font: 500 11px var(--font-sans); color: rgba(255,255,255,0.45); letter-spacing: 0.01em;">
+    44pt min height · amber primary on midnight · dark-glass secondary · all hit targets satisfy iOS guidelines
+  </div>
+</div>
+</body></html>

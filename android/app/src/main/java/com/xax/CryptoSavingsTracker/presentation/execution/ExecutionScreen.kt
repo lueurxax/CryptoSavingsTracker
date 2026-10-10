@@ -55,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -160,6 +161,8 @@ fun ExecutionScreen(
                     lastRateUpdateMillis = uiState.lastRateUpdateMillis,
                     currentFocusGoal = uiState.currentFocusGoal,
                     canUndoStart = uiState.canUndoStart,
+                    undoStartDeadlineMillis = uiState.undoStartDeadlineMillis,
+                    canComplete = uiState.canComplete,
                     isBusy = uiState.isBusy,
                     onComplete = viewModel::completeExecution,
                     onUndoStart = viewModel::undoStartExecution,
@@ -190,7 +193,7 @@ fun ExecutionScreen(
                         } else {
                             coroutineScope.launch {
                                 isSuggesting = true
-                                val suggestion = viewModel.suggestedContributionAmount(goal, asset.currency)
+                                val suggestion = viewModel.suggestedContributionAmount(goal, asset.assetId)
                                 isSuggesting = false
                                 runtimeViewModel.telemetryTracker.flowCompleted(
                                     journeyId = NavigationJourney.GOAL_CONTRIBUTION_EDIT_CANCEL,
@@ -224,7 +227,7 @@ fun ExecutionScreen(
 }
 
 @Composable
-private fun ActiveExecutionContent(
+internal fun ActiveExecutionContent(
     session: ExecutionSession,
     displayCurrency: String,
     remainingByGoalId: Map<String, Double>,
@@ -234,11 +237,13 @@ private fun ActiveExecutionContent(
     lastRateUpdateMillis: Long?,
     currentFocusGoal: ExecutionFocusGoal?,
     canUndoStart: Boolean,
+    undoStartDeadlineMillis: Long?,
+    canComplete: Boolean,
     isBusy: Boolean,
     onComplete: () -> Unit,
     onUndoStart: () -> Unit,
     onDisplayCurrencySelected: (String) -> Unit,
-    onRetryRates: () -> Unit,
+    onRetryRates: () -> Unit = {},
     onAddToCloseMonth: (ExecutionGoalProgress) -> Unit,
     onAssetSelected: (ExecutionAssetOption) -> Unit,
     showAssetPicker: Boolean,
@@ -247,6 +252,34 @@ private fun ActiveExecutionContent(
 ) {
     var showCompletedSection by remember { mutableStateOf(true) }
     var currencyPickerExpanded by remember { mutableStateOf(false) }
+
+    if (!session.isProgressAvailable) {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                ExecutionProgressUnavailableCard()
+            }
+            item {
+                UndoBanner(
+                    undoDeadlineMillis = undoStartDeadlineMillis,
+                    onUndo = onUndoStart,
+                    isBusy = isBusy,
+                    isRecoveryRequired = true
+                )
+            }
+            item {
+                ActionButtonsSection(
+                    monthLabel = session.record.monthLabel,
+                    isBusy = isBusy,
+                    canComplete = false,
+                    onComplete = onComplete
+                )
+            }
+        }
+        return
+    }
 
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
@@ -271,11 +304,11 @@ private fun ActiveExecutionContent(
             )
         }
 
-        // Undo Banner (if within 24h window)
+        // Undo Banner (if within the persisted grace window)
         if (canUndoStart) {
             item {
                 UndoBanner(
-                    startedAtMillis = session.record.startedAtMillis,
+                    undoDeadlineMillis = undoStartDeadlineMillis,
                     onUndo = onUndoStart,
                     isBusy = isBusy
                 )
@@ -310,7 +343,7 @@ private fun ActiveExecutionContent(
             ActionButtonsSection(
                 monthLabel = session.record.monthLabel,
                 isBusy = isBusy,
-                canComplete = session.conversionError == null,
+                canComplete = canComplete && session.conversionError == null,
                 onComplete = onComplete
             )
         }
@@ -434,8 +467,8 @@ private fun CompletedGoalsSection(
 private fun ActionButtonsSection(
     monthLabel: String,
     isBusy: Boolean,
-    onComplete: () -> Unit,
-    canComplete: Boolean
+    canComplete: Boolean,
+    onComplete: () -> Unit
 ) {
     val monthDisplay = formatMonthLabel(monthLabel)
     Column(
@@ -444,7 +477,7 @@ private fun ActionButtonsSection(
     ) {
         Button(
             onClick = onComplete,
-            enabled = !isBusy && canComplete,
+            enabled = canComplete && !isBusy,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.secondary
             ),
@@ -453,6 +486,34 @@ private fun ActionButtonsSection(
             Icon(Icons.Default.CheckCircle, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Finish $monthDisplay")
+        }
+    }
+}
+
+@Composable
+private fun ExecutionProgressUnavailableCard() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("execution_progress_unavailable"),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Execution progress unavailable",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "The transaction ledger or frozen rates cannot prove contribution progress. " +
+                    "Completion and new contribution actions are disabled.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
         }
     }
 }

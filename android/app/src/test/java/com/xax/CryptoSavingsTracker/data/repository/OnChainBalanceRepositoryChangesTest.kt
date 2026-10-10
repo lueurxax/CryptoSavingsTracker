@@ -68,7 +68,7 @@ class OnChainBalanceRepositoryChangesTest {
             val context = mockk<Context>()
             val prefs = mockk<SharedPreferences>()
             val editor = mockk<SharedPreferences.Editor>(relaxed = true)
-            every { context.getSharedPreferences("onchain_balance_cache", Context.MODE_PRIVATE) } returns prefs
+            every { context.getSharedPreferences("onchain_balance_cache_v3", Context.MODE_PRIVATE) } returns prefs
             every { prefs.getString(any(), null) } answers { values[firstArg()] }
             every { prefs.edit() } returns editor
             every { editor.putString(any(), any()) } answers {
@@ -81,9 +81,14 @@ class OnChainBalanceRepositoryChangesTest {
             val api = mockk<TatumApi>()
             coEvery { api.getBitcoinBalance(asset.address!!) } coAnswers {
                 if (failNetwork) throw IOException("Fixture network failure")
-                TatumUTXOBalance(incoming = networkBalance.toString())
+                TatumUTXOBalance(incoming = networkBalance.toString(), outgoing = "0")
             }
-            repository = OnChainBalanceRepositoryImpl(api, TokenBucketRateLimiter(10.0, 10.0), keys, context)
+            repository = OnChainBalanceRepositoryImpl(
+                api, TokenBucketRateLimiter(10.0, 10.0), keys, context,
+                mockk<OnChainAssetProviderIdentityVerifier> {
+                    coEvery { assertUnchanged(asset) } returns Unit
+                }
+            )
         }
     }
 }

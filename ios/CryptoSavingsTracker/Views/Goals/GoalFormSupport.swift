@@ -113,7 +113,6 @@ struct GoalFormBottomActionBar: View {
             Divider()
         }
         .shadow(color: Color.black.opacity(0.06), radius: 10, y: -2)
-        .accessibilityIdentifier("goalFormBottomActionBar")
     }
 }
 

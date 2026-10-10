@@ -1,24 +1,24 @@
 {
-  "reportPath": "/Users/user/Documents/CryptoSavingsTracker/docs/release/visual-system/wave1/performance-report.json",
+  "reportPath": "/var/folders/43/6b8z356950q2rsbvnjmp8jd40000gn/T/tmp0ouusfop/wave1/performance-report.json",
   "schemaPath": "docs/design/schemas/visual-performance-report.schema.json",
-  "passed": true,
-  "issueCount": 0,
+  "passed": false,
+  "issueCount": 1,
   "summary": {
     "wave": "wave1",
     "evaluatedAt": "2026-03-04",
     "baseline": {
-      "p95FrameTimeMs": 15.3,
-      "jankRatePercent": 2.1
+      "p95FrameTimeMs": 20.0,
+      "jankRatePercent": 2.0
     },
     "current": {
-      "p95FrameTimeMs": 16.53,
-      "jankRatePercent": 3.7
+      "p95FrameTimeMs": 21.0,
+      "jankRatePercent": 3.0
     },
     "deltas": {
-      "declaredP95RegressionPercent": 8.04,
-      "computedP95RegressionPercent": 8.039215686274511,
-      "declaredJankDeltaPercentagePoints": 1.6,
-      "computedJankDeltaPercentagePoints": 1.6
+      "declaredP95RegressionPercent": 5.0,
+      "computedP95RegressionPercent": 5.0,
+      "declaredJankDeltaPercentagePoints": 1.0,
+      "computedJankDeltaPercentagePoints": 1.0
     },
     "thresholds": {
       "p95RegressionMaxPercent": 10.0,
@@ -30,21 +30,23 @@
         "platform": "ios",
         "device": "iPhone 16e",
         "tool": "Instruments",
-        "artifactRef": "docs/release/visual-system/wave1/traces/ios-iphone-16e-instruments.txt"
+        "artifactRef": "/var/folders/43/6b8z356950q2rsbvnjmp8jd40000gn/T/tmp0ouusfop/wave1/trace-ios-16e.txt"
       },
       {
         "platform": "ios",
         "device": "iPhone 17 Pro Max",
         "tool": "Instruments",
-        "artifactRef": "docs/release/visual-system/wave1/traces/ios-iphone-17-pro-max-instruments.txt"
+        "artifactRef": "/var/folders/43/6b8z356950q2rsbvnjmp8jd40000gn/T/tmp0ouusfop/wave1/trace-ios-17pm.txt"
       },
       {
         "platform": "android",
         "device": "Pixel 8",
         "tool": "Macrobenchmark",
-        "artifactRef": "docs/release/visual-system/wave1/traces/android-pixel-8-macrobenchmark.txt"
+        "artifactRef": "/var/folders/43/6b8z356950q2rsbvnjmp8jd40000gn/T/tmp0ouusfop/wave1/trace-android-pixel8.txt"
       }
     ]
   },
-  "issues": []
+  "issues": [
+    "schema file not found: /Users/user/Documents/CryptoSavingsTracker/docs/design/schemas/visual-performance-report.schema.json"
+  ]
 }

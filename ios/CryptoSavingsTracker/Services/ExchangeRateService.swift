@@ -13,10 +13,11 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
     static let shared = ExchangeRateService()
     
     private var cachedRates: [String: [String: Double]] = [:]
-    private let cacheExpiration: TimeInterval = 300
+    private let cacheExpiration: TimeInterval
     private var lastFetchTime: [String: Date] = [:]
     private let cacheQueue = DispatchQueue(label: "com.cryptosavings.exchangerate.cache", attributes: .concurrent)
     private let apiKey: String
+    private let userDefaults: UserDefaults
 
     private static let isoFiatCurrencyCodes = Set(Locale.Currency.isoCurrencies.map(\.identifier).map { $0.uppercased() })
     
@@ -38,6 +39,7 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
         "AVAX": "avalanche-2",
         "DOT": "polkadot",
         "MATIC": "matic-network",
+        "POL": "polygon-ecosystem-token",
         "LINK": "chainlink",
         "SHIB": "shiba-inu",
         "LTC": "litecoin",
@@ -79,8 +81,14 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
         return key
     }
     
-    init() {
-        apiKey = Self.loadAPIKey()
+    init(
+        apiKey: String? = nil,
+        userDefaults: UserDefaults = .standard,
+        cacheExpiration: TimeInterval = 300
+    ) {
+        self.apiKey = apiKey ?? Self.loadAPIKey()
+        self.userDefaults = userDefaults
+        self.cacheExpiration = cacheExpiration
         loadCachedData()
     }
 
@@ -340,23 +348,23 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
     private func saveCachedData() {
         let snapshot = cacheQueue.sync { (cachedRates, lastFetchTime) }
         if let ratesData = try? JSONEncoder().encode(snapshot.0) {
-            UserDefaults.standard.set(ratesData, forKey: "cached_exchange_rates")
+            userDefaults.set(ratesData, forKey: "cached_exchange_rates")
         }
         
         if let timesData = try? JSONEncoder().encode(snapshot.1) {
-            UserDefaults.standard.set(timesData, forKey: "cached_fetch_times")
+            userDefaults.set(timesData, forKey: "cached_fetch_times")
         }
     }
     
     private func loadCachedData() {
         var loadedRates: [String: [String: Double]] = [:]
         var loadedTimes: [String: Date] = [:]
-        if let ratesData = UserDefaults.standard.data(forKey: "cached_exchange_rates"),
+        if let ratesData = userDefaults.data(forKey: "cached_exchange_rates"),
            let rates = try? JSONDecoder().decode([String: [String: Double]].self, from: ratesData) {
             loadedRates = rates
         }
         
-        if let timesData = UserDefaults.standard.data(forKey: "cached_fetch_times"),
+        if let timesData = userDefaults.data(forKey: "cached_fetch_times"),
            let times = try? JSONDecoder().decode([String: Date].self, from: timesData) {
             loadedTimes = times
         }
@@ -398,24 +406,18 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
     func refreshRatesIfStale() async {
         let stalePairs = cacheQueue.sync { () -> [(String, String)] in
             var result: [(String, String)] = []
+            let timestamp = Date()
             for key in trackedPairs {
                 let parts = key.split(separator: "→")
                 guard parts.count == 2 else { continue }
                 let from = String(parts[0])
                 let to = String(parts[1])
-
-                // Read directly from properties to avoid nested sync call on same queue
                 let cacheKey = "\(from)-\(to)"
-                let isFresh: Bool
-                if let lastFetch = lastFetchTime[cacheKey],
-                   Date().timeIntervalSince(lastFetch) < cacheExpiration,
-                   cachedRates[from]?[to] != nil {
-                    isFresh = true
-                } else {
-                    isFresh = false
-                }
-
-                if !isFresh {
+                let isFresh = lastFetchTime[cacheKey].map {
+                    timestamp.timeIntervalSince($0) < cacheExpiration
+                } ?? false
+                let hasRate = cachedRates[from]?[to] != nil
+                if !isFresh || !hasRate {
                     result.append((from, to))
                 }
             }
@@ -461,11 +463,44 @@ class ExchangeRateService: ExchangeRateServiceProtocol {
         }
     }
 
+    func rateSnapshotEvidence(from: String, to: String) -> ExchangeRateSnapshotEvidence? {
+        let canonicalFrom = Self.normalizedCurrencyCode(from)
+        let canonicalTo = Self.normalizedCurrencyCode(to)
+        let usdPegged: Set<String> = ["USD", "USDT", "USDC"]
+
+        if canonicalFrom == canonicalTo
+            || (usdPegged.contains(canonicalFrom) && usdPegged.contains(canonicalTo)) {
+            return ExchangeRateSnapshotEvidence(
+                from: canonicalFrom,
+                to: canonicalTo,
+                rate: 1,
+                timestamp: nil
+            )
+        }
+
+        return cacheQueue.sync {
+            let cacheKey = "\(canonicalFrom)-\(canonicalTo)"
+            guard
+                let timestamp = lastFetchTime[cacheKey],
+                Date().timeIntervalSince(timestamp) < cacheExpiration,
+                let rate = cachedRates[canonicalFrom]?[canonicalTo]
+            else {
+                return nil
+            }
+            return ExchangeRateSnapshotEvidence(
+                from: canonicalFrom,
+                to: canonicalTo,
+                rate: rate,
+                timestamp: timestamp
+            )
+        }
+    }
+
     /// Track a currency pair for staleness checking by `refreshRatesIfStale()`.
     private func trackPair(from: String, to: String) {
         let key = "\(from.uppercased())→\(to.uppercased())"
-        cacheQueue.async(flags: .barrier) { [weak self] in
-            self?.trackedPairs.insert(key)
+        _ = cacheQueue.sync(flags: .barrier) {
+            trackedPairs.insert(key)
         }
     }
 }

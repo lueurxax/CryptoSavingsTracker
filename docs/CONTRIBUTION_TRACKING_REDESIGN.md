@@ -5,7 +5,7 @@
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-01-04 |
+| Last Updated | 2026-07-28 |
 | Platform | Shared |
 | Audience | Developers |
 
@@ -54,7 +54,7 @@ let allocationChanges = allocationHistory.filter { $0.timestamp >= execution.sta
 // Current value for each goal based on:
 // - Transaction amounts at their timestamps
 // - Allocation amounts at their timestamps
-// - Current exchange rates
+// - The platform's explicit execution-rate policy
 ```
 
 ---
@@ -93,11 +93,21 @@ func handleNewTransaction(asset: Asset, amount: Double) {
 
 ### Rule 2: AllocationHistory Snapshots
 
-`AllocationHistory` stores **amount-only snapshots** of the allocation target at a point in time.
+`AllocationHistory` stores the allocation target at a point in time. Manual
+edits are ordinary amount snapshots. Automatic transaction-driven changes also
+store the source transaction ID and the exact target immediately before that
+movement so later correction or deletion can replay the sequence safely.
 
 ```swift
 // Examples:
-AllocationHistory(asset: BTC, goal: GoalA, amount: 0.5, timestamp: Jan 1)  // Target: 0.5 BTC
+AllocationHistory(
+    asset: BTC,
+    goal: GoalA,
+    amount: 0.5,
+    timestamp: Jan 1,
+    sourceTransactionId: deposit.id,
+    sourcePreviousAmount: 0
+) // Automatic target: 0.5 BTC
 AllocationHistory(asset: BTC, goal: GoalA, amount: 0.3, timestamp: Jan 10) // Target changed
 AllocationHistory(asset: BTC, goal: GoalB, amount: 0.2, timestamp: Jan 10) // New allocation
 
@@ -131,22 +141,48 @@ Both stay in sync: when `AssetAllocation` changes, a new `AllocationHistory` sna
 
 ### 1. Exchange Rate Handling
 
-**Decision:** Use CURRENT exchange rate during active execution.
+#### Apple execution-rate policy
+
+**Decision:** Apple uses the current exchange rate during active execution.
 
 **Rationale:**
-- If the rate changes during execution, your real contribution value changed—this is reality
-- The app reflects current financial situation, not historical snapshots
-- Users who want predictable contributions should execute quickly
+- Apple reflects the current financial situation during active execution.
+- Completion freezes the final values for historical reporting.
 
 **Behavior:**
-- **During execution:** Dynamic calculation with current rates (numbers may shift)
-- **On completion:** Rates are frozen in the `CompletedExecution` snapshot
-- **After completion:** Immutable record for historical analysis
+- **During Apple execution:** Dynamic calculation with current rates (numbers
+  may shift).
+- **On Apple completion:** Rates are frozen in the `CompletedExecution`
+  snapshot.
+- **After Apple completion:** The historical record is immutable.
 
 ```swift
 let currentRate = await exchangeService.fetchRate(from: asset.currency, to: goal.currency)
 let currentValue = assetAmount * currentRate
 ```
+
+#### Android execution-rate persistence
+
+Android deliberately uses a narrower, platform-specific policy for execution
+tracking: it captures asset-to-goal-currency rates at execution start and stores
+them in `execution_asset_rates` under the execution record. The Android session
+and completion flows reuse that snapshot after a process restart; they do not
+fetch live FX rates. A missing required Android snapshot is an explicit error,
+not a zero-value contribution. This does not describe the current Apple policy.
+
+Room schema version 6 introduced this table with a composite key of execution,
+asset, and snapshot currency. A new execution captures rates only for assets
+required by the execution's immutable goal/allocation snapshot. Legacy
+backfill also includes historically relevant assets that were later removed
+from current allocations. An unrelated asset cannot block the month, and an
+asset added after Start cannot enter the active execution without an already
+persisted rate.
+
+Migration 5-to-6 marks active legacy executions and closed executions whose undo
+window remains open as pending backfill. On first resolution, Android captures
+the complete rate matrix for the execution-relevant assets, persists it
+atomically, and clears the marker. A partial or invalid matrix is treated as
+corruption rather than silently replaced or valued at zero.
 
 ### 2. Execution Completion & Immutability
 
@@ -302,8 +338,17 @@ final class AllocationHistory {
     var timestamp: Date     // When this change occurred
     var createdAt: Date     // Tie-breaker for same-timestamp records
     var monthLabel: String  // "yyyy-MM" for efficient queries
+    var sourceTransactionId: UUID?    // Automatic-change provenance
+    var sourcePreviousAmount: Double? // Exact target before that movement
 
-    init(asset: Asset, goal: Goal, amount: Double, timestamp: Date = Date()) {
+    init(
+        asset: Asset,
+        goal: Goal,
+        amount: Double,
+        timestamp: Date = Date(),
+        sourceTransactionId: UUID? = nil,
+        sourcePreviousAmount: Double? = nil
+    ) {
         self.id = UUID()
         self.asset = asset
         self.goal = goal
@@ -311,6 +356,8 @@ final class AllocationHistory {
         self.timestamp = timestamp
         self.createdAt = Date()
         self.monthLabel = MonthlyExecutionRecord.monthLabel(from: timestamp)
+        self.sourceTransactionId = sourceTransactionId
+        self.sourcePreviousAmount = sourcePreviousAmount
     }
 }
 ```
@@ -427,10 +474,27 @@ class ExecutionTrackingService {
 |--------|-------------------------------|---------------------------|
 | Source of truth | Two code paths creating contributions | Timestamps on Transaction + AllocationHistory |
 | Allocation changes | Delete & recreate contributions | Query AllocationHistory by timestamp |
-| Exchange rates | Stored at contribution time | Current during execution, snapshot on completion |
+| Exchange rates | Stored at contribution time | Apple: current during execution, frozen on completion; Android: immutable execution-start snapshot |
 | Performance | Recalculate on every change | Cache + invalidate |
 | Audit trail | Current state only | Complete history via AllocationHistory |
 | Code complexity | High (two paths, bridging logic) | Low (one calculation path) |
+
+Android freezes the complete execution-relevant asset/rate matrix at Start.
+Legacy executions include both the current and historically relevant asset
+scope once per backfill attempt and keep the first matrix committed atomically
+by concurrent callers. Unrelated assets are excluded. Assets introduced later
+cannot be allocated into an active execution without a persisted rate, and an
+asset currency cannot change while an execution using its rate remains active
+or undoable.
+
+Execution start and legacy backfill capture an exact fingerprint of asset
+currency and allocation scope before fetching rates. Their commit phase runs
+through the same Room transaction boundary as allocation and asset-currency
+mutations, rechecks that fingerprint, and rejects a stale result rather than
+committing rates for a changed scope. Allocation validation and persistence are
+also performed inside that shared transaction, so concurrent add or update
+operations cannot both validate against the same old balance and over-allocate
+the asset.
 
 ---
 
@@ -459,5 +523,13 @@ class ExecutionTrackingService {
 
 ## Related Documentation
 
-- `CONTRIBUTION_FLOW.md` - Timestamp-based execution tracking flows
-- `CLOUDKIT_MIGRATION_PLAN.md` - CloudKit compatibility requirements for these models
+- [Contribution flow](CONTRIBUTION_FLOW.md) - Timestamp-based execution
+  tracking flows
+- [CloudKit migration plan](CLOUDKIT_MIGRATION_PLAN.md) - CloudKit
+  compatibility requirements for Apple models
+- [Application defect audit](audits/APPLICATION_DEFECT_AUDIT_2026-07-25.md) -
+  evidence and verification for the execution-rate correction
+
+---
+
+*Last updated: 2026-07-27*

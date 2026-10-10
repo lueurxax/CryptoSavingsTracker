@@ -11,7 +11,12 @@ import Foundation
 /// Service responsible for managing asset allocations across goals
 /// v2.0 - Now uses fixed amounts instead of percentages
 struct AllocationService {
+    typealias DeferredPlanSync = @MainActor (ModelContext, [UUID]) async -> Void
+
     private let modelContext: ModelContext
+    private let saveChanges: () throws -> Void
+    private let runDeferredPlanSync: Bool
+    private let deferredPlanSync: DeferredPlanSync?
     private static let isTestRun: Bool = {
         let args = ProcessInfo.processInfo.arguments
         // XCTest environment vars differ across platforms/runner versions; use multiple signals.
@@ -22,8 +27,18 @@ struct AllocationService {
         return isXCTestRun || isXCTestLoaded || isUITestRun
     }()
 
-    init(modelContext: ModelContext) {
+    init(
+        modelContext: ModelContext,
+        saveChanges: (() throws -> Void)? = nil,
+        runDeferredPlanSync: Bool? = nil,
+        deferredPlanSync: DeferredPlanSync? = nil
+    ) {
         self.modelContext = modelContext
+        self.saveChanges = saveChanges ?? {
+            try modelContext.save()
+        }
+        self.runDeferredPlanSync = runDeferredPlanSync ?? !Self.isTestRun
+        self.deferredPlanSync = deferredPlanSync
     }
 
     // MARK: - Allocation Management (v2.0 - Fixed Amounts)
@@ -35,12 +50,78 @@ struct AllocationService {
     @MainActor
     func updateAllocations(for asset: Asset, newAllocations: [(goal: Goal, amount: Double)]) throws {
         try validateAllocations(newAllocations, for: asset)
+        let deletionCandidates = allocationsRemovedByUpdate(
+            from: asset,
+            newAllocations: newAllocations
+        )
+        let preflightAffectedGoalIDs = deletionCandidates.compactMap { $0.goal?.id }
+        let snapshot = PersistenceAllocationGraphSnapshot(
+            assets: [asset],
+            goals: newAllocations.map(\.goal),
+            allocations: deletionCandidates
+        )
+        let durableDeletionCandidates: [AssetAllocation]
+        do {
+            durableDeletionCandidates = try resolveAllocationsForDeletion(deletionCandidates)
+        } catch {
+            snapshot.restore(in: modelContext)
+            throw error
+        }
+        let hasPositiveRequestedAllocation = newAllocations.contains { $0.amount > 0.0000001 }
+        guard hasPositiveRequestedAllocation || !durableDeletionCandidates.isEmpty else {
+            schedulePostSaveWork(
+                assetId: asset.id,
+                affectedGoalIds: Array(Set(preflightAffectedGoalIDs))
+            )
+            return
+        }
 
+        var insertedAllocations: [AssetAllocation] = []
+        var insertedHistories: [AllocationHistory] = []
+        let mutationAffectedGoalIDs = try PersistenceOperationTransaction.perform(
+            in: modelContext,
+            saveChanges: saveChanges,
+            allowingPreexistingChangesTo: snapshot.models,
+            restoreTouchedState: {
+                PersistenceOperationTransaction.discardInserted(insertedHistories, from: modelContext)
+                PersistenceOperationTransaction.discardInserted(insertedAllocations, from: modelContext)
+                snapshot.restore(in: modelContext)
+            }
+        ) {
+            stageAllocationUpdate(
+                for: asset,
+                newAllocations: newAllocations,
+                additionalExistingAllocations: durableDeletionCandidates,
+                insertedAllocations: &insertedAllocations,
+                insertedHistories: &insertedHistories
+            )
+        }
+
+        let affectedGoalIDs = Array(
+            Set(preflightAffectedGoalIDs).union(mutationAffectedGoalIDs)
+        )
+        schedulePostSaveWork(assetId: asset.id, affectedGoalIds: affectedGoalIDs)
+    }
+
+    @MainActor
+    private func stageAllocationUpdate(
+        for asset: Asset,
+        newAllocations: [(goal: Goal, amount: Double)],
+        additionalExistingAllocations: [AssetAllocation] = [],
+        insertedAllocations: inout [AssetAllocation],
+        insertedHistories: inout [AllocationHistory]
+    ) -> [UUID] {
         let timestamp = Date()
         let epsilon = 0.000000001 // 9 decimal places to safely handle 8-decimal satoshi precision
 
         // Snapshot old amounts before mutations.
-        let existingAllocations = Array(asset.allocations ?? [])
+        var existingAllocationsByID = Dictionary(
+            uniqueKeysWithValues: (asset.allocations ?? []).map { ($0.id, $0) }
+        )
+        for allocation in additionalExistingAllocations {
+            existingAllocationsByID[allocation.id] = allocation
+        }
+        let existingAllocations = Array(existingAllocationsByID.values)
         var existingByGoalId: [UUID: AssetAllocation] = [:]
         existingByGoalId.reserveCapacity(existingAllocations.count)
         var orphanedAllocations: [AssetAllocation] = []
@@ -76,6 +157,7 @@ struct AllocationService {
                 let newAllocation = AssetAllocation(asset: asset, goal: entry.goal, amount: newAmount)
                 attach(newAllocation, to: asset, goal: entry.goal)
                 modelContext.insert(newAllocation)
+                insertedAllocations.append(newAllocation)
             }
         }
 
@@ -104,13 +186,18 @@ struct AllocationService {
             guard abs(oldAmount - newAmount) > epsilon else { continue }
             if let goal = newEntry?.goal ?? oldByGoalId[goalId]?.goal {
                 affectedGoalsById[goal.id] = goal
-                modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: newAmount, timestamp: timestamp))
+                let history = AllocationHistory(
+                    asset: asset,
+                    goal: goal,
+                    amount: newAmount,
+                    timestamp: timestamp
+                )
+                modelContext.insert(history)
+                insertedHistories.append(history)
             }
         }
 
-        try modelContext.save()
-
-        schedulePostSaveWork(assetId: asset.id, affectedGoalIds: Array(affectedGoalsById.keys))
+        return Array(affectedGoalsById.keys)
     }
 
     /// Add or update a single allocation for an asset to a goal using fixed amount
@@ -134,21 +221,54 @@ struct AllocationService {
             throw AllocationError.exceedsTotal(currentTotal + amount, asset.currentAmount)
         }
 
-        if let existingAllocation = (asset.allocations ?? []).first(where: { $0.goal?.id == goal.id }) {
-            if amount > 0 {
-                attach(existingAllocation, to: asset, goal: goal)
-                existingAllocation.updateAmount(amount)
-            } else {
-                detach(existingAllocation)
-                modelContext.delete(existingAllocation)
+        let snapshot = PersistenceAllocationGraphSnapshot(
+            assets: [asset],
+            goals: [goal],
+            allocations: Array(asset.allocations ?? []).filter {
+                $0.goal?.id == goal.id
             }
-        } else if amount > 0 {
-            let newAllocation = AssetAllocation(asset: asset, goal: goal, amount: amount)
-            attach(newAllocation, to: asset, goal: goal)
-            modelContext.insert(newAllocation)
+        )
+        var allocationToDelete: AssetAllocation?
+        if amount <= 0,
+           let existingAllocation = (asset.allocations ?? []).first(where: { $0.goal?.id == goal.id }) {
+            do {
+                allocationToDelete = try resolveAllocationsForDeletion([existingAllocation]).first
+            } catch {
+                snapshot.restore(in: modelContext)
+                throw error
+            }
+            guard allocationToDelete != nil else {
+                schedulePostSaveWork(
+                    assetId: asset.id,
+                    affectedGoalIds: [goal.id],
+                    singleGoalId: goal.id,
+                    removed: true
+                )
+                return
+            }
         }
 
-        try modelContext.save()
+        try PersistenceOperationTransaction.perform(
+            in: modelContext,
+            saveChanges: saveChanges,
+            allowingPreexistingChangesTo: snapshot.models,
+            restoreTouchedState: { snapshot.restore(in: modelContext) }
+        ) {
+            if let existingAllocation = allocationToDelete
+                ?? (asset.allocations ?? []).first(where: { $0.goal?.id == goal.id }) {
+                if amount > 0 {
+                    attach(existingAllocation, to: asset, goal: goal)
+                    existingAllocation.updateAmount(amount)
+                } else {
+                    detach(existingAllocation)
+                    modelContext.delete(existingAllocation)
+                }
+            } else if amount > 0 {
+                let newAllocation = AssetAllocation(asset: asset, goal: goal, amount: amount)
+                attach(newAllocation, to: asset, goal: goal)
+                modelContext.insert(newAllocation)
+            }
+        }
 
         schedulePostSaveWork(assetId: asset.id, affectedGoalIds: [goal.id], singleGoalId: goal.id)
     }
@@ -160,14 +280,42 @@ struct AllocationService {
     @MainActor
     func removeAllocation(for asset: Asset, from goal: Goal) throws {
         if let allocation = (asset.allocations ?? []).first(where: { $0.goal?.id == goal.id }) {
-            let oldAmount = allocation.amountValue
-            let timestamp = Date()
-            detach(allocation)
-            modelContext.delete(allocation)
-            if oldAmount > 0.0000001 {
-                modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: 0, timestamp: timestamp))
+            let snapshot = PersistenceAllocationGraphSnapshot(
+                assets: [asset],
+                goals: [goal],
+                allocations: [allocation]
+            )
+            let allocationToDelete: AssetAllocation?
+            do {
+                allocationToDelete = try resolveAllocationsForDeletion([allocation]).first
+            } catch {
+                snapshot.restore(in: modelContext)
+                throw error
             }
-            try modelContext.save()
+            guard let allocationToDelete else {
+                schedulePostSaveWork(
+                    assetId: asset.id,
+                    affectedGoalIds: [goal.id],
+                    singleGoalId: goal.id,
+                    removed: true
+                )
+                return
+            }
+
+            try PersistenceOperationTransaction.perform(
+                in: modelContext,
+                saveChanges: saveChanges,
+                allowingPreexistingChangesTo: snapshot.models,
+                restoreTouchedState: { snapshot.restore(in: modelContext) }
+            ) {
+                let oldAmount = allocationToDelete.amountValue
+                let timestamp = Date()
+                detach(allocationToDelete)
+                modelContext.delete(allocationToDelete)
+                if oldAmount > 0.0000001 {
+                    modelContext.insert(AllocationHistory(asset: asset, goal: goal, amount: 0, timestamp: timestamp))
+                }
+            }
             schedulePostSaveWork(assetId: asset.id, affectedGoalIds: [goal.id], singleGoalId: goal.id, removed: true)
         }
     }
@@ -206,6 +354,13 @@ struct AllocationService {
     @MainActor
     private func syncMonthlyPlans(forGoalIds goalIds: [UUID]) async {
         guard !goalIds.isEmpty else { return }
+        let syncContext = ModelContext(modelContext.container)
+        syncContext.autosaveEnabled = false
+
+        if let deferredPlanSync {
+            await deferredPlanSync(syncContext, goalIds)
+            return
+        }
 
         do {
             let ids = goalIds
@@ -214,18 +369,21 @@ struct AllocationService {
                     ids.contains(goal.id)
                 }
             )
-            let goals = try modelContext.fetch(descriptor)
-            await syncMonthlyPlans(for: goals)
+            let goals = try syncContext.fetch(descriptor)
+            await syncMonthlyPlans(for: goals, in: syncContext)
         } catch {
             AppLog.error("Failed to fetch goals for monthly plan sync after allocation change: \(error)", category: .monthlyPlanning)
         }
     }
 
     @MainActor
-    private func syncMonthlyPlans(for goals: [Goal]) async {
+    private func syncMonthlyPlans(
+        for goals: [Goal],
+        in syncContext: ModelContext
+    ) async {
         guard !goals.isEmpty else { return }
 
-        let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
+        let planService = DIContainer.shared.makeMonthlyPlanService(modelContext: syncContext)
         do {
             // Ensure plans exist for the current month
             let plans = try await planService.getOrCreatePlansForCurrentMonth(goals: goals)
@@ -248,23 +406,73 @@ struct AllocationService {
     /// Remove all allocations for an asset (useful when deleting an asset)
     @MainActor
     func removeAllAllocations(for asset: Asset) throws {
-        let existingAllocations = asset.allocations ?? []
-        for allocation in existingAllocations {
-            detach(allocation)
-            modelContext.delete(allocation)
+        let candidates = Array(asset.allocations ?? [])
+        let snapshot = PersistenceAllocationGraphSnapshot(
+            assets: [asset],
+            allocations: candidates
+        )
+        let allocationsToDelete: [AssetAllocation]
+        do {
+            allocationsToDelete = try resolveAllocationsForDeletion(candidates)
+        } catch {
+            snapshot.restore(in: modelContext)
+            throw error
         }
-        try modelContext.save()
+        guard !allocationsToDelete.isEmpty else { return }
+
+        try PersistenceOperationTransaction.perform(
+            in: modelContext,
+            saveChanges: saveChanges,
+            allowingPreexistingChangesTo: snapshot.models,
+            restoreTouchedState: { snapshot.restore(in: modelContext) }
+        ) {
+            for allocation in allocationsToDelete {
+                detach(allocation)
+                modelContext.delete(allocation)
+            }
+        }
     }
 
     /// Remove all allocations for a goal (useful when deleting a goal)
     @MainActor
     func removeAllAllocations(for goal: Goal) throws {
-        let existingAllocations = goal.allocations ?? []
+        let candidates = Array(goal.allocations ?? [])
+        let snapshot = PersistenceAllocationGraphSnapshot(
+            assets: [],
+            goals: [goal],
+            allocations: candidates
+        )
+        let allocationsToDelete: [AssetAllocation]
+        do {
+            allocationsToDelete = try resolveAllocationsForDeletion(candidates)
+        } catch {
+            snapshot.restore(in: modelContext)
+            throw error
+        }
+        guard !allocationsToDelete.isEmpty else { return }
+
+        try PersistenceOperationTransaction.perform(
+            in: modelContext,
+            saveChanges: saveChanges,
+            allowingPreexistingChangesTo: snapshot.models,
+            restoreTouchedState: { snapshot.restore(in: modelContext) }
+        ) {
+            for allocation in allocationsToDelete {
+                detach(allocation)
+                modelContext.delete(allocation)
+            }
+        }
+    }
+
+    /// Stages removal of every allocation for a goal without saving.
+    /// Lifecycle mutations use this to persist allocation, goal, and execution-record changes atomically.
+    @MainActor
+    func stageRemovalOfAllAllocations(for goal: Goal) {
+        let existingAllocations = Array(goal.allocations ?? [])
         for allocation in existingAllocations {
             detach(allocation)
             modelContext.delete(allocation)
         }
-        try modelContext.save()
     }
     
     // MARK: - Validation Helpers
@@ -313,6 +521,41 @@ struct AllocationService {
     }
 
     @MainActor
+    private func allocationsRemovedByUpdate(
+        from asset: Asset,
+        newAllocations: [(goal: Goal, amount: Double)]
+    ) -> [AssetAllocation] {
+        let epsilon = 0.0000001
+        let newAmountsByGoalID = Dictionary(
+            newAllocations.map { ($0.goal.id, max(0, $0.amount)) },
+            uniquingKeysWith: { _, latest in latest }
+        )
+        return (asset.allocations ?? []).filter { allocation in
+            guard let goalID = allocation.goal?.id else { return true }
+            return (newAmountsByGoalID[goalID] ?? 0) <= epsilon
+        }
+    }
+
+    @MainActor
+    private func resolveAllocationsForDeletion(
+        _ allocations: [AssetAllocation]
+    ) throws -> [AssetAllocation] {
+        try PersistenceOperationTransaction.resolvePendingInsertDeletions(
+            allocations,
+            in: modelContext,
+            stableID: \.id
+        ) { context, ids in
+            let allocationIDs = ids
+            let descriptor = FetchDescriptor<AssetAllocation>(
+                predicate: #Predicate<AssetAllocation> { candidate in
+                    allocationIDs.contains(candidate.id)
+                }
+            )
+            return try context.fetch(descriptor)
+        }
+    }
+
+    @MainActor
     private func schedulePostSaveWork(
         assetId: UUID,
         affectedGoalIds: [UUID],
@@ -349,7 +592,7 @@ struct AllocationService {
                 ]
             )
 
-            if !Self.isTestRun {
+            if runDeferredPlanSync {
                 await syncMonthlyPlans(forGoalIds: affectedGoalIds)
             }
         }

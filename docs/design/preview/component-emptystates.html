@@ -1,0 +1,195 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Empty & stale states</title>
+<link rel="stylesheet" href="_card.css">
+<link rel="stylesheet" href="_glass.css">
+<style>
+  body.glass { padding: 28px 20px 20px; }
+
+  .empty-card {
+    border-radius: 22px;
+    padding: 26px 22px 22px;
+    width: 320px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  /* Inner color wash — modern gradient, visible through frosted surface */
+  .empty-card::before {
+    content:'';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background:
+      radial-gradient(80% 60% at 20% 0%, rgba(120, 140, 255, 0.28), transparent 70%),
+      radial-gradient(70% 60% at 100% 40%, rgba(90, 210, 255, 0.22), transparent 70%),
+      radial-gradient(60% 50% at 50% 110%, rgba(255, 130, 200, 0.20), transparent 75%);
+    pointer-events: none;
+  }
+  .empty-card > * { position: relative; z-index: 2; }
+
+  .empty-art {
+    width: 72px; height: 72px; margin: 0 auto 14px;
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(120, 140, 255, 0.45), rgba(80, 100, 220, 0.60));
+    box-shadow:
+      0 1px 2px rgba(40, 40, 120, 0.18),
+      0 8px 20px rgba(80, 100, 220, 0.28);
+  }
+  .empty-art::before {
+    content:'';
+    position:absolute; inset:0;
+    border-radius: inherit;
+    background: radial-gradient(110% 70% at 50% -10%, rgba(255,255,255,0.55), rgba(255,255,255,0) 60%);
+    mix-blend-mode: screen;
+  }
+  .empty-art::after {
+    content:'';
+    position:absolute; inset:0;
+    border-radius: inherit;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.08);
+    border: 0.5px solid rgba(255,255,255,0.5);
+  }
+  .empty-art svg { position: relative; z-index: 2; }
+
+  .empty-title {
+    font: 700 18px var(--font-sans);
+    color: var(--fg-1);
+    letter-spacing: -0.35px;
+  }
+  .empty-body  {
+    font: 500 13px var(--font-sans);
+    color: var(--fg-2);
+    margin-top: 6px;
+    line-height: 1.5;
+    max-width: 240px;
+    margin-left: auto;
+    margin-right: auto;
+    text-wrap: pretty;
+  }
+
+  /* CTA — matches the main Buttons card (Liquid Glass ocean blue) */
+  .btn-primary {
+    margin-top: 18px;
+    padding: 12px 22px;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    font: 600 14px var(--font-sans);
+    letter-spacing: -0.2px;
+    color: #fff;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(78, 148, 222, 0.80), rgba(30, 96, 178, 0.90));
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    box-shadow:
+      0 1px 2px rgba(20, 60, 120, 0.22),
+      0 8px 22px rgba(40, 110, 190, 0.32);
+    text-shadow: 0 0.5px 0 rgba(0, 30, 70, 0.22);
+    transition: transform 140ms cubic-bezier(0.2,0,0.2,1), filter 140ms;
+  }
+  .btn-primary::before {
+    content:'';
+    position: absolute; inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(120% 80% at 50% -10%, rgba(255,255,255,0.55), rgba(255,255,255,0) 60%);
+    mix-blend-mode: screen;
+  }
+  .btn-primary::after {
+    content:'';
+    position: absolute; inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.08);
+    border: 0.5px solid rgba(255,255,255,0.5);
+  }
+  .btn-primary span { position: relative; z-index: 2; display:inline-flex; align-items:center; gap:6px; }
+  .btn-primary:hover { filter: brightness(1.05); }
+  .btn-primary:active { transform: scale(0.975); filter: brightness(0.94); }
+
+  /* Stale card — warm amber glass, matches new chip palette */
+  .stale {
+    border-radius: 16px;
+    padding: 14px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    width: 320px;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(255, 170, 80, 0.34), rgba(220, 120, 30, 0.44));
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    color: #4A1F00;
+    box-shadow:
+      0 1px 2px rgba(120, 50, 0, 0.14),
+      0 6px 16px rgba(220, 120, 30, 0.20);
+  }
+  .stale::before {
+    content:'';
+    position:absolute; inset:0;
+    border-radius: inherit;
+    background: radial-gradient(120% 80% at 50% -10%, rgba(255,255,255,0.45), rgba(255,255,255,0) 60%);
+    mix-blend-mode: screen;
+  }
+  .stale::after {
+    content:'';
+    position:absolute; inset:0;
+    border-radius: inherit;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.08);
+    border: 0.5px solid rgba(255,255,255,0.45);
+  }
+  .stale > * { position: relative; z-index: 2; }
+
+  .stale-icon {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.5);
+    flex-shrink: 0;
+    color: #6B2A00;
+  }
+  .stale-title { font: 700 14px var(--font-sans); letter-spacing: -0.2px; }
+  .stale-body  { font: 500 12px var(--font-sans); opacity: 0.88; margin-top: 3px; line-height: 1.45; }
+</style>
+</head>
+<body class="glass">
+<div class="row gap-4 wrap" style="position:relative;z-index:2">
+
+  <div class="empty-card glass-surface">
+    <div class="empty-art">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="5"/>
+        <circle cx="12" cy="12" r="1.5" fill="#fff" stroke="none"/>
+      </svg>
+    </div>
+    <div class="empty-title">No goals yet</div>
+    <div class="empty-body">Set your first crypto savings goal — a trip, a deposit, or a rainy-day fund.</div>
+    <button class="btn-primary"><span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Create a goal
+    </span></button>
+  </div>
+
+  <div class="stale">
+    <div class="stale-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 7v5l3 2"/>
+      </svg>
+    </div>
+    <div>
+      <div class="stale-title">Rates are 3 days stale</div>
+      <div class="stale-body">Pull to refresh or tap to fetch the latest prices. Projections use last-known rates until then.</div>
+    </div>
+  </div>
+
+</div>
+</body></html>

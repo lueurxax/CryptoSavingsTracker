@@ -5,6 +5,7 @@ import com.xax.CryptoSavingsTracker.data.repository.TransactionMapper.toDomain
 import com.xax.CryptoSavingsTracker.data.repository.TransactionMapper.toDomainList
 import com.xax.CryptoSavingsTracker.data.repository.TransactionMapper.toEntity
 import com.xax.CryptoSavingsTracker.domain.model.Transaction
+import com.xax.CryptoSavingsTracker.domain.model.TransactionWritePolicy
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -31,6 +32,10 @@ class TransactionRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getTransactionsByAssetIdOnce(assetId: String): List<Transaction> {
+        return transactionDao.getTransactionsByAssetIdOnce(assetId).toDomainList()
+    }
+
     override suspend fun getTransactionById(id: String): Transaction? {
         return transactionDao.getTransactionByIdOnce(id)?.toDomain()
     }
@@ -43,6 +48,10 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun getTransactionByExternalId(externalId: String): Transaction? {
         return transactionDao.getTransactionByExternalId(externalId)?.toDomain()
+    }
+
+    override suspend fun getTransactionsByExternalId(externalId: String): List<Transaction> {
+        return transactionDao.getTransactionsByExternalId(externalId).toDomainList()
     }
 
     override fun getTransactionsInRange(
@@ -68,15 +77,26 @@ class TransactionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun insertTransaction(transaction: Transaction) {
-        transactionDao.insert(transaction.toEntity())
+        transactionDao.insert(
+            TransactionWritePolicy.normalizeForPersistence(transaction).toEntity()
+        )
     }
 
     override suspend fun insertTransactions(transactions: List<Transaction>) {
-        transactionDao.insertAll(transactions.map { it.toEntity() })
+        val now = System.currentTimeMillis()
+        val normalized = transactions.map { transaction ->
+            TransactionWritePolicy.normalizeForPersistence(
+                transaction = transaction,
+                nowMillis = now
+            )
+        }
+        transactionDao.insertAll(normalized.map { it.toEntity() })
     }
 
     override suspend fun updateTransaction(transaction: Transaction) {
-        transactionDao.update(transaction.toEntity())
+        transactionDao.update(
+            TransactionWritePolicy.normalizeForPersistence(transaction).toEntity()
+        )
     }
 
     override suspend fun deleteTransaction(id: String) {

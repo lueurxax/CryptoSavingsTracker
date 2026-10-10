@@ -85,19 +85,19 @@ final class MonthlyExecutionRecord {
     // MARK: - State Transitions
 
     /// Start tracking contributions (draft → executing)
-    func startTracking(undoWindowHours: Int = 24) {
+    func startTracking(at timestamp: Date = Date(), undoWindowHours: Int = 24) {
         guard status == .draft else { return }
         status = .executing
-        startedAt = Date()
-        canUndoUntil = Date().addingTimeInterval(TimeInterval(max(0, undoWindowHours) * 3600))
+        startedAt = timestamp
+        canUndoUntil = timestamp.addingTimeInterval(TimeInterval(max(0, undoWindowHours) * 3600))
     }
 
     /// Mark month as complete (executing → closed)
-    func markComplete(undoWindowHours: Int = 24) {
+    func markComplete(at timestamp: Date = Date(), undoWindowHours: Int = 24) {
         guard status == .executing else { return }
         status = .closed
-        completedAt = Date()
-        canUndoUntil = Date().addingTimeInterval(TimeInterval(max(0, undoWindowHours) * 3600))
+        completedAt = timestamp
+        canUndoUntil = timestamp.addingTimeInterval(TimeInterval(max(0, undoWindowHours) * 3600))
     }
 
     /// Undo completion (closed → executing)
@@ -229,12 +229,6 @@ extension MonthlyExecutionRecord {
 
     /// Generate month label from date (format: "YYYY-MM") using UTC calendar
     static func monthLabel(from date: Date) -> String {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "UTC")!
-        let components = calendar.dateComponents([.year, .month], from: date)
-        guard let year = components.year, let month = components.month else {
-            return "Unknown"
-        }
-        return String(format: "%04d-%02d", year, month)
+        PlanningMonthContract.storageLabel(for: date)
     }
 }

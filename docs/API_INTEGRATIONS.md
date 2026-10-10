@@ -1,49 +1,82 @@
 # API Integrations
 
-> External APIs used for exchange rates, blockchain data, and balance fetching
+> External APIs used for exchange rates, blockchain balances, and transaction history
 
 | Metadata | Value |
 |----------|-------|
 | Status | ✅ Current |
-| Last Updated | 2026-08-26 |
+| Last Updated | 2026-10-10 |
 | Platform | Shared |
 | Audience | Developers |
 
 ---
 
-This document provides an overview of the external APIs used in the CryptoSavingsTracker application.
+## CoinGecko
 
-## CoinGecko API
+CoinGecko provides exchange rates through
+`https://api.coingecko.com/api/v3/simple/price`.
 
-- **Purpose**: Used to fetch cryptocurrency exchange rates.
-- **Endpoint**: `https://api.coingecko.com/api/v3/simple/price`
-- **Service**: `CoinGeckoService.swift`
+- Apple entry points: `ExchangeRateService` and `CoinGeckoService`.
+- Android entry point: `ExchangeRateRepositoryImpl`.
+- Missing, malformed, non-finite, or non-positive rates remain unavailable;
+  financial consumers must not substitute `1` or `0`.
+- Calculation and persistence boundaries carry immutable rate evidence and
+  revalidate it after asynchronous work.
 
-## Tatum API
+## Tatum
 
-- **Purpose**: Used to fetch blockchain data, such as account balances and transaction histories.
-- **Service**: `TatumService.swift`
+Tatum is the only configured blockchain provider. QuickNode and Nownodes are
+not runtime fallbacks in the current implementation.
 
-## QuickNode API
+- Apple request/client layer: `TatumClient`, `TatumService`, and
+  `TatumModels`.
+- Apple balance/import layer: `BalanceService` and
+  `OnChainTransactionImportService`.
+- Android request layer: `TatumApi`.
+- Android balance/import layer: `OnChainBalanceRepositoryImpl` and
+  `OnChainTransactionRepositoryImpl`.
 
-- **Purpose**: Used as a fallback for fetching blockchain data.
-- **Service**: `TatumService.swift` (via `TatumClient`)
+### Routing contract
 
-## Nownodes API
+- Native EVM balances use the documented V4 native-balance route.
+- Canonical EVM tokens use wallet portfolio with contract validation and
+  bounded offset pagination.
+- EVM history requests declare native or fungible type and, for tokens, the
+  canonical contract. Returned movements are validated locally again.
+- BTC, LTC, BCH, DOGE, Cardano, TRON, Solana, and XRP use their chain-specific
+  endpoint, authentication, pagination, identity, and address-normalization
+  contracts.
+- Unsupported currency/network/contract combinations fail before cache access
+  or persistence.
 
-- **Purpose**: Used as a fallback for fetching blockchain data.
-- **Service**: `TatumService.swift` (via `TatumClient`)
+### EVM receipt and reconciliation contract
 
----
+The Android importer obtains the authoritative transaction receipt with
+`eth_getTransactionReceipt` when success status or gas evidence is required.
+Receipt status, `gasUsed`, and `effectiveGasPrice` must be present and valid;
+failed transactions may still consume gas and are not treated as successful
+asset movements.
 
-## Tatum API
+Provider corrections and later enrichment reconcile to the installed durable
+movement identity. Optional event indices, UTXO aliases, legacy external IDs,
+and same-batch enrichment are accepted only when they identify exactly one
+movement in the same asset scope. Ambiguous, cross-asset, truncated, or
+conflicting provider data fails closed and leaves the last durable history
+unchanged.
 
 - **Website**: [tatum.io](https://tatum.io)
 - **Primary Use**: Blockchain data access (balances, transactions).
 - **Development API Key**: `ios/Config.plist` -> `TatumAPIKey`
 - **TestFlight/App Store API Key**: `ios/Config.production.plist` -> `TatumAPIKey`
 
-### Implementation Details
+Primary contracts:
+
+- [Tatum V4 transaction history](https://docs.tatum.io/reference/gettransactionhistoryv4)
+- [Tatum transaction by hash](https://docs.tatum.io/reference/gettransactionblockchainsapi)
+- [Tatum EVM transaction receipt RPC](https://docs.tatum.io/reference/rpc-ethereum-eth_gettransactionreceipt)
+- [Ethereum receipt schema](https://ethereum.github.io/execution-apis/api/methods/eth_getTransactionReceipt/)
+
+## Credentials
 
 - The `TatumClient` class in `TatumClient.swift` is responsible for making requests to the Tatum API.
 - The `TatumService` class in `TatumService.swift` uses the `TatumClient` to fetch data.
@@ -51,26 +84,10 @@ This document provides an overview of the external APIs used in the CryptoSaving
 - Tatum credentials use separate `tatum.development` and `tatum.production` Keychain services.
 - Both configuration files are ignored by Git. Create them from `ios/Config.example.plist`.
 
----
-
-## QuickNode API
-
-- **Website**: [quicknode.com](https://www.quicknode.com)
-- **Primary Use**: Fallback blockchain data access.
-- **API Key Location**: `Config.plist` -> `QUICKNODE_API_KEY`
-
-### Implementation Details
-
-- QuickNode is used as a fallback provider within the `TatumClient` when the primary Tatum API fails.
-
----
-
-## Nownodes API
-
-- **Website**: [nownodes.io](https://nownodes.io)
-- **Primary Use**: Fallback blockchain data access.
-- **API Key Location**: `Config.plist` -> `NOWNODES_API_KEY`
-
-### Implementation Details
-
-- Nownodes is used as a fallback provider within the `TatumClient` when both the primary Tatum API and QuickNode fail.
+- Apple reads `TatumAPIKey` from the selected development or production config,
+  migrates a configured value to the corresponding Keychain service, and sends
+  the endpoint-specific Tatum authentication header.
+- Android imports `TatumAPIKey` through `ApiKeyStore`; Settings writes it to
+  encrypted storage.
+- CoinGecko and Tatum keys must never be committed. Use
+  `Config.example.plist` or local configuration only.

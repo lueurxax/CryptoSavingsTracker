@@ -59,6 +59,7 @@ object ChainIds {
     const val OPTIMISM = "optimism"
     const val BASE = "base"
     const val BSC = "bsc"
+    const val AVALANCHE = "avax"
     const val LITECOIN = "litecoin"
     const val BITCOIN_CASH = "bitcoin-cash"
     const val DOGECOIN = "dogecoin"
@@ -75,6 +76,7 @@ object ChainIds {
         OPTIMISM -> "Optimism"
         BASE -> "Base"
         BSC -> "BNB Chain"
+        AVALANCHE -> "Avalanche"
         LITECOIN -> "Litecoin"
         BITCOIN_CASH -> "Bitcoin Cash"
         DOGECOIN -> "Dogecoin"
@@ -85,7 +87,7 @@ object ChainIds {
     }
 
     val allChains = listOf(
-        ETHEREUM, BITCOIN, POLYGON, SOLANA, ARBITRUM, OPTIMISM, BASE, BSC,
+        ETHEREUM, BITCOIN, POLYGON, SOLANA, ARBITRUM, OPTIMISM, BASE, BSC, AVALANCHE,
         LITECOIN, BITCOIN_CASH, DOGECOIN, XRP, TRON, CARDANO
     )
 
@@ -103,8 +105,9 @@ object ChainIds {
             "BTC" -> BITCOIN
             "ETH" -> ETHEREUM
             "SOL" -> SOLANA
-            "MATIC" -> POLYGON
+            "MATIC", "POL" -> POLYGON
             "BNB" -> BSC
+            "AVAX" -> AVALANCHE
             "LTC" -> LITECOIN
             "BCH" -> BITCOIN_CASH
             "DOGE" -> DOGECOIN
@@ -136,7 +139,7 @@ object Cryptocurrencies {
         "USDT" to "Tether",
         "USDC" to "USD Coin",
         "SOL" to "Solana",
-        "MATIC" to "Polygon",
+        "POL" to "Polygon",
         "DAI" to "Dai",
         "LINK" to "Chainlink",
         "UNI" to "Uniswap",

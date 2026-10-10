@@ -44,8 +44,12 @@ class ExecutionRecordRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun upsert(record: ExecutionRecord) {
+    override suspend fun insert(record: ExecutionRecord) {
         executionRecordDao.insert(record.toEntity())
+    }
+
+    override suspend fun update(record: ExecutionRecord) {
+        executionRecordDao.update(record.toEntity())
     }
 
     override suspend fun close(recordId: String, closedAtMillis: Long, canUndoUntilMillis: Long?) {
@@ -61,6 +65,10 @@ class ExecutionRecordRepositoryImpl @Inject constructor(
     override suspend fun revertToDraft(recordId: String) {
         val now = System.currentTimeMillis()
         executionRecordDao.revertToDraft(recordId, now)
+    }
+
+    override suspend fun clearLegacyRateSnapshotPending(recordId: String) {
+        executionRecordDao.clearLegacyRateSnapshotPending(recordId, System.currentTimeMillis())
     }
 
     override suspend fun updateCanUndoUntil(recordId: String, canUndoUntilMillis: Long) {

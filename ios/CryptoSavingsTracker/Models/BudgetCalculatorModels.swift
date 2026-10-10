@@ -91,6 +91,10 @@ struct BudgetCalculatorPlan: Identifiable, Codable, Equatable {
     let isLeveled: Bool
     let minimumRequired: Double
     let goalRemainingById: [UUID: Double]
+    let rateSnapshotId: String?
+    let rateSnapshotTimestamp: Date?
+    let applicationRatesByPair: [String: Double]
+    let sourceStateSignature: String?
 
     /// Total amount across all scheduled payments
     var totalAmount: Double {
@@ -120,7 +124,11 @@ struct BudgetCalculatorPlan: Identifiable, Codable, Equatable {
         schedule: [ScheduledPayment],
         isLeveled: Bool,
         minimumRequired: Double,
-        goalRemainingById: [UUID: Double] = [:]
+        goalRemainingById: [UUID: Double] = [:],
+        rateSnapshotId: String? = nil,
+        rateSnapshotTimestamp: Date? = nil,
+        applicationRatesByPair: [String: Double] = [:],
+        sourceStateSignature: String? = nil
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -130,6 +138,10 @@ struct BudgetCalculatorPlan: Identifiable, Codable, Equatable {
         self.isLeveled = isLeveled
         self.minimumRequired = minimumRequired
         self.goalRemainingById = goalRemainingById
+        self.rateSnapshotId = rateSnapshotId
+        self.rateSnapshotTimestamp = rateSnapshotTimestamp
+        self.applicationRatesByPair = applicationRatesByPair
+        self.sourceStateSignature = sourceStateSignature
     }
 }
 
@@ -283,11 +295,28 @@ enum FeasibilitySuggestion: Identifiable, Equatable {
 
 /// Result of checking if a budget is sufficient for all goals
 struct FeasibilityResult: Equatable {
+    let isAvailable: Bool
     let isFeasible: Bool
     let minimumRequired: Double
     let currency: String
     let infeasibleGoals: [InfeasibleGoal]
     let suggestions: [FeasibilitySuggestion]
+
+    init(
+        isFeasible: Bool,
+        minimumRequired: Double,
+        currency: String,
+        infeasibleGoals: [InfeasibleGoal],
+        suggestions: [FeasibilitySuggestion],
+        isAvailable: Bool = true
+    ) {
+        self.isAvailable = isAvailable
+        self.isFeasible = isFeasible
+        self.minimumRequired = minimumRequired
+        self.currency = currency
+        self.infeasibleGoals = infeasibleGoals
+        self.suggestions = suggestions
+    }
 
     /// Formatted minimum required amount
     var formattedMinimum: String {
@@ -296,7 +325,9 @@ struct FeasibilityResult: Equatable {
 
     /// Status description for display
     var statusDescription: String {
-        if isFeasible {
+        if !isAvailable {
+            return "Data unavailable"
+        } else if isFeasible {
             return "All deadlines achievable"
         } else if infeasibleGoals.count == 1 {
             return "1 goal at risk"
@@ -307,7 +338,9 @@ struct FeasibilityResult: Equatable {
 
     /// Status color indicator
     var statusLevel: FeasibilityLevel {
-        if isFeasible {
+        if !isAvailable {
+            return .critical
+        } else if isFeasible {
             return .achievable
         } else if infeasibleGoals.count == 1 {
             return .atRisk
@@ -323,6 +356,17 @@ struct FeasibilityResult: Equatable {
         infeasibleGoals: [],
         suggestions: []
     )
+
+    static func unavailable(currency: String) -> FeasibilityResult {
+        FeasibilityResult(
+            isFeasible: false,
+            minimumRequired: 0,
+            currency: currency.uppercased(),
+            infeasibleGoals: [],
+            suggestions: [],
+            isAvailable: false
+        )
+    }
 }
 
 // MARK: - Feasibility Level
@@ -348,6 +392,7 @@ enum BudgetComputationState: Equatable {
     case readyFeasible
     case blockedInfeasible
     case blockedRates
+    case blockedBalances
 }
 
 struct BudgetComputationResult: Equatable {

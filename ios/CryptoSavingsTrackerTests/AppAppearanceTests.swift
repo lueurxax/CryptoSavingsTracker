@@ -19,12 +19,12 @@ struct AppAppearanceTests {
         #expect(AppIconSelection.iconName(for: appearance, systemColorScheme: .light) == "AppIconDark")
     }
 
-    @Test("System appearance leaves app icon selection to the system")
-    func systemAppearanceLeavesAppIconSelectionToTheSystem() {
+    @Test("System appearance follows the system color scheme for app icon selection")
+    func systemAppearanceFollowsSystemColorSchemeForAppIconSelection() {
         let appearance = AppAppearance(rawValue: "system")
 
         #expect(appearance.preferredColorScheme == nil)
         #expect(AppIconSelection.iconName(for: appearance, systemColorScheme: .light) == nil)
-        #expect(AppIconSelection.iconName(for: appearance, systemColorScheme: .dark) == nil)
+        #expect(AppIconSelection.iconName(for: appearance, systemColorScheme: .dark) == "AppIconDark")
     }
 }

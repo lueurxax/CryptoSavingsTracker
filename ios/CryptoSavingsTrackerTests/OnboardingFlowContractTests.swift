@@ -43,10 +43,40 @@ struct OnboardingFlowContractTests {
         #expect(serviceSource.contains("var insertedAllocations: [AssetAllocation] = []"))
         #expect(serviceSource.contains("insertedAssets.append(asset)"))
         #expect(serviceSource.contains("insertedAllocations.append(allocation)"))
-        #expect(serviceSource.contains("for allocation in insertedAllocations"))
-        #expect(serviceSource.contains("modelContext.delete(allocation)"))
-        #expect(serviceSource.contains("for asset in insertedAssets"))
-        #expect(serviceSource.contains("modelContext.delete(asset)"))
+        #expect(
+            serviceSource.contains(
+                "PersistenceOperationTransaction.discardInserted(\n                    insertedAllocations"
+            )
+        )
+        #expect(
+            serviceSource.contains(
+                "PersistenceOperationTransaction.discardInserted(\n                    insertedAssets"
+            )
+        )
+    }
+
+    @Test("onboarding asset selections reach the persistence boundary")
+    func onboardingAssetSelectionIsPropagatedEndToEnd() throws {
+        let root = repositoryRoot()
+        let flowSource = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Views/Onboarding/OnboardingFlowView.swift"
+        )
+        let stepSource = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Views/Onboarding/OnboardingStepViews.swift"
+        )
+        let serviceSource = try readSource(
+            root,
+            "ios/CryptoSavingsTracker/Services/PersistenceMutationServices.swift"
+        )
+
+        #expect(flowSource.contains("@State private var selectedAssetCurrencies: Set<String> = []"))
+        #expect(flowSource.contains("selectedAssetCurrencies: $selectedAssetCurrencies"))
+        #expect(flowSource.contains("selectedAssetCurrencies: selectedAssetCurrencies"))
+        #expect(stepSource.contains("@Binding var selectedAssetCurrencies: Set<String>"))
+        #expect(serviceSource.contains("normalizedSelection.contains(recommendation.currency.uppercased())"))
+        #expect(!serviceSource.contains("template.generateAssets().prefix(3)"))
     }
 
     @Test("onboarding UI test launch stays on onboarding shell")

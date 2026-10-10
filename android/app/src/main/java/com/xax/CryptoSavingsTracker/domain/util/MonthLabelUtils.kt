@@ -1,8 +1,5 @@
 package com.xax.CryptoSavingsTracker.domain.util
 
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 object MonthLabelUtils {
@@ -11,9 +8,6 @@ object MonthLabelUtils {
     fun nowUtc(): String = fromMillisUtc(System.currentTimeMillis())
 
     fun fromMillisUtc(millis: Long): String {
-        val instant = Instant.ofEpochMilli(millis)
-        val localDate = LocalDate.ofInstant(instant, ZoneOffset.UTC)
-        return localDate.format(formatter)
+        return PlanningCalendarUtc.dateFromMillis(millis).format(formatter)
     }
 }
-

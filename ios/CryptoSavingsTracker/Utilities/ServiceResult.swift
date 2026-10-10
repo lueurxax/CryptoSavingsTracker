@@ -126,6 +126,48 @@ struct UserFacingError: Equatable, Identifiable, Sendable {
     }
 }
 
+enum PersistenceMutationErrorPresentation {
+    private static let conflictingDraftRecovery =
+        "Save or discard the other edits, then try again."
+
+    static func message(
+        for error: Error,
+        fallback: String
+    ) -> String {
+        guard let persistenceError = error as? PersistenceMutationError,
+              case .validationFailed = persistenceError else {
+            return fallback
+        }
+        return persistenceError.localizedDescription
+    }
+
+    static func userFacingError(
+        for error: Error,
+        title: String,
+        fallbackMessage: String,
+        fallbackRecoverySuggestion: String
+    ) -> UserFacingError {
+        guard let persistenceError = error as? PersistenceMutationError,
+              case .validationFailed = persistenceError else {
+            return UserFacingError(
+                title: title,
+                message: fallbackMessage,
+                recoverySuggestion: fallbackRecoverySuggestion,
+                isRetryable: true,
+                category: .dataCorruption
+            )
+        }
+
+        return UserFacingError(
+            title: title,
+            message: persistenceError.localizedDescription,
+            recoverySuggestion: conflictingDraftRecovery,
+            isRetryable: true,
+            category: .dataCorruption
+        )
+    }
+}
+
 // MARK: - Error Translator
 
 /// Translates `AppError` into user-friendly `UserFacingError`.

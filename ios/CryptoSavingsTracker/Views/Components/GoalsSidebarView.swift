@@ -11,9 +11,22 @@ import SwiftData
 /// Sidebar view for macOS showing list of goals
 struct GoalsSidebarView: View {
     let goals: [Goal]
+    let archivedGoals: [Goal]
     @Binding var selectedGoal: Goal?
     @Environment(\.modelContext) private var modelContext
     @State private var editingGoal: Goal?
+    @State private var lifecycleErrorTitle = "Goal Not Updated"
+    @State private var lifecycleErrorMessage: String?
+
+    init(
+        goals: [Goal],
+        archivedGoals: [Goal] = [],
+        selectedGoal: Binding<Goal?>
+    ) {
+        self.goals = goals
+        self.archivedGoals = archivedGoals
+        _selectedGoal = selectedGoal
+    }
     
     var body: some View {
         List(selection: $selectedGoal) {
@@ -55,6 +68,35 @@ struct GoalsSidebarView: View {
                         }
                 }
             }
+
+            if !archivedGoals.isEmpty {
+                Section("Archived Goals") {
+                    ForEach(archivedGoals) { goal in
+                        HStack(spacing: 12) {
+                            Image(systemName: "archivebox.fill")
+                                .foregroundStyle(AccessibleColors.secondaryText)
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(goal.name)
+                                    .font(.body.weight(.medium))
+                                Text("\(goal.currency) target: \(goal.targetAmount.formatted())")
+                                    .font(.caption)
+                                    .foregroundStyle(AccessibleColors.secondaryText)
+                            }
+
+                            Spacer()
+
+                            Button("Restore") {
+                                restoreGoal(goal)
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityIdentifier("restoreGoalButton-\(goal.name)")
+                        }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("archivedGoalRow-\(goal.name)")
+                    }
+                }
+            }
         }
         .navigationTitle("Goals")
         .toolbar {
@@ -70,16 +112,47 @@ struct GoalsSidebarView: View {
             EditGoalView(goal: goal, modelContext: modelContext)
                 .presentationDetents([.large])
         }
+        .alert(
+            lifecycleErrorTitle,
+            isPresented: Binding(
+                get: { lifecycleErrorMessage != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        lifecycleErrorMessage = nil
+                    }
+                }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                lifecycleErrorMessage = nil
+            }
+        } message: {
+            Text(lifecycleErrorMessage ?? "Unable to update this goal right now.")
+        }
     }
     
     private func deleteGoal(_ goal: Goal) {
-        withAnimation {
-            Task { @MainActor in
-                await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
+        Task { @MainActor in
+            do {
+                try await GoalLifecycleService(modelContext: modelContext).deleteGoal(goal)
+            } catch {
+                lifecycleErrorTitle = "Goal Not Updated"
+                lifecycleErrorMessage = "Unable to delete this goal. Please try again."
             }
-            
-            let notification = Notification(name: Notification.Name("goalDeleted"), object: goal)
-            NotificationCenter.default.post(notification)
+        }
+    }
+
+    private func restoreGoal(_ goal: Goal) {
+        Task { @MainActor in
+            do {
+                try await DIContainer.shared
+                    .makeGoalMutationService(modelContext: modelContext)
+                    .restoreGoal(goal)
+                selectedGoal = goal
+            } catch {
+                lifecycleErrorTitle = "Goal Not Restored"
+                lifecycleErrorMessage = "Unable to restore this goal. Please try again."
+            }
         }
     }
 }

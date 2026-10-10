@@ -13,6 +13,21 @@ import Combine
 /// ViewModel for managing monthly planning calculations and UI state
 @MainActor
 final class MonthlyPlanningViewModel: ObservableObject {
+    private struct PlanningLoadIdentity: Equatable {
+        let requestID: UUID
+        let monthLabel: String
+        let displayCurrency: String
+    }
+
+    private struct BudgetApplyIdentity {
+        let requestID: UUID
+        let monthLabel: String
+        let amount: MoneyAmount
+        let currency: String
+        let plan: BudgetCalculatorPlan
+        let monthlyPlanIDs: Set<UUID>
+        let paymentDay: Int
+    }
     
     // MARK: - Published Properties
     
@@ -31,7 +46,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
     @Published var totalRequiredIsPartial: Bool = false
 
     /// Settings for monthly planning configuration
-    private let settings = MonthlyPlanningSettings.shared
+    private let settings: MonthlyPlanningSettings
     
     /// Display currency for total calculations (derived from settings)
     @Published var displayCurrency: String = "USD"
@@ -189,6 +204,18 @@ final class MonthlyPlanningViewModel: ObservableObject {
             )
         }
 
+        if budgetComputationResult?.state == .readyFeasible,
+           !isBudgetSnapshotFresh {
+            return .staleFX(
+                lastUpdated: budgetComputationResult?.rateSnapshotTimestamp,
+                affectedCurrencies: budgetComputationResult?.affectedCurrencies ?? []
+            )
+        }
+
+        guard budgetFeasibility.isAvailable else {
+            return .needsRecalculation
+        }
+
         let shortfall = max(0, budgetFeasibility.minimumRequired - budgetAmount)
         if shortfall > 0.01 {
             let riskCount = budgetFeasibility.infeasibleGoals.count
@@ -235,47 +262,74 @@ final class MonthlyPlanningViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var currentPlans: [MonthlyPlan] = []
     private var isApplyingBudgetMigration = false
-    private var latestBudgetRequestId: UUID?
+    private var latestBudgetPublicationRequestId: UUID?
     private var latestFlexRequestId: UUID?
     private var budgetPreviewTask: Task<Void, Never>?
     private var latestPreviewGoalsSignature: String?
     private var latestPreviewCurrency: String?
     private var latestPreviewRateSnapshotId: String?
-
-    private struct BudgetRateState {
-        let isStale: Bool
-        let lastUpdated: Date?
-        let affectedCurrencies: [String]
-    }
+    private var latestPreviewPlanningMonthLabel: String?
+    private var latestPlanningLoadIdentity: PlanningLoadIdentity?
+    private var persistedFlexAdjustment: Double = 1.0
     
     // MARK: - Initialization
     
-    init(modelContext: ModelContext, exchangeRateService: ExchangeRateServiceProtocol? = nil) {
+    convenience init(modelContext: ModelContext, exchangeRateService: ExchangeRateServiceProtocol? = nil) {
+        self.init(
+            modelContext: modelContext,
+            exchangeRateService: exchangeRateService,
+            configureObservers: true
+        )
+    }
+
+    init(
+        modelContext: ModelContext,
+        planService: MonthlyPlanService? = nil,
+        exchangeRateService: ExchangeRateServiceProtocol? = nil,
+        budgetCalculatorService: BudgetCalculatorService? = nil,
+        planningMutationService: PlanningMutationServiceProtocol? = nil,
+        flexService: FlexAdjustmentService? = nil,
+        settings: MonthlyPlanningSettings? = nil,
+        configureObservers: Bool
+    ) {
+        let resolvedSettings = settings ?? MonthlyPlanningSettings.shared
         self.modelContext = modelContext
-        self.planService = DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
-        let resolvedExchangeRateService = exchangeRateService ?? DIContainer.shared.exchangeRateService
-        self.exchangeRateService = resolvedExchangeRateService
-        self.budgetCalculatorService = BudgetCalculatorService(exchangeRateService: resolvedExchangeRateService)
-        self.planningMutationService = DIContainer.shared.makePlanningMutationService(modelContext: modelContext)
-        self.flexService = DIContainer.shared.makeFlexAdjustmentService(modelContext: modelContext)
-        self.planningMonthLabel = planService.currentMonthLabel()
+        self.settings = resolvedSettings
+        self.planService = planService ?? DIContainer.shared.makeMonthlyPlanService(modelContext: modelContext)
+        self.exchangeRateService = exchangeRateService ?? DIContainer.shared.exchangeRateService
+        self.budgetCalculatorService = budgetCalculatorService
+            ?? BudgetCalculatorService(exchangeRateService: self.exchangeRateService)
+        self.planningMutationService = planningMutationService
+            ?? DIContainer.shared.makePlanningMutationService(modelContext: modelContext)
+        self.flexService = flexService ?? DIContainer.shared.makeFlexAdjustmentService(modelContext: modelContext)
+        self.planningMonthLabel = self.planService.currentMonthLabel()
         
         // Initialize display currency from settings
-        self.displayCurrency = settings.displayCurrency
+        self.displayCurrency = resolvedSettings.displayCurrency
         
-        setupObservers()
-        loadUserPreferences()
-        setupSettingsObservation()
+        if configureObservers {
+            setupObservers()
+            loadUserPreferences()
+            setupSettingsObservation()
+        }
     }
     
     // MARK: - Public Methods
     
     /// Load monthly requirements for all active goals in the selected planning month
     func loadMonthlyRequirements(for monthLabel: String? = nil) async {
+        latestFlexRequestId = nil
+        let targetMonthLabel = resolvePlanningMonthLabel(preferred: monthLabel)
+        let loadIdentity = PlanningLoadIdentity(
+            requestID: UUID(),
+            monthLabel: targetMonthLabel,
+            displayCurrency: displayCurrency
+        )
+        latestPlanningLoadIdentity = loadIdentity
+        invalidateBudgetPreviewForInputChange()
+        planningMonthLabel = targetMonthLabel
         isLoading = true
         error = nil
-        let targetMonthLabel = resolvePlanningMonthLabel(preferred: monthLabel)
-        planningMonthLabel = targetMonthLabel
         
         do {
             // Fetch all active goals
@@ -287,6 +341,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
             )
             
             let goals = try modelContext.fetch(descriptor)
+            let activeGoalIDs = Set(goals.map(\.id))
             for _ in goals {
             }
 
@@ -302,11 +357,11 @@ final class MonthlyPlanningViewModel: ObservableObject {
             }
 
             // Get or create persisted plans for the selected month
-            let plans = try await planService.getOrCreatePlans(for: targetMonthLabel, goals: goals)
-
-            await refreshDraftPlans(plans, goals: goals)
-
-            self.currentPlans = plans
+            let candidatePlans = try await planService.getOrCreatePlans(
+                for: targetMonthLabel,
+                goals: goals
+            )
+            let plans = candidatePlans.filter { activeGoalIDs.contains($0.goalId) }
 
             // Map plans to MonthlyRequirement adapters for UI compatibility
             let requirements = goals.compactMap { goal -> MonthlyRequirement? in
@@ -314,28 +369,47 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 return requirement(from: plan, goal: goal)
             }
 
-            let totalResult = await calculateTotalRequired(from: plans, displayCurrency: displayCurrency)
-            
-            // Update UI on main thread
-            await MainActor.run {
-                self.goals = goals
-                self.monthlyRequirements = requirements
-                self.totalRequired = totalResult.total
-                self.totalRequiredIsPartial = totalResult.isPartial
-                self.isLoading = false
-                // Refresh flex state sets from plan data
-                self.protectedGoalIds = Set(plans.filter { $0.flexState == .protected || $0.isProtected }.map { $0.goalId })
-                self.skippedGoalIds = Set(plans.filter { $0.flexState == .skipped || $0.isSkipped }.map { $0.goalId })
+            let total = try await calculateTotalRequired(
+                from: plans,
+                displayCurrency: loadIdentity.displayCurrency
+            )
+            let latestActiveGoalIDs = Set(try modelContext.fetch(descriptor).map(\.id))
+            guard latestActiveGoalIDs == activeGoalIDs else {
+                throw PlanError.sourceDataChanged(
+                    "Active goals changed while the planning summary was being calculated. Retry with current goals."
+                )
             }
+            guard isCurrentPlanningLoad(loadIdentity) else { return }
 
-            await refreshBudgetStatus()
-            await handleBudgetMigrationIfNeeded(goals: goals)
+            // Publish atomically on this @MainActor after the final membership check.
+            self.currentPlans = plans
+            self.goals = goals
+            self.monthlyRequirements = requirements
+            self.totalRequired = total
+            self.totalRequiredIsPartial = false
+            self.isLoading = false
+            // Refresh flex state sets from plan data
+            self.protectedGoalIds = Set(
+                plans
+                    .filter { $0.flexState == .protected || $0.isProtected }
+                    .map(\.goalId)
+            )
+            self.skippedGoalIds = Set(
+                plans
+                    .filter { $0.flexState == .skipped || $0.isSkipped }
+                    .map(\.goalId)
+            )
+
+            await refreshBudgetStatus(expectedLoad: loadIdentity)
+            guard isCurrentPlanningLoad(loadIdentity) else { return }
+            await handleBudgetMigrationIfNeeded(
+                goals: goals,
+                expectedLoad: loadIdentity
+            )
             
         } catch {
-            await MainActor.run {
-                self.error = error
-                self.isLoading = false
-            }
+            guard isCurrentPlanningLoad(loadIdentity) else { return }
+            self.invalidateFinancialStateAfterLoadFailure(error)
             AppLog.error(
                 "Failed to load monthly requirements: \(error.localizedDescription)",
                 category: .monthlyPlanning
@@ -348,28 +422,74 @@ final class MonthlyPlanningViewModel: ObservableObject {
         await loadMonthlyRequirements()
     }
 
+    /// Whether the current preview belongs to the supplied canonical budget input.
+    func isBudgetSnapshotCurrent(for amount: MoneyAmount) -> Bool {
+        guard let snapshot = budgetComputationResult else { return false }
+        guard latestPreviewPlanningMonthLabel == planningMonthLabel else {
+            return false
+        }
+        guard !currentPlans.isEmpty,
+              currentPlans.allSatisfy({
+                  $0.monthLabel == planningMonthLabel
+              })
+        else {
+            return false
+        }
+        guard amount.currency == snapshot.enteredBudgetCanonical.currency else { return false }
+        return MoneyQuantizer.compare(amount, snapshot.enteredBudgetCanonical) == .orderedSame
+    }
+
+    /// Invalidates financial preview state before an input dimension changes.
+    func invalidateBudgetPreviewForInputChange() {
+        budgetPreviewTask?.cancel()
+        latestBudgetPublicationRequestId = nil
+        budgetComputationResult = nil
+        budgetPreviewPlan = nil
+        budgetPreviewTimeline = []
+        budgetFeasibility = .empty
+        budgetSaveDisabledReason = "Calculating latest amount..."
+        budgetPreviewError = nil
+        isBudgetPreviewLoading = false
+        latestPreviewRateSnapshotId = nil
+        latestPreviewGoalsSignature = nil
+        latestPreviewCurrency = nil
+        latestPreviewPlanningMonthLabel = nil
+    }
+
+    var isBudgetSnapshotFresh: Bool {
+        guard let snapshot = budgetComputationResult,
+              snapshot.state == .readyFeasible else {
+            return false
+        }
+        return budgetCalculatorService.isRateSnapshotFresh(
+            timestamp: snapshot.rateSnapshotTimestamp
+        )
+    }
+
     // MARK: - Budget Calculator
 
     /// Prepare preview data for the budget calculator sheet.
-    func previewBudget(amount: Double, currency: String) async {
+    func previewBudget(amount: Double, currency: String, forceRateRefresh: Bool = false) async {
         let canonical = MoneyQuantizer.normalize(Decimal(max(0, amount)), currency: currency, mode: .halfUp)
-        await previewBudget(amount: canonical, currency: currency)
+        await previewBudget(
+            amount: canonical,
+            currency: currency,
+            forceRateRefresh: forceRateRefresh
+        )
     }
 
     /// Prepare preview data for the budget calculator sheet with canonical money type.
-    func previewBudget(amount: MoneyAmount, currency: String) async {
+    func previewBudget(amount: MoneyAmount, currency: String, forceRateRefresh: Bool = false) async {
         let eligibleGoals = budgetEligibleGoals()
 
-        guard amount.minorUnitValue > 0, !eligibleGoals.isEmpty else {
-            budgetPreviewTask?.cancel()
-            budgetPreviewPlan = nil
-            budgetPreviewTimeline = []
-            budgetFeasibility = .empty
-            budgetComputationResult = nil
-            budgetSaveDisabledReason = "Enter a valid amount."
+        if forceRateRefresh {
+            budgetCalculatorService.invalidateRateSnapshots()
             latestPreviewRateSnapshotId = nil
-            latestPreviewGoalsSignature = nil
-            latestPreviewCurrency = nil
+        }
+
+        guard amount.minorUnitValue > 0, !eligibleGoals.isEmpty else {
+            invalidateBudgetPreviewForInputChange()
+            budgetSaveDisabledReason = "Enter a valid amount."
             return
         }
 
@@ -381,7 +501,8 @@ final class MonthlyPlanningViewModel: ObservableObject {
         latestPreviewCurrency = amount.currency
 
         let requestId = UUID()
-        latestBudgetRequestId = requestId
+        let requestedPlanningMonthLabel = planningMonthLabel
+        latestBudgetPublicationRequestId = requestId
         budgetPreviewTask?.cancel()
         isBudgetPreviewLoading = true
         budgetPreviewError = nil
@@ -398,22 +519,34 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 goals: eligibleGoals,
                 enteredBudget: amount,
                 goalsSignature: goalsSignature,
-                rateSnapshotId: rateSnapshotId
+                rateSnapshotId: rateSnapshotId,
+                planningMonthLabel: requestedPlanningMonthLabel
             )
 
             await MainActor.run {
-                guard self.latestBudgetRequestId == result.requestId else {
+                guard self.latestBudgetPublicationRequestId
+                        == result.requestId,
+                      self.planningMonthLabel
+                        == requestedPlanningMonthLabel
+                else {
                     BudgetPlanAnalytics.log(.snapshotStaleResultDropped)
                     return
                 }
 
-                self.applyBudgetSnapshot(result)
+                self.applyBudgetSnapshot(
+                    result,
+                    planningMonthLabel: requestedPlanningMonthLabel
+                )
             }
         }
     }
 
-    private func applyBudgetSnapshot(_ result: BudgetComputationResult) {
+    private func applyBudgetSnapshot(
+        _ result: BudgetComputationResult,
+        planningMonthLabel: String
+    ) {
         budgetComputationResult = result
+        latestPreviewPlanningMonthLabel = planningMonthLabel
         latestPreviewRateSnapshotId = result.rateSnapshotId
         budgetPreviewPlan = result.plan
         budgetPreviewTimeline = result.timeline
@@ -422,8 +555,16 @@ final class MonthlyPlanningViewModel: ObservableObject {
             minimumRequired: result.minimumRequiredCanonical.doubleValue,
             currency: result.minimumRequiredCanonical.currency,
             infeasibleGoals: result.infeasibleGoals,
-            suggestions: result.suggestions
+            suggestions: result.suggestions,
+            isAvailable: result.state != .blockedRates && result.state != .blockedBalances
         )
+        budgetRateLastUpdated = result.rateSnapshotTimestamp
+        budgetRateAffectedCurrencies = result.affectedCurrencies
+        budgetHasStaleRates = result.state == .blockedRates
+            || (
+                result.state == .readyFeasible
+                    && !budgetCalculatorService.isRateSnapshotFresh(timestamp: result.rateSnapshotTimestamp)
+            )
         isBudgetPreviewLoading = false
 
         switch result.state {
@@ -441,6 +582,9 @@ final class MonthlyPlanningViewModel: ObservableObject {
         case .blockedRates:
             budgetSaveDisabledReason = "Rates unavailable for conversion. Refresh rates to validate this budget."
             BudgetPlanAnalytics.log(.saveBlockedReasonShown, properties: ["reason": "blocked_rates"])
+        case .blockedBalances:
+            budgetSaveDisabledReason = "Balances unavailable. Refresh balances to validate this budget."
+            BudgetPlanAnalytics.log(.saveBlockedReasonShown, properties: ["reason": "blocked_balances"])
         }
     }
 
@@ -484,28 +628,103 @@ final class MonthlyPlanningViewModel: ObservableObject {
         amount: Double,
         currency: String
     ) async -> Bool {
-        guard !currentPlans.isEmpty else { return false }
+        let appliedMonthLabel = planningMonthLabel
+        let plansToApply = currentPlans
+        guard !plansToApply.isEmpty else { return false }
+        guard plansToApply.allSatisfy({
+            $0.monthLabel == appliedMonthLabel
+        }) else {
+            budgetSaveDisabledReason = "Planning month changed. Refresh the preview and retry."
+            return false
+        }
+        let canonicalAmount = MoneyQuantizer.normalize(
+            Decimal(max(0, amount)),
+            currency: currency,
+            mode: .halfUp
+        )
+        guard let snapshot = budgetComputationResult,
+              snapshot.state == .readyFeasible,
+              snapshot.plan == plan,
+              plan.currency.uppercased() == currency.uppercased(),
+              isBudgetSnapshotCurrent(for: canonicalAmount),
+              isBudgetSnapshotFresh else {
+            budgetSaveDisabledReason = "Preview expired or no longer matches this budget. Refresh and retry."
+            return false
+        }
+        let appliedPaymentDay = settings.paymentDay
+        let applyIdentity = BudgetApplyIdentity(
+            requestID: snapshot.requestId,
+            monthLabel: appliedMonthLabel,
+            amount: canonicalAmount,
+            currency: currency.uppercased(),
+            plan: plan,
+            monthlyPlanIDs: Set(plansToApply.map(\.id)),
+            paymentDay: appliedPaymentDay
+        )
+        guard isBudgetApplyIdentityCurrent(applyIdentity) else {
+            budgetSaveDisabledReason = "Budget inputs changed. Refresh the preview and retry."
+            return false
+        }
 
         do {
             try await planningMutationService.applyBudgetPlan(
                 plan,
-                currentPlans: currentPlans,
-                budgetCurrency: currency
+                currentPlans: plansToApply,
+                budgetCurrency: applyIdentity.currency,
+                validateBeforeCommit: { [weak self] in
+                    self?.isBudgetApplyIdentityCurrent(applyIdentity) == true
+                }
             )
         } catch {
             budgetPreviewError = error.localizedDescription
             return false
         }
 
-        settings.monthlyBudget = amount
-        settings.budgetCurrency = currency
-        settings.budgetAppliedMonthLabel = planningMonthLabel
-        settings.budgetAppliedSignature = budgetSignature(for: budgetEligibleGoals())
+        guard isBudgetApplyIdentityCurrent(applyIdentity) else {
+            budgetSaveDisabledReason = "Budget inputs changed. Refresh the preview and retry."
+            return false
+        }
+        let appliedSignature = appliedBudgetSignature(
+            amount: canonicalAmount,
+            plan: plan,
+            monthlyPlans: plansToApply,
+            paymentDay: appliedPaymentDay
+        )
+        settings.monthlyBudget = canonicalAmount.doubleValue
+        settings.budgetCurrency = applyIdentity.currency
+        settings.budgetAppliedMonthLabel = appliedMonthLabel
+        settings.budgetAppliedSignature = appliedSignature
 
         flexAdjustment = 1.0
+        persistedFlexAdjustment = 1.0
         saveUserPreferences()
 
         await loadMonthlyRequirements()
+        return true
+    }
+
+    private func isBudgetApplyIdentityCurrent(
+        _ identity: BudgetApplyIdentity
+    ) -> Bool {
+        guard latestBudgetPublicationRequestId == identity.requestID,
+              latestPreviewPlanningMonthLabel == identity.monthLabel,
+              planningMonthLabel == identity.monthLabel,
+              latestPreviewCurrency?.uppercased() == identity.currency,
+              settings.paymentDay == identity.paymentDay,
+              let snapshot = budgetComputationResult,
+              snapshot.requestId == identity.requestID,
+              snapshot.state == .readyFeasible,
+              snapshot.plan == identity.plan,
+              snapshot.enteredBudgetCanonical == identity.amount,
+              budgetPreviewPlan == identity.plan,
+              Set(currentPlans.map(\.id)) == identity.monthlyPlanIDs,
+              currentPlans.allSatisfy({
+                  $0.monthLabel == identity.monthLabel
+              }),
+              isBudgetSnapshotCurrent(for: identity.amount),
+              isBudgetSnapshotFresh else {
+            return false
+        }
         return true
     }
 
@@ -517,85 +736,66 @@ final class MonthlyPlanningViewModel: ObservableObject {
 
     /// Mark the recalculation prompt as acknowledged for the current inputs.
     func acknowledgeBudgetRecalculationPrompt() {
+        let canonicalAmount = MoneyQuantizer.normalize(
+            Decimal(max(0, settings.monthlyBudget ?? 0)),
+            currency: settings.budgetCurrency,
+            mode: .halfUp
+        )
+        guard let result = budgetComputationResult,
+              let signature = appliedBudgetSignature(
+                amount: canonicalAmount,
+                plan: result.plan
+              ) else {
+            showBudgetRecalculationPrompt = true
+            return
+        }
         settings.budgetAppliedMonthLabel = planningMonthLabel
-        settings.budgetAppliedSignature = budgetSignature(for: budgetEligibleGoals())
+        settings.budgetAppliedSignature = signature
         showBudgetRecalculationPrompt = false
     }
 
     /// Apply flex adjustment to persisted plans and refresh UI
     func applyFlexAdjustment(_ percentage: Double) async {
-        let requestId = UUID()
-        latestFlexRequestId = requestId
         let clamped = max(0.0, min(1.5, percentage))
-        flexAdjustment = clamped
-
-        guard !currentPlans.isEmpty else {
-            await loadMonthlyRequirements()
-            return
-        }
-
-        do {
-            try await planService.applyBulkFlexAdjustment(
-                plans: currentPlans,
-                adjustment: clamped,
-                protectedGoalIds: protectedGoalIds,
-                skippedGoalIds: skippedGoalIds
-            )
-
-            // Refresh UI using mutated plans
-            let requirements = goals.compactMap { goal -> MonthlyRequirement? in
-                guard let plan = currentPlans.first(where: { $0.goalId == goal.id }) else { return nil }
-                return requirement(from: plan, goal: goal)
-            }
-            let totalResult = await calculateTotalRequired(from: currentPlans, displayCurrency: displayCurrency)
-
-            // FX conversion may suspend while a newer slider update completes.
-            // Publish only the latest request's rows and converted total together.
-            guard latestFlexRequestId == requestId else { return }
-            self.monthlyRequirements = requirements
-            self.totalRequired = totalResult.total
-            self.totalRequiredIsPartial = totalResult.isPartial
-            await refreshBudgetStatus()
-        } catch {
-            guard latestFlexRequestId == requestId else { return }
-            await MainActor.run {
-                self.error = error
-            }
-            AppLog.error(
-                "Failed to apply flex adjustment: \(error.localizedDescription)",
-                category: .monthlyPlanning
-            )
-        }
+        _ = await persistFlexConfiguration(
+            adjustment: clamped,
+            protectedGoalIds: protectedGoalIds,
+            skippedGoalIds: skippedGoalIds
+        )
     }
     
     /// Toggle protection status for a goal
-    func toggleProtection(for goalId: UUID) {
-        if protectedGoalIds.contains(goalId) {
-            protectedGoalIds.remove(goalId)
+    func toggleProtection(for goalId: UUID) async {
+        var nextProtectedGoalIds = protectedGoalIds
+        var nextSkippedGoalIds = skippedGoalIds
+        if nextProtectedGoalIds.contains(goalId) {
+            nextProtectedGoalIds.remove(goalId)
         } else {
-            protectedGoalIds.insert(goalId)
-            skippedGoalIds.remove(goalId) // Can't be both protected and skipped
+            nextProtectedGoalIds.insert(goalId)
+            nextSkippedGoalIds.remove(goalId) // Can't be both protected and skipped
         }
-        saveUserPreferences()
-        Task {
-            await applyFlexAdjustment(flexAdjustment)
-            await refreshBudgetStatus()
-        }
+        _ = await persistFlexConfiguration(
+            adjustment: flexAdjustment,
+            protectedGoalIds: nextProtectedGoalIds,
+            skippedGoalIds: nextSkippedGoalIds
+        )
     }
     
     /// Toggle skip status for a goal
-    func toggleSkip(for goalId: UUID) {
-        if skippedGoalIds.contains(goalId) {
-            skippedGoalIds.remove(goalId)
+    func toggleSkip(for goalId: UUID) async {
+        var nextProtectedGoalIds = protectedGoalIds
+        var nextSkippedGoalIds = skippedGoalIds
+        if nextSkippedGoalIds.contains(goalId) {
+            nextSkippedGoalIds.remove(goalId)
         } else {
-            skippedGoalIds.insert(goalId)
-            protectedGoalIds.remove(goalId) // Can't be both skipped and protected
+            nextSkippedGoalIds.insert(goalId)
+            nextProtectedGoalIds.remove(goalId) // Can't be both skipped and protected
         }
-        saveUserPreferences()
-        Task {
-            await applyFlexAdjustment(flexAdjustment)
-            await refreshBudgetStatus()
-        }
+        _ = await persistFlexConfiguration(
+            adjustment: flexAdjustment,
+            protectedGoalIds: nextProtectedGoalIds,
+            skippedGoalIds: nextSkippedGoalIds
+        )
     }
 
     /// Set a custom amount for a specific goal
@@ -616,6 +816,8 @@ final class MonthlyPlanningViewModel: ObservableObject {
             if amount != nil {
                 protectedGoalIds.insert(goalId)
                 skippedGoalIds.remove(goalId)
+            } else {
+                protectedGoalIds.remove(goalId)
             }
 
             saveUserPreferences()
@@ -648,31 +850,123 @@ final class MonthlyPlanningViewModel: ObservableObject {
 
     /// Apply quick action
     func applyQuickAction(_ action: QuickAction) async {
+        var nextProtectedGoalIds = protectedGoalIds
+        var nextSkippedGoalIds = skippedGoalIds
+        var nextAdjustment = flexAdjustment
+        var clearFlexibleOverrides = false
+
         switch action {
         case .skipMonth:
             // Skip all flexible goals this month
             for requirement in monthlyRequirements {
-                if !protectedGoalIds.contains(requirement.goalId) {
-                    skippedGoalIds.insert(requirement.goalId)
+                if !nextProtectedGoalIds.contains(requirement.goalId) {
+                    nextSkippedGoalIds.insert(requirement.goalId)
                 }
             }
             
         case .payHalf:
             // Pay 50% of required amounts
-            skippedGoalIds.removeAll()
+            nextSkippedGoalIds.removeAll()
+            nextAdjustment = 0.5
             
         case .payExact:
             // Pay exact calculated amounts
-            skippedGoalIds.removeAll()
+            nextSkippedGoalIds.removeAll()
+            nextAdjustment = 1.0
 
         case .reset:
             // Reset all adjustments
-            protectedGoalIds.removeAll()
-            skippedGoalIds.removeAll()
+            nextProtectedGoalIds.removeAll()
+            nextSkippedGoalIds.removeAll()
+            nextAdjustment = 1.0
+            clearFlexibleOverrides = true
         }
-        
+
+        _ = await persistFlexConfiguration(
+            adjustment: nextAdjustment,
+            protectedGoalIds: nextProtectedGoalIds,
+            skippedGoalIds: nextSkippedGoalIds,
+            clearFlexibleOverrides: clearFlexibleOverrides
+        )
+    }
+
+    /// Persists one canonical flex state before publishing it to the view model
+    /// or UserDefaults. A failed save therefore leaves all three layers aligned.
+    @discardableResult
+    private func persistFlexConfiguration(
+        adjustment: Double,
+        protectedGoalIds nextProtectedGoalIds: Set<UUID>,
+        skippedGoalIds nextSkippedGoalIds: Set<UUID>,
+        clearFlexibleOverrides: Bool = false
+    ) async -> Bool {
+        if currentPlans.isEmpty {
+            await loadMonthlyRequirements(for: planningMonthLabel)
+        }
+        guard !currentPlans.isEmpty else { return false }
+        let requestId = UUID()
+        latestFlexRequestId = requestId
+        let requestCurrency = displayCurrency
+        let requestMonth = planningMonthLabel
+        let plans = currentPlans
+
+        do {
+            try await planService.applyBulkFlexAdjustment(
+                plans: plans,
+                adjustment: adjustment,
+                protectedGoalIds: nextProtectedGoalIds,
+                skippedGoalIds: nextSkippedGoalIds,
+                clearFlexibleOverrides: clearFlexibleOverrides
+            )
+        } catch {
+            guard latestFlexRequestId == requestId else { return false }
+            self.error = error
+            flexAdjustment = persistedFlexAdjustment
+            AppLog.error(
+                "Failed to persist flex adjustment: \(error.localizedDescription)",
+                category: .monthlyPlanning
+            )
+            return false
+        }
+        guard latestFlexRequestId == requestId else { return true }
+
+        protectedGoalIds = nextProtectedGoalIds
+        skippedGoalIds = nextSkippedGoalIds
+        flexAdjustment = adjustment
+        persistedFlexAdjustment = adjustment
         saveUserPreferences()
-        await applyFlexAdjustment(flexAdjustment)
+        error = nil
+
+        let requirements = goals.compactMap { goal -> MonthlyRequirement? in
+            guard let plan = plans.first(where: { $0.goalId == goal.id }) else { return nil }
+            return requirement(from: plan, goal: goal)
+        }
+
+        do {
+            let total = try await calculateTotalRequired(
+                from: plans,
+                displayCurrency: requestCurrency
+            )
+            guard latestFlexRequestId == requestId,
+                  displayCurrency == requestCurrency,
+                  planningMonthLabel == requestMonth else { return true }
+            monthlyRequirements = requirements
+            totalRequired = total
+            totalRequiredIsPartial = false
+        } catch {
+            guard latestFlexRequestId == requestId,
+                  displayCurrency == requestCurrency,
+                  planningMonthLabel == requestMonth else { return true }
+            totalRequired = 0
+            totalRequiredIsPartial = true
+            self.error = error
+            AppLog.error(
+                "Flex state was saved, but its converted total is unavailable: \(error.localizedDescription)",
+                category: .monthlyPlanning
+            )
+        }
+
+        await refreshBudgetStatus()
+        return true
     }
     
     /// Get flex state for a specific goal
@@ -689,6 +983,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
     /// Update display currency
     func updateDisplayCurrency(_ currency: String) async {
         settings.displayCurrency = currency
+        displayCurrency = currency
         await loadMonthlyRequirements()
     }
     
@@ -724,8 +1019,7 @@ final class MonthlyPlanningViewModel: ObservableObject {
             .debounce(for: .seconds(1.0), scheduler: RunLoop.main)
             .sink { [weak self] _ in
                 Task { [weak self] in
-                    await self?.loadMonthlyRequirements()
-                    await self?.persistUpdatedPlans()
+                    await self?.handlePlanningAssetUpdate()
                 }
             }
             .store(in: &cancellables)
@@ -737,6 +1031,10 @@ final class MonthlyPlanningViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+    }
+
+    func handlePlanningAssetUpdate() async {
+        await loadMonthlyRequirements(for: planningMonthLabel)
     }
     
     /// Setup observation of settings changes
@@ -783,15 +1081,25 @@ final class MonthlyPlanningViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    private func refreshBudgetStatus() async {
+    private func refreshBudgetStatus(
+        expectedLoad: PlanningLoadIdentity? = nil
+    ) async {
+        if let expectedLoad,
+           !isCurrentPlanningLoad(expectedLoad) {
+            return
+        }
         guard hasBudget else {
             budgetPreviewTask?.cancel()
             budgetFeasibility = .empty
             budgetComputationResult = nil
+            budgetPreviewPlan = nil
+            budgetPreviewTimeline = []
             budgetSaveDisabledReason = nil
             latestPreviewRateSnapshotId = nil
             latestPreviewGoalsSignature = nil
             latestPreviewCurrency = nil
+            latestPreviewPlanningMonthLabel = nil
+            latestBudgetPublicationRequestId = nil
             showBudgetRecalculationPrompt = false
             budgetHasStaleRates = false
             budgetRateLastUpdated = nil
@@ -801,12 +1109,17 @@ final class MonthlyPlanningViewModel: ObservableObject {
 
         let eligibleGoals = budgetEligibleGoals()
         guard !eligibleGoals.isEmpty else {
+            budgetPreviewTask?.cancel()
             budgetFeasibility = .empty
             budgetComputationResult = nil
+            budgetPreviewPlan = nil
+            budgetPreviewTimeline = []
             budgetSaveDisabledReason = nil
             latestPreviewRateSnapshotId = nil
             latestPreviewGoalsSignature = nil
             latestPreviewCurrency = nil
+            latestPreviewPlanningMonthLabel = nil
+            latestBudgetPublicationRequestId = nil
             budgetHasStaleRates = false
             budgetRateLastUpdated = nil
             budgetRateAffectedCurrencies = []
@@ -815,32 +1128,63 @@ final class MonthlyPlanningViewModel: ObservableObject {
 
         let budget = settings.monthlyBudget ?? 0
         let currency = settings.budgetCurrency
-        let feasibility = await budgetCalculatorService.checkFeasibility(
-            goals: eligibleGoals,
-            budget: budget,
-            currency: currency
+        let canonicalBudget = MoneyQuantizer.normalize(
+            Decimal(max(0, budget)),
+            currency: currency,
+            mode: .halfUp
         )
-        budgetFeasibility = feasibility
+        let goalsSignature = budgetSignature(for: eligibleGoals)
+        let requestId = UUID()
+        let requestedPlanningMonthLabel = planningMonthLabel
+        latestBudgetPublicationRequestId = requestId
+        budgetPreviewTask?.cancel()
+        let result = await budgetCalculatorService.computeBudgetSnapshot(
+            requestId: requestId,
+            goals: eligibleGoals,
+            enteredBudget: canonicalBudget,
+            goalsSignature: goalsSignature,
+            rateSnapshotId: nil,
+            planningMonthLabel: requestedPlanningMonthLabel
+        )
+        guard latestBudgetPublicationRequestId == requestId,
+              planningMonthLabel == requestedPlanningMonthLabel
+        else {
+            return
+        }
+        if let expectedLoad,
+           !isCurrentPlanningLoad(expectedLoad) {
+            return
+        }
 
-        let budgetRateState = await evaluateBudgetRateState(for: eligibleGoals, budgetCurrency: currency)
-        budgetHasStaleRates = budgetRateState.isStale
-        budgetRateLastUpdated = budgetRateState.lastUpdated
-        budgetRateAffectedCurrencies = budgetRateState.affectedCurrencies
+        applyBudgetSnapshot(
+            result,
+            planningMonthLabel: requestedPlanningMonthLabel
+        )
+        budgetPreviewError = budgetCalculatorService.lastError?.localizedDescription
 
         guard settings.budgetAppliedMonthLabel != nil else {
             showBudgetRecalculationPrompt = false
             return
         }
 
-        let signature = budgetSignature(for: eligibleGoals)
         if settings.budgetAppliedMonthLabel != planningMonthLabel {
             showBudgetRecalculationPrompt = true
         } else {
-            showBudgetRecalculationPrompt = settings.budgetAppliedSignature != signature
+            let currentAppliedSignature = appliedBudgetSignature(
+                amount: canonicalBudget,
+                plan: result.plan
+            )
+            showBudgetRecalculationPrompt =
+                currentAppliedSignature == nil
+                || settings.budgetAppliedSignature != currentAppliedSignature
         }
     }
 
-    private func handleBudgetMigrationIfNeeded(goals: [Goal]) async {
+    private func handleBudgetMigrationIfNeeded(
+        goals: [Goal],
+        expectedLoad: PlanningLoadIdentity
+    ) async {
+        guard isCurrentPlanningLoad(expectedLoad) else { return }
         guard hasBudget, settings.budgetAppliedMonthLabel == nil else { return }
         guard !isApplyingBudgetMigration else { return }
         let eligibleGoals = budgetEligibleGoals(from: goals)
@@ -851,11 +1195,23 @@ final class MonthlyPlanningViewModel: ObservableObject {
 
         let budget = settings.monthlyBudget ?? 0
         let currency = settings.budgetCurrency
-        let plan = await budgetCalculatorService.generateSchedule(
-            goals: eligibleGoals,
-            budget: budget,
-            currency: currency
+        let canonicalBudget = MoneyQuantizer.normalize(
+            Decimal(max(0, budget)),
+            currency: currency,
+            mode: .halfUp
         )
+        if !isBudgetSnapshotCurrent(for: canonicalBudget) || !isBudgetSnapshotFresh {
+            await refreshBudgetStatus(expectedLoad: expectedLoad)
+        }
+        guard isCurrentPlanningLoad(expectedLoad) else { return }
+        guard let result = budgetComputationResult,
+              result.state == .readyFeasible,
+              let plan = result.plan,
+              isBudgetSnapshotCurrent(for: canonicalBudget),
+              isBudgetSnapshotFresh else {
+            budgetPreviewError = budgetCalculatorService.lastError?.localizedDescription
+            return
+        }
 
         let applied = await applyBudgetPlan(plan: plan, amount: budget, currency: currency)
         if applied, !settings.hasSeenBudgetMigrationNotice {
@@ -875,32 +1231,26 @@ final class MonthlyPlanningViewModel: ObservableObject {
         BudgetSnapshotIdentity.goalsSignature(goals: goals, skippedGoalIds: skippedGoalIds)
     }
 
-    private func evaluateBudgetRateState(for goals: [Goal], budgetCurrency: String) async -> BudgetRateState {
-        let conversions = Set(goals.map(\.currency).filter { $0 != budgetCurrency })
-        guard !conversions.isEmpty else {
-            return BudgetRateState(isStale: false, lastUpdated: nil, affectedCurrencies: [])
+    private func appliedBudgetSignature(
+        amount: MoneyAmount,
+        plan: BudgetCalculatorPlan?,
+        monthlyPlans: [MonthlyPlan]? = nil,
+        paymentDay: Int? = nil
+    ) -> String? {
+        guard let plan,
+              let sourceStateSignature = plan.sourceStateSignature,
+              !sourceStateSignature.isEmpty else {
+            return nil
         }
-
-        var failedCurrencies: [String] = []
-        for source in conversions.sorted() {
-            do {
-                _ = try await exchangeRateService.fetchRate(from: source, to: budgetCurrency)
-            } catch {
-                failedCurrencies.append(source)
-            }
-        }
-
-        if failedCurrencies.isEmpty {
-            return BudgetRateState(isStale: false, lastUpdated: Date(), affectedCurrencies: [])
-        }
-
-        return BudgetRateState(
-            isStale: true,
-            lastUpdated: nil,
-            affectedCurrencies: failedCurrencies
+        return BudgetSnapshotIdentity.appliedBudgetSignature(
+            amount: amount,
+            sourceStateSignature: sourceStateSignature,
+            monthlyPlans: monthlyPlans ?? currentPlans,
+            paymentDay: paymentDay ?? settings.paymentDay,
+            budgetPlan: plan
         )
     }
-    
+
     /// Load saved flex states from SwiftData
     private func loadFlexStates() async {
         do {
@@ -925,30 +1275,17 @@ final class MonthlyPlanningViewModel: ObservableObject {
         }
     }
 
-    /// Persist recalculated MonthlyPlans to SwiftData so execution can read live amounts
-    private func persistUpdatedPlans() async {
-        do {
-            // Use current month label and persisted plans as the source of truth
-            let plans = try planService.fetchPlans(for: planningMonthLabel, state: nil)
-
-            // Recalculate and update each plan using the latest goal data
-            for plan in plans {
-                guard let goal = goals.first(where: { $0.id == plan.goalId }) else { continue }
-                try await planService.updatePlan(plan, withGoal: goal)
-            }
-        } catch {
-            AppLog.error(
-                "Failed to persist updated plans: \(error.localizedDescription)",
-                category: .monthlyPlanning
-            )
-        }
-    }
-    
     /// Save user preferences to UserDefaults
     private func saveUserPreferences() {
         // Display currency is now managed by settings
-        UserDefaults.standard.set(Array(protectedGoalIds.map { $0.uuidString }), forKey: "MonthlyPlanning.ProtectedGoals")
-        UserDefaults.standard.set(Array(skippedGoalIds.map { $0.uuidString }), forKey: "MonthlyPlanning.SkippedGoals")
+        UserDefaults.standard.set(
+            protectedGoalIds.map(\.uuidString).sorted(),
+            forKey: "MonthlyPlanning.ProtectedGoals"
+        )
+        UserDefaults.standard.set(
+            skippedGoalIds.map(\.uuidString).sorted(),
+            forKey: "MonthlyPlanning.SkippedGoals"
+        )
         UserDefaults.standard.set(flexAdjustment, forKey: "MonthlyPlanning.FlexAdjustment")
     }
     
@@ -967,12 +1304,16 @@ final class MonthlyPlanningViewModel: ObservableObject {
         let savedAdjustment = UserDefaults.standard.double(forKey: "MonthlyPlanning.FlexAdjustment")
         if savedAdjustment > 0 {
             flexAdjustment = savedAdjustment
+            persistedFlexAdjustment = savedAdjustment
+        } else {
+            flexAdjustment = 1.0
+            persistedFlexAdjustment = 1.0
         }
     }
 
     /// Adapter: convert a persisted MonthlyPlan into a MonthlyRequirement for UI reuse
     private func requirement(from plan: MonthlyPlan, goal: Goal) -> MonthlyRequirement {
-        let required = plan.effectiveAmount
+        let required = plan.requiredMonthly
         let remaining = plan.remainingAmount
         let currentTotal = max(goal.targetAmount - remaining, 0)
         let progress = goal.targetAmount > 0 ? min(currentTotal / goal.targetAmount, 1.0) : 0.0
@@ -1015,65 +1356,86 @@ final class MonthlyPlanningViewModel: ObservableObject {
     }
 
     private func nextMonthLabel(from monthLabel: String) -> String? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        guard let date = formatter.date(from: monthLabel),
-              let nextDate = Calendar.current.date(byAdding: .month, value: 1, to: date) else {
-            return nil
-        }
-        return formatter.string(from: nextDate)
+        try? PlanningMonthContract.nextLabel(after: monthLabel)
     }
 
-    private func refreshDraftPlans(_ plans: [MonthlyPlan], goals: [Goal]) async {
-        do {
-            for plan in plans where plan.state == .draft {
-                guard let goal = goals.first(where: { $0.id == plan.goalId }) else { continue }
-                try await planService.updatePlan(plan, withGoal: goal)
-            }
-        } catch {
-            AppLog.error(
-                "Failed to refresh draft plans: \(error.localizedDescription)",
-                category: .monthlyPlanning
-            )
-        }
-    }
+    /// Calculate total required using plan effective amounts with currency conversion
+    private func calculateTotalRequired(
+        from plans: [MonthlyPlan],
+        displayCurrency: String
+    ) async throws -> Double {
+        let targetCurrency = displayCurrency.uppercased()
+        let sourceCurrencies = Set(
+            plans
+                .map { $0.currency.uppercased() }
+                .filter { $0 != targetCurrency }
+        )
+        var ratesBySource: [String: Double] = [:]
 
-    /// Calculate total required using plan effective amounts with currency conversion.
-    /// Returns both the (possibly incomplete) total and whether it is partial, so callers
-    /// can surface an "incomplete total" state to the UI instead of silently presenting a
-    /// partial sum as if it were the full requirement.
-    private func calculateTotalRequired(from plans: [MonthlyPlan], displayCurrency: String) async -> (total: Double, isPartial: Bool) {
-        var total = 0.0
-        var hasConversionError = false
-
-        for plan in plans {
-            if plan.currency == displayCurrency {
-                total += plan.effectiveAmount
-            } else {
-                do {
-                    let rate = try await exchangeRateService.fetchRate(from: plan.currency, to: displayCurrency)
-                    total += plan.effectiveAmount * rate
-                } catch {
-                    // Ignore cancelled requests (e.g., superseded by newer refresh); only log real failures.
-                    if let urlError = error as? URLError, urlError.code == .cancelled {
-                        continue
-                    }
-                    AppLog.error(
-                        "Failed to convert \(plan.currency) to \(displayCurrency): \(error.localizedDescription)",
-                        category: .monthlyPlanning
-                    )
-                    hasConversionError = true
-                    // Skip adding to total to avoid incorrect totals
+        for sourceCurrency in sourceCurrencies.sorted() {
+            do {
+                ratesBySource[sourceCurrency] = try await exchangeRateService.fetchRate(
+                    from: sourceCurrency,
+                    to: targetCurrency
+                )
+            } catch {
+                if error is CancellationError {
+                    throw error
                 }
+                if let urlError = error as? URLError, urlError.code == .cancelled {
+                    throw error
+                }
+                AppLog.warning(
+                    "Failed to convert \(sourceCurrency) to \(targetCurrency): \(error.localizedDescription)",
+                    category: .monthlyPlanning
+                )
+                throw MonthlyPlanningError.currencyConversionFailed(
+                    "\(sourceCurrency) to \(targetCurrency)"
+                )
             }
         }
 
-        if hasConversionError {
-            // Signal error to UI
-            self.error = MonthlyPlanningError.currencyConversionFailed("One or more goals failed currency conversion. Total is incomplete.")
+        return plans.reduce(into: 0.0) { total, plan in
+            let sourceCurrency = plan.currency.uppercased()
+            if sourceCurrency == targetCurrency {
+                total += plan.effectiveAmount
+            } else if let rate = ratesBySource[sourceCurrency] {
+                total += plan.effectiveAmount * rate
+            }
         }
+    }
 
-        return (total, hasConversionError)
+    private func invalidateFinancialStateAfterLoadFailure(_ loadError: Error) {
+        budgetPreviewTask?.cancel()
+        latestBudgetPublicationRequestId = nil
+        currentPlans = []
+        monthlyRequirements = []
+        totalRequired = 0
+        totalRequiredIsPartial = true
+        budgetFeasibility = .unavailable(currency: budgetCurrency)
+        budgetComputationResult = nil
+        budgetPreviewPlan = nil
+        budgetPreviewTimeline = []
+        budgetSaveDisabledReason = "Planning data is unavailable. Refresh and retry."
+        budgetPreviewError = loadError.localizedDescription
+        budgetRateLastUpdated = nil
+        budgetRateAffectedCurrencies = []
+        budgetHasStaleRates = false
+        showBudgetRecalculationPrompt = hasBudget
+        latestPreviewRateSnapshotId = nil
+        latestPreviewGoalsSignature = nil
+        latestPreviewCurrency = nil
+        latestPreviewPlanningMonthLabel = nil
+        error = loadError
+        isLoading = false
+    }
+
+    private func isCurrentPlanningLoad(
+        _ identity: PlanningLoadIdentity
+    ) -> Bool {
+        latestPlanningLoadIdentity == identity
+            && planningMonthLabel == identity.monthLabel
+            && displayCurrency == identity.displayCurrency
     }
 }
 

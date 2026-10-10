@@ -174,4 +174,75 @@ struct BudgetCalculatorServiceTests {
         #expect(refreshed.minimumRequiredCanonical.minorUnitValue > first.minimumRequiredCanonical.minorUnitValue)
         #expect(refreshed.state == .blockedInfeasible)
     }
+
+    @Test("Schedule cache invalidates when a goal target changes")
+    func scheduleCacheInvalidatesForChangedTarget() async {
+        let exchange = MockExchangeRateService()
+        let service = BudgetCalculatorService(exchangeRateService: exchange)
+        let deadline = Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date()
+        let goal = TestHelpers.createGoal(
+            name: "Mutable Goal",
+            currency: "USD",
+            targetAmount: 120,
+            currentTotal: 0,
+            deadline: deadline
+        )
+
+        let first = await service.generateSchedule(
+            goals: [goal],
+            budget: 60,
+            currency: "USD"
+        )
+        #expect(first.goalRemainingById[goal.id] == 120)
+
+        goal.targetAmount = 240
+        let refreshed = await service.generateSchedule(
+            goals: [goal],
+            budget: 60,
+            currency: "USD"
+        )
+
+        #expect(refreshed.goalRemainingById[goal.id] == 240)
+    }
+
+    @Test("Schedule cache invalidates when the configured payment day changes")
+    func scheduleCacheInvalidatesForChangedPaymentDay() async throws {
+        let exchange = MockExchangeRateService()
+        let settings = MonthlyPlanningSettings()
+        let originalPaymentDay = settings.paymentDay
+        defer {
+            settings.paymentDay = originalPaymentDay
+        }
+
+        settings.paymentDay = 1
+        let service = BudgetCalculatorService(
+            exchangeRateService: exchange,
+            settings: settings
+        )
+        let deadline = Calendar.current.date(byAdding: .month, value: 4, to: Date()) ?? Date()
+        let goal = TestHelpers.createGoal(
+            name: "Payment Day Goal",
+            currency: "USD",
+            targetAmount: 120,
+            currentTotal: 0,
+            deadline: deadline
+        )
+
+        let first = await service.generateSchedule(
+            goals: [goal],
+            budget: 60,
+            currency: "USD"
+        )
+        let firstPaymentDate = try #require(first.schedule.first?.paymentDate)
+
+        settings.paymentDay = 28
+        let refreshed = await service.generateSchedule(
+            goals: [goal],
+            budget: 60,
+            currency: "USD"
+        )
+        let refreshedPaymentDate = try #require(refreshed.schedule.first?.paymentDate)
+
+        #expect(firstPaymentDate != refreshedPaymentDate)
+    }
 }

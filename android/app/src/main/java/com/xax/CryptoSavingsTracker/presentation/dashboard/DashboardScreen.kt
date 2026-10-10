@@ -167,6 +167,14 @@ fun DashboardScreen(
                                     text = uiState.totalUsd?.let { "$${String.format("%,.2f", it)}" } ?: "—",
                                     style = MaterialTheme.typography.headlineLarge
                                 )
+                                uiState.financialDataIssue?.let { issue ->
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = issue,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
                             }
                         }
 
@@ -182,23 +190,6 @@ fun DashboardScreen(
                                         labels = uiState.portfolioLast30Days.map { it.label },
                                         values = uiState.portfolioLast30Days.map { it.usdTotal }
                                     )
-                                    if (uiState.hasMissingUsdRates) {
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = "Some currencies couldn’t be converted to USD (try again later).",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            Button(onClick = { navController.navigate(Screen.Settings.route) }) {
-                                                Text("Settings")
-                                            }
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -223,16 +214,26 @@ fun DashboardScreen(
                                                 .semantics { contentDescription = "Open goal ${goalWithProgress.goal.name}" }
                                         )
                                         Spacer(modifier = Modifier.height(6.dp))
-                                        LinearProgressIndicator(
-                                            progress = { goalWithProgress.progress.toFloat() },
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "${goalWithProgress.progressPercent}% • Deadline: ${goalWithProgress.goal.deadline}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                        val goalProgress = goalWithProgress.progress
+                                        if (goalProgress != null) {
+                                            LinearProgressIndicator(
+                                                progress = { goalProgress.toFloat() },
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "${goalWithProgress.progressPercent}% • Deadline: ${goalWithProgress.goal.deadline}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        } else {
+                                            Text(
+                                                text = goalWithProgress.financialDataIssue
+                                                    ?: "Goal progress unavailable",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                        }
                                         Spacer(modifier = Modifier.height(12.dp))
                                     }
                                 }
@@ -277,7 +278,14 @@ fun DashboardScreen(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
-                                                text = "${AmountFormatters.formatDisplayAmount(summary.currentBalance, isCrypto = summary.asset.isCryptoAsset)} ${summary.asset.currency}",
+                                                text = summary.currentBalance?.let { balance ->
+                                                    "${
+                                                        AmountFormatters.formatDisplayAmount(
+                                                            balance,
+                                                            isCrypto = summary.asset.isCryptoAsset
+                                                        )
+                                                    } ${summary.asset.currency}"
+                                                } ?: "Balance unavailable",
                                                 style = MaterialTheme.typography.bodyLarge
                                             )
                                             Text(
@@ -286,7 +294,14 @@ fun DashboardScreen(
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
-                                        if (summary.usdValue == null) {
+                                        if (summary.balanceIssue != null) {
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text(
+                                                text = summary.balanceIssue,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                        } else if (summary.usdValue == null) {
                                             Spacer(modifier = Modifier.height(6.dp))
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Spacer(modifier = Modifier.width(2.dp))

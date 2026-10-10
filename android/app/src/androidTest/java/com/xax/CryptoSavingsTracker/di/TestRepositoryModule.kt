@@ -6,6 +6,7 @@ import com.xax.CryptoSavingsTracker.data.repository.AssetRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.CompletedExecutionRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.CompletionEventRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.ExecutionRecordRepositoryImpl
+import com.xax.CryptoSavingsTracker.data.repository.ExecutionAssetRateRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.ExecutionSnapshotRepositoryImpl
 import com.xax.CryptoSavingsTracker.data.repository.ExecutionTransitionTransactionRunnerImpl
 import com.xax.CryptoSavingsTracker.data.repository.GoalRepositoryImpl
@@ -22,6 +23,7 @@ import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.CompletedExecutionRepository
 import com.xax.CryptoSavingsTracker.domain.repository.CompletionEventRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionRecordRepository
+import com.xax.CryptoSavingsTracker.domain.repository.ExecutionAssetRateRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionSnapshotRepository
 import com.xax.CryptoSavingsTracker.domain.repository.ExecutionTransitionTransactionRunner
 import com.xax.CryptoSavingsTracker.domain.repository.GoalRepository
@@ -50,6 +52,7 @@ object TestRepositoryModule {
     @Provides @Singleton fun provideMonthlyPlanRepository(impl: MonthlyPlanRepositoryImpl): MonthlyPlanRepository = impl
     @Provides @Singleton fun provideMonthlyGoalPlanRepository(impl: MonthlyGoalPlanRepositoryImpl): MonthlyGoalPlanRepository = impl
     @Provides @Singleton fun provideExecutionRecordRepository(impl: ExecutionRecordRepositoryImpl): ExecutionRecordRepository = impl
+    @Provides @Singleton fun provideExecutionAssetRateRepository(impl: ExecutionAssetRateRepositoryImpl): ExecutionAssetRateRepository = impl
     @Provides @Singleton fun provideExecutionSnapshotRepository(impl: ExecutionSnapshotRepositoryImpl): ExecutionSnapshotRepository = impl
     @Provides @Singleton fun provideCompletedExecutionRepository(impl: CompletedExecutionRepositoryImpl): CompletedExecutionRepository = impl
     @Provides @Singleton fun provideCompletionEventRepository(impl: CompletionEventRepositoryImpl): CompletionEventRepository = impl
@@ -80,10 +83,14 @@ object TestRepositoryModule {
                         currency = asset.currency,
                         balance = balance,
                         fetchedAtMillis = System.currentTimeMillis(),
-                        isStale = true
+                        isStale = false
                     )
                 )
             }
+
+            override suspend fun getFreshBalanceForPreflight(
+                asset: Asset
+            ): Result<OnChainBalance> = getBalance(asset, forceRefresh = true)
 
             override suspend fun clearCache() = Unit
         }

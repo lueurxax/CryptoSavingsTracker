@@ -34,8 +34,8 @@ final class Asset {
             .reduce(0) { $0 + $1.amount }
     }
 
-    /// Best-effort on-chain balance from cache (0 if unknown).
-    /// This avoids blocking UI and prevents allocation math from ignoring on-chain funds.
+    /// Unexpired on-chain balance from cache (0 if unavailable).
+    /// Operational calculations must never spend an expired fallback value.
     var cachedOnChainBalance: Double {
         guard
             let chainId,
@@ -47,10 +47,30 @@ final class Asset {
         }
 
         let cacheKey = BalanceCacheManager.balanceCacheKey(chainId: chainId, address: address, symbol: currency)
+        return BalanceCacheManager.shared.getCachedBalance(for: cacheKey) ?? 0
+    }
+
+    /// Last known on-chain balance, including expired cache entries.
+    /// Use only to explain degraded/stale presentation after a refresh failure.
+    var fallbackOnChainBalance: Double {
+        guard
+            let chainId,
+            let address,
+            !chainId.isEmpty,
+            !address.isEmpty
+        else {
+            return 0
+        }
+
+        let cacheKey = BalanceCacheManager.balanceCacheKey(
+            chainId: chainId,
+            address: address,
+            symbol: currency
+        )
         return BalanceCacheManager.shared.getFallbackBalance(for: cacheKey) ?? 0
     }
 
-    // For synchronous access, return the best-known total (manual + cached on-chain).
+    // For synchronous access, return the authoritative total (manual + unexpired on-chain).
     // For the freshest totals, use `AssetViewModel.getCurrentAmount(for:)` / `AssetViewModel.refreshBalances()`.
     var currentAmount: Double {
         manualBalance + cachedOnChainBalance

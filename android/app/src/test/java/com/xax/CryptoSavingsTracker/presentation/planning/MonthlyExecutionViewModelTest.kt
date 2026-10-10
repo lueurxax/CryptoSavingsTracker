@@ -69,11 +69,13 @@ class MonthlyExecutionViewModelTest {
             store.put("execution", viewModel)
             runCurrent()
             assertThat(viewModel.uiState.value.goalProgress.single().conversionError).isEqualTo("FX unavailable")
+            assertThat(viewModel.uiState.value.canComplete).isFalse()
 
             sessions.value = ExecutionSession(record, listOf(healthy))
             runCurrent()
 
             assertThat(viewModel.uiState.value.goalProgress.single().conversionError).isNull()
+            assertThat(viewModel.uiState.value.canComplete).isTrue()
             assertThat(viewModel.uiState.value.error).isNull()
             assertThat(viewModel.uiState.value.totalContributed).isEqualTo(50.0)
 

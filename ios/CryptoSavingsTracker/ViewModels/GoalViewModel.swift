@@ -19,7 +19,8 @@ class GoalViewModel: ObservableObject, ErrorAwareViewModel {
     @Published var viewState: ViewState = .idle
     var lastSuccessfulLoad: Date?
     
-    private let goal: Goal
+    private var goal: Goal
+    private var goalGeneration = 0
     private var modelContext: ModelContext?
     private let balanceCalculator: GoalBalanceCalculator
     
@@ -49,8 +50,26 @@ class GoalViewModel: ObservableObject, ErrorAwareViewModel {
     func setModelContext(_ context: ModelContext) {
         self.modelContext = context
     }
+
+    func updateGoal(_ goal: Goal) {
+        guard self.goal.id != goal.id else { return }
+
+        self.goal = goal
+        goalGeneration += 1
+        currentTotal = goal.manualTotal
+        progress = goal.manualProgress
+        suggestedDeposit = goal.suggestedDailyDeposit
+        isLoading = false
+        balanceRefreshError = nil
+        viewState = .idle
+        lastSuccessfulLoad = nil
+    }
     
-    func refreshValues() async {
+    @discardableResult
+    func refreshValues() async -> GoalCurrentTotalResult {
+        goalGeneration &+= 1
+        let refreshGoal = goal
+        let refreshGeneration = goalGeneration
         isLoading = true
         viewState = .loading
 
@@ -59,30 +78,32 @@ class GoalViewModel: ObservableObject, ErrorAwareViewModel {
             try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         }
 
-        let result = await calculateCurrentTotal()
+        let result = await calculateCurrentTotal(for: refreshGoal)
         let total = result.total
-        let prog = calculateProgress(currentTotal: total)
-        let deposit = calculateSuggestedDeposit(currentTotal: total)
+        let prog = calculateProgress(currentTotal: total, goal: refreshGoal)
+        let deposit = refreshGoal.suggestedDailyDeposit(currentTotal: total)
 
-        await MainActor.run {
-            self.currentTotal = total
-            self.progress = prog
-            self.suggestedDeposit = deposit
-            self.isLoading = false
-            self.balanceRefreshError = result.error
-            self.lastSuccessfulLoad = Date()
-            self.viewState = result.error == nil ? .loaded : .degraded(result.error?.message ?? "")
+        guard refreshGeneration == goalGeneration, refreshGoal.id == goal.id else {
+            return result
         }
+
+        currentTotal = total
+        progress = prog
+        suggestedDeposit = deposit
+        isLoading = false
+        balanceRefreshError = result.error
+        lastSuccessfulLoad = Date()
+        viewState = result.error == nil ? .loaded : .degraded(result.error?.message ?? "")
+        return result
     }
 
     func retry() async {
         await refreshValues()
     }
     
-    private func calculateCurrentTotal() async -> (total: Double, error: UserFacingError?) {
-        let result = await balanceCalculator.calculateCurrentTotal(for: goal)
-        let error = result.hasConversionError ? balanceRefreshUserError() : nil
-        return (result.total, error)
+    private func calculateCurrentTotal(for goal: Goal) async -> GoalCurrentTotalResult {
+        await balanceCalculator.calculateCurrentTotal(for: goal).currentTotalResult
+
     }
 
     private func balanceRefreshUserError() -> UserFacingError {
@@ -95,16 +116,9 @@ class GoalViewModel: ObservableObject, ErrorAwareViewModel {
         )
     }
     
-    private func calculateProgress(currentTotal: Double) -> Double {
+    private func calculateProgress(currentTotal: Double, goal: Goal) -> Double {
         guard goal.targetAmount > 0 else { return 0 }
         return min(currentTotal / goal.targetAmount, 1.0)
     }
     
-    private func calculateSuggestedDeposit(currentTotal: Double) -> Double {
-        let remaining = goal.remainingDates.count
-        guard remaining > 0, goal.targetAmount > 0 else { return 0 }
-        
-        let remainingAmount = max(goal.targetAmount - currentTotal, 0)
-        return remainingAmount / Double(remaining)
-    }
 }

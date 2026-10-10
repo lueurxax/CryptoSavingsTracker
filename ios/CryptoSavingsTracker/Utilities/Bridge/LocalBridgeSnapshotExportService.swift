@@ -147,7 +147,9 @@ final class LocalBridgeSnapshotExportService {
                     amount: $0.amount,
                     timestamp: $0.timestamp,
                     createdAt: $0.createdAt,
-                    monthLabel: $0.monthLabel
+                    monthLabel: $0.monthLabel,
+                    sourceTransactionId: $0.sourceTransactionId,
+                    sourcePreviousAmount: $0.sourcePreviousAmount
                 )
             }
             .sorted {
@@ -161,6 +163,13 @@ final class LocalBridgeSnapshotExportService {
                 if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
                 return $0.id.uuidString < $1.id.uuidString
             }
+
+        validationIssues.append(
+            contentsOf: BridgeAllocationHistoryProvenanceValidator.issues(
+                histories: allocationHistories,
+                transactions: transactions
+            )
+        )
 
         let monthlyPlans: [BridgeMonthlyPlanSnapshot] = try context.fetch(FetchDescriptor<MonthlyPlan>())
             .map {

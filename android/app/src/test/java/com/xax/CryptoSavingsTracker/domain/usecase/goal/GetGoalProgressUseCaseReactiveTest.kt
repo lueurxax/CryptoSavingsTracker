@@ -155,8 +155,8 @@ class GetGoalProgressUseCaseReactiveTest {
             val transactionRepository = mockk<TransactionRepository>()
             val onChain = mockk<OnChainBalanceRepository>()
             val rates = mockk<ExchangeRateRepository>()
-            every { allocationRepository.getAllAllocations() } returns allocations
-            every { onChain.balanceChanges } returns balanceRevision
+            every { allocationRepository.getAllAllocationsFlow() } returns allocations
+            every { onChain.observeBalanceInvalidations() } returns balanceRevision
             coEvery { onChain.getBalance(any(), any()) } coAnswers {
                 val requested = firstArg<Asset>()
                 Result.success(OnChainBalance(
@@ -178,6 +178,7 @@ class GetGoalProgressUseCaseReactiveTest {
             coEvery { transactionRepository.getManualBalanceForAsset(asset.id) } coAnswers {
                 transactions.value.filter { it.source == TransactionSource.MANUAL }.sumOf { it.amount }
             }
+            every { rates.observeRateInvalidations() } returns MutableStateFlow(0L)
             coEvery { rates.fetchRate("EUR", "USD") } returns 1.2
             val useCase = GetGoalProgressUseCase(
                 goals, allocationRepository, transactionRepository, assetRepository, onChain, rates

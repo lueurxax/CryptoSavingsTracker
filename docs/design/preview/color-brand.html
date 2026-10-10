@@ -1,0 +1,132 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Brand color</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  body { padding: 0; background: #050810; color: #fff; }
+  .stage { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+
+  .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .swatch {
+    height: 78px;
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border: 0.5px solid rgba(255,255,255,0.06);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    position: relative;
+    overflow: hidden;
+  }
+  .swatch .label { font: 600 12px var(--font-sans); letter-spacing: -0.005em; }
+  .swatch .hex   { font: 500 11px var(--font-mono); opacity: 0.75; }
+  .light { color: #fff; }
+  .dark  { color: #0A0F1F; }
+
+  /* Hero amber tile with banner-style glow */
+  .hero {
+    grid-column: 1 / -1;
+    height: 110px;
+    border-radius: 14px;
+    padding: 16px 18px;
+    background: radial-gradient(120% 200% at 30% 110%, #FFD884 0%, #F5A623 35%, #B27115 70%, #5C3A08 100%);
+    color: #1A0F00;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content:''; position:absolute; inset:0;
+    background: radial-gradient(closest-side at 30% 100%, rgba(255,255,255,0.5), transparent 60%);
+    mix-blend-mode: screen;
+  }
+  .hero h3 { font: 700 22px var(--font-sans); letter-spacing: -0.02em; margin:0; position: relative; z-index: 1; }
+  .hero p  { margin: 0; font: 500 12px var(--font-sans); opacity: 0.75; position: relative; z-index: 1; }
+
+  .heading {
+    font: 600 11px var(--font-sans);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    margin: 4px 0 -4px;
+  }
+
+  .pair {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .ratio {
+    font: 600 10px var(--font-mono);
+    background: rgba(0,0,0,0.32);
+    padding: 2px 6px;
+    border-radius: 6px;
+    align-self: flex-start;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="row">
+    <div class="hero">
+      <h3>Honey Amber</h3>
+      <p>Primary accent — used for CTAs, key totals, the gold half of the wordmark, and "saved" highlights.</p>
+    </div>
+  </div>
+
+  <div class="heading">Amber ramp</div>
+  <div class="row">
+    <div class="swatch dark" style="background:#FFE0A0">
+      <span class="label">amber-100</span><span class="hex">#FFE0A0</span>
+    </div>
+    <div class="swatch dark" style="background:#FFC857">
+      <span class="label">amber-300</span><span class="hex">#FFC857</span>
+    </div>
+    <div class="swatch dark" style="background:#F5A623">
+      <span class="label">amber-500 ★</span><span class="hex">#F5A623</span>
+    </div>
+    <div class="swatch light" style="background:#C7821A">
+      <span class="label">amber-700</span><span class="hex">#C7821A</span>
+    </div>
+  </div>
+
+  <div class="heading">Midnight ramp · backgrounds</div>
+  <div class="row">
+    <div class="swatch light" style="background:#05080F">
+      <span class="label">midnight-0</span><span class="hex">#05080F</span>
+    </div>
+    <div class="swatch light" style="background:#0A0F1F">
+      <span class="label">midnight-1 ★</span><span class="hex">#0A0F1F</span>
+    </div>
+    <div class="swatch light" style="background:#121A2E">
+      <span class="label">midnight-2</span><span class="hex">#121A2E</span>
+    </div>
+    <div class="swatch light" style="background:#1B2540">
+      <span class="label">midnight-3</span><span class="hex">#1B2540</span>
+    </div>
+  </div>
+
+  <div class="heading">Pairing — amber on midnight (★ canonical)</div>
+  <div class="pair">
+    <div class="swatch" style="background:#0A0F1F; height:96px; border:0.5px solid rgba(120,175,255,0.18);">
+      <span class="ratio" style="background:rgba(245,166,35,0.12); color:#F5A623;">AAA · 8.7:1</span>
+      <div>
+        <div style="color:#F5A623; font: 700 18px var(--font-sans); letter-spacing:-0.02em;">$12,480.34</div>
+        <div style="color:rgba(255,255,255,0.55); font: 500 11px var(--font-sans); margin-top:2px;">primary total · amber on midnight-1</div>
+      </div>
+    </div>
+    <div class="swatch" style="background:#F5A623; height:96px;">
+      <span class="ratio" style="background:rgba(10,15,31,0.18); color:#0A0F1F;">AAA · 8.7:1</span>
+      <div>
+        <div style="color:#0A0F1F; font: 700 18px var(--font-sans); letter-spacing:-0.02em;">Save now</div>
+        <div style="color:rgba(10,15,31,0.65); font: 500 11px var(--font-sans); margin-top:2px;">CTA · midnight on amber-500</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body></html>

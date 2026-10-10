@@ -8,6 +8,7 @@
 
 import CloudKit
 import Combine
+import CoreData
 import Foundation
 import os
 
@@ -32,6 +33,14 @@ final class CloudKitHealthMonitor: ObservableObject {
         case unknown
     }
 
+    enum SyncBoundary: Equatable, Sendable {
+        case startedImport
+        case startedOther
+        case completedImport
+        case completedExport
+        case failed(String)
+    }
+
     // MARK: - Published State
 
     @Published private(set) var accountHealth: AccountHealth = .unknown
@@ -44,6 +53,16 @@ final class CloudKitHealthMonitor: ObservableObject {
     private var accountObserver: NSObjectProtocol?
     private var syncEventObserver: NSObjectProtocol?
     private var isMonitoring = false
+    private let postSyncDeduplication: @MainActor () async throws -> Void
+
+    init(
+        postSyncDeduplication: @escaping @MainActor () async throws -> Void = {
+            let context = PersistenceController.shared.activeMainContext
+            try await DIContainer.shared.deduplicationService.runFullDeduplication(in: context)
+        }
+    ) {
+        self.postSyncDeduplication = postSyncDeduplication
+    }
 
     // MARK: - Lifecycle
 
@@ -73,13 +92,13 @@ final class CloudKitHealthMonitor: ObservableObject {
         // Observe CloudKit sync events (Core Data bridge)
         // NSPersistentCloudKitContainer posts these when sync events occur
         syncEventObserver = NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("NSPersistentCloudKitContainerEventChanged"),
+            forName: NSPersistentCloudKitContainer.eventChangedNotification,
             object: nil,
             queue: .main
         ) { [weak self] notification in
             guard let self else { return }
             Task { @MainActor in
-                self.handleSyncEvent(notification)
+                await self.handleSyncEvent(notification)
             }
         }
     }
@@ -141,37 +160,62 @@ final class CloudKitHealthMonitor: ObservableObject {
 
     // MARK: - Sync Events
 
-    private func handleSyncEvent(_ notification: Notification) {
-        // The notification userInfo contains the sync event type and any errors.
-        // We use a best-effort approach since the exact API depends on the Core Data bridge.
-        if let userInfo = notification.userInfo,
-           let errorValue = userInfo["error"] {
-            let errorString = String(describing: errorValue)
+    private func handleSyncEvent(_ notification: Notification) async {
+        guard let event = notification.userInfo?[
+            NSPersistentCloudKitContainer.eventNotificationUserInfoKey
+        ] as? NSPersistentCloudKitContainer.Event else {
+            if let errorValue = notification.userInfo?["error"] {
+                await handleSyncBoundary(.failed(String(describing: errorValue)))
+            }
+            return
+        }
+
+        if event.endDate == nil {
+            await handleSyncBoundary(
+                event.type == .import ? .startedImport : .startedOther
+            )
+            return
+        }
+
+        if !event.succeeded || event.error != nil {
+            await handleSyncBoundary(
+                .failed(event.error?.localizedDescription ?? "CloudKit sync failed.")
+            )
+            return
+        }
+
+        await handleSyncBoundary(
+            event.type == .import ? .completedImport : .completedExport
+        )
+    }
+
+    func handleSyncBoundary(_ boundary: SyncBoundary) async {
+        switch boundary {
+        case .startedImport, .startedOther:
+            syncHealth = .syncing
+            lastSyncError = nil
+        case .completedImport:
+            syncHealth = .idle
+            lastSyncError = nil
+            await performPostSyncDeduplication()
+        case .completedExport:
+            syncHealth = .idle
+            lastSyncError = nil
+        case .failed(let errorString):
             syncHealth = .error
             lastSyncError = errorString
             logger.error("CloudKit sync error: \(errorString)")
-        } else {
-            let previousHealth = syncHealth
-            syncHealth = .idle
-            lastSyncError = nil
-
-            // After a successful sync import, run deduplication to clean up
-            // any conflicts CloudKit may have introduced.
-            if previousHealth == .syncing || previousHealth == .unknown {
-                triggerPostSyncDeduplication()
-            }
         }
     }
 
-    private func triggerPostSyncDeduplication() {
-        Task { @MainActor in
-            do {
-                let context = PersistenceController.shared.activeMainContext
-                try await DIContainer.shared.deduplicationService.runFullDeduplication(in: context)
-                logger.info("Post-sync deduplication completed")
-            } catch {
-                logger.error("Post-sync deduplication failed: \(error.localizedDescription)")
-            }
+    func performPostSyncDeduplication() async {
+        do {
+            try await postSyncDeduplication()
+            logger.info("Post-sync deduplication completed")
+        } catch {
+            syncHealth = .error
+            lastSyncError = error.localizedDescription
+            logger.error("Post-sync deduplication failed: \(error.localizedDescription)")
         }
     }
 

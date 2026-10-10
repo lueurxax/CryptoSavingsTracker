@@ -1,0 +1,122 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Chart palette</title>
+<link rel="stylesheet" href="_card.css">
+<link rel="stylesheet" href="_glass.css">
+<style>
+  body { background: transparent; color: #fff; }
+  .stage { position: relative; z-index: 2; padding: 4px; }
+
+  .panel {
+    border-radius: 16px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    background: linear-gradient(180deg, rgba(20,28,52,0.82) 0%, rgba(10,15,31,0.92) 100%);
+    border: 0.5px solid rgba(120,175,255,0.16);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .panel::before {
+    content:''; position:absolute; left:-40px; bottom:-60px; width:240px; height:240px;
+    background: radial-gradient(closest-side, rgba(245,166,35,0.20), transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+  .panel > * { position: relative; z-index: 1; }
+
+  .head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom: 12px; }
+  .h-title { font: 700 14px var(--font-sans); letter-spacing: -0.2px; color: #fff; }
+  .h-meta  { font: 500 11px var(--font-mono); color: rgba(255,255,255,0.5); letter-spacing: 0; }
+
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .sw {
+    aspect-ratio: 1 / 1.1;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 5px;
+    color: #fff;
+    font: 700 11px var(--font-sans);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.18),
+      0 4px 10px rgba(0,0,0,0.32);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+  }
+  .sw small { font-weight: 500; opacity: 0.85; font-size: 9px; letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px; }
+
+  /* Stacked-bar preview */
+  .preview-bar {
+    display: flex;
+    height: 38px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .preview-bar > div { display:flex; align-items:center; justify-content:center; color:#fff; font: 700 11px var(--font-sans); text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+
+  .footnote {
+    margin-top: 14px;
+    font: 500 12px var(--font-sans);
+    color: rgba(255,255,255,0.55);
+    line-height: 1.45;
+    max-width: 640px;
+  }
+  .footnote .gold { color: #F5A623; }
+
+  /* Mini rising line — banner motif on the right of the panel head */
+  .rise svg { display: block; }
+</style>
+</head>
+<body class="glass">
+<div class="stage col gap-3">
+
+  <div class="panel">
+    <div class="head">
+      <div class="h-title">10-color chart palette</div>
+      <div class="rise">
+        <svg width="86" height="22" viewBox="0 0 86 22">
+          <defs><linearGradient id="rg" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#F5A623" stop-opacity="0.85"/>
+            <stop offset="1" stop-color="#F5A623" stop-opacity="0.20"/>
+          </linearGradient></defs>
+          <path d="M2 18 L12 16 L22 14 L32 12 L42 9 L52 7 L62 5 L72 3 L82 2 L82 22 L2 22 Z" fill="url(#rg)"/>
+          <path d="M2 18 L12 16 L22 14 L32 12 L42 9 L52 7 L62 5 L72 3 L82 2" fill="none" stroke="#F5A623" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="swatches">
+      <div class="sw" style="background:linear-gradient(180deg,#FFD884,#F5A623)"><span style="color:#1A0F00">1</span><small style="color:#1A0F00">amber</small></div>
+      <div class="sw" style="background:linear-gradient(180deg,#3D7BD9,#1F5BBF)">2<small>blue</small></div>
+      <div class="sw" style="background:linear-gradient(180deg,#00A36F,#00875A)">3<small>green</small></div>
+      <div class="sw" style="background:linear-gradient(180deg,#D96A00,#B84D00)">4<small>burnt</small></div>
+      <div class="sw" style="background:linear-gradient(180deg,#9D4EDD,#7B2CBF)">5<small>violet</small></div>
+      <div class="sw" style="background:linear-gradient(180deg,#E5333D,#B00020)">6<small>crimson</small></div>
+      <div class="sw" style="background:linear-gradient(180deg,#1A8CA1,#005F73)">7<small>teal</small></div>
+      <div class="sw" style="background:linear-gradient(180deg,#C281D3,#9D4EDD)">8<small>orchid</small></div>
+      <div class="sw" style="background:linear-gradient(180deg,#4A8AC2,#2A6F97)">9<small>steel</small></div>
+      <div class="sw" style="background:linear-gradient(180deg,#9070BD,#6A4C93)">10<small>plum</small></div>
+    </div>
+
+    <div class="preview-bar">
+      <div style="background:#F5A623; flex: 30; color:#1A0F00; text-shadow:none;">BTC 30%</div>
+      <div style="background:#3D7BD9; flex: 22;">ETH 22%</div>
+      <div style="background:#00875A; flex: 18;">USDC 18%</div>
+      <div style="background:#B84D00; flex: 12;">SOL 12%</div>
+      <div style="background:#7B2CBF; flex: 8;">DOT 8%</div>
+      <div style="background:#005F73; flex: 6;">ADA 6%</div>
+      <div style="background:#9D4EDD; flex: 4;"></div>
+    </div>
+
+    <div class="footnote">
+      <span class="gold">Slot 1 = brand amber</span>, the banner liquid — reserve it for the user's primary asset / largest series. Slots 2–10 are AA-readable on midnight, ordered by visual distinctness, and colorblind-distinguishable (amber + blue + green form the strongest triad).
+    </div>
+  </div>
+</div>
+</body></html>

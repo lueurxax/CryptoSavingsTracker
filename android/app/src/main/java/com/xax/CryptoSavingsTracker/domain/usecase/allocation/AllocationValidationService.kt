@@ -5,6 +5,8 @@ import com.xax.CryptoSavingsTracker.domain.repository.OnChainBalanceRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AllocationRepository
 import com.xax.CryptoSavingsTracker.domain.repository.AssetRepository
 import com.xax.CryptoSavingsTracker.domain.repository.TransactionRepository
+import com.xax.CryptoSavingsTracker.domain.usecase.balance.AssetBalanceCompleteness
+import com.xax.CryptoSavingsTracker.domain.usecase.balance.AssetBalanceCompletenessResolver
 import kotlinx.coroutines.flow.first
 import java.util.Locale
 import javax.inject.Inject
@@ -17,15 +19,16 @@ import kotlin.math.abs
  */
 data class AssetAllocationStatus(
     val asset: Asset,
-    val totalBalance: Double,           // Manual balance of the asset
+    val totalBalance: Double?,          // Manual + current on-chain balance, null when unavailable
     val totalAllocated: Double,         // Sum of all allocations
-    val allocationDelta: Double,        // Balance - allocated (can be negative)
-    val unallocatedAmount: Double,      // Remaining unallocated (never negative)
-    val isFullyAllocated: Boolean,      // When delta is near zero
-    val isOverAllocated: Boolean        // When delta is negative
+    val allocationDelta: Double?,       // Balance - allocated (can be negative)
+    val unallocatedAmount: Double?,     // Remaining unallocated (never negative)
+    val isFullyAllocated: Boolean?,     // Unknown when balance is unavailable
+    val isOverAllocated: Boolean?,      // Unknown when balance is unavailable
+    val balanceIssue: String? = null
 ) {
-    val overAllocatedAmount: Double
-        get() = if (isOverAllocated) abs(allocationDelta) else 0.0
+    val overAllocatedAmount: Double?
+        get() = if (isOverAllocated == true) allocationDelta?.let(::abs) else null
 }
 
 /**
@@ -63,7 +66,7 @@ class AllocationValidationService @Inject constructor(
      * Get only over-allocated assets.
      */
     suspend fun getOverAllocatedAssets(): List<AssetAllocationStatus> {
-        return getAllAssetAllocationStatuses().filter { it.isOverAllocated }
+        return getAllAssetAllocationStatuses().filter { it.isOverAllocated == true }
     }
 
     /**
@@ -89,7 +92,10 @@ class AllocationValidationService @Inject constructor(
 
         val asset = assetRepository.getAssetById(assetId)
             ?: return "Asset not found"
-        val balance = bestKnownBalance(asset)
+        val balanceResolution = resolveBalance(asset)
+        val balance = balanceResolution.totalBalanceOrNull
+            ?: return balanceResolution.issueOrNull
+                ?: "Asset balance is unavailable. Refresh the wallet balance and retry."
         val allocations = allocationRepository.getAllocationsForAsset(assetId)
 
         // Sum allocations, excluding the one being updated if specified
@@ -120,9 +126,23 @@ class AllocationValidationService @Inject constructor(
      * Calculate allocation status for an asset.
      */
     private suspend fun calculateAssetAllocationStatus(asset: Asset): AssetAllocationStatus {
-        val totalBalance = bestKnownBalance(asset)
+        val balanceResolution = resolveBalance(asset)
         val allocations = allocationRepository.getAllocationsForAsset(asset.id)
         val totalAllocated = allocations.sumOf { it.amount }
+        val totalBalance = balanceResolution.totalBalanceOrNull
+
+        if (totalBalance == null) {
+            return AssetAllocationStatus(
+                asset = asset,
+                totalBalance = null,
+                totalAllocated = totalAllocated,
+                allocationDelta = null,
+                unallocatedAmount = null,
+                isFullyAllocated = null,
+                isOverAllocated = null,
+                balanceIssue = balanceResolution.issueOrNull
+            )
+        }
 
         val allocationDelta = totalBalance - totalAllocated
         val unallocatedAmount = maxOf(0.0, allocationDelta)
@@ -136,19 +156,18 @@ class AllocationValidationService @Inject constructor(
             allocationDelta = allocationDelta,
             unallocatedAmount = unallocatedAmount,
             isFullyAllocated = isFullyAllocated,
-            isOverAllocated = isOverAllocated
+            isOverAllocated = isOverAllocated,
+            balanceIssue = null
         )
     }
 
-    private suspend fun bestKnownBalance(asset: Asset): Double {
+    private suspend fun resolveBalance(asset: Asset): AssetBalanceCompleteness {
         val manual = transactionRepository.getManualBalanceForAsset(asset.id)
-        val hasOnChain = !asset.address.isNullOrBlank() && !asset.chainId.isNullOrBlank()
-        if (!hasOnChain) return manual
-
-        val onChain = runCatching {
-            onChainBalanceRepository.getBalance(asset, forceRefresh = false).getOrNull()?.balance ?: 0.0
-        }.getOrElse { 0.0 }
-
-        return manual + onChain
+        return AssetBalanceCompletenessResolver.resolve(
+            asset = asset,
+            manualBalance = manual,
+            repository = onChainBalanceRepository,
+            forceRefresh = false
+        )
     }
 }
