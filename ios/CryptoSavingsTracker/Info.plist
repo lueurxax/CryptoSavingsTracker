@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>TatumEnvironment</key>
-	<string>$(TATUM_ENVIRONMENT)</string>
 	<key>CFBundleIcons</key>
 	<dict>
 		<key>CFBundleAlternateIcons</key>
@@ -23,8 +21,8 @@
 	<array>
 		<string>_cstbridge._tcp</string>
 	</array>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Discover and connect to your trusted Mac for foreground Local Bridge Sync sessions.</string>
+	<key>TatumEnvironment</key>
+	<string>$(TATUM_ENVIRONMENT)</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

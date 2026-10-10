@@ -36,3 +36,23 @@ Separate Apple UI tests and Android device instrumentation execution were not ru
 - [Android APK build log](/private/tmp/cst-testflight-20261010/android-apk-build-verified.log) and [lint summary](/private/tmp/cst-testflight-20261010/android-lint-summary.json).
 - [Local CI preflight](/private/tmp/cst-testflight-20261010/ci-preflight/summary.json).
 - [Final iOS archive log](/private/tmp/cst-testflight-20261010/archive-final.log).
+
+## GitHub and iOS delivery
+
+The integrated source was pushed to GitHub `main` as [8b8d415c](https://github.com/lueurxax/CryptoSavingsTracker/commit/8b8d415cbf6c50dd2c3e8ff34abe142a1108bc9d), and the remote commit was read back.
+
+Apple accepted iOS **1.1 (51)** on 2026-10-10 at 20:09:01 UTC. The upload command exited successfully with `EXPORT SUCCEEDED`; the delivery log recorded `Upload succeeded`. [App Store Connect / TestFlight](https://appstoreconnect.apple.com/apps/6749210678/testflight/ios).
+
+The first authenticated cloud-signing export failed Apple validation because the certificate common name and the embedded designated requirement used different Unicode normalization. This matches the [Apple DTS-confirmed issue](https://developer.apple.com/forums/thread/843700). A local Apple Distribution certificate was created in Xcode after explicit user approval. The automatic export then selected the local certificate and a matching App Store profile.
+
+The exported IPA passed `codesign --verify --deep --strict --verbose=4`, including its designated requirement. The profile permits the local certificate, has `get-task-allow=false` and `beta-reports-active=true`, and matches the app/team. APNs and CloudKit use production environments. The bundled production Tatum configuration was also verified without printing credentials.
+
+Apple subsequently confirmed completed processing at 20:11:44 UTC in its email for version 1.1, build 51, app ID 6749210678. The message says the build can now be used for TestFlight testing or submitted for distribution. The App Store Connect browser was unauthenticated, so assignment to tester groups was not inspected or changed.
+
+Opening the project in Xcode moved the unchanged local-network privacy description from Info.plist into both Debug and Release target settings and reordered project metadata. These edits are included in the publication follow-up. The remaining Info.plist payload is unchanged, its syntax validates, and the uploaded app contains the same privacy description. The tested Swift source is unchanged.
+
+The archive does not include `ITSAppUsesNonExemptEncryption`; any encryption-compliance prompt should be checked on the build page. The app's cryptography is implemented by Apple system frameworks; the [Apple reference](https://developer.apple.com/help/app-store-connect/reference/app-information/export-compliance-documentation-for-encryption/) says OS-only encryption requires no App Store Connect documentation.
+
+- [Local IPA signature/profile verification](/private/tmp/cst-testflight-20261010/local-distribution-verification.json).
+- [Successful upload log](/private/tmp/cst-testflight-20261010/testflight-upload-local-distribution.log).
+- [Apple processing confirmation](/private/tmp/cst-testflight-20261010/apple-processing-verification.json).

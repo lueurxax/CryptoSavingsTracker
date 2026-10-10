@@ -34,6 +34,7 @@
 		CE1752382EF346CE00E9514F /* CLOUDKIT_MIGRATION_PLAN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLOUDKIT_MIGRATION_PLAN.md; sourceTree = "<group>"; };
 		CE1FBF9B2EEEC0A4008FA3F5 /* CONTRIBUTION_FLOW.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CONTRIBUTION_FLOW.md; sourceTree = "<group>"; };
 		CE224B232EE8D9FD007288F9 /* CryptoSavingsTrackerUITests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = CryptoSavingsTrackerUITests.xctestplan; sourceTree = "<group>"; };
+		CE8260022F60000100A1B2C3 /* Config.production.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.production.plist; sourceTree = "<group>"; };
 		CEAAFFA62E4E4A5F00A6B5A3 /* ARCHITECTURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ARCHITECTURE.md; sourceTree = "<group>"; };
 		CEAAFFA82E4E4A5F00A6B5A3 /* COMPONENT_REGISTRY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = COMPONENT_REGISTRY.md; sourceTree = "<group>"; };
 		CEC1D82B2EDF84E200D627EC /* CryptoSavingsTrackerTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = CryptoSavingsTrackerTests.xctestplan; sourceTree = "<group>"; };
@@ -41,7 +42,6 @@
 		CED9DE682E36232E00203A83 /* ../README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ../README.md; sourceTree = "<group>"; };
 		CED9DE6B2E362A1D00203A83 /* Config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.plist; sourceTree = "<group>"; };
 		CED9DE6D2E362A2C00203A83 /* Config.example.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.example.plist; sourceTree = "<group>"; };
-		CE8260022F60000100A1B2C3 /* Config.production.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.production.plist; sourceTree = "<group>"; };
 		CEDD1EDF2E4698B20026BFEF /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
 		CEDD1EE12E4698B20026BFEF /* sample-data.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "sample-data.md"; sourceTree = "<group>"; };
 		CEEA82ED2F54C56500CB8681 /* COMMIT_DOCK_SCROLL_COLLAPSE_PROPOSAL_TRIAD_REVIEW_R3.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = COMMIT_DOCK_SCROLL_COLLAPSE_PROPOSAL_TRIAD_REVIEW_R3.md; sourceTree = "<group>"; };
@@ -364,8 +364,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APP_CONFIG_FILE = Config.plist;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = AppIconDark;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = CryptoSavingsTracker/CryptoSavingsTracker.entitlements;
@@ -392,6 +392,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CryptoSavingsTracker/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Discover and connect to your trusted Mac for foreground Local Bridge Sync sessions.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -428,8 +429,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APP_CONFIG_FILE = Config.production.plist;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = AppIconDark;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = CryptoSavingsTracker/CryptoSavingsTracker.entitlements;
@@ -456,6 +457,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CryptoSavingsTracker/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Discover and connect to your trusted Mac for foreground Local Bridge Sync sessions.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
